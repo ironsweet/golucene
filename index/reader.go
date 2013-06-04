@@ -1,7 +1,7 @@
 package index
 
 import (
-// "errors"
+	"fmt"
 )
 
 type Reader interface {
@@ -68,6 +68,7 @@ func (ctx *IndexReaderContext) Children() []IndexReaderContext {
 type AtomicReader struct {
 	*IndexReader  // inherit IndexReader
 	readerContext *AtomicReaderContext
+	Fields        func() Fields
 }
 
 func (r *AtomicReader) Context() ReaderContext {
@@ -99,6 +100,10 @@ func (ctx *AtomicReaderContext) Leaves() []AtomicReaderContext {
 }
 
 func (ctx *AtomicReaderContext) Children() []IndexReaderContext {
+	return nil
+}
+
+func (ctx *AtomicReaderContext) fields() Fields {
 	return nil
 }
 
@@ -216,4 +221,16 @@ func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 	}
 	// assert newDocBase == cr.maxDoc()
 	return &newParent
+}
+
+var (
+	EMPTY_ARRAY = []ReaderSlice{}
+)
+
+type ReaderSlice struct {
+	start, length, readerIndex int
+}
+
+func (rs ReaderSlice) String() string {
+	return fmt.Sprintf("slice start=%v length=%v readerIndex=%v", rs.start, rs.length, rs.readerIndex)
 }

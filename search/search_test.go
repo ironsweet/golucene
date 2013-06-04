@@ -1,4 +1,4 @@
-package lucene
+package search
 
 import (
 	"testing"
