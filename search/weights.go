@@ -1,6 +1,6 @@
 package search
 
 type Weight interface {
-	ValueForNormalization() float
-	Normalize(norm, topLevelBoost float) float
+	ValueForNormalization() float32
+	Normalize(norm, topLevelBoost float32) float32
 }

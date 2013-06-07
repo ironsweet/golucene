@@ -11,11 +11,11 @@ type Query interface {
 }
 
 type AbstractQuery struct {
-	boost float
+	boost float32
 }
 
-func NewAbstractQuery() {
-	return QueryWithBoost{1.0}
+func NewAbstractQuery() Query {
+	return &AbstractQuery{1.0}
 }
 
 func (q *AbstractQuery) CreateWeight(ss IndexSearcher) Weight {
@@ -28,47 +28,49 @@ func (q *AbstractQuery) Rewrite(r index.Reader) Query {
 
 type TermQuery struct {
 	*AbstractQuery
-	term               Term
-	perReaderTermState *TermContext
+	term               index.Term
+	docFreq            int
+	perReaderTermState index.TermContext
 }
 
 func (q *TermQuery) CreateWeight(ss IndexSearcher) Weight {
 	ctx := ss.TopReaderContext()
 	var termState index.TermContext
-	if perReaderTermState == nil || perReaderTermState.TopReaderContext != ctx {
+	// FIXME !=
+	if q.perReaderTermState.TopReaderContext != ctx {
 		// make TermQuery single-pass if we don't have a PRTS or if the context differs!
-		termState = NewTermContextFromTerm(ctx, term, true)
+		termState = index.NewTermContextFromTerm(ctx, q.term, true)
 	} else {
 		// PRTS was pre-build for this IS
 		termState = q.perReaderTermState
 	}
 
 	// we must not ignore the given docFreq - if set use the given value (lie)
-	if docFreq != -1 {
-		termState.docFreq = docFreq
+	if q.docFreq != -1 {
+		termState.DocFreq = q.docFreq
 	}
 
-	return NewTermWeight(searcher, termState)
+	return NewTermWeight(q, ss, termState)
 }
 
 type TermWeight struct {
-	similarity Similarty
+	similarity Similarity
 	stats      SimWeight
-	termStates TermContext
+	termStates index.TermContext
 }
 
-func NewTermWeight(q TermQuery, ss IndexSearcher, termStates TermContext) {
-	sim := ss.Similarity()
+func NewTermWeight(q *TermQuery, ss IndexSearcher, termStates index.TermContext) TermWeight {
+	sim := ss.Similarity
 	return TermWeight{sim, sim.computeWeight(
 		q.AbstractQuery.boost,
-		ss.CollectionStatustics(q.term.Field),
+		ss.CollectionStatistics(q.term.Field),
 		ss.TermStatistics(q.term, termStates)), termStates}
 }
 
-func (tw TermWeight) ValueForNormalization() float {
+func (tw TermWeight) ValueForNormalization() float32 {
 	return tw.stats.ValueForNormalization()
 }
 
-func (tw TermWeight) Normalize(norm, topLevelBoost float) float {
+func (tw TermWeight) Normalize(norm, topLevelBoost float32) float32 {
 	return tw.stats.Normalize(norm, topLevelBoost)
 }
