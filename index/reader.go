@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"lucene/util"
 )
 
 type Reader interface {
@@ -10,7 +11,7 @@ type Reader interface {
 }
 
 type ReaderContext interface {
-	Reader() *IndexReader
+	Reader() Reader
 	Leaves() []AtomicReaderContext
 	Children() []IndexReaderContext
 }
@@ -53,22 +54,23 @@ func newIndexReaderContext(parent *CompositeReaderContext, ordInParent, docBaseI
 	return IndexReaderContext{parent, parent == nil, docBaseInParent, ordInParent}
 }
 
-func (ctx *IndexReaderContext) Reader() *IndexReader {
-	return nil
+func (ctx *IndexReaderContext) Reader() Reader {
+	panic("not implemented")
 }
 
 func (ctx *IndexReaderContext) Leaves() []AtomicReaderContext {
-	return nil
+	panic("not implemented")
 }
 
 func (ctx *IndexReaderContext) Children() []IndexReaderContext {
-	return nil
+	panic("not implemented")
 }
 
 type AtomicReader struct {
 	*IndexReader  // inherit IndexReader
 	readerContext *AtomicReaderContext
 	Fields        func() Fields
+	LiveDocs      func() util.Bits
 }
 
 func (r *AtomicReader) Context() ReaderContext {
@@ -87,8 +89,8 @@ type AtomicReaderContext struct {
 	leaves              []AtomicReaderContext
 }
 
-func (ctx *AtomicReaderContext) Reader() *IndexReader {
-	return ctx.reader.IndexReader
+func (ctx *AtomicReaderContext) Reader() Reader {
+	return ctx.reader
 }
 
 func (ctx *AtomicReaderContext) Leaves() []AtomicReaderContext {
@@ -100,10 +102,6 @@ func (ctx *AtomicReaderContext) Leaves() []AtomicReaderContext {
 }
 
 func (ctx *AtomicReaderContext) Children() []IndexReaderContext {
-	return nil
-}
-
-func (ctx *AtomicReaderContext) fields() Fields {
 	return nil
 }
 
@@ -122,7 +120,7 @@ type CompositeReader struct {
 }
 
 func getSequentialSubReaders(r *CompositeReader) []*IndexReader {
-	return nil
+	panic("not implemented")
 }
 
 func (r *CompositeReader) Context() ReaderContext {
@@ -146,8 +144,8 @@ type CompositeReaderContext struct {
 	reader              *CompositeReader
 }
 
-func (ctx *CompositeReaderContext) Reader() *IndexReader {
-	return ctx.reader.IndexReader
+func (ctx *CompositeReaderContext) Reader() Reader {
+	return ctx.reader
 }
 
 func (ctx *CompositeReaderContext) Leaves() []AtomicReaderContext {

@@ -1,6 +1,7 @@
 package search
 
 import (
+	// "container/heap"
 	"lucene/index"
 	"math"
 )
@@ -34,6 +35,7 @@ func (ss IndexSearcher) searchWSI(w Weight, after ScoreDoc, nDocs int) TopDocs {
 
 func (ss IndexSearcher) searchLWSI(leaves []index.AtomicReaderContext,
 	w Weight, after ScoreDoc, nDocs int) TopDocs {
+	// TODO support concurrent search
 	limit := ss.reader.MaxDoc()
 	if limit == 0 {
 		limit = 1
@@ -42,8 +44,27 @@ func (ss IndexSearcher) searchLWSI(leaves []index.AtomicReaderContext,
 		nDocs = limit
 	}
 	collector := NewTopScoreDocCollector(nDocs, after, !w.IsScoresDocsOutOfOrder())
-	searchLWC(leaves, w, collector)
-	return collector.TopDocs
+	ss.searchLWC(leaves, w, collector)
+	return collector.TopDocs()
+}
+
+func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, c Collector) {
+	// TODO: should we make this
+	// threaded...?  the Collector could be sync'd?
+	// always use single thread:
+	for _, ctx := range leaves {
+		if !c.setNextReader(ctx) {
+			// there is no doc of interest in this reader context
+			// continue with the following leaf
+			continue
+		}
+		if scorer, ok := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true, ctx.Reader.LiveDocs()); ok {
+			if !scorer.Score(c) {
+				// collection was terminated prematurely
+				// continue with the following leaf
+			}
+		}
+	}
 }
 
 func (ss IndexSearcher) TopReaderContext() index.IndexReaderContext {
@@ -140,4 +161,46 @@ type DefaultSimilarity struct {
 
 func NewDefaultSimilarity() Similarity {
 	return &DefaultSimilarity{&TFIDFSimilarity{}}
+}
+
+type Collector interface {
+}
+
+type TopDocsCollector struct {
+	pq          interface{} // PriorityQueue
+	totalHits   int
+	topDocsSize func() int
+}
+
+func NewTopDocsCollector() *TopDocsCollector {
+	ans := &TopDocsCollector{}
+	ans.topDocsSize = func() int {
+		if l = len(pq); ans.totalHits >= len(pq) {
+			return l
+		}
+		return totalHits
+	}
+}
+
+func (c *TopDocsCollector) TopDocs() {
+	// In case pq was populated with sentinel values, there might be less
+	// results than pq.size(). Therefore return all results until either
+	// pq.size() or totalHits.
+	return c.TopDocs(0)
+}
+
+type TopScoreDocCollector struct {
+}
+
+func NewTopScoreDocCollector(numHits int, after ScoreDoc, docsScoredInOrder bool) TopScoreDocCollector {
+	if numHits < 0 {
+		panic("numHits must be > 0; please use TotalHitCountCollector if you just need the total hit count")
+	}
+
+	if docsScoredInOrder {
+		return NewInOrderTopScoreDocCollector(numHits)
+		// TODO support paging
+	} else {
+		panic("not supported yet")
+	}
 }
