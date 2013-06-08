@@ -1,7 +1,6 @@
 package search
 
 import (
-	// "container/heap"
 	"lucene/index"
 	"math"
 )
@@ -11,7 +10,7 @@ type IndexSearcher struct {
 	reader        index.Reader
 	readerContext index.ReaderContext
 	leafContexts  []index.AtomicReaderContext
-	Similarity    Similarity
+	similarity    Similarity
 }
 
 func NewIndexSearcher(r index.Reader) IndexSearcher {
@@ -53,21 +52,16 @@ func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, 
 	// threaded...?  the Collector could be sync'd?
 	// always use single thread:
 	for _, ctx := range leaves {
-		if !c.setNextReader(ctx) {
-			// there is no doc of interest in this reader context
-			// continue with the following leaf
-			continue
-		}
-		if scorer, ok := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true, ctx.Reader.LiveDocs()); ok {
-			if !scorer.Score(c) {
-				// collection was terminated prematurely
-				// continue with the following leaf
-			}
+		c.setNextReader(ctx)
+		// GOTO: CollectionTerminatedException
+		if scorer, ok := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true, ctx.Reader().LiveDocs()); ok {
+			scorer.Score(c)
+			// GOTO: CollectionTerminatedException
 		}
 	}
 }
 
-func (ss IndexSearcher) TopReaderContext() index.IndexReaderContext {
+func (ss IndexSearcher) TopReaderContext() index.ReaderContext {
 	return ss.readerContext
 }
 
@@ -80,7 +74,7 @@ func wrapFilter(q Query, f Filter) Query {
 
 func (ss IndexSearcher) createNormalizedWeight(q Query) Weight {
 	q = rewrite(q, ss.reader)
-	w := q.createWeight(ss)
+	w := q.CreateWeight(ss)
 	v := w.ValueForNormalization()
 	norm := ss.similarity.queryNorm(v)
 	if math.IsInf(norm, 1) || math.IsNaN(norm) {
@@ -111,9 +105,6 @@ func (ss IndexSearcher) CollectionStatistics(field string) CollectionStatistics 
 	return NewCollectionStatistics(field, ss.reader.MaxDoc(), terms.DocCount(), terms.SumTotalTermFreq(), terms.SumDocFreq())
 }
 
-type ScoreDoc struct {
-}
-
 type TermStatistics struct {
 	Term                   []byte
 	DocFreq, TotalTermFreq int64
@@ -138,13 +129,13 @@ func NewCollectionStatistics(field string, maxDoc, docCount, sumTotalTermFreq, s
 	return CollectionStatistics{field, maxDoc, docCount, sumTotalTermFreq, sumDocFreq}
 }
 
-type TopDocs struct {
-	totalHits int
-}
-
 type Similarity interface {
 	// queryNorm(valueForNormalization float32) float32
 	computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight
+	exactSimScorer(w SimWeight, ctx index.AtomicReaderContext) ExactSimScorer
+}
+
+type ExactSimScorer struct {
 }
 
 type SimWeight interface {
@@ -161,46 +152,4 @@ type DefaultSimilarity struct {
 
 func NewDefaultSimilarity() Similarity {
 	return &DefaultSimilarity{&TFIDFSimilarity{}}
-}
-
-type Collector interface {
-}
-
-type TopDocsCollector struct {
-	pq          interface{} // PriorityQueue
-	totalHits   int
-	topDocsSize func() int
-}
-
-func NewTopDocsCollector() *TopDocsCollector {
-	ans := &TopDocsCollector{}
-	ans.topDocsSize = func() int {
-		if l = len(pq); ans.totalHits >= len(pq) {
-			return l
-		}
-		return totalHits
-	}
-}
-
-func (c *TopDocsCollector) TopDocs() {
-	// In case pq was populated with sentinel values, there might be less
-	// results than pq.size(). Therefore return all results until either
-	// pq.size() or totalHits.
-	return c.TopDocs(0)
-}
-
-type TopScoreDocCollector struct {
-}
-
-func NewTopScoreDocCollector(numHits int, after ScoreDoc, docsScoredInOrder bool) TopScoreDocCollector {
-	if numHits < 0 {
-		panic("numHits must be > 0; please use TotalHitCountCollector if you just need the total hit count")
-	}
-
-	if docsScoredInOrder {
-		return NewInOrderTopScoreDocCollector(numHits)
-		// TODO support paging
-	} else {
-		panic("not supported yet")
-	}
 }

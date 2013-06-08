@@ -19,39 +19,45 @@ const (
 )
 
 type TermsEnum interface {
-	seekCeil(text []byte, useCache bool) int
+	SeekExact(text []byte, useCache bool) bool
+	SeekCeil(text []byte, useCache bool) int
 	docFreq() int
 	totalTermFreq() int64
+	TermState() TermState
 }
 
-func seekExact(iter TermsEnum, text []byte, useCache bool) bool {
-	return iter.seekCeil(text, useCache) == SEEK_STATUS_FOUND
+type AbstractTermsEnum struct {
+	SeekCeil func(text []byte, useCache bool) int
 }
 
-func termState(iter TermsEnum) TermState {
+func (iter *AbstractTermsEnum) SeekExact(text []byte, useCache bool) bool {
+	return iter.SeekCeil(text, useCache) == SEEK_STATUS_FOUND
+}
+
+func (iter *AbstractTermsEnum) TermState() TermState {
 	return TermState{copyFrom: func(other TermState) { panic("not implemented yet!") }}
 }
 
 type TermContext struct {
-	TopReaderContext IndexReaderContext
-	states           []TermState
+	TopReaderContext ReaderContext
+	states           []*TermState
 	DocFreq          int
 	TotalTermFreq    int64
 }
 
-func NewTermContext(ctx IndexReaderContext) TermContext {
-	// assert ctx.IsTopLevel
+func NewTermContext(ctx ReaderContext) TermContext {
+	// assert ctx != nil && ctx.IsTopLevel
 	var n int
 	if ctx.Leaves() == nil {
 		n = 1
 	} else {
 		n = len(ctx.Leaves())
 	}
-	return TermContext{TopReaderContext: ctx, states: make([]TermState, n)}
+	return TermContext{TopReaderContext: ctx, states: make([]*TermState, n)}
 }
 
-func NewTermContextFromTerm(ctx IndexReaderContext, t Term, cache bool) TermContext {
-	// assert ctx.IsTopLevel
+func NewTermContextFromTerm(ctx ReaderContext, t Term, cache bool) TermContext {
+	// assert ctx != nil && ctx.IsTopLevel
 	perReaderTermState := NewTermContext(ctx)
 	for _, v := range ctx.Leaves() {
 		fields := v.reader.Fields()
@@ -59,9 +65,9 @@ func NewTermContextFromTerm(ctx IndexReaderContext, t Term, cache bool) TermCont
 			terms := fields.terms(t.Field)
 			if terms != nil {
 				termsEnum := terms.Iterator(nil)
-				if seekExact(termsEnum, t.Bytes, cache) {
-					termState := termState(termsEnum)
-					perReaderTermState.register(termState, v.ord, termsEnum.docFreq(), termsEnum.totalTermFreq())
+				if termsEnum.SeekExact(t.Bytes, cache) {
+					termState := termsEnum.TermState()
+					perReaderTermState.register(termState, v.Ord, termsEnum.docFreq(), termsEnum.totalTermFreq())
 				}
 			}
 		}
@@ -69,7 +75,7 @@ func NewTermContextFromTerm(ctx IndexReaderContext, t Term, cache bool) TermCont
 	return perReaderTermState
 }
 
-func (tc *TermContext) register(state TermState, ord, docFreq int, totalTermFreq int64) {
+func (tc TermContext) register(state TermState, ord, docFreq int, totalTermFreq int64) {
 	// assert ord >= 0 && ord < len(states)
 	// assert states[ord] == null : "state for ord: " + ord + " already registered";
 	tc.DocFreq += docFreq
@@ -78,7 +84,12 @@ func (tc *TermContext) register(state TermState, ord, docFreq int, totalTermFreq
 	} else {
 		tc.TotalTermFreq = -1
 	}
-	tc.states[ord] = state
+	tc.states[ord] = &state
+}
+
+func (tc TermContext) State(ord int) *TermState {
+	// asert ord >= 0 && ord < len(states)
+	return tc.states[ord]
 }
 
 type TermState struct {

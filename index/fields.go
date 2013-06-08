@@ -61,7 +61,7 @@ func GetMultiFields(r IndexReader) Fields {
 				continue
 			}
 			fields = append(fields, f)
-			slices = append(slices, ReaderSlice{ctx.docBase, r.MaxDoc(), len(fields)})
+			slices = append(slices, ReaderSlice{ctx.DocBase, r.MaxDoc(), len(fields)})
 		}
 		switch len(fields) {
 		case 0:

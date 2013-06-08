@@ -84,7 +84,7 @@ func (r *AtomicReader) MaxDoc() int {
 
 type AtomicReaderContext struct {
 	*IndexReaderContext // inherit IndexReaderContext
-	ord, docBase        int
+	Ord, DocBase        int
 	reader              *AtomicReader
 	leaves              []AtomicReaderContext
 }
