@@ -83,10 +83,20 @@ func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnu
 
 type TermScorer struct {
 	*Scorer
-	docScroer ExactSimScorer
+	docScorer ExactSimScorer
 	docsEnum  DocsEnum
 }
 
 func NewTermScorer(w Weight, td DocsEnum, docScorer ExactSimScorer) *TermScorer {
-	return TermScorer{Scorer{w}, td, docScorer}
+	ans := &TermScorer{}
+	s := &Scorer{}
+	s.DocsEnum = &DocsEnum{}
+	s.weight = w
+	s.Score = func() float64 {
+		// assert docID() != NO_MORE_DOCS
+		return ans.docScorer.Score(ans.docsEnum.DocId(), ans.docsEnum.Freq())
+	}
+	ans.docScorer = docScorer
+	ans.docsEnum = td
+	return ans
 }

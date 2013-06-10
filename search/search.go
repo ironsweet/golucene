@@ -7,7 +7,7 @@ import (
 
 // IndexSearcher
 type IndexSearcher struct {
-	reader        index.Reader
+	reader        index.IndexReader
 	readerContext index.ReaderContext
 	leafContexts  []index.AtomicReaderContext
 	similarity    Similarity
@@ -52,10 +52,10 @@ func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, 
 	// threaded...?  the Collector could be sync'd?
 	// always use single thread:
 	for _, ctx := range leaves {
-		c.setNextReader(ctx)
+		c.SetNextReader(ctx)
 		// GOTO: CollectionTerminatedException
-		if scorer, ok := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true, ctx.Reader().LiveDocs()); ok {
-			scorer.Score(c)
+		if scorer, ok := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true, ctx.Reader().(*index.AtomicReader).LiveDocs()); ok {
+			scorer.ScoreAndCollect(c)
 			// GOTO: CollectionTerminatedException
 		}
 	}
@@ -80,7 +80,7 @@ func (ss IndexSearcher) createNormalizedWeight(q Query) Weight {
 	if math.IsInf(norm, 1) || math.IsNaN(norm) {
 		norm = 1.0
 	}
-	w.normalize(norm, 1.0)
+	w.Normalize(norm, 1.0)
 	return w
 }
 
@@ -94,15 +94,15 @@ func rewrite(q Query, r index.Reader) Query {
 }
 
 func (ss IndexSearcher) TermStatistics(term index.Term, context index.TermContext) TermStatistics {
-	return NewTermStatistics(term.Bytes, context.DocFreq, context.TotalTermFreq)
+	return NewTermStatistics(term.Bytes, int64(context.DocFreq), context.TotalTermFreq)
 }
 
 func (ss IndexSearcher) CollectionStatistics(field string) CollectionStatistics {
-	terms := index.GetTerms(ss.reader, field)
+	terms := index.GetMultiTerms(ss.reader, field)
 	if terms.iterator == nil {
-		return NewCollectionStatistics(field, ss.reader.MaxDoc(), 0, 0, 0)
+		return NewCollectionStatistics(field, int64(ss.reader.MaxDoc()), 0, 0, 0)
 	}
-	return NewCollectionStatistics(field, ss.reader.MaxDoc(), terms.DocCount(), terms.SumTotalTermFreq(), terms.SumDocFreq())
+	return NewCollectionStatistics(field, int64(ss.reader.MaxDoc()), int64(terms.DocCount()), terms.SumTotalTermFreq(), terms.SumDocFreq())
 }
 
 type TermStatistics struct {
@@ -110,7 +110,7 @@ type TermStatistics struct {
 	DocFreq, TotalTermFreq int64
 }
 
-func NewTermStatistics(term []byte, docFreq, totalTermFreq int64) {
+func NewTermStatistics(term []byte, docFreq, totalTermFreq int64) TermStatistics {
 	// assert docFreq >= 0;
 	// assert totalTermFreq == -1 || totalTermFreq >= docFreq; // #positions must be >= #postings
 	return TermStatistics{term, docFreq, totalTermFreq}
@@ -130,12 +130,13 @@ func NewCollectionStatistics(field string, maxDoc, docCount, sumTotalTermFreq, s
 }
 
 type Similarity interface {
-	// queryNorm(valueForNormalization float32) float32
+	queryNorm(valueForNormalization float32) float64
 	computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight
 	exactSimScorer(w SimWeight, ctx index.AtomicReaderContext) ExactSimScorer
 }
 
-type ExactSimScorer struct {
+type ExactSimScorer interface {
+	Score(doc, freq int) float64
 }
 
 type SimWeight interface {

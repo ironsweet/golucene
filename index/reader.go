@@ -5,32 +5,15 @@ import (
 	"lucene/util"
 )
 
-type Reader interface {
-	Context() ReaderContext
-	MaxDoc() int
-}
-
-type ReaderContext interface {
-	Reader() Reader
-	Leaves() []AtomicReaderContext
-	Children() []IndexReaderContext
-}
-
 type IndexReader struct {
 	refCount      uint32
 	closedByChild bool
+	Context       func() IndexReaderContext
+	MaxDoc        func() int
 }
 
-func NewIndexReader() *IndexReader {
+func newIndexReader() *IndexReader {
 	return &IndexReader{refCount: 1}
-}
-
-func (r *IndexReader) Context() ReaderContext {
-	return nil
-}
-
-func (r *IndexReader) MaxDoc() int {
-	return -1
 }
 
 func (r *IndexReader) ensureOpen() {
@@ -45,25 +28,21 @@ func (r *IndexReader) ensureOpen() {
 }
 
 type IndexReaderContext struct {
-	parent                       *CompositeReaderContext
-	isTopLevel                   bool
-	docBaseInParent, ordInParent int
+	parent          *CompositeReaderContext
+	isTopLevel      bool
+	docBaseInParent int
+	ordInParent     int
+	Reader          func() IndexReader
+	Leaves          func() []AtomicReaderContext
+	Children        func() []IndexReaderContext
 }
 
-func newIndexReaderContext(parent *CompositeReaderContext, ordInParent, docBaseInParent int) IndexReaderContext {
-	return IndexReaderContext{parent, parent == nil, docBaseInParent, ordInParent}
-}
-
-func (ctx *IndexReaderContext) Reader() Reader {
-	panic("not implemented")
-}
-
-func (ctx *IndexReaderContext) Leaves() []AtomicReaderContext {
-	panic("not implemented")
-}
-
-func (ctx *IndexReaderContext) Children() []IndexReaderContext {
-	panic("not implemented")
+func newIndexReaderContext(parent *CompositeReaderContext, ordInParent, docBaseInParent int) *IndexReaderContext {
+	return &IndexReaderContext{
+		parent:          parent,
+		isTopLevel:      parent == nil,
+		docBaseInParent: docBaseInParent,
+		ordInParent:     ordInParent}
 }
 
 type AtomicReader struct {
@@ -73,13 +52,16 @@ type AtomicReader struct {
 	LiveDocs      func() util.Bits
 }
 
-func (r *AtomicReader) Context() ReaderContext {
-	r.IndexReader.ensureOpen()
-	return r.readerContext
+func newAtomicReader() *AtomicReader {
+	ans := &AtomicReader{}
+	ans.IndexReader = newIndexReader()
+	ans.readerContext = newAtomicReaderContextFromReader(ans)
+	return ans
 }
 
-func (r *AtomicReader) MaxDoc() int {
-	return -1
+func (r AtomicReader) Context() AtomicReaderContext {
+	r.IndexReader.ensureOpen()
+	return *(r.readerContext)
 }
 
 type AtomicReaderContext struct {
@@ -89,52 +71,57 @@ type AtomicReaderContext struct {
 	leaves              []AtomicReaderContext
 }
 
-func (ctx *AtomicReaderContext) Reader() Reader {
-	return ctx.reader
+func newAtomicReaderContextFromReader(r *AtomicReader) *AtomicReaderContext {
+	return newAtomicReaderContext(nil, r, 0, 0, 0, 0)
 }
 
-func (ctx *AtomicReaderContext) Leaves() []AtomicReaderContext {
-	if !ctx.isTopLevel {
-		panic("This is not a top-level context.")
-	}
-	// assert leaves != null
-	return ctx.leaves
-}
-
-func (ctx *AtomicReaderContext) Children() []IndexReaderContext {
-	return nil
-}
-
-func NewAtomicReaderContext(parent *CompositeReaderContext, reader *AtomicReader, ord, docBase, leafOrd, leafDocBase int) AtomicReaderContext {
+func newAtomicReaderContext(parent *CompositeReaderContext, reader *AtomicReader, ord, docBase, leafOrd, leafDocBase int) *AtomicReaderContext {
+	ans := &AtomicReaderContext{}
 	super := newIndexReaderContext(parent, ord, docBase)
-	ans := AtomicReaderContext{&super, leafOrd, leafDocBase, reader, nil}
+	super.Leaves = func() []AtomicReaderContext {
+		if !ans.IndexReaderContext.isTopLevel {
+			panic("This is not a top-level context.")
+		}
+		// assert leaves != null
+		return ans.leaves
+	}
+	super.Children = func() []IndexReaderContext {
+		return nil
+	}
+	ans.IndexReaderContext = super
+	ans.Ord = leafOrd
+	ans.DocBase = leafDocBase
+	ans.reader = reader
 	if super.isTopLevel {
-		ans.leaves = []AtomicReaderContext{ans}
+		ans.leaves = []AtomicReaderContext{*ans}
 	}
 	return ans
 }
 
+func (ctx *AtomicReaderContext) Reader() AtomicReader {
+	return *(ctx.reader)
+}
+
 type CompositeReader struct {
-	*IndexReader                          // inherit IndexReader
-	readerContext *CompositeReaderContext // lazy load
+	*IndexReader                                    // inherit IndexReader
+	readerContext           *CompositeReaderContext // lazy load
+	getSequentialSubReaders func() []IndexReader
 }
 
-func getSequentialSubReaders(r *CompositeReader) []*IndexReader {
-	panic("not implemented")
+func newCompositeReader() *CompositeReader {
+	ans := &CompositeReader{}
+	ans.IndexReader = newIndexReader()
+	return ans
 }
 
-func (r *CompositeReader) Context() ReaderContext {
+func (r *CompositeReader) Context() CompositeReaderContext {
 	r.IndexReader.ensureOpen()
 	// lazy init without thread safety for perf reasons: Building the readerContext twice does not hurt!
 	if r.readerContext == nil {
 		// assert getSequentialSubReaders() != null;
 		r.readerContext = newCompositeReaderContext(r)
 	}
-	return r.readerContext
-}
-
-func (r *CompositeReader) MaxDoc() int {
-	return -1
+	return *(r.readerContext)
 }
 
 type CompositeReaderContext struct {
@@ -144,41 +131,45 @@ type CompositeReaderContext struct {
 	reader              *CompositeReader
 }
 
-func (ctx *CompositeReaderContext) Reader() Reader {
-	return ctx.reader
-}
-
-func (ctx *CompositeReaderContext) Leaves() []AtomicReaderContext {
-	if !ctx.isTopLevel {
-		panic("This is not a top-level context.")
-	}
-	// assert leaves != null
-	return ctx.leaves
-}
-
-func (ctx *CompositeReaderContext) Children() []IndexReaderContext {
-	return ctx.children
-}
-
 func newCompositeReaderContext(r *CompositeReader) *CompositeReaderContext {
 	return newCompositeReaderContextBuilder(r).build()
 }
 
 func newCompositeReaderContext3(reader *CompositeReader,
-	children []IndexReaderContext, leaves []AtomicReaderContext) CompositeReaderContext {
+	children []IndexReaderContext, leaves []AtomicReaderContext) *CompositeReaderContext {
 	return newCompositeReaderContext6(nil, reader, 0, 0, children, leaves)
 }
 
 func newCompositeReaderContext5(parent *CompositeReaderContext, reader *CompositeReader,
-	ordInParent, docBaseInParent int, children []IndexReaderContext) CompositeReaderContext {
+	ordInParent, docBaseInParent int, children []IndexReaderContext) *CompositeReaderContext {
 	return newCompositeReaderContext6(parent, reader, ordInParent, docBaseInParent, children, nil)
 }
 
-func newCompositeReaderContext6(parent *CompositeReaderContext, reader *CompositeReader,
-	ordInParent, docBaseInParent int, children []IndexReaderContext,
-	leaves []AtomicReaderContext) CompositeReaderContext {
+func newCompositeReaderContext6(parent *CompositeReaderContext,
+	reader *CompositeReader,
+	ordInParent, docBaseInParent int,
+	children []IndexReaderContext,
+	leaves []AtomicReaderContext) *CompositeReaderContext {
+	ans := &CompositeReaderContext{}
 	super := newIndexReaderContext(parent, ordInParent, docBaseInParent)
-	return CompositeReaderContext{&super, children, leaves, reader}
+	super.Leaves = func() []AtomicReaderContext {
+		if !ans.IndexReaderContext.isTopLevel {
+			panic("This is not a top-level context.")
+		}
+		// assert leaves != null
+		return ans.leaves
+	}
+	super.Children = func() []IndexReaderContext {
+		return ans.children
+	}
+	ans.children = children
+	ans.leaves = leaves
+	ans.reader = reader
+	return ans
+}
+
+func (ctx *CompositeReaderContext) Reader() CompositeReader {
+	return *(ctx.reader)
 }
 
 type CompositeReaderContextBuilder struct {
@@ -196,12 +187,12 @@ func (b CompositeReaderContextBuilder) build() *CompositeReaderContext {
 }
 
 func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
-	reader Reader, ord, docBase int) ReaderContext {
+	reader IndexReader, ord, docBase int) IndexReaderContext {
 	if ar, ok := reader.(*AtomicReader); ok {
-		atomic := NewAtomicReaderContext(parent, ar, ord, docBase, len(b.leaves), b.leafDocBase)
+		atomic := newAtomicReaderContext(parent, ar, ord, docBase, len(b.leaves), b.leafDocBase)
 		b.leaves = append(b.leaves, atomic)
 		b.leafDocBase += reader.MaxDoc()
-		return &atomic
+		return atomic
 	}
 	cr := reader.(*CompositeReader)
 	sequentialSubReaders := getSequentialSubReaders(cr)
@@ -214,7 +205,7 @@ func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 	}
 	newDocBase := 0
 	for i, r := range sequentialSubReaders {
-		children[i] = *(b.build4(parent, r, i, newDocBase).(*IndexReaderContext))
+		children[i] = *(b.build4(parent, r, i, newDocBase))
 		newDocBase = r.MaxDoc()
 	}
 	// assert newDocBase == cr.maxDoc()
