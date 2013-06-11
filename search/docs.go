@@ -1,17 +1,17 @@
 package search
 
+import (
+	"lucene/index"
+)
+
 type DocIdSetIterator interface {
 	DocId() int
 	Freq() int
 	NextDoc() (doc int, more bool)
 }
 
-type DocsEnum struct {
-	DocIdSetIterator
-}
-
 type Scorer struct {
-	*DocsEnum
+	*index.DocsEnum
 	weight Weight
 	Score  func() float64
 }

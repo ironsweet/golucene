@@ -7,7 +7,7 @@ import (
 
 // IndexSearcher
 type IndexSearcher struct {
-	reader        index.IndexReader
+	reader        *index.IndexReader
 	readerContext index.IndexReaderContext
 	leafContexts  []index.AtomicReaderContext
 	similarity    Similarity
@@ -62,8 +62,8 @@ func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, 
 	}
 }
 
-func (ss IndexSearcher) TopReaderContext() index.IndexReaderContext {
-	return ss.readerContext
+func (ss IndexSearcher) TopReaderContext() *index.IndexReaderContext {
+	return &ss.readerContext
 }
 
 func wrapFilter(q Query, f Filter) Query {
@@ -74,7 +74,7 @@ func wrapFilter(q Query, f Filter) Query {
 }
 
 func (ss IndexSearcher) createNormalizedWeight(q Query) Weight {
-	q = rewrite(q, ss.reader)
+	q = rewrite(q, *(ss.reader))
 	w := q.CreateWeight(ss)
 	v := w.ValueForNormalization()
 	norm := ss.similarity.queryNorm(v)
@@ -85,7 +85,7 @@ func (ss IndexSearcher) createNormalizedWeight(q Query) Weight {
 	return w
 }
 
-func rewrite(q Query, r index.Reader) Query {
+func rewrite(q Query, r index.IndexReader) Query {
 	after := q.Rewrite(r)
 	for after != q {
 		q = after
@@ -99,8 +99,8 @@ func (ss IndexSearcher) TermStatistics(term index.Term, context index.TermContex
 }
 
 func (ss IndexSearcher) CollectionStatistics(field string) CollectionStatistics {
-	terms := index.GetMultiTerms(ss.reader, field)
-	if terms.iterator == nil {
+	terms := index.GetMultiTerms(*(ss.reader), field)
+	if terms == nil {
 		return NewCollectionStatistics(field, int64(ss.reader.MaxDoc()), 0, 0, 0)
 	}
 	return NewCollectionStatistics(field, int64(ss.reader.MaxDoc()), int64(terms.DocCount()), terms.SumTotalTermFreq(), terms.SumDocFreq())
@@ -142,14 +142,26 @@ type ExactSimScorer interface {
 
 type SimWeight interface {
 	ValueForNormalization() float32
-	Normalize(norm, topLevelBoost float32) float32
+	Normalize(norm float64, topLevelBoost float32) float32
 }
 
 type TFIDFSimilarity struct {
 }
 
+func (ts *TFIDFSimilarity) computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight {
+	panic("not implemented yet")
+}
+
+func (ts *TFIDFSimilarity) exactSimScorer(w SimWeight, ctx index.AtomicReaderContext) ExactSimScorer {
+	panic("not implemented yet")
+}
+
 type DefaultSimilarity struct {
 	*TFIDFSimilarity
+}
+
+func (ds *DefaultSimilarity) queryNorm(sumOfSquaredWeights float32) float64 {
+	return 1.0 / math.Sqrt(float64(sumOfSquaredWeights))
 }
 
 func NewDefaultSimilarity() Similarity {

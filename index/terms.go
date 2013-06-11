@@ -1,5 +1,9 @@
 package index
 
+import (
+	"lucene/util"
+)
+
 type Term struct {
 	Field string
 	Bytes []byte
@@ -8,8 +12,8 @@ type Term struct {
 type Terms interface {
 	Iterator(reuse TermsEnum) TermsEnum
 	DocCount() int
-	SumTotalTermFreq() int
-	SumDocFreq() int
+	SumTotalTermFreq() int64
+	SumDocFreq() int64
 }
 
 const (
@@ -18,34 +22,37 @@ const (
 	SEEK_STATUS_NOT_FOUND = 3
 )
 
-type TermsEnum interface {
-	SeekExact(text []byte, useCache bool) bool
-	SeekCeil(text []byte, useCache bool) int
-	docFreq() int
-	totalTermFreq() int64
-	TermState() TermState
+var (
+	TERMS_ENUM_EMPTY = TermsEnum{}
+)
+
+type TermsEnum struct {
+	SeekCeil        func(text []byte, useCache bool) int
+	docFreq         func() int
+	totalTermFreq   func() int64
+	DocsForTermFlag func(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum
 }
 
-type AbstractTermsEnum struct {
-	SeekCeil func(text []byte, useCache bool) int
-}
-
-func (iter *AbstractTermsEnum) SeekExact(text []byte, useCache bool) bool {
+func (iter *TermsEnum) SeekExact(text []byte, useCache bool) bool {
 	return iter.SeekCeil(text, useCache) == SEEK_STATUS_FOUND
 }
 
-func (iter *AbstractTermsEnum) TermState() TermState {
-	return TermState{copyFrom: func(other TermState) { panic("not implemented yet!") }}
+func (iter *TermsEnum) DocsForTerm(liveDocs util.Bits, reuse DocsEnum) DocsEnum {
+	return iter.DocsForTermFlag(liveDocs, reuse, DOCS_ENUM_FLAG_FREQS)
+}
+
+func (iter *TermsEnum) TermState() TermState {
+	return TermState{copyFrom: func(other TermState) { panic("not supported!") }}
 }
 
 type TermContext struct {
-	TopReaderContext IndexReaderContext
+	TopReaderContext *IndexReaderContext
 	states           []*TermState
 	DocFreq          int
 	TotalTermFreq    int64
 }
 
-func NewTermContext(ctx IndexReaderContext) TermContext {
+func NewTermContext(ctx *IndexReaderContext) *TermContext {
 	// assert ctx != nil && ctx.IsTopLevel
 	var n int
 	if ctx.Leaves() == nil {
@@ -53,10 +60,10 @@ func NewTermContext(ctx IndexReaderContext) TermContext {
 	} else {
 		n = len(ctx.Leaves())
 	}
-	return TermContext{TopReaderContext: ctx, states: make([]*TermState, n)}
+	return &TermContext{TopReaderContext: ctx, states: make([]*TermState, n)}
 }
 
-func NewTermContextFromTerm(ctx IndexReaderContext, t Term, cache bool) TermContext {
+func NewTermContextFromTerm(ctx *IndexReaderContext, t Term, cache bool) *TermContext {
 	// assert ctx != nil && ctx.IsTopLevel
 	perReaderTermState := NewTermContext(ctx)
 	for _, v := range ctx.Leaves() {
@@ -64,7 +71,7 @@ func NewTermContextFromTerm(ctx IndexReaderContext, t Term, cache bool) TermCont
 		if fields != nil {
 			terms := fields.terms(t.Field)
 			if terms != nil {
-				termsEnum := terms.Iterator(nil)
+				termsEnum := terms.Iterator(TermsEnum{}) // empty TermsEnum
 				if termsEnum.SeekExact(t.Bytes, cache) {
 					termState := termsEnum.TermState()
 					perReaderTermState.register(termState, v.Ord, termsEnum.docFreq(), termsEnum.totalTermFreq())
@@ -114,10 +121,10 @@ func (mt MultiTerms) DocCount() int {
 	panic("not implemented yet")
 }
 
-func (mt MultiTerms) SumTotalTermFreq() int {
+func (mt MultiTerms) SumTotalTermFreq() int64 {
 	panic("not implemented yet")
 }
 
-func (mt MultiTerms) SumDocFreq() int {
+func (mt MultiTerms) SumDocFreq() int64 {
 	panic("not implemented yet")
 }

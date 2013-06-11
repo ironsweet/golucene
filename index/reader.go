@@ -34,7 +34,7 @@ type IndexReaderContext struct {
 	isTopLevel      bool
 	docBaseInParent int
 	ordInParent     int
-	Reader          func() IndexReader
+	Reader          func() *IndexReader
 	Leaves          func() []AtomicReaderContext
 	Children        func() []IndexReaderContext
 }
@@ -100,8 +100,8 @@ func newAtomicReaderContext(parent *CompositeReaderContext, reader *AtomicReader
 	return ans
 }
 
-func (ctx *AtomicReaderContext) Reader() AtomicReader {
-	return *(ctx.reader)
+func (ctx *AtomicReaderContext) Reader() *AtomicReader {
+	return ctx.reader
 }
 
 type CompositeReader struct {
@@ -170,8 +170,8 @@ func newCompositeReaderContext6(parent *CompositeReaderContext,
 	return ans
 }
 
-func (ctx *CompositeReaderContext) Reader() CompositeReader {
-	return *(ctx.reader)
+func (ctx *CompositeReaderContext) Reader() *CompositeReader {
+	return ctx.reader
 }
 
 type CompositeReaderContextBuilder struct {
