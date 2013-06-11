@@ -8,16 +8,16 @@ import (
 // IndexSearcher
 type IndexSearcher struct {
 	reader        index.IndexReader
-	readerContext index.ReaderContext
+	readerContext index.IndexReaderContext
 	leafContexts  []index.AtomicReaderContext
 	similarity    Similarity
 }
 
-func NewIndexSearcher(r index.Reader) IndexSearcher {
+func NewIndexSearcher(r index.IndexReader) IndexSearcher {
 	return NewIndexSearcherFromContext(r.Context())
 }
 
-func NewIndexSearcherFromContext(context index.ReaderContext) IndexSearcher {
+func NewIndexSearcherFromContext(context index.IndexReaderContext) IndexSearcher {
 	//assert context.isTopLevel: "IndexSearcher's ReaderContext must be topLevel for reader" + context.reader();
 	defaultSimilarity := NewDefaultSimilarity()
 	return IndexSearcher{context.Reader(), context, context.Leaves(), defaultSimilarity}
@@ -54,14 +54,15 @@ func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, 
 	for _, ctx := range leaves {
 		c.SetNextReader(ctx)
 		// GOTO: CollectionTerminatedException
-		if scorer, ok := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true, ctx.Reader().(*index.AtomicReader).LiveDocs()); ok {
+		if scorer, ok := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true,
+			ctx.Reader().LiveDocs()); ok {
 			scorer.ScoreAndCollect(c)
 			// GOTO: CollectionTerminatedException
 		}
 	}
 }
 
-func (ss IndexSearcher) TopReaderContext() index.ReaderContext {
+func (ss IndexSearcher) TopReaderContext() index.IndexReaderContext {
 	return ss.readerContext
 }
 

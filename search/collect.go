@@ -40,37 +40,35 @@ type Collector interface {
 	AcceptsDocsOutOfOrder() bool
 }
 
-type TopDocsCollector interface {
+type TopDocsCollector struct {
 	Collector
-	populateResults(results []ScoreDoc, howMany int)
-	newTopDocs(results []ScoreDoc, start int) TopDocs
-	topDocsSize() int
-	TopDocs() TopDocs
-}
-
-type AbstractTopDocsCollector struct {
+	self      interface{}
 	pq        *PriorityQueue // PriorityQueue
 	TotalHits int
+	// populateResults func(results []ScoreDoc, howMany int)
+	// newTopDocs      func(results []ScoreDoc, start int) TopDocs
+	// topDocsSize     func() int
+	// TopDocs         func() TopDocs
 }
 
-func newTopDocsCollector(pq *PriorityQueue) *AbstractTopDocsCollector {
-	return &AbstractTopDocsCollector{pq: pq}
+func newTopDocsCollector(self interface{}, pq *PriorityQueue) *TopDocsCollector {
+	return &TopDocsCollector{self: self, pq: pq}
 }
 
-func (c *AbstractTopDocsCollector) populateResults(ans []ScoreDoc, howMany int) {
+func (c *TopDocsCollector) populateResults(results []ScoreDoc, howMany int) {
 	for i := howMany - 1; i >= 0; i-- {
-		ans[i] = *(heap.Pop(c.pq).(*ScoreDoc))
+		results[i] = *(heap.Pop(c.pq).(*ScoreDoc))
 	}
 }
 
-func (c *AbstractTopDocsCollector) newTopDocs(results []ScoreDoc, start int) TopDocs {
+func (c *TopDocsCollector) newTopDocs(results []ScoreDoc, start int) TopDocs {
 	if results == nil {
 		return TopDocs{0, []ScoreDoc{}, math.NaN()}
 	}
 	return TopDocs{c.TotalHits, results, math.NaN()}
 }
 
-func (c *AbstractTopDocsCollector) topDocsSize() int {
+func (c *TopDocsCollector) topDocsSize() int {
 	// In case pq was populated with sentinel values, there might be less
 	// results than pq.size(). Therefore return all results until either
 	// pq.size() or totalHits.
@@ -80,14 +78,14 @@ func (c *AbstractTopDocsCollector) topDocsSize() int {
 	return c.TotalHits
 }
 
-func (c *AbstractTopDocsCollector) TopDocs() TopDocs {
+func (c *TopDocsCollector) TopDocs() TopDocs {
 	// In case pq was populated with sentinel values, there might be less
 	// results than pq.size(). Therefore return all results until either
 	// pq.size() or totalHits.
 	return c.TopDocsRange(0, c.topDocsSize())
 }
 
-func (c *AbstractTopDocsCollector) TopDocsRange(start, howMany int) TopDocs {
+func (c *TopDocsCollector) TopDocsRange(start, howMany int) TopDocs {
 	// In case pq was populated with sentinel values, there might be less
 	// results than pq.size(). Therefore return all results until either
 	// pq.size() or totalHits.
@@ -123,7 +121,7 @@ func (c *AbstractTopDocsCollector) TopDocsRange(start, howMany int) TopDocs {
 }
 
 type TopScoreDocCollector struct {
-	*AbstractTopDocsCollector
+	*TopDocsCollector
 	pqTop   *ScoreDoc
 	docBase int
 	scorer  Scorer
@@ -147,8 +145,9 @@ func newTocScoreDocCollector(numHits int) *TopScoreDocCollector {
 
 	pqTop := heap.Pop(pq).(*ScoreDoc)
 	heap.Push(pq, pqTop)
-	return &TopScoreDocCollector{AbstractTopDocsCollector: newTopDocsCollector(pq),
-		pqTop: pqTop}
+	c := &TopScoreDocCollector{pqTop: pqTop}
+	c.TopDocsCollector = newTopDocsCollector(c, pq)
+	return c
 }
 
 func (c *TopScoreDocCollector) newTopDocs(results []ScoreDoc, start int) TopDocs {
@@ -164,27 +163,27 @@ func (c *TopScoreDocCollector) newTopDocs(results []ScoreDoc, start int) TopDocs
 	if start == 0 {
 		maxScore = results[0].score
 	} else {
-		pq := c.AbstractTopDocsCollector.pq
+		pq := c.TopDocsCollector.pq
 		for i := pq.Len(); i > 1; i-- {
 			heap.Pop(pq)
 		}
 		maxScore = heap.Pop(pq).(*ScoreDoc).score
 	}
 
-	return TopDocs{c.AbstractTopDocsCollector.TotalHits, results, maxScore}
+	return TopDocs{c.TopDocsCollector.TotalHits, results, maxScore}
 }
 
 func (c *TopScoreDocCollector) SetNextReader(ctx index.AtomicReaderContext) {
 	c.docBase = ctx.DocBase
 }
 
-func NewTopScoreDocCollector(numHits int, after ScoreDoc, docsScoredInOrder bool) TopDocsCollector {
+func NewTopScoreDocCollector(numHits int, after ScoreDoc, docsScoredInOrder bool) *TopDocsCollector {
 	if numHits < 0 {
 		panic("numHits must be > 0; please use TotalHitCountCollector if you just need the total hit count")
 	}
 
 	if docsScoredInOrder {
-		return NewInOrderTopScoreDocCollector(numHits)
+		return NewInOrderTopScoreDocCollector(numHits).TopScoreDocCollector.TopDocsCollector.Collector.(*TopDocsCollector)
 		// TODO support paging
 	} else {
 		panic("not supported yet")

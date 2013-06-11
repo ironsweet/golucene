@@ -3,7 +3,7 @@ package search
 type DocIdSetIterator interface {
 	DocId() int
 	Freq() int
-	NextDoc() int
+	NextDoc() (doc int, more bool)
 }
 
 type DocsEnum struct {
@@ -18,7 +18,7 @@ type Scorer struct {
 
 func (s *Scorer) ScoreAndCollect(c Collector) {
 	// assert docID() == -1; // not started
-	c.SetScorer(s)
+	c.SetScorer(*s)
 	for {
 		doc, more := s.DocsEnum.DocIdSetIterator.NextDoc()
 		if !more {
