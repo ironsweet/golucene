@@ -67,7 +67,7 @@ func (tw TermWeight) Scorer(context index.AtomicReaderContext,
 	}
 	docs := termsEnum.DocsForTerm(acceptDocs, index.DOCS_ENUM_EMPTY)
 	// assert docs != null;
-	return newTermScorer(tw, docs, tw.similarity.exactSimScorer(tw.stats, context)).Scorer, true
+	return *(newTermScorer(tw, docs, tw.similarity.exactSimScorer(tw.stats, context)).Scorer), true
 }
 
 func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnum, ok bool) {
@@ -77,8 +77,8 @@ func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnu
 		// : "no termstate found but term exists in reader term=" + term;
 		return index.TERMS_ENUM_EMPTY, false
 	}
-	te = ctx.Reader().Terms(tw.query.term.Field).Iterator(nil)
-	te.SeekExact(tw.query.term.Bytes, state)
+	te = ctx.Reader().Terms(tw.query.term.Field).Iterator(index.TERMS_ENUM_EMPTY)
+	te.SeekExactBy(tw.query.term.Bytes, *state)
 	return te, true
 }
 
@@ -90,10 +90,11 @@ type TermScorer struct {
 
 func newTermScorer(w Weight, td index.DocsEnum, docScorer ExactSimScorer) TermScorer {
 	ans := &TermScorer{}
-	ans.Scorer = newScorer(index.DOCS_ENUM_EMPTY, ans, w, func() float64 {
+	scorer := newScorer(ans, w, func() float64 {
 		// assert docID() != NO_MORE_DOCS
 		return ans.docScorer.Score(ans.docsEnum.DocId(), ans.docsEnum.Freq())
 	})
+	ans.Scorer = &scorer
 	ans.docScorer = docScorer
 	ans.docsEnum = td
 	return *ans

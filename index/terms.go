@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"lucene/util"
 )
 
@@ -35,6 +36,12 @@ type TermsEnum struct {
 
 func (iter *TermsEnum) SeekExact(text []byte, useCache bool) bool {
 	return iter.SeekCeil(text, useCache) == SEEK_STATUS_FOUND
+}
+
+func (iter *TermsEnum) SeekExactBy(text []byte, state TermState) {
+	if !iter.SeekExact(text, true) {
+		panic(fmt.Sprintf("term %v does not exist", text))
+	}
 }
 
 func (iter *TermsEnum) DocsForTerm(liveDocs util.Bits, reuse DocsEnum) DocsEnum {
