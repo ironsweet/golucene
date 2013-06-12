@@ -1,13 +1,15 @@
-package search
+package lucene
 
 import (
+	"lucene/search"
+	"lucene/store"
 	"testing"
 )
 
 func TestIndexSearcher(t *testing.T) {
-	d := FSDirectory.open("testdata/belfrysample")
-	r := DirectoryReader.open(d)
-	ss := NewIndexSearcher(r)
+	d := store.OpenFSDirectory("testdata/belfrysample")
+	r := store.OpenDirectoryReader(d)
+	ss := search.NewIndexSearcher(r)
 	assertEquals(t, 8, ss.Search("bat"))
 }
 

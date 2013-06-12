@@ -3,14 +3,19 @@ package index
 import (
 	"fmt"
 	"lucene/util"
+	"math"
+	"sync"
 )
 
 type IndexReader struct {
-	self          interface{} // to infer embedders
-	refCount      uint32
-	closedByChild bool
-	Context       func() IndexReaderContext
-	MaxDoc        func() int
+	self              interface{} // to infer embedders
+	closedByChild     bool
+	refCount          uint32 // synchronized
+	parentReaders     map[*IndexReader]bool
+	parentReadersLock sync.RWMutex
+	Context           func() IndexReaderContext
+	MaxDoc            func() int
+	NumDocs           func() int
 }
 
 func newIndexReader(self interface{}) *IndexReader {
@@ -26,6 +31,13 @@ func (r *IndexReader) ensureOpen() {
 	if r.closedByChild {
 		panic("this IndexReader cannot be used anymore as one of its child readers was closed")
 	}
+}
+
+func (r *IndexReader) registerParentReader(reader *IndexReader) {
+	r.ensureOpen()
+	r.parentReadersLock.Lock()
+	r.parentReaders[reader] = true
+	r.parentReadersLock.Unlock()
 }
 
 type IndexReaderContext struct {
@@ -232,4 +244,35 @@ type ReaderSlice struct {
 
 func (rs ReaderSlice) String() string {
 	return fmt.Sprintf("slice start=%v length=%v readerIndex=%v", rs.start, rs.length, rs.readerIndex)
+}
+
+type BaseCompositeReader struct {
+	*CompositeReader
+	subReaders []IndexReader
+	starts     []int
+	maxDoc     int
+	numDocs    int
+}
+
+func newBaseCompositeReader(readers []IndexReader) *BaseCompositeReader {
+	ans := &BaseCompositeReader{}
+	ans.subReaders = readers
+	ans.starts = make([]int, len(readers)+1) // build starts array
+	var maxDoc, numDocs int
+	for i, r := range readers {
+		ans.starts[i] = maxDoc
+		maxDoc += r.MaxDoc() // compute maxDocs
+		if maxDoc < 0 {      // overflow
+			panic(fmt.Sprintf("Too many documents, composite IndexReaders cannot exceed %v", math.MaxInt32))
+		}
+		numDocs += r.NumDocs() // compute numDocs
+		r.registerParentReader(ans.CompositeReader.IndexReader)
+	}
+	ans.starts[len(readers)] = maxDoc
+	ans.maxDoc = maxDoc
+	ans.numDocs = numDocs
+	return ans
+}
+
+type DirectoryReader struct {
 }
