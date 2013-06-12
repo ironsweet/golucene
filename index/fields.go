@@ -2,7 +2,7 @@ package index
 
 type Fields interface {
 	// Iterator of string
-	terms(field string) Terms
+	Terms(field string) Terms
 }
 
 type MultiFields struct {
@@ -15,7 +15,7 @@ func NewMultiFields(subs []Fields, subSlices []ReaderSlice) MultiFields {
 	return MultiFields{subs, subSlices, make(map[string]Terms)}
 }
 
-func (mf MultiFields) terms(field string) Terms {
+func (mf MultiFields) Terms(field string) Terms {
 	if ans, ok := mf.termsMap[field]; ok {
 		return ans
 	}
@@ -27,7 +27,7 @@ func (mf MultiFields) terms(field string) Terms {
 
 	// Gather all sub-readers that share this field
 	for i, v := range mf.subs {
-		terms := v.terms(field)
+		terms := v.Terms(field)
 		if terms.Iterator != nil {
 			subs2 = append(subs2, terms)
 			slices2 = append(slices2, mf.subSlices[i])
@@ -76,8 +76,8 @@ func GetMultiFields(r IndexReader) Fields {
 
 func GetMultiTerms(r IndexReader, field string) Terms {
 	fields := GetMultiFields(r)
-	if fields.terms == nil {
+	if fields.Terms == nil {
 		return nil
 	}
-	return fields.terms(field)
+	return fields.Terms(field)
 }

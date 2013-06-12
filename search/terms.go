@@ -58,7 +58,8 @@ func (tw TermWeight) IsScoresDocsOutOfOrder() bool {
 	return false
 }
 
-func (tw TermWeight) Scorer(context index.AtomicReaderContext, inOrder bool, topScorer bool, acceptDocs util.Bits) (sc Scorer, ok bool) {
+func (tw TermWeight) Scorer(context index.AtomicReaderContext,
+	inOrder bool, topScorer bool, acceptDocs util.Bits) (sc Scorer, ok bool) {
 	// assert termStates.topReaderContext == ReaderUtil.getTopLevelContext(context) : "The top-reader used to create Weight (" + termStates.topReaderContext + ") is not the same as the current reader's top-reader (" + ReaderUtil.getTopLevelContext(context);
 	termsEnum, ok := tw.termsEnum(context)
 	if !ok {
@@ -66,7 +67,7 @@ func (tw TermWeight) Scorer(context index.AtomicReaderContext, inOrder bool, top
 	}
 	docs := termsEnum.DocsForTerm(acceptDocs, index.DOCS_ENUM_EMPTY)
 	// assert docs != null;
-	return NewTermScorer(tw, docs, tw.similarity.exactSimScorer(tw.stats, context)), true
+	return newTermScorer(tw, docs, tw.similarity.exactSimScorer(tw.stats, context)).Scorer, true
 }
 
 func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnum, ok bool) {
@@ -87,15 +88,12 @@ type TermScorer struct {
 	docsEnum  index.DocsEnum
 }
 
-func NewTermScorer(w Weight, td index.DocsEnum, docScorer ExactSimScorer) TermScorer {
+func newTermScorer(w Weight, td index.DocsEnum, docScorer ExactSimScorer) TermScorer {
 	ans := &TermScorer{}
-	s := &Scorer{}
-	s.DocsEnum = index.DOCS_ENUM_EMPTY
-	s.weight = w
-	s.Score = func() float64 {
+	ans.Scorer = newScorer(index.DOCS_ENUM_EMPTY, ans, w, func() float64 {
 		// assert docID() != NO_MORE_DOCS
 		return ans.docScorer.Score(ans.docsEnum.DocId(), ans.docsEnum.Freq())
-	}
+	})
 	ans.docScorer = docScorer
 	ans.docsEnum = td
 	return *ans

@@ -69,7 +69,7 @@ func NewTermContextFromTerm(ctx *IndexReaderContext, t Term, cache bool) *TermCo
 	for _, v := range ctx.Leaves() {
 		fields := v.reader.Fields()
 		if fields != nil {
-			terms := fields.terms(t.Field)
+			terms := fields.Terms(t.Field)
 			if terms != nil {
 				termsEnum := terms.Iterator(TermsEnum{}) // empty TermsEnum
 				if termsEnum.SeekExact(t.Bytes, cache) {

@@ -61,9 +61,17 @@ func newAtomicReader() *AtomicReader {
 	return ans
 }
 
-func (r AtomicReader) Context() AtomicReaderContext {
+func (r *AtomicReader) Context() AtomicReaderContext {
 	r.IndexReader.ensureOpen()
 	return *(r.readerContext)
+}
+
+func (r *AtomicReader) Terms(field string) Terms {
+	fields := r.Fields()
+	if fields == nil {
+		return nil
+	}
+	return fields.Terms(field)
 }
 
 type AtomicReaderContext struct {

@@ -4,16 +4,15 @@ import (
 	"lucene/index"
 )
 
-type DocIdSetIterator interface {
-	DocId() int
-	Freq() int
-	NextDoc() (doc int, more bool)
-}
-
 type Scorer struct {
 	*index.DocsEnum
+	self   interface{}
 	weight Weight
 	Score  func() float64
+}
+
+func newScorer(self interface{}, docsEnum *index.DocsEnum, w Weight, score func() float64) *Scorer {
+	return &Scorer{docsEnum, self, w, score}
 }
 
 func (s *Scorer) ScoreAndCollect(c Collector) {

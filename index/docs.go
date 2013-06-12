@@ -1,8 +1,10 @@
 package index
 
-import (
-	"lucene/search"
-)
+type DocIdSetIterator interface {
+	DocId() int
+	Freq() int
+	NextDoc() (doc int, more bool)
+}
 
 const (
 	DOCS_ENUM_FLAG_FREQS = 1
@@ -13,5 +15,5 @@ var (
 )
 
 type DocsEnum struct {
-	search.DocIdSetIterator
+	DocIdSetIterator
 }
