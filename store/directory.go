@@ -8,6 +8,30 @@ import (
 	"strconv"
 )
 
+const (
+	IO_CONTEXT_TYPE_MERGE   = 1
+	IO_CONTEXT_TYPE_READ    = 2
+	IO_CONTEXT_TYPE_FLUSH   = 4
+	IO_CONTEXT_TYPE_DEFAULT = 8
+)
+
+type IOContextType int
+
+var (
+	IO_CONTEXT_READ = NewIOContextBool(false)
+)
+
+type IOContext struct {
+	context IOContextType
+	// mergeInfo MergeInfo
+	// flushInfo FlushInfo
+	readOnce bool
+}
+
+func NewIOContextBool(readOnce bool) IOContext {
+	return IOContext{IOContextType(IO_CONTEXT_TYPE_READ), readOnce}
+}
+
 type Lock struct {
 	self interface{}
 }

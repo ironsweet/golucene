@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"lucene/store"
 	"lucene/util"
 	"math"
 	"sync"
@@ -248,13 +249,13 @@ func (rs ReaderSlice) String() string {
 
 type BaseCompositeReader struct {
 	*CompositeReader
-	subReaders []IndexReader
+	subReaders []*IndexReader
 	starts     []int
 	maxDoc     int
 	numDocs    int
 }
 
-func newBaseCompositeReader(readers []IndexReader) *BaseCompositeReader {
+func newBaseCompositeReader(readers []*IndexReader) *BaseCompositeReader {
 	ans := &BaseCompositeReader{}
 	ans.subReaders = readers
 	ans.starts = make([]int, len(readers)+1) // build starts array
@@ -274,5 +275,40 @@ func newBaseCompositeReader(readers []IndexReader) *BaseCompositeReader {
 	return ans
 }
 
+const DEFAULT_TERMS_INDEX_DIVISOR = 1
+
 type DirectoryReader struct {
+	*BaseCompositeReader
+	directory store.Directory
+}
+
+func newDirectoryReader(directory store.Directory, segmentReaders []*AtomicReader) *DirectoryReader {
+	readers := make([]*IndexReader, len(segmentReaders))
+	for i, v := range segmentReaders {
+		readers[i] = v.IndexReader
+	}
+	return &DirectoryReader{newBaseCompositeReader(readers), directory}
+}
+
+func OpenDirectoryReader(directory store.Directory) *DirectoryReader {
+	return OpenStandardDirectoryReader(directory, DEFAULT_TERMS_INDEX_DIVISOR)
+}
+
+type StandardDirectoryReader struct {
+}
+
+// TODO support IndexCommit
+func OpenStandardDirectoryReader(directory store.Directory, termInfosIndexDivisor int) *DirectoryReader {
+	return NewFindSegmentsFile(directory, func(segmentFileName string) (obj interface{}, err error) {
+		sis := NewSegmentInfos()
+		sis.Read(directory, segmentFileName)
+		readers := make([]*SegmentReader, sis.Size())
+		for i := sis.Size() - 1; i >= 0; i-- {
+			readers[i], err = NewSegmentReader(sis.info(i), termInfosIndexDivisor, store.IO_CONTEXT_READ)
+			if err != nil {
+				util.CloseWhileHandlingException(err, readers)
+			}
+		}
+		return newStandardDirectoryReader(directory, readers, nil, sis, termInfosIndexDivisor, false)
+	}).run(nil).(*DirectoryReader)
 }
