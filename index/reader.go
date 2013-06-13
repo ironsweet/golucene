@@ -67,11 +67,10 @@ type AtomicReader struct {
 	LiveDocs      func() util.Bits
 }
 
-func newAtomicReader() *AtomicReader {
-	ans := &AtomicReader{}
-	ans.IndexReader = newIndexReader(ans)
-	ans.readerContext = newAtomicReaderContextFromReader(ans)
-	return ans
+func newAtomicReader(self interface{}) *AtomicReader {
+	r := &AtomicReader{IndexReader: newIndexReader(self)}
+	r.readerContext = newAtomicReaderContextFromReader(r)
+	return r
 }
 
 func (r *AtomicReader) Context() AtomicReaderContext {
@@ -295,20 +294,28 @@ func OpenDirectoryReader(directory store.Directory) *DirectoryReader {
 }
 
 type StandardDirectoryReader struct {
+	*DirectoryReader
+}
+
+// TODO support IndexWriter
+func newStandardDirectoryReader(directory store.Directory, readers []*AtomicReader,
+	sis SegmentInfos, termInfosIndexDivisor int, applyAllDeletes bool) *StandardDirectoryReader {
+	return &StandardDirectoryReader{newDirectoryReader(directory, readers)}
 }
 
 // TODO support IndexCommit
-func OpenStandardDirectoryReader(directory store.Directory, termInfosIndexDivisor int) *DirectoryReader {
+func OpenStandardDirectoryReader(directory store.Directory,
+	termInfosIndexDivisor int) (r *DirectoryReader, err error) {
 	return NewFindSegmentsFile(directory, func(segmentFileName string) (obj interface{}, err error) {
-		sis := NewSegmentInfos()
+		sis := &SegmentInfos{}
 		sis.Read(directory, segmentFileName)
-		readers := make([]*SegmentReader, sis.Size())
-		for i := sis.Size() - 1; i >= 0; i-- {
-			readers[i], err = NewSegmentReader(sis.info(i), termInfosIndexDivisor, store.IO_CONTEXT_READ)
+		readers := make([]*SegmentReader, len(sis.Segments))
+		for i := len(sis.Segments) - 1; i >= 0; i-- {
+			readers[i], err = NewSegmentReader(sis.Segments[i], termInfosIndexDivisor, store.IO_CONTEXT_READ)
 			if err != nil {
 				util.CloseWhileHandlingException(err, readers)
 			}
 		}
-		return newStandardDirectoryReader(directory, readers, nil, sis, termInfosIndexDivisor, false)
-	}).run(nil).(*DirectoryReader)
+		return newStandardDirectoryReader(directory, readers, sis, termInfosIndexDivisor, false)
+	}).run().(*DirectoryReader)
 }
