@@ -84,6 +84,7 @@ func NewSimpleFSLockFactory(path string) SimpleFSLockFactory {
 type Directory struct {
 	isOpen      bool
 	lockFactory LockFactory
+	ListAll     func() []string
 	LockID      func() string
 }
 
@@ -130,7 +131,10 @@ func newFSDirectory(path string) (d FSDirectory, err error) {
 		}
 	}
 
-	super := Directory{LockID: func() string {
+	super := Directory{ListAll: func() []string {
+		d.ensureOpen()
+		return ListAll(d.path)
+	}, LockID: func() string {
 		d.ensureOpen()
 		var digest int
 		for _, ch := range d.path {
@@ -156,6 +160,23 @@ func OpenFSDirectory(path string) (d FSDirectory, err error) {
 
 type SimpleFSDirectory struct {
 	*FSDirectory
+}
+
+func ListAll(path string) (paths []string, err error) {
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil, errors.New(fmt.Sprintf("directory '%v' does not exist", path))
+	} else if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if !fi.IsDir() {
+		return nil, errors.New(fmt.Sprintf("file '%v' exists but is not a directory", path))
+	}
+
+	// Exclude subdirs
+	return f.Readdirnames(0)
 }
 
 func NewSimpleFSDirectory(path string) (d SimpleFSDirectory, err error) {
