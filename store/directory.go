@@ -3,8 +3,8 @@ package store
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
-	"path/filepath"
 	"strconv"
 )
 
@@ -48,43 +48,11 @@ type FSLockFactory struct {
 	lockDir string // can not be set twice
 }
 
-type SimpleFSLock struct {
-	*Lock
-	file, dir string
-}
-
-type SimpleFSLockFactory struct {
-	*FSLockFactory
-}
-
-func NewSimpleFSLockFactory(path string) SimpleFSLockFactory {
-	ans := SimpleFSLockFactory{}
-
-	origin := &LockFactory{}
-	origin.self = ans
-	origin.Make = func(name string) Lock {
-		if origin.lockPrefix != "" {
-			name = fmt.Sprintf("%v-%v", origin.lockPrefix, name)
-		}
-		ans := SimpleFSLock{nil, filepath.Join(path, name), name}
-		ans.Lock = &Lock{ans}
-		return *(ans.Lock)
-	}
-	origin.Clear = func(name string) error {
-		if origin.lockPrefix != "" {
-			name = fmt.Sprintf("%v-%v", origin.lockPrefix, name)
-		}
-		return os.Remove(filepath.Join(path, name))
-	}
-
-	ans.FSLockFactory = &FSLockFactory{origin, path}
-	return ans
-}
-
 type Directory struct {
 	isOpen      bool
 	lockFactory LockFactory
-	ListAll     func() []string
+	ListAll     func() (paths []string, err error)
+	OpenInput   func(name string, context IOContext) (in *IndexInput, err error)
 	LockID      func() string
 }
 
@@ -101,7 +69,8 @@ func (d *Directory) ensureOpen() {
 
 type FSDirectory struct {
 	*Directory
-	path string
+	path      string
+	chunkSize int
 }
 
 func (d *FSDirectory) SetLockFactory(lockFactory LockFactory) {
@@ -119,8 +88,8 @@ func (d *FSDirectory) SetLockFactory(lockFactory LockFactory) {
 	}
 }
 
-func newFSDirectory(path string) (d FSDirectory, err error) {
-	d = FSDirectory{}
+func newFSDirectory(path string) (d *FSDirectory, err error) {
+	d = &FSDirectory{chunkSize: math.MaxInt32}
 	if f, err := os.Open(path); err == nil {
 		fi, err := f.Stat()
 		if err != nil {
@@ -131,7 +100,7 @@ func newFSDirectory(path string) (d FSDirectory, err error) {
 		}
 	}
 
-	super := Directory{ListAll: func() []string {
+	super := Directory{ListAll: func() (paths []string, err error) {
 		d.ensureOpen()
 		return ListAll(d.path)
 	}, LockID: func() string {
@@ -158,10 +127,6 @@ func OpenFSDirectory(path string) (d FSDirectory, err error) {
 	return *(super.FSDirectory), nil
 }
 
-type SimpleFSDirectory struct {
-	*FSDirectory
-}
-
 func ListAll(path string) (paths []string, err error) {
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
@@ -179,12 +144,74 @@ func ListAll(path string) (paths []string, err error) {
 	return f.Readdirnames(0)
 }
 
-func NewSimpleFSDirectory(path string) (d SimpleFSDirectory, err error) {
-	d = SimpleFSDirectory{}
-	super, err := newFSDirectory(path)
-	if err != nil {
-		return d, err
+type DataInput struct {
+}
+
+type IndexInput struct {
+	desc string
+}
+
+func newIndexInput(desc string) *IndexInput {
+	if desc == "" {
+		panic("resourceDescription must not be null")
 	}
-	d.FSDirectory = &super
-	return d, nil
+	return &IndexInput{desc}
+}
+
+type BufferedIndexInput struct {
+	*IndexInput
+	bufferSize int
+}
+
+func newBufferedIndexInput(desc string, context IOContext) *BufferedIndexInput {
+	return newBufferedIndexInputBySize(desc, bufferSize(context))
+}
+
+func newBufferedIndexInputBySize(desc string, bufferSize int) *BufferedIndexInput {
+	super := newIndexInput(desc)
+	checkBufferSize(bufferSize)
+	return &BufferedIndexInput{super, bufferSize}
+}
+
+func checkBufferSize(bufferSize int) {
+	if bufferSize <= 0 {
+		panic(fmt.Sprintf("bufferSize must be greater than 0 (got %v)", bufferSize))
+	}
+}
+
+func bufferSize(context IOContext) int {
+	switch context.context {
+	case IO_CONTEXT_TYPE_MERGE:
+		// The normal read buffer size defaults to 1024, but
+		// increasing this during merging seems to yield
+		// performance gains.  However we don't want to increase
+		// it too much because there are quite a few
+		// BufferedIndexInputs created during merging.  See
+		// LUCENE-888 for details.
+		return 4096
+	default:
+		return 1024
+	}
+}
+
+type FSIndexInput struct {
+	*BufferedIndexInput
+	file      *os.File
+	isClone   bool
+	chunkSize int
+	off       int64
+	end       int64
+}
+
+func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *FSIndexInput, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	super := newBufferedIndexInput(desc, context)
+	return &FSIndexInput{super, f, false, chunkSize, 0, fi.Size()}, nil
 }

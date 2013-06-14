@@ -63,7 +63,10 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 			// caching):
 			genA := -1
 
-			files := fsf.directory.ListAll()
+			files, err := fsf.directory.ListAll()
+			if err != nil {
+				return nil, err
+			}
 			if files != nil {
 				genA = LastCommitGeneration(files)
 			}
@@ -288,7 +291,7 @@ func GenerationFromSegmentsFileName(fileName string) int {
 	}
 }
 
-func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string) {
+func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string) {
 	success := false
 
 	// Clear any previous segments:
