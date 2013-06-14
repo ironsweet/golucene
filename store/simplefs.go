@@ -1,9 +1,11 @@
 package store
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 type SimpleFSLock struct {
@@ -60,6 +62,7 @@ func NewSimpleFSDirectory(path string) (d *SimpleFSDirectory, err error) {
 
 type SimpleFSIndexInput struct {
 	*FSIndexInput
+	fileLock sync.Locker
 }
 
 func newSimpleFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *SimpleFSIndexInput, err error) {
@@ -67,5 +70,40 @@ func newSimpleFSIndexInput(desc, path string, context IOContext, chunkSize int) 
 	if err != nil {
 		return nil, err
 	}
-	return &SimpleFSIndexInput{super}, nil
+	in = &SimpleFSIndexInput{super, &sync.Mutex{}}
+	super.readInternal = func(b []byte, offset, length int) error {
+		in.fileLock.Lock()
+		defer in.fileLock.Unlock()
+
+		// TODO make use of Go's relative Seek or ReadAt function
+		position := in.off + in.FilePointer()
+		_, err := in.file.Seek(position, 0)
+		if err != nil {
+			return err
+		}
+
+		if position+int64(length) > in.end {
+			return errors.New(fmt.Sprintf("read past EOF: %v", in))
+		}
+
+		total := 0
+		for {
+			readLength := length - total
+			if in.chunkSize < readLength {
+				readLength = in.chunkSize
+			}
+			// FIXME verify slice is working
+			i, err := in.file.Read(b[offset+total : offset+total+readLength])
+			if err != nil {
+				return errors.New(fmt.Sprintf("%v: %v", err, in))
+			}
+			total += i
+			if total >= length {
+				break
+			}
+		}
+		return nil
+	}
+	super.seekInternal = func(position int64) {}
+	return in, nil
 }

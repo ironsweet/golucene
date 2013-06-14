@@ -83,7 +83,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 			// a stale cache (NFS) we have a better chance of
 			// getting the right generation.
 			genB := -1
-			genInput, err := fsf.directory.OpenInput(INDEX_FILENAME_SEGMENTS_GEN)
+			genInput, err := fsf.directory.OpenInput(INDEX_FILENAME_SEGMENTS_GEN, store.IO_CONTEXT_READ)
 			if err != nil {
 				// if fsf.infoStream != nil {
 				log.Printf("segments.gen open: %v", err)

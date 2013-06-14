@@ -145,22 +145,40 @@ func ListAll(path string) (paths []string, err error) {
 }
 
 type DataInput struct {
+	ReadByte func() byte
+}
+
+func (in *DataInput) ReadInt() int {
+	return (int(in.ReadByte()&0xFF) << 24) | (int(in.ReadByte()&0xFF) << 16) | (int(in.ReadByte()&0xFF) << 8) | int(in.ReadByte()&0xFF)
+}
+
+func (in *DataInput) ReadLong() int64 {
+	return ((int64(in.ReadInt())) << 32) | (int64(in.ReadInt()) & 0xFFFFFFFF)
 }
 
 type IndexInput struct {
-	desc string
+	*DataInput
+	desc   string
+	Length func() int64
 }
 
 func newIndexInput(desc string) *IndexInput {
 	if desc == "" {
 		panic("resourceDescription must not be null")
 	}
-	return &IndexInput{desc}
+	super := &DataInput{}
+	return &IndexInput{DataInput: super, desc: desc}
 }
 
 type BufferedIndexInput struct {
 	*IndexInput
-	bufferSize int
+	bufferSize     int
+	buffer         []byte
+	bufferStart    int64
+	bufferLength   int
+	bufferPosition int
+	seekInternal   func(pos int64)
+	readInternal   func(b []byte, offset, length int) error
 }
 
 func newBufferedIndexInput(desc string, context IOContext) *BufferedIndexInput {
@@ -170,7 +188,12 @@ func newBufferedIndexInput(desc string, context IOContext) *BufferedIndexInput {
 func newBufferedIndexInputBySize(desc string, bufferSize int) *BufferedIndexInput {
 	super := newIndexInput(desc)
 	checkBufferSize(bufferSize)
-	return &BufferedIndexInput{super, bufferSize}
+	return &BufferedIndexInput{IndexInput: super, bufferSize: bufferSize}
+}
+
+func (in *BufferedIndexInput) newBuffer(newBuffer []byte) {
+	// Subclasses can do something here
+	in.buffer = newBuffer
 }
 
 func checkBufferSize(bufferSize int) {
@@ -194,6 +217,44 @@ func bufferSize(context IOContext) int {
 	}
 }
 
+func (in *BufferedIndexInput) ReadByte() (b byte, err error) {
+	if in.bufferPosition >= in.bufferLength {
+		err = in.refill()
+		if err != nil {
+			return 0, err
+		}
+	}
+	b = in.buffer[in.bufferPosition]
+	in.bufferPosition++
+	return b, nil
+}
+
+func (in *BufferedIndexInput) refill() error {
+	start := in.bufferStart + int64(in.bufferPosition)
+	end := start + int64(in.bufferSize)
+	if end > in.Length() { // don't read past EOF
+		end = in.Length()
+	}
+	newLength := int(end - start)
+	if newLength <= 0 {
+		return errors.New(fmt.Sprintf("read past EOF: %v", in))
+	}
+
+	if in.buffer == nil {
+		in.newBuffer(make([]byte, in.bufferSize)) // allocate buffer lazily
+		in.seekInternal(int64(in.bufferStart))
+	}
+	in.readInternal(in.buffer, 0, newLength)
+	in.bufferLength = newLength
+	in.bufferStart = start
+	in.bufferPosition = 0
+	return nil
+}
+
+func (in *BufferedIndexInput) FilePointer() int64 {
+	return in.bufferStart + int64(in.bufferPosition)
+}
+
 type FSIndexInput struct {
 	*BufferedIndexInput
 	file      *os.File
@@ -213,5 +274,16 @@ func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *F
 		return nil, err
 	}
 	super := newBufferedIndexInput(desc, context)
-	return &FSIndexInput{super, f, false, chunkSize, 0, fi.Size()}, nil
+	in = &FSIndexInput{super, f, false, chunkSize, 0, fi.Size()}
+	super.Length = func() int64 {
+		return in.end - in.off
+	}
+	return in, nil
+}
+
+func (in *FSIndexInput) Close() {
+	// only close the file if this is not a clone
+	if !in.isClone {
+		in.file.Close()
+	}
 }
