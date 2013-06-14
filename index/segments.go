@@ -348,6 +348,9 @@ func (sis *SegmentInfos) Clear() {
 	sis.segments.Clear()
 }
 
+type SegmentInfoPerCommit struct {
+}
+
 type SegmentReader struct {
 	*AtomicReader
 	si       SegmentInfoPerCommit

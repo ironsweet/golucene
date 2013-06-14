@@ -289,7 +289,7 @@ func newDirectoryReader(directory store.Directory, segmentReaders []*AtomicReade
 	return &DirectoryReader{newBaseCompositeReader(readers), directory}
 }
 
-func OpenDirectoryReader(directory store.Directory) *DirectoryReader {
+func OpenDirectoryReader(directory store.Directory) (r *DirectoryReader, err error) {
 	return OpenStandardDirectoryReader(directory, DEFAULT_TERMS_INDEX_DIVISOR)
 }
 
@@ -304,18 +304,19 @@ func newStandardDirectoryReader(directory store.Directory, readers []*AtomicRead
 }
 
 // TODO support IndexCommit
-func OpenStandardDirectoryReader(directory store.Directory,
+func openStandardDirectoryReader(directory store.Directory,
 	termInfosIndexDivisor int) (r *DirectoryReader, err error) {
-	return NewFindSegmentsFile(directory, func(segmentFileName string) (obj interface{}, err error) {
+	obj, err := NewFindSegmentsFile(directory, func(segmentFileName string) (obj interface{}, err error) {
 		sis := &SegmentInfos{}
 		sis.Read(directory, segmentFileName)
 		readers := make([]*SegmentReader, len(sis.Segments))
 		for i := len(sis.Segments) - 1; i >= 0; i-- {
 			readers[i], err = NewSegmentReader(sis.Segments[i], termInfosIndexDivisor, store.IO_CONTEXT_READ)
 			if err != nil {
-				util.CloseWhileHandlingException(err, readers)
+				return nil, util.CloseWhileHandlingException(err, readers)
 			}
 		}
-		return newStandardDirectoryReader(directory, readers, sis, termInfosIndexDivisor, false)
-	}).run().(*DirectoryReader)
+		return newStandardDirectoryReader(directory, readers, *sis, termInfosIndexDivisor, false), nil
+	}).run()
+	return obj.(*DirectoryReader), err
 }
