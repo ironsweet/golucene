@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"lucene/store"
-	"math"
+	"lucene/util"
 	"strconv"
 	"strings"
 )
@@ -31,9 +31,10 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 	// 	return fsf.doBody(commit.SegmentsFileName)
 	// }
 
-	lastGen := -1
-	gen := 0
+	lastGen := int64(-1)
+	gen := int64(0)
 	genLookaheadCount := 0
+	var exc error
 	retryCount := 0
 
 	useFirstMethod := true
@@ -82,7 +83,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 			// gens.  This way, if either approach is hitting
 			// a stale cache (NFS) we have a better chance of
 			// getting the right generation.
-			genB := -1
+			genB := int64(-1)
 			genInput, err := fsf.directory.OpenInput(INDEX_FILENAME_SEGMENTS_GEN, store.IO_CONTEXT_READ)
 			if err != nil {
 				// if fsf.infoStream != nil {
@@ -128,11 +129,14 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 			// }
 
 			// Pick the larger of the two gen's:
-			gen := math.MaxInt32(genA, genB)
+			gen = genA
+			if genB > gen {
+				gen = genB
+			}
 
 			if gen == -1 {
 				// Neither approach found a generation
-				return nil, errors.New(fmt.Sprintf("no segments* file found in %v: files: %#v", directory, files))
+				return nil, errors.New(fmt.Sprintf("no segments* file found in %v: files: %#v", fsf.directory, files))
 			}
 		}
 
@@ -373,7 +377,7 @@ type SegmentReader struct {
 	core     SegmentCoreReaders
 }
 
-func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, context IOContext) *SegmentReader {
+func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, context store.IOContext) *SegmentReader {
 	r := &SegmentReader{}
 	r.AtomicReader = newAtomicReader(r)
 	r.si = si
