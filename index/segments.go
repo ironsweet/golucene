@@ -62,7 +62,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 			// as there is no stale caching on the directory
 			// contents (NOTE: NFS clients often have such stale
 			// caching):
-			genA := -1
+			genA := int64(-1)
 
 			files, err := fsf.directory.ListAll()
 			if err != nil {

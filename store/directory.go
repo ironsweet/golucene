@@ -52,6 +52,7 @@ type Directory struct {
 	isOpen      bool
 	lockFactory LockFactory
 	ListAll     func() (paths []string, err error)
+	FileExists  func(name string) bool
 	OpenInput   func(name string, context IOContext) (in *IndexInput, err error)
 	LockID      func() string
 }
@@ -103,6 +104,12 @@ func newFSDirectory(path string) (d *FSDirectory, err error) {
 	super := Directory{ListAll: func() (paths []string, err error) {
 		d.ensureOpen()
 		return ListAll(d.path)
+	}, FileExists: func(name string) bool {
+		d.ensureOpen()
+		if _, err := os.Stat(name); err != nil {
+			return true
+		}
+		return false
 	}, LockID: func() string {
 		d.ensureOpen()
 		var digest int
