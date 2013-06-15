@@ -145,21 +145,37 @@ func ListAll(path string) (paths []string, err error) {
 }
 
 type DataInput struct {
-	ReadByte func() byte
+	ReadByte func() (b byte, err error)
 }
 
-func (in *DataInput) ReadInt() int {
-	return (int(in.ReadByte()&0xFF) << 24) | (int(in.ReadByte()&0xFF) << 16) | (int(in.ReadByte()&0xFF) << 8) | int(in.ReadByte()&0xFF)
+func (in *DataInput) ReadInt() (n int, err error) {
+	ds := make([]byte, 4)
+	for i, _ := range ds {
+		ds[i], err = in.ReadByte()
+		if err != nil {
+			return 0, err
+		}
+	}
+	return (int(ds[0]&0xFF) << 24) | (int(ds[1]&0xFF) << 16) | (int(ds[2]&0xFF) << 8) | int(ds[3]&0xFF), nil
 }
 
-func (in *DataInput) ReadLong() int64 {
-	return ((int64(in.ReadInt())) << 32) | (int64(in.ReadInt()) & 0xFFFFFFFF)
+func (in *DataInput) ReadLong() (n int64, err error) {
+	d1, err := in.ReadInt()
+	if err != nil {
+		return 0, err
+	}
+	d2, err := in.ReadInt()
+	if err != nil {
+		return 0, err
+	}
+	return (int64(d1) << 32) | (int64(d2) & 0xFFFFFFFF), nil
 }
 
 type IndexInput struct {
 	*DataInput
 	desc   string
 	Length func() int64
+	Close  func() error
 }
 
 func newIndexInput(desc string) *IndexInput {
@@ -188,7 +204,19 @@ func newBufferedIndexInput(desc string, context IOContext) *BufferedIndexInput {
 func newBufferedIndexInputBySize(desc string, bufferSize int) *BufferedIndexInput {
 	super := newIndexInput(desc)
 	checkBufferSize(bufferSize)
-	return &BufferedIndexInput{IndexInput: super, bufferSize: bufferSize}
+	in := &BufferedIndexInput{IndexInput: super, bufferSize: bufferSize}
+	super.ReadByte = func() (b byte, err error) {
+		if in.bufferPosition >= in.bufferLength {
+			err = in.refill()
+			if err != nil {
+				return 0, err
+			}
+		}
+		b = in.buffer[in.bufferPosition]
+		in.bufferPosition++
+		return b, nil
+	}
+	return in
 }
 
 func (in *BufferedIndexInput) newBuffer(newBuffer []byte) {
@@ -215,18 +243,6 @@ func bufferSize(context IOContext) int {
 	default:
 		return 1024
 	}
-}
-
-func (in *BufferedIndexInput) ReadByte() (b byte, err error) {
-	if in.bufferPosition >= in.bufferLength {
-		err = in.refill()
-		if err != nil {
-			return 0, err
-		}
-	}
-	b = in.buffer[in.bufferPosition]
-	in.bufferPosition++
-	return b, nil
 }
 
 func (in *BufferedIndexInput) refill() error {
@@ -278,12 +294,12 @@ func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *F
 	super.Length = func() int64 {
 		return in.end - in.off
 	}
-	return in, nil
-}
-
-func (in *FSIndexInput) Close() {
-	// only close the file if this is not a clone
-	if !in.isClone {
-		in.file.Close()
+	super.Close = func() error {
+		// only close the file if this is not a clone
+		if !in.isClone {
+			in.file.Close()
+		}
+		return nil
 	}
+	return in, nil
 }

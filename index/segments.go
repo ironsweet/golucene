@@ -91,12 +91,23 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 			} else {
 				defer genInput.Close()
 
-				version := genInput.ReadInt()
+				version, err := genInput.ReadInt()
+				if _, ok := err.(*CorruptIndexError); ok {
+					return nil, err
+				}
 				if version == FORMAT_SEGMENTS_GEN_CURRENT {
 					gen0, err := genInput.ReadLong()
-					if err == nil {
+					if err != nil {
+						if _, ok := err.(*CorruptIndexError); ok {
+							return nil, err
+						}
+					} else {
 						gen1, err := genInput.ReadLong()
-						if err == nil {
+						if err != nil {
+							if _, ok := err.(*CorruptIndexError); ok {
+								return nil, err
+							}
+						} else {
 							// if fsf.infoStream != nil {
 							log.Printf("fallback check: %v; %v", gen0, gen1)
 							// }
@@ -106,9 +117,9 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 						}
 					}
 				} else {
-					return nil, errors.New(fmt.Sprintf(
+					return nil, &CorruptIndexError{fmt.Sprintf(
 						"Format version is not supported (resource: %v): %v (needs to be between %v and %v)",
-						genInput, version, FORMAT_SEGMENTS_GEN_CURRENT, FORMAT_SEGMENTS_GEN_CURRENT))
+						genInput, version, FORMAT_SEGMENTS_GEN_CURRENT, FORMAT_SEGMENTS_GEN_CURRENT)}
 				}
 			}
 
@@ -320,7 +331,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 		sis.counter = input.ReadInt()
 		numSegments := input.ReadInt()
 		if numSegments < 0 {
-			return nil, errors.New(fmt.Sprintf("invalid segment count: %v (resource: %v)", numSegments, input))
+			return nil, &CorruptIndexError{fmt.Sprintf("invalid segment count: %v (resource: %v)", numSegments, input)}
 		}
 		for seg := 0; seg < numSegments; seg++ {
 			segName := input.ReadString()
@@ -330,7 +341,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 			delGen := input.ReadLong()
 			delCount := input.ReadInt()
 			if delCount < 0 || delCount > info.DocCount() {
-				return nil, errors.New("invalid deletion count: %v (resource: %v)", delCount, input)
+				return nil, &CorruptIndexError{fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input)}
 			}
 			sis.Add(NewSegmentInfoPerCommit(info, delCount, delGen))
 		}
@@ -341,7 +352,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 	}
 
 	if checksumNow, checksumThen = input.Checksum(), input.ReadLong(); checksumNow != checksumThen {
-		return nil, errors.New(fmt.Sprintf("checksum mismatch in segments file (resource: %v)", input))
+		return nil, &CorruptIndexError{fmt.Sprintf("checksum mismatch in segments file (resource: %v)", input)}
 	}
 
 	success = true
