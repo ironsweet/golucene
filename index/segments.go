@@ -275,11 +275,11 @@ type SegmentInfos struct {
 	Segments       []SegmentInfoPerCommit
 }
 
-func LastCommitGeneration(files []string) int {
+func LastCommitGeneration(files []string) int64 {
 	if files == nil {
-		return -1
+		return int64(-1)
 	}
-	max := -1
+	max := int64(-1)
 	for _, file := range files {
 		if strings.HasPrefix(file, INDEX_FILENAME_SEGMENTS) && file != INDEX_FILENAME_SEGMENTS {
 			gen := GenerationFromSegmentsFileName(file)
@@ -291,10 +291,10 @@ func LastCommitGeneration(files []string) int {
 	return max
 }
 
-func GenerationFromSegmentsFileName(fileName string) int {
+func GenerationFromSegmentsFileName(fileName string) int64 {
 	switch {
 	case fileName == INDEX_FILENAME_SEGMENTS:
-		return 0
+		return int64(0)
 	case strings.HasPrefix(fileName, INDEX_FILENAME_SEGMENTS):
 		d, err := strconv.ParseInt(fileName[1+len(INDEX_FILENAME_SEGMENTS):], 36, 64)
 		if err != nil {
