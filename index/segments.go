@@ -207,7 +207,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 						// if fsf.infoStream != nil {
 						log.Printf("success on fallback %v", prevSegmentFileName)
 						//}
-						return v
+						return v, nil
 					}
 				}
 			}
@@ -215,7 +215,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 			// if fsf.infoStream != nil {
 			log.Printf("success on %v", segmentFileName)
 			// }
-			return v
+			return v, nil
 		}
 	}
 }
@@ -245,7 +245,7 @@ func SegmentFileName(name, suffix, ext string) string {
 	if len(ext) > 0 || len(suffix) > 0 {
 		// assert ext[0] != '.'
 		var buffer bytes.Buffer
-		buffer.WriteString(segmentName)
+		buffer.WriteString(name)
 		if len(suffix) > 0 {
 			buffer.WriteString("_")
 			buffer.WriteString(suffix)
@@ -306,16 +306,20 @@ func GenerationFromSegmentsFileName(fileName string) int64 {
 	}
 }
 
-func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string) {
+func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string) error {
 	success := false
 
 	// Clear any previous segments:
-	sis.clear()
+	sis.Clear()
 
 	sis.generation = GenerationFromSegmentsFileName(segmentFileName)
 	sis.lastGeneration = sis.generation
 
-	input := NewChecksumIndexInput(directory.OpenInput(segmentFileName, store.IO_CONTEXT_READ))
+	main, err := directory.OpenInput(segmentFileName, store.IO_CONTEXT_READ)
+	if err != nil {
+		return err
+	}
+	input := store.NewChecksumIndexInput(main)
 	defer func() {
 		if !success {
 			// Clear any segment infos we had loaded so we
@@ -335,7 +339,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 		sis.counter = input.ReadInt()
 		numSegments := input.ReadInt()
 		if numSegments < 0 {
-			return nil, &CorruptIndexError{fmt.Sprintf("invalid segment count: %v (resource: %v)", numSegments, input)}
+			return &CorruptIndexError{fmt.Sprintf("invalid segment count: %v (resource: %v)", numSegments, input)}
 		}
 		for seg := 0; seg < numSegments; seg++ {
 			segName := input.ReadString()
@@ -345,7 +349,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 			delGen := input.ReadLong()
 			delCount := input.ReadInt()
 			if delCount < 0 || delCount > info.DocCount() {
-				return nil, &CorruptIndexError{fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input)}
+				return &CorruptIndexError{fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input)}
 			}
 			sis.Add(NewSegmentInfoPerCommit(info, delCount, delGen))
 		}
@@ -356,14 +360,15 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 	}
 
 	if checksumNow, checksumThen = input.Checksum(), input.ReadLong(); checksumNow != checksumThen {
-		return nil, &CorruptIndexError{fmt.Sprintf("checksum mismatch in segments file (resource: %v)", input)}
+		return &CorruptIndexError{fmt.Sprintf("checksum mismatch in segments file (resource: %v)", input)}
 	}
 
 	success = true
+	return nil
 }
 
 func (sis *SegmentInfos) Clear() {
-	sis.segments.Clear()
+	sis.segments = make([]SegmentInfoPerCommit, 0)
 }
 
 type SegmentInfoPerCommit struct {

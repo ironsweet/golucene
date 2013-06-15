@@ -3,6 +3,8 @@ package store
 import (
 	"errors"
 	"fmt"
+	"hash"
+	"hash/crc32"
 	"math"
 	"os"
 	"strconv"
@@ -309,4 +311,15 @@ func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *F
 		return nil
 	}
 	return in, nil
+}
+
+type ChecksumIndexInput struct {
+	*IndexInput
+	main   *IndexInput
+	digest hash.Hash32
+}
+
+func NewChecksumIndexInput(main *IndexInput) *ChecksumIndexInput {
+	super := newIndexInput(fmt.Sprintf("ChecksumIndexInput(%v)", main))
+	return &ChecksumIndexInput{super, main, crc32.NewIEEE()}
 }
