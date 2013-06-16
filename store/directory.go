@@ -154,7 +154,8 @@ func ListAll(path string) (paths []string, err error) {
 }
 
 type DataInput struct {
-	ReadByte func() (b byte, err error)
+	ReadByte  func() (b byte, err error)
+	ReadBytes func(buf []byte) (n int, err error)
 }
 
 func (in *DataInput) ReadInt() (n int, err error) {
@@ -168,6 +169,55 @@ func (in *DataInput) ReadInt() (n int, err error) {
 	return (int(ds[0]&0xFF) << 24) | (int(ds[1]&0xFF) << 16) | (int(ds[2]&0xFF) << 8) | int(ds[3]&0xFF), nil
 }
 
+func (in *DataInput) ReadVInt() (n int, err error) {
+	b, err := in.ReadByte()
+	if err != nil {
+		return 0, err
+	}
+	if b >= 0 {
+		return int(b), nil
+	}
+	n = int(b) & 0x7F
+
+	b, err = in.ReadByte()
+	if err != nil {
+		return 0, err
+	}
+	n |= (int(b) & 0x7F) << 7
+	if b >= 0 {
+		return n, nil
+	}
+
+	b, err = in.ReadByte()
+	if err != nil {
+		return 0, err
+	}
+	n |= (int(b) & 0x7F) << 14
+	if b >= 0 {
+		return n, nil
+	}
+
+	b, err = in.ReadByte()
+	if err != nil {
+		return 0, err
+	}
+	n |= (int(b) & 0x7F) << 21
+	if b >= 0 {
+		return n, nil
+	}
+
+	b, err = in.ReadByte()
+	if err != nil {
+		return 0, err
+	}
+	// Warning: the next ands use 0x0F / 0xF0 - beware copy/paste errors:
+	n |= (int(b) & 0x0F) << 28
+	if (b & 0xF0) == 0 {
+		return n, nil
+	}
+	return 0, errors.New("Invalid vInt detected (too many bits)")
+}
+
 func (in *DataInput) ReadLong() (n int64, err error) {
 	d1, err := in.ReadInt()
 	if err != nil {
@@ -178,6 +228,16 @@ func (in *DataInput) ReadLong() (n int64, err error) {
 		return 0, err
 	}
 	return (int64(d1) << 32) | (int64(d2) & 0xFFFFFFFF), nil
+}
+
+func (in *DataInput) ReadString() (s string, err error) {
+	length, err := in.ReadVInt()
+	if err != nil {
+		return "", err
+	}
+	bytes := make([]byte, length)
+	in.ReadBytes(bytes)
+	return string(bytes), nil
 }
 
 type IndexInput struct {

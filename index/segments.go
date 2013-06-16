@@ -113,14 +113,13 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 							log.Printf("fallback check: %v; %v", gen0, gen1)
 							// }
 							if gen0 == gen1 {
+								// The file is consistent.
 								genB = gen0
 							}
 						}
 					}
 				} else {
-					return nil, &CorruptIndexError{fmt.Sprintf(
-						"Format version is not supported (resource: %v): %v (needs to be between %v and %v)",
-						genInput, version, FORMAT_SEGMENTS_GEN_CURRENT, FORMAT_SEGMENTS_GEN_CURRENT)}
+					return nil, NewIndexFormatTooNewError(genInput.DataInput, version, FORMAT_SEGMENTS_GEN_CURRENT, FORMAT_SEGMENTS_GEN_CURRENT)
 				}
 			}
 
@@ -335,9 +334,9 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 	if err != nil {
 		return err
 	}
-	if format == codec.CODEC_MAGIC {
+	if format == CODEC_MAGIC {
 		// 4.0+
-		codec.CheckHeaderNoMagic(input, "segments", VERSION_40, VERSION_40)
+		CheckHeaderNoMagic(input.DataInput, "segments", VERSION_40, VERSION_40)
 		sis.version = input.ReadLong()
 		sis.counter = input.ReadInt()
 		numSegments := input.ReadInt()
@@ -346,7 +345,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 		}
 		for seg := 0; seg < numSegments; seg++ {
 			segName := input.ReadString()
-			method := codec.ForName(input.ReadString())
+			method := CodecForName(input.ReadString())
 			info := method.SegmentInfoFormat().Reader().Read(directory, segName, store.IO_CONTEXT_READ)
 			info.Codec = method
 			delGen := input.ReadLong()
