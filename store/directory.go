@@ -240,6 +240,26 @@ func (in *DataInput) ReadString() (s string, err error) {
 	return string(bytes), nil
 }
 
+func (in *DataInput) ReadStringStringMap() (m map[string]string, err error) {
+	count, err := in.ReadInt()
+	if err != nil {
+		return nil, err
+	}
+	m = make(map[string]string)
+	for i := 0; i < count; i++ {
+		key, err := in.ReadString()
+		if err != nil {
+			return nil, err
+		}
+		value, err := in.ReadString()
+		if err != nil {
+			return nil, err
+		}
+		m[key] = value
+	}
+	return m, nil
+}
+
 type IndexInput struct {
 	*DataInput
 	desc   string
