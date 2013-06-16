@@ -33,7 +33,7 @@ var (
 			}
 		}()
 
-		err = CheckHeader(input, LUCENE40_CODEC_NAME, LUCENE40_VERSION_START, LUCENE40_VERSION_CURRENT)
+		err = CheckHeader(input.DataInput, LUCENE40_CODEC_NAME, LUCENE40_VERSION_START, LUCENE40_VERSION_CURRENT)
 		if err != nil {
 			return si, err
 		}
