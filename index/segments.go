@@ -337,19 +337,41 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 	if format == CODEC_MAGIC {
 		// 4.0+
 		CheckHeaderNoMagic(input.DataInput, "segments", VERSION_40, VERSION_40)
-		sis.version = input.ReadLong()
-		sis.counter = input.ReadInt()
-		numSegments := input.ReadInt()
+		sis.version, err = input.ReadLong()
+		if err != nil {
+			return err
+		}
+		sis.counter, err = input.ReadInt()
+		if err != nil {
+			return err
+		}
+		numSegments, err := input.ReadInt()
+		if err != nil {
+			return err
+		}
 		if numSegments < 0 {
 			return &CorruptIndexError{fmt.Sprintf("invalid segment count: %v (resource: %v)", numSegments, input)}
 		}
 		for seg := 0; seg < numSegments; seg++ {
-			segName := input.ReadString()
-			method := CodecForName(input.ReadString())
+			segName, err := input.ReadString()
+			if err != nil {
+				return err
+			}
+			codecName, err := input.ReadString()
+			if err != nil {
+				return err
+			}
+			method := CodecForName(codecName)
 			info := method.SegmentInfoFormat().Reader().Read(directory, segName, store.IO_CONTEXT_READ)
 			info.Codec = method
-			delGen := input.ReadLong()
-			delCount := input.ReadInt()
+			delGen, err := input.ReadLong()
+			if err != nil {
+				return err
+			}
+			delCount, err := input.ReadInt()
+			if err != nil {
+				return err
+			}
 			if delCount < 0 || delCount > info.DocCount() {
 				return &CorruptIndexError{fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input)}
 			}
