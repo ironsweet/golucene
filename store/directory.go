@@ -262,9 +262,10 @@ func (in *DataInput) ReadStringStringMap() (m map[string]string, err error) {
 
 type IndexInput struct {
 	*DataInput
-	desc   string
-	Length func() int64
-	close  func() error
+	desc        string
+	close       func() error
+	FilePointer func() int64
+	Length      func() int64
 }
 
 func newIndexInput(desc string) *IndexInput {
@@ -308,6 +309,9 @@ func newBufferedIndexInputBySize(desc string, bufferSize int) *BufferedIndexInpu
 		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
 		return b, nil
+	}
+	super.FilePointer = func() int64 {
+		return in.bufferStart + int64(in.bufferPosition)
 	}
 	return in
 }
@@ -360,10 +364,6 @@ func (in *BufferedIndexInput) refill() error {
 	return nil
 }
 
-func (in *BufferedIndexInput) FilePointer() int64 {
-	return in.bufferStart + int64(in.bufferPosition)
-}
-
 type FSIndexInput struct {
 	*BufferedIndexInput
 	file      *os.File
@@ -405,5 +405,26 @@ type ChecksumIndexInput struct {
 
 func NewChecksumIndexInput(main *IndexInput) *ChecksumIndexInput {
 	super := newIndexInput(fmt.Sprintf("ChecksumIndexInput(%v)", main))
-	return &ChecksumIndexInput{super, main, crc32.NewIEEE()}
+	digest := crc32.NewIEEE()
+	super.ReadByte = func() (b byte, err error) {
+		b, err = main.ReadByte()
+		if err == nil {
+			digest.Write([]byte{b})
+		}
+		return b, err
+	}
+	super.ReadBytes = func(buf []byte) (n int, err error) {
+		n, err = main.ReadBytes(buf)
+		if err == nil {
+			digest.Write(buf)
+		}
+		return n, err
+	}
+	super.FilePointer = main.FilePointer
+	super.Length = main.Length
+	return &ChecksumIndexInput{super, main, digest}
+}
+
+func (in *ChecksumIndexInput) Checksum() int64 {
+	return int64(in.digest.Sum32())
 }

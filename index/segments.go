@@ -394,13 +394,16 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 			}
 			sis.Segments = append(sis.Segments, NewSegmentInfoPerCommit(info, delCount, delGen))
 		}
-		sis.userData = input.readStringStringMap()
+		sis.userData, err = input.ReadStringStringMap()
+		if err != nil {
+			return err
+		}
 	} else {
 		// TODO support <4.0 index
 		panic("not supported yet")
 	}
 
-	if checksumNow, checksumThen = input.Checksum(), input.ReadLong(); checksumNow != checksumThen {
+	if checksumNow, checksumThen := int64(input.Checksum()), input.ReadLong(); checksumNow != checksumThen {
 		return &CorruptIndexError{fmt.Sprintf("checksum mismatch in segments file (resource: %v)", input)}
 	}
 

@@ -18,18 +18,21 @@ const (
 
 var (
 	Lucene40SegmentInfoReader = func(dir *store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error) {
+		si = SegmentInfo{}
 		fileName := SegmentFileName(segment, "", LUCENE40_SI_EXTENSION)
-		input := dir.OpenInput(fileName, context)
+		input, err := dir.OpenInput(fileName, context)
+		if err != nil {
+			return si, err
+		}
 		success := false
 		defer func() {
 			if !success {
-				util.CloseWhileSupressingError(input)
+				util.CloseWhileSupressingException(input)
 			} else {
 				input.Close()
 			}
 		}()
 
-		si = SegmentInfo{}
 		err = CheckHeader(input, LUCENE40_CODEC_NAME, LUCENE40_VERSION_START, LUCENE40_VERSION_CURRENT)
 		if err != nil {
 			return si, err
