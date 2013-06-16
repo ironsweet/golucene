@@ -65,7 +65,7 @@ var (
 				fileName, input.FilePointer(), input.Length(), input)}
 		}
 
-		si = NewSegmentInfo(dir, version, segment, docCount, isCompoundFile, nil, dianostics, attributes)
+		si = SegmentInfo{dir, version, segment, docCount, isCompoundFile, nil, dianostics, attributes}
 		si.Files = files
 
 		success = true

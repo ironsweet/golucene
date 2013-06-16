@@ -266,6 +266,14 @@ const (
 )
 
 type SegmentInfo struct {
+	dir            *store.Directory
+	version        string
+	name           string
+	docCount       int
+	isCompoundFile bool
+	codec          Codec
+	diagnostics    map[string]string
+	attributes     map[string]string
 }
 
 type SegmentInfos struct {
@@ -368,8 +376,11 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 			}
 			// method := CodecForName(codecName)
 			method := NewLucene42Codec()
-			info := method.SegmentInfoFormat().Reader().Read(directory, segName, store.IO_CONTEXT_READ)
-			info.Codec = method
+			info, err := method.ReadSegmentInfoFormat(directory, segName, store.IO_CONTEXT_READ)
+			if err != nil {
+				return err
+			}
+			info.codec = method
 			delGen, err := input.ReadLong()
 			if err != nil {
 				return err
@@ -378,10 +389,10 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 			if err != nil {
 				return err
 			}
-			if delCount < 0 || delCount > info.DocCount() {
+			if delCount < 0 || delCount > info.docCount {
 				return &CorruptIndexError{fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input)}
 			}
-			sis.Add(NewSegmentInfoPerCommit(info, delCount, delGen))
+			sis.Segments = append(sis.Segments, NewSegmentInfoPerCommit(info, delCount, delGen))
 		}
 		sis.userData = input.readStringStringMap()
 	} else {
@@ -402,6 +413,18 @@ func (sis *SegmentInfos) Clear() {
 }
 
 type SegmentInfoPerCommit struct {
+	info            SegmentInfo
+	delCount        int
+	delGen          int64
+	nextWriteDelGen int64
+}
+
+func NewSegmentInfoPerCommit(info SegmentInfo, delCount int, delGen int64) SegmentInfoPerCommit {
+	nextWriteDelGen := int64(1)
+	if delGen != -1 {
+		nextWriteDelGen = delGen + 1
+	}
+	return SegmentInfoPerCommit{info, delCount, delGen, nextWriteDelGen}
 }
 
 type SegmentReader struct {
