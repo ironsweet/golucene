@@ -260,6 +260,22 @@ func (in *DataInput) ReadStringStringMap() (m map[string]string, err error) {
 	return m, nil
 }
 
+func (in *DataInput) ReadStringSet() (s map[string]bool, err error) {
+	count, err := in.ReadInt()
+	if err != nil {
+		return nil, err
+	}
+	s = make(map[string]bool)
+	for i := 0; i < count; i++ {
+		key, err := in.ReadString()
+		if err != nil {
+			return nil, err
+		}
+		s[key] = true
+	}
+	return s, nil
+}
+
 type IndexInput struct {
 	*DataInput
 	desc        string
