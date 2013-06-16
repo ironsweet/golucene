@@ -184,7 +184,7 @@ type IndexInput struct {
 	*DataInput
 	desc   string
 	Length func() int64
-	Close  func() error
+	close  func() error
 }
 
 func newIndexInput(desc string) *IndexInput {
@@ -193,6 +193,10 @@ func newIndexInput(desc string) *IndexInput {
 	}
 	super := &DataInput{}
 	return &IndexInput{DataInput: super, desc: desc}
+}
+
+func (in *IndexInput) Close() error {
+	return in.close()
 }
 
 type BufferedIndexInput struct {
@@ -303,7 +307,7 @@ func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *F
 	super.Length = func() int64 {
 		return in.end - in.off
 	}
-	super.Close = func() error {
+	super.close = func() error {
 		// only close the file if this is not a clone
 		if !in.isClone {
 			in.file.Close()

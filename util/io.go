@@ -23,3 +23,12 @@ func CloseWhileHandlingException(priorErr error, objects ...Closeable) error {
 		return nil
 	}
 }
+
+func CloseWhileSupressingException(objects ...Closeable) {
+	for _, object := range objects {
+		if object == nil {
+			continue
+		}
+		object.Close()
+	}
+}

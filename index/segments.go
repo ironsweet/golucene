@@ -325,13 +325,16 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 			// Clear any segment infos we had loaded so we
 			// have a clean slate on retry:
 			sis.Clear()
-			util.CloseWhileHandlingException(input)
+			util.CloseWhileSupressingException(input)
 		} else {
 			input.Close()
 		}
 	}()
 
-	format := input.ReadInt()
+	format, err := input.ReadInt()
+	if err != nil {
+		return err
+	}
 	if format == codec.CODEC_MAGIC {
 		// 4.0+
 		codec.CheckHeaderNoMagic(input, "segments", VERSION_40, VERSION_40)
