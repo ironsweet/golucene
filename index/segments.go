@@ -265,6 +265,9 @@ const (
 	FORMAT_SEGMENTS_GEN_CURRENT = -2
 )
 
+type SegmentInfo struct {
+}
+
 type SegmentInfos struct {
 	counter        int
 	version        int64
@@ -360,8 +363,11 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 			codecName, err := input.ReadString()
 			if err != nil {
 				return err
+			} else if codecName != "lucene42" {
+				log.Panicf("Not supported yet: %v", codecName)
 			}
-			method := CodecForName(codecName)
+			// method := CodecForName(codecName)
+			method := NewLucene42Codec()
 			info := method.SegmentInfoFormat().Reader().Read(directory, segName, store.IO_CONTEXT_READ)
 			info.Codec = method
 			delGen, err := input.ReadLong()
