@@ -14,6 +14,8 @@ const (
 	LUCENE40_CODEC_NAME      = "Lucene40SegmentInfo"
 	LUCENE40_VERSION_START   = 0
 	LUCENE40_VERSION_CURRENT = LUCENE40_VERSION_START
+
+	SEGMENT_INFO_YES = 1
 )
 
 var (
@@ -33,7 +35,7 @@ var (
 			}
 		}()
 
-		err = CheckHeader(input.DataInput, LUCENE40_CODEC_NAME, LUCENE40_VERSION_START, LUCENE40_VERSION_CURRENT)
+		_, err = CheckHeader(input.DataInput, LUCENE40_CODEC_NAME, LUCENE40_VERSION_START, LUCENE40_VERSION_CURRENT)
 		if err != nil {
 			return si, err
 		}
@@ -41,14 +43,18 @@ var (
 		if err != nil {
 			return si, err
 		}
-		docCount, err := inpiut.ReadInt()
+		docCount, err := input.ReadInt()
 		if err != nil {
 			return si, err
 		}
 		if docCount < 0 {
 			return si, &CorruptIndexError{fmt.Sprintf("invalid docCount: %v (resource=%v)", docCount, input)}
 		}
-		isCompoundFile := (input.ReadByte() == SEGMENT_INFO_YES)
+		sicf, err := input.ReadByte()
+		if err != nil {
+			return si, err
+		}
+		isCompoundFile := (sicf == SEGMENT_INFO_YES)
 		diagnostics, err := input.ReadStringStringMap()
 		if err != nil {
 			return si, err
