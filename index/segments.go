@@ -7,6 +7,7 @@ import (
 	"log"
 	"lucene/store"
 	"lucene/util"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -274,6 +275,17 @@ type SegmentInfo struct {
 	codec          Codec
 	diagnostics    map[string]string
 	attributes     map[string]string
+	Files          map[string]bool // must use CheckFileNames()
+}
+
+var CODEC_FILE_PATTERN = regexp.MustCompile("_[a-z0-9]+(_.*)?\\..*")
+
+func (si *SegmentInfo) CheckFileNames(files map[string]bool) {
+	for file, _ := range files {
+		if !CODEC_FILE_PATTERN.MatchString(file) {
+			panic(fmt.Sprintf("invalid codec filename '%v', must match: %v", file, CODEC_FILE_PATTERN))
+		}
+	}
 }
 
 type SegmentInfos struct {
