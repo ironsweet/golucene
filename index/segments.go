@@ -429,7 +429,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 }
 
 func (sis *SegmentInfos) Clear() {
-	sis.segments = make([]SegmentInfoPerCommit, 0)
+	sis.Segments = make([]SegmentInfoPerCommit, 0)
 }
 
 type SegmentInfoPerCommit struct {
