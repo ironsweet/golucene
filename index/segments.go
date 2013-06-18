@@ -415,7 +415,12 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 		panic("not supported yet")
 	}
 
-	if checksumNow, checksumThen := int64(input.Checksum()), input.ReadLong(); checksumNow != checksumThen {
+	checksumNow := int64(input.Checksum())
+	checksumThen, err := input.ReadLong()
+	if err != nil {
+		return err
+	}
+	if checksumNow != checksumThen {
 		return &CorruptIndexError{fmt.Sprintf("checksum mismatch in segments file (resource: %v)", input)}
 	}
 
