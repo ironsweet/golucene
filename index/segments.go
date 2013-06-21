@@ -460,8 +460,8 @@ type SegmentReader struct {
 	core     SegmentCoreReaders
 }
 
-func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, context store.IOContext) *SegmentReader {
-	r := &SegmentReader{}
+func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, context store.IOContext) (r *SegmentReader, err error) {
+	r = &SegmentReader{}
 	r.AtomicReader = newAtomicReader(r)
 	r.si = si
 	r.core = newSegmentCoreReaders(r, si.info.dir, si, context, termInfosIndexDivisor)
@@ -485,7 +485,7 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 	}
 	r.numDocs = si.info.docCount - si.delCount
 	success = true
-	return r
+	return r, nil
 }
 
 type SegmentCoreReaders struct {

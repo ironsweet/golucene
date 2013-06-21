@@ -313,7 +313,7 @@ func openStandardDirectoryReader(directory *store.Directory,
 		for i := len(sis.Segments) - 1; i >= 0; i-- {
 			readers[i], err = NewSegmentReader(sis.Segments[i], termInfosIndexDivisor, store.IO_CONTEXT_READ)
 			if err != nil {
-				return nil, util.CloseWhileHandlingError(err, readers)
+				return nil, util.CloseWhileHandlingError(err, readers...)
 			}
 		}
 		return newStandardDirectoryReader(directory, readers, *sis, termInfosIndexDivisor, false), nil
