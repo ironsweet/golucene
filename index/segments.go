@@ -262,6 +262,7 @@ func SegmentFileName(name, suffix, ext string) string {
 const (
 	INDEX_FILENAME_SEGMENTS     = "segments"
 	INDEX_FILENAME_SEGMENTS_GEN = "segments.gen"
+	COMOPUND_FILE_EXTENSION     = "cfs"
 	VERSION_40                  = 0
 	FORMAT_SEGMENTS_GEN_CURRENT = -2
 )
@@ -480,4 +481,142 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 	}
 	r.numDocs = si.info.DocCount() - si.DelCount()
 	success = true
+}
+
+type SegmentCoreReaders struct {
+	fieldInfos FieldInfos
+
+	termsIndexDivisor int
+
+	cfsReader store.CompoundFileDirectory
+}
+
+type CoreClosedListener interface {
+	onClose(r *SegmentReader)
+}
+
+func newSegmentCoreReaders(owner SegmentReader, dir *store.Directory, si SegmentInfoPerCommit,
+	context store.IOContext, termsIndexDivisor int) SegmentCoreReaders {
+	if termsIndexDivisor == 0 {
+		panic("indexDivisor must be < 0 (don't load terms index) or greater than 0 (got 0)")
+	}
+
+	addListener := make(chan *CoreClosedListener)
+	removeListener := make(chan *CoreClosedListener)
+	notifyListener := make(chan *SegmentReader)
+	go func() {
+		coreClosedListeners := make([]*CoreClosedListener, 0)
+		nRemoved := 0
+		isRunning := true
+		var listener *CoreClosedListener
+		for isRunning {
+			select {
+			case listener = <-addListener:
+				coreClosedListeners = append(coreClosedListeners, listener)
+			case listener = <-removeListener:
+				for i, v := range coreClosedListeners {
+					if v == listener {
+						coreClosedListeners[i] = nil
+						nRemoved++
+					}
+				}
+				if n := len(coreClosedListeners); n > 16 && nRemoved > n/2 {
+					newListeners := make([]*CoreClosedListeners, 0)
+					i := 0
+					for _, v := range coreClosedListeners {
+						if v == nil {
+							continue
+						}
+						newListeners = append(newListeners, v)
+					}
+				}
+			case owner := <-notifyListener:
+				isRunning = false
+				for _, v := range coreClosedListeners {
+					v.onClose(owner)
+				}
+			}
+		}
+	}()
+
+	incRef := make(chan bool)
+	decRef := make(chan bool)
+	go func() {
+		ref := 0
+		isRunning := true
+		for isRunning {
+			select {
+			case <-incRef:
+				ref++
+			case <-decRef:
+				ref--
+				if ref == 0 {
+					utils.Close(r.termVectorsLocal, r.fieldsReaderLocal, docValuesLocal, normsLocal, fields, dvProducer,
+						termVectorsReaderOrig, fieldsReaderOrig, cfsReader, normsProducer)
+					notifyListener <- true
+					isRunning = false
+				}
+			}
+		}
+	}()
+
+	self := SegmentCoreReaders{}
+	success := false
+	defer func() {
+		if !success {
+			self.decRef()
+		}
+	}()
+
+	codec := si.info.codec
+	var cfsDir *store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
+	if si.info.isCompoundFile {
+		self.cfsReader = NewCompoundFileDirectory(dir,
+			SegmentFileName(si.info.name, "", COMPOUND_FILE_EXTENSION), context, false)
+		cfsDir = self.cfsReader
+	} else {
+		self.cfsReader = nil
+		cfsDir = dir
+	}
+	self.fieldInfos = codec.ReadFieldInfos(cfsDir, si.info.name, IOContext.READONCE)
+	self.termsIndexDivisor = termsIndexDivisor
+
+	segmentReadState = NewSegmentReadState(cfsDir, si.info, fieldInfos, context, termsIndexDivisor)
+	// Ask codec for its Fields
+	self.fields = codec.FieldsProducer(segmentReadState)
+	// assert fields != null;
+	// ask codec for its Norms:
+	// TODO: since we don't write any norms file if there are no norms,
+	// kinda jaky to assume the codec handles the case of no norms file at all gracefully?!
+
+	if self.fieldInfos.hasDocValues {
+		self.dvProducer = codec.DocValuesProducer(segmentReadState)
+		// assert dvProducer != null;
+	} else {
+		self.dvProducer = nil
+	}
+
+	if self.fieldInfos.hasNorms {
+		self.normsProducer = codec.NormsProducer(segmentReadState)
+		// assert normsProducer != null;
+	} else {
+		self.normsProducer = nil
+	}
+
+	self.fieldsReaderOrig = si.info.codec.StoredFieldsReader(cfsDir, si.info, fieldInfos, context)
+
+	if self.fieldInfos.hasVectors { // open term vector files only as needed
+		self.termVectorsReaderOrig = si.info.codecTermVectorsReader(cfsDir, si.info, fieldInfos, context)
+	} else {
+		self.termVectorsReaderOrig = nil
+	}
+
+	success = true
+
+	// Must assign this at the end -- if we hit an
+	// exception above core, we don't want to attempt to
+	// purge the FieldCache (will hit NPE because core is
+	// not assigned yet).
+	self.owner = owner
+	return self
 }

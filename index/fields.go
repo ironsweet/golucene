@@ -1,5 +1,9 @@
 package index
 
+import (
+	"fmt"
+)
+
 type Fields interface {
 	// Iterator of string
 	Terms(field string) Terms
@@ -81,3 +85,95 @@ func GetMultiTerms(r IndexReader, field string) Terms {
 	}
 	return fields.Terms(field)
 }
+
+type FieldInfo struct {
+	// Field's name
+	name string
+	// Internal field number
+	number int
+
+	indexed      bool
+	docValueType DocValuesType
+
+	// True if any document indexed term vectors
+	storeTermVector bool
+
+	normType      DocValuesType
+	omitNorms     bool
+	indexOptions  IndexOptions
+	storePayloads bool
+
+	attributes map[string]string
+}
+
+func NewFieldInfo(name string, indexed bool, number int, storeTermVector, omitNorms, storePayloads bool,
+	indexOptions IndexOptions, docValues, normsType DocValuesType, attributes map[string]string) FieldInfo {
+	fi := FieldInfo{name: name, indexed: indexed, number: number, docValueType: docValues, attributes: attributes}
+	if indexed {
+		fi.storeTermVector = storeTermVector
+		fi.storePayloads = storePayloads
+		fi.omitNorms = omitNorms
+		fi.indexOptions = indexOptions
+		if omitNorms {
+			fi.normType = normsType
+		}
+	} // for non-indexed fields, leave defaults
+	// assert checkConsistency()
+	return fi
+}
+
+type FieldInfos struct {
+	hasFreq      bool
+	hasProx      bool
+	hasPayloads  bool
+	hasOffsets   bool
+	hasVectors   bool
+	hasNorms     bool
+	hasDocValues bool
+
+	byNumber map[int]FieldInfo
+	byName   map[string]FieldInfo
+	values   []FieldInfo // sorted by ID
+}
+
+func NewFieldInfos(infos []FieldInfo) FieldInfos {
+	self := FieldInfos{byNumber: make(map[int]FieldInfo), byName: make(map[string]FieldInfo)}
+
+	var hasVectors, hasProx, hasPayloads, hasOffsets, hasFreq, hasNorms, hasDocValues bool
+	for _, info := range infos {
+		if prev, ok := self.byNumber[info.number]; ok {
+			panic(fmt.Sprintf("duplicate field numbers: %v and %v have: %v", prev.name, info.name, info.number))
+		}
+		if prev, ok := self.byName[info.name]; ok {
+			panic(fmt.Sprintf("duplicate field names: %v and %v have: %v", prev.number, info.number, info.name))
+		}
+
+		self.hasVectors = self.hasVectors || info.storeTermVector
+		self.hasProx = self.hasProx || info.indexed && info.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
+		self.hasFreq = self.hasFreq || info.indexed && info.indexOptions != INDEX_OPT_DOCS_ONLY
+		self.hasOffsets = self.hasOffsets || info.indexed && info.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
+		self.hasNorms = self.hasNorms || info.normType != 0
+		self.hasDocValues = self.hasDocValues || info.docValueType != 0
+		self.hasPayloads = self.hasPayloads || info.storePayloads
+	}
+
+	return self
+}
+
+type IndexOptions int
+
+const (
+	INDEX_OPT_DOCS_ONLY                                = IndexOptions(1)
+	INDEX_OPT_DOCS_AND_FREQS                           = IndexOptions(2)
+	INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS             = IndexOptions(3)
+	INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS = IndexOptions(4)
+)
+
+type DocValuesType int
+
+const (
+	DOC_VALUES_TYPE_NUMERIC    = DocValuesType(1)
+	DOC_VALUES_TYPE_BINARY     = DocValuesType(2)
+	DOC_VALUES_TYPE_SORTED     = DocValuesType(3)
+	DOC_VALUES_TYPE_SORTED_SET = DocValuesType(4)
+)
