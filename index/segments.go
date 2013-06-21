@@ -348,7 +348,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 			// Clear any segment infos we had loaded so we
 			// have a clean slate on retry:
 			sis.Clear()
-			util.CloseWhileSupressingException(input)
+			util.CloseWhileSupressingError(input)
 		} else {
 			input.Close()
 		}
@@ -389,7 +389,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 			}
 			// method := CodecForName(codecName)
 			method := NewLucene42Codec()
-			info, err := method.ReadSegmentInfoFormat(directory, segName, store.IO_CONTEXT_READ)
+			info, err := method.ReadSegmentInfo(directory, segName, store.IO_CONTEXT_READ)
 			if err != nil {
 				return err
 			}
@@ -448,6 +448,10 @@ func NewSegmentInfoPerCommit(info SegmentInfo, delCount int, delGen int64) Segme
 	return SegmentInfoPerCommit{info, delCount, delGen, nextWriteDelGen}
 }
 
+func (si SegmentInfoPerCommit) HasDeletions() bool {
+	return si.delGen != -1
+}
+
 type SegmentReader struct {
 	*AtomicReader
 	si       SegmentInfoPerCommit
@@ -460,7 +464,7 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 	r := &SegmentReader{}
 	r.AtomicReader = newAtomicReader(r)
 	r.si = si
-	r.core = NewSegmentCoreReaders(r, si.info.dir, si, context, termInfosIndexDivisor)
+	r.core = newSegmentCoreReaders(r, si.info.dir, si, context, termInfosIndexDivisor)
 	success := false
 	defer func() {
 		// With lock-less commits, it's entirely possible (and
@@ -469,18 +473,19 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 		// of things that were opened so that we don't have to
 		// wait for a GC to do so.
 		if !success {
-			core.decRef()
+			r.core.decRef <- true
 		}
 	}()
 
-	if si.hasDeletions() {
+	if si.HasDeletions() {
 		panic("not supported yet")
 	} else {
 		// assert si.getDelCount() == 0
 		r.liveDocs = nil
 	}
-	r.numDocs = si.info.DocCount() - si.DelCount()
+	r.numDocs = si.info.docCount - si.delCount
 	success = true
+	return r
 }
 
 type SegmentCoreReaders struct {
@@ -489,6 +494,10 @@ type SegmentCoreReaders struct {
 	termsIndexDivisor int
 
 	cfsReader store.CompoundFileDirectory
+
+	addListener    chan *CoreClosedListener
+	removeListener chan *CoreClosedListener
+	decRef         chan bool
 }
 
 type CoreClosedListener interface {
@@ -501,8 +510,10 @@ func newSegmentCoreReaders(owner SegmentReader, dir *store.Directory, si Segment
 		panic("indexDivisor must be < 0 (don't load terms index) or greater than 0 (got 0)")
 	}
 
-	addListener := make(chan *CoreClosedListener)
-	removeListener := make(chan *CoreClosedListener)
+	self := SegmentCoreReaders{}
+
+	self.addListener = make(chan *CoreClosedListener)
+	self.removeListener = make(chan *CoreClosedListener)
 	notifyListener := make(chan *SegmentReader)
 	go func() {
 		coreClosedListeners := make([]*CoreClosedListener, 0)
@@ -511,9 +522,9 @@ func newSegmentCoreReaders(owner SegmentReader, dir *store.Directory, si Segment
 		var listener *CoreClosedListener
 		for isRunning {
 			select {
-			case listener = <-addListener:
+			case listener = <-self.addListener:
 				coreClosedListeners = append(coreClosedListeners, listener)
-			case listener = <-removeListener:
+			case listener = <-self.removeListener:
 				for i, v := range coreClosedListeners {
 					if v == listener {
 						coreClosedListeners[i] = nil
@@ -540,7 +551,7 @@ func newSegmentCoreReaders(owner SegmentReader, dir *store.Directory, si Segment
 	}()
 
 	incRef := make(chan bool)
-	decRef := make(chan bool)
+	self.decRef = make(chan bool)
 	go func() {
 		ref := 0
 		isRunning := true
@@ -548,10 +559,10 @@ func newSegmentCoreReaders(owner SegmentReader, dir *store.Directory, si Segment
 			select {
 			case <-incRef:
 				ref++
-			case <-decRef:
+			case <-self.decRef:
 				ref--
 				if ref == 0 {
-					utils.Close(r.termVectorsLocal, r.fieldsReaderLocal, docValuesLocal, normsLocal, fields, dvProducer,
+					util.Close(self.termVectorsLocal, self.fieldsReaderLocal, docValuesLocal, normsLocal, fields, dvProducer,
 						termVectorsReaderOrig, fieldsReaderOrig, cfsReader, normsProducer)
 					notifyListener <- true
 					isRunning = false
@@ -560,7 +571,6 @@ func newSegmentCoreReaders(owner SegmentReader, dir *store.Directory, si Segment
 		}
 	}()
 
-	self := SegmentCoreReaders{}
 	success := false
 	defer func() {
 		if !success {
