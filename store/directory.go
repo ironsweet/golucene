@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash"
 	"hash/crc32"
+	"io"
 	"math"
 	"os"
 	"strconv"
@@ -51,6 +52,7 @@ type FSLockFactory struct {
 }
 
 type Directory struct {
+	io.Closer
 	isOpen      bool
 	lockFactory LockFactory
 	ListAll     func() (paths []string, err error)

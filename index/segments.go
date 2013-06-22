@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 )
 
 type FindSegmentsFile struct {
@@ -473,7 +474,7 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 		// of things that were opened so that we don't have to
 		// wait for a GC to do so.
 		if !success {
-			r.core.decRef <- true
+			r.core.decRef()
 		}
 	}()
 
@@ -493,6 +494,8 @@ type CoreClosedListener interface {
 }
 
 type SegmentCoreReaders struct {
+	refCount int32 // synchronized
+
 	fieldInfos FieldInfos
 
 	fields        FieldsProducer
@@ -509,7 +512,7 @@ type SegmentCoreReaders struct {
 
 	addListener    chan CoreClosedListener
 	removeListener chan CoreClosedListener
-	decRef         chan bool
+	notifyListener chan *SegmentReader
 }
 
 func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si SegmentInfoPerCommit,
@@ -518,11 +521,11 @@ func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si Segmen
 		panic("indexDivisor must be < 0 (don't load terms index) or greater than 0 (got 0)")
 	}
 
-	self := SegmentCoreReaders{}
+	self := SegmentCoreReaders{refCount: 1}
 
 	self.addListener = make(chan CoreClosedListener)
 	self.removeListener = make(chan CoreClosedListener)
-	notifyListener := make(chan *SegmentReader)
+	self.notifyListener = make(chan *SegmentReader)
 	go func() {
 		coreClosedListeners := make([]CoreClosedListener, 0)
 		nRemoved := 0
@@ -549,32 +552,10 @@ func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si Segmen
 						newListeners = append(newListeners, v)
 					}
 				}
-			case owner := <-notifyListener:
+			case owner := <-self.notifyListener:
 				isRunning = false
 				for _, v := range coreClosedListeners {
 					v.onClose(owner)
-				}
-			}
-		}
-	}()
-
-	incRef := make(chan bool)
-	self.decRef = make(chan bool)
-	go func() {
-		ref := 0
-		isRunning := true
-		for isRunning {
-			select {
-			case <-incRef:
-				ref++
-			case <-self.decRef:
-				ref--
-				if ref == 0 {
-					util.Close( /*self.termVectorsLocal, self.fieldsReaderLocal, docValuesLocal, normsLocal,*/
-						self.fields, self.dvProducer, self.termVectorsReaderOrig, self.fieldsReaderOrig,
-						self.cfsReader, self.normsProducer)
-					notifyListener <- true
-					isRunning = false
 				}
 			}
 		}
@@ -638,4 +619,13 @@ func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si Segmen
 	// not assigned yet).
 	self.owner = owner
 	return self
+}
+
+func (r *SegmentCoreReaders) decRef() {
+	if atomic.AddInt32(&r.refCount, -1) == 0 {
+		util.Close( /*self.termVectorsLocal, self.fieldsReaderLocal, docValuesLocal, normsLocal,*/
+			self.fields, self.dvProducer, self.termVectorsReaderOrig, self.fieldsReaderOrig,
+			self.cfsReader, self.normsProducer)
+		notifyListener <- self
+	}
 }
