@@ -1,17 +1,23 @@
 package index
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"lucene/store"
 	"lucene/util"
 	"math"
 	"sync"
+	"sync/atomic"
 )
 
 type IndexReader struct {
 	self              interface{} // to infer embedders
+	lock              sync.Mutex
+	closed            bool
 	closedByChild     bool
-	refCount          uint32 // synchronized
+	doClose           func() error
+	refCount          int32 // synchronized
 	parentReaders     map[*IndexReader]bool
 	parentReadersLock sync.RWMutex
 	Context           func() IndexReaderContext
@@ -23,8 +29,33 @@ func newIndexReader(self interface{}) *IndexReader {
 	return &IndexReader{self: self, refCount: 1}
 }
 
-func (r *IndexReader) ensureOpen() {
+func (r *IndexReader) decRef() error {
+	// only check refcount here (don't call ensureOpen()), so we can
+	// still close the reader if it was made invalid by a child:
 	if r.refCount <= 0 {
+		return errors.New("this IndexReader is closed")
+	}
+
+	rc := atomic.AddInt32(&r.refCount, -1)
+	if rc == 0 {
+		success := false
+		defer func() {
+			if !success {
+				// Put reference back on failure
+				atomic.AddInt32(&r.refCount, 1)
+			}
+		}()
+		r.doClose()
+		success = true
+	} else if rc < 0 {
+		panic(fmt.Sprintf("too many decRef calls: refCount is %v after decrement", rc))
+	}
+
+	return nil
+}
+
+func (r *IndexReader) ensureOpen() {
+	if atomic.LoadInt32(&r.refCount) <= 0 {
 		panic("this IndexReader is closed")
 	}
 	// the happens before rule on reading the refCount, which must be after the fake write,
@@ -39,6 +70,16 @@ func (r *IndexReader) registerParentReader(reader *IndexReader) {
 	r.parentReadersLock.Lock()
 	r.parentReaders[reader] = true
 	r.parentReadersLock.Unlock()
+}
+
+func (r *IndexReader) Close() error {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	if !r.closed {
+		r.closed = true
+		return r.decRef()
+	}
+	return nil
 }
 
 type IndexReaderContext struct {
@@ -309,11 +350,16 @@ func openStandardDirectoryReader(directory *store.Directory,
 	obj, err := NewFindSegmentsFile(directory, func(segmentFileName string) (obj interface{}, err error) {
 		sis := &SegmentInfos{}
 		sis.Read(directory, segmentFileName)
-		readers := make([]*SegmentReader, len(sis.Segments))
+		readers := make([]*AtomicReader, len(sis.Segments))
 		for i := len(sis.Segments) - 1; i >= 0; i-- {
-			readers[i], err = NewSegmentReader(sis.Segments[i], termInfosIndexDivisor, store.IO_CONTEXT_READ)
+			sr, err := NewSegmentReader(sis.Segments[i], termInfosIndexDivisor, store.IO_CONTEXT_READ)
+			readers[i] = sr.AtomicReader
 			if err != nil {
-				return nil, util.CloseWhileHandlingError(err, readers...)
+				rs := make([]io.Closer, len(readers))
+				for i, v := range readers {
+					rs[i] = v
+				}
+				return nil, util.CloseWhileHandlingError(err, rs...)
 			}
 		}
 		return newStandardDirectoryReader(directory, readers, *sis, termInfosIndexDivisor, false), nil

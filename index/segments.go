@@ -488,23 +488,31 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 	return r, nil
 }
 
-type SegmentCoreReaders struct {
-	fieldInfos FieldInfos
-
-	termsIndexDivisor int
-
-	cfsReader store.CompoundFileDirectory
-
-	addListener    chan *CoreClosedListener
-	removeListener chan *CoreClosedListener
-	decRef         chan bool
-}
-
 type CoreClosedListener interface {
 	onClose(r *SegmentReader)
 }
 
-func newSegmentCoreReaders(owner SegmentReader, dir *store.Directory, si SegmentInfoPerCommit,
+type SegmentCoreReaders struct {
+	fieldInfos FieldInfos
+
+	fields        FieldsProducer
+	dvProducer    DocValuesProducer
+	normsProducer DocValuesProducer
+
+	termsIndexDivisor int
+
+	owner *SegmentReader
+
+	fieldsReaderOrig      StoredFieldsReader
+	termVectorsReaderOrig TermVectorsReader
+	cfsReader             store.CompoundFileDirectory
+
+	addListener    chan CoreClosedListener
+	removeListener chan CoreClosedListener
+	decRef         chan bool
+}
+
+func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si SegmentInfoPerCommit,
 	context store.IOContext, termsIndexDivisor int) SegmentCoreReaders {
 	if termsIndexDivisor == 0 {
 		panic("indexDivisor must be < 0 (don't load terms index) or greater than 0 (got 0)")
@@ -512,14 +520,14 @@ func newSegmentCoreReaders(owner SegmentReader, dir *store.Directory, si Segment
 
 	self := SegmentCoreReaders{}
 
-	self.addListener = make(chan *CoreClosedListener)
-	self.removeListener = make(chan *CoreClosedListener)
+	self.addListener = make(chan CoreClosedListener)
+	self.removeListener = make(chan CoreClosedListener)
 	notifyListener := make(chan *SegmentReader)
 	go func() {
-		coreClosedListeners := make([]*CoreClosedListener, 0)
+		coreClosedListeners := make([]CoreClosedListener, 0)
 		nRemoved := 0
 		isRunning := true
-		var listener *CoreClosedListener
+		var listener CoreClosedListener
 		for isRunning {
 			select {
 			case listener = <-self.addListener:
@@ -532,7 +540,7 @@ func newSegmentCoreReaders(owner SegmentReader, dir *store.Directory, si Segment
 					}
 				}
 				if n := len(coreClosedListeners); n > 16 && nRemoved > n/2 {
-					newListeners := make([]*CoreClosedListeners, 0)
+					newListeners := make([]CoreClosedListener, 0)
 					i := 0
 					for _, v := range coreClosedListeners {
 						if v == nil {
@@ -562,8 +570,9 @@ func newSegmentCoreReaders(owner SegmentReader, dir *store.Directory, si Segment
 			case <-self.decRef:
 				ref--
 				if ref == 0 {
-					util.Close(self.termVectorsLocal, self.fieldsReaderLocal, docValuesLocal, normsLocal, fields, dvProducer,
-						termVectorsReaderOrig, fieldsReaderOrig, cfsReader, normsProducer)
+					util.Close( /*self.termVectorsLocal, self.fieldsReaderLocal, docValuesLocal, normsLocal,*/
+						self.fields, self.dvProducer, self.termVectorsReaderOrig, self.fieldsReaderOrig,
+						self.cfsReader, self.normsProducer)
 					notifyListener <- true
 					isRunning = false
 				}

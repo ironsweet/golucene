@@ -1,8 +1,8 @@
 package util
 
-type Closeable interface {
-	Close() error
-}
+import (
+	"io"
+)
 
 type CompoundError struct {
 	errs []error
@@ -12,7 +12,7 @@ func (e *CompoundError) Error() string {
 	return e.errs[0].Error()
 }
 
-func CloseWhileHandlingError(priorErr error, objects ...Closeable) error {
+func CloseWhileHandlingError(priorErr error, objects ...io.Closer) error {
 	var th error = nil
 
 	for _, object := range objects {
@@ -39,7 +39,7 @@ func CloseWhileHandlingError(priorErr error, objects ...Closeable) error {
 	return th
 }
 
-func CloseWhileSupressingError(objects ...Closeable) {
+func CloseWhileSupressingError(objects ...io.Closer) {
 	for _, object := range objects {
 		if object == nil {
 			continue
@@ -48,7 +48,7 @@ func CloseWhileSupressingError(objects ...Closeable) {
 	}
 }
 
-func Close(objects ...Closeable) error {
+func Close(objects ...io.Closer) error {
 	var th error = nil
 
 	for _, object := range objects {
