@@ -1,7 +1,7 @@
 package index
 
 import (
-	"lucene/store"
+	"github.com/balzaczyy/golucene/store"
 )
 
 const (

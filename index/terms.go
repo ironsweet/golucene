@@ -2,7 +2,7 @@ package index
 
 import (
 	"fmt"
-	"lucene/util"
+	"github.com/balzaczyy/golucene/util"
 )
 
 type Term struct {

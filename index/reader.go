@@ -3,9 +3,9 @@ package index
 import (
 	"errors"
 	"fmt"
+	"github.com/balzaczyy/golucene/store"
+	"github.com/balzaczyy/golucene/util"
 	"io"
-	"lucene/store"
-	"lucene/util"
 	"math"
 	"sync"
 	"sync/atomic"

@@ -3,10 +3,10 @@ package index
 import (
 	"errors"
 	"fmt"
+	"github.com/balzaczyy/golucene/store"
+	"github.com/balzaczyy/golucene/util"
 	"io"
 	"log"
-	"lucene/store"
-	"lucene/util"
 	"regexp"
 	"strconv"
 	"strings"

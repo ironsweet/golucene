@@ -2,8 +2,8 @@ package index
 
 import (
 	"fmt"
-	"lucene/store"
-	"lucene/util"
+	"github.com/balzaczyy/golucene/store"
+	"github.com/balzaczyy/golucene/util"
 )
 
 const (
