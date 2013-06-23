@@ -5,11 +5,11 @@ import (
 )
 
 type CorruptIndexError struct {
-	msg string
+	Msg string
 }
 
 func (err *CorruptIndexError) Error() string {
-	return err.msg
+	return err.Msg
 }
 
 func NewIndexFormatTooNewError(in *DataInput, version, minVersion, maxVersion int) *CorruptIndexError {

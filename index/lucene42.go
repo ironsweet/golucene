@@ -124,7 +124,8 @@ func getDocValuesType(input *store.IndexInput, b byte) (t DocValuesType, err err
 	case 3:
 		return DOC_VALUES_TYPE_SORTED_SET, nil
 	default:
-		return DocValuesType(0), &CorruptIndexError{fmt.Sprintf("invalid docvalues byte: %v (resource=%v)", b, input)}
+		return DocValuesType(0), &store.CorruptIndexError{
+			fmt.Sprintf("invalid docvalues byte: %v (resource=%v)", b, input)}
 	}
 }
 
