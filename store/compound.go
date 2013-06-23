@@ -2,7 +2,7 @@ package store
 
 import (
 	"fmt"
-	"lucene/util"
+	"github.com/balzaczyy/golucene/util"
 	"sync"
 )
 
