@@ -1,9 +1,9 @@
 package index
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"lucene/store"
 	"lucene/util"
@@ -221,45 +221,6 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 	}
 }
 
-func FileNameFromGeneration(base, ext string, gen int64) string {
-	switch {
-	case gen == -1:
-		return ""
-	case gen == 0:
-		return SegmentFileName(base, "", ext)
-	default:
-		// assert gen > 0
-		// The '6' part in the length is: 1 for '.', 1 for '_' and 4 as estimate
-		// to the gen length as string (hopefully an upper limit so SB won't
-		// expand in the middle.
-		var buffer bytes.Buffer
-		fmt.Fprintf(&buffer, "%v_%v", base, strconv.FormatInt(gen, 36))
-		if len(ext) > 0 {
-			buffer.WriteString(".")
-			buffer.WriteString(ext)
-		}
-		return buffer.String()
-	}
-}
-
-func SegmentFileName(name, suffix, ext string) string {
-	if len(ext) > 0 || len(suffix) > 0 {
-		// assert ext[0] != '.'
-		var buffer bytes.Buffer
-		buffer.WriteString(name)
-		if len(suffix) > 0 {
-			buffer.WriteString("_")
-			buffer.WriteString(suffix)
-		}
-		if len(ext) > 0 {
-			buffer.WriteString(".")
-			buffer.WriteString(ext)
-		}
-		return buffer.String()
-	}
-	return name
-}
-
 const (
 	INDEX_FILENAME_SEGMENTS     = "segments"
 	INDEX_FILENAME_SEGMENTS_GEN = "segments.gen"
@@ -361,7 +322,10 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 	}
 	if format == CODEC_MAGIC {
 		// 4.0+
-		CheckHeaderNoMagic(input.DataInput, "segments", VERSION_40, VERSION_40)
+		_, err = CheckHeaderNoMagic(input.DataInput, "segments", VERSION_40, VERSION_40)
+		if err != nil {
+			return err
+		}
 		sis.version, err = input.ReadLong()
 		if err != nil {
 			return err
@@ -628,4 +592,66 @@ func (r *SegmentCoreReaders) decRef() {
 			self.cfsReader, self.normsProducer)
 		notifyListener <- self
 	}
+}
+
+type FieldsProducer interface {
+	Fields
+	io.Closer
+}
+
+type DocValuesProducer interface {
+	io.Closer
+	Numeric(field FieldInfo) (v NumericDocValues, err error)
+	Binary(field FieldInfo) (v BinaryDocValues, err error)
+	Sorted(field FieldInfo) (v SortedDocValues, err error)
+	SortedSet(field FieldInfo) (v SortedSetDocValues, err error)
+}
+
+type NumericDocValues interface {
+	value(docID int) int64
+}
+type BinaryDocValues interface {
+	value(docID int, result []byte)
+}
+type SortedDocValues interface {
+	BinaryDocValues
+	ord(docID int) int
+	lookupOrd(ord int, result []byte)
+	valueCount() int
+}
+type SortedSetDocValues interface {
+	nextOrd() int64
+	setDocument(docID int)
+	lookupOrd(ord int64, result []byte)
+	valueCount() int64
+}
+
+type StoredFieldsReader interface {
+	io.Closer
+	visitDocument(n int, visitor StoredFieldVisitor) error
+	clone() StoredFieldsReader
+}
+
+type StoredFieldVisitor interface {
+	binaryField(fi FieldInfo, value []byte) error
+	stringField(fi FieldInfo, value string) error
+	intField(fi FieldInfo, value int) error
+	longField(fi FieldInfo, value int64) error
+	floatField(fi FieldInfo, value float32) error
+	doubleField(fi FieldInfo, value float64) error
+	needsField(fi FieldInfo) StoredFieldVisitorStatus
+}
+
+type StoredFieldVisitorStatus int
+
+const (
+	SOTRED_FIELD_VISITOR_STATUS_YES  = StoredFieldVisitorStatus(1)
+	SOTRED_FIELD_VISITOR_STATUS_NO   = StoredFieldVisitorStatus(2)
+	SOTRED_FIELD_VISITOR_STATUS_STOP = StoredFieldVisitorStatus(3)
+)
+
+type TermVectorsReader interface {
+	io.Closer
+	fields(doc int) Fields
+	clone() TermVectorsReader
 }
