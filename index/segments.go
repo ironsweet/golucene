@@ -95,21 +95,17 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 				defer genInput.Close()
 
 				version, err := genInput.ReadInt()
-				if _, ok := err.(*CorruptIndexError); ok {
+				if err != nil {
 					return nil, err
 				}
 				if version == FORMAT_SEGMENTS_GEN_CURRENT {
 					gen0, err := genInput.ReadLong()
 					if err != nil {
-						if _, ok := err.(*CorruptIndexError); ok {
-							return nil, err
-						}
+						return nil, err
 					} else {
 						gen1, err := genInput.ReadLong()
 						if err != nil {
-							if _, ok := err.(*CorruptIndexError); ok {
-								return nil, err
-							}
+							return nil, err
 						} else {
 							// if fsf.infoStream != nil {
 							log.Printf("fallback check: %v; %v", gen0, gen1)
@@ -339,7 +335,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 			return err
 		}
 		if numSegments < 0 {
-			return &CorruptIndexError{fmt.Sprintf("invalid segment count: %v (resource: %v)", numSegments, input)}
+			return errors.New(fmt.Sprintf("invalid segment count: %v (resource: %v)", numSegments, input))
 		}
 		for seg := 0; seg < numSegments; seg++ {
 			segName, err := input.ReadString()
@@ -368,7 +364,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 				return err
 			}
 			if delCount < 0 || delCount > info.docCount {
-				return &CorruptIndexError{fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input)}
+				return errors.New(fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input))
 			}
 			sis.Segments = append(sis.Segments, NewSegmentInfoPerCommit(info, delCount, delGen))
 		}
@@ -387,7 +383,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 		return err
 	}
 	if checksumNow != checksumThen {
-		return &CorruptIndexError{fmt.Sprintf("checksum mismatch in segments file (resource: %v)", input)}
+		return errors.New(fmt.Sprintf("checksum mismatch in segments file (resource: %v)", input))
 	}
 
 	success = true

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/util"
 	"sync"
@@ -140,7 +141,9 @@ func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping 
 		if secondByte != CODEC_MAGIC_BYTE2 ||
 			thirdByte != CODEC_MAGIC_BYTE3 ||
 			fourthByte != CODEC_MAGIC_BYTE4 {
-			return mapping, &CorruptIndexError{fmt.Sprintf("Illegal/impossible header for CFS file: %v,%v,%v", secondByte, thirdByte, fourthByte)}
+			return mapping, errors.New(fmt.Sprintf(
+				"Illegal/impossible header for CFS file: %v,%v,%v",
+				secondByte, thirdByte, fourthByte))
 		}
 		_, err = CheckHeaderNoMagic(stream.DataInput, CFD_DATA_CODEC, CFD_VERSION_START, CFD_VERSION_START)
 		if err != nil {
@@ -165,7 +168,8 @@ func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping 
 				return mapping, err
 			}
 			if _, ok := mapping[id]; ok {
-				return mapping, &CorruptIndexError{fmt.Sprintf("Duplicate cfs entry id=%v in CFS: %v", id, entriesStream)}
+				return mapping, errors.New(fmt.Sprintf(
+					"Duplicate cfs entry id=%v in CFS: %v", id, entriesStream))
 			}
 			offset, err := entriesStream.ReadLong()
 			if err != nil {

@@ -1,6 +1,7 @@
 package index
 
 import (
+	"errors"
 	"github.com/balzaczyy/golucene/store"
 )
 
@@ -44,7 +45,7 @@ var (
 			return si, err
 		}
 		if docCount < 0 {
-			return si, &CorruptIndexError{fmt.Sprintf("invalid docCount: %v (resource=%v)", docCount, input)}
+			return si, errors.New(fmt.Sprintf("invalid docCount: %v (resource=%v)", docCount, input))
 		}
 		sicf, err := input.ReadByte()
 		if err != nil {
@@ -65,9 +66,9 @@ var (
 		}
 
 		if input.FilePointer() != input.Length() {
-			return si, &CorruptIndexError{fmt.Sprintf(
+			return si, errors.New(fmt.Sprintf(
 				"did not read all bytes from file '%v': read %v vs size %v (resource: %v)",
-				fileName, input.FilePointer(), input.Length(), input)}
+				fileName, input.FilePointer(), input.Length(), input))
 		}
 
 		si = SegmentInfo{dir, version, segment, docCount, isCompoundFile, Codec{}, diagnostics, attributes, nil}

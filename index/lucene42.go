@@ -1,6 +1,7 @@
 package index
 
 import (
+	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
@@ -103,9 +104,9 @@ var (
 		}
 
 		if input.FilePointer() != input.Length() {
-			return fi, &CorruptIndexError{fmt.Sprintf(
+			return fi, errors.New(fmt.Sprintf(
 				"did not read all bytes from file '%v': read %v vs size %v (resource: %v)",
-				fileName, input.FilePointer(), input.Length(), input)}
+				fileName, input.FilePointer(), input.Length(), input))
 		}
 		fi = NewFieldInfos(infos)
 		success = true
@@ -124,8 +125,8 @@ func getDocValuesType(input *store.IndexInput, b byte) (t DocValuesType, err err
 	case 3:
 		return DOC_VALUES_TYPE_SORTED_SET, nil
 	default:
-		return DocValuesType(0), &store.CorruptIndexError{
-			fmt.Sprintf("invalid docvalues byte: %v (resource=%v)", b, input)}
+		return DocValuesType(0), errors.New(
+			fmt.Sprintf("invalid docvalues byte: %v (resource=%v)", b, input))
 	}
 }
 

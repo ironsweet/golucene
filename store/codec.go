@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -15,9 +16,9 @@ func CheckHeader(in *DataInput, codec string, minVersion, maxVersion int) (v int
 		return 0, err
 	}
 	if actualHeader != CODEC_MAGIC {
-		return 0, &CorruptIndexError{fmt.Sprintf(
+		return 0, errors.New(fmt.Sprintf(
 			"codec header mismatch: actual header=%v vs expected header=%v (resource: %v)",
-			actualHeader, CODEC_MAGIC, in)}
+			actualHeader, CODEC_MAGIC, in))
 	}
 	return CheckHeaderNoMagic(in, codec, minVersion, maxVersion)
 }
@@ -28,8 +29,8 @@ func CheckHeaderNoMagic(in *DataInput, codec string, minVersion, maxVersion int)
 		return 0, err
 	}
 	if actualCodec != codec {
-		return 0, &CorruptIndexError{fmt.Sprintf(
-			"codec mismatch: actual codec=%v vs expected codec=%v (resource: %v)", actualCodec, codec, in)}
+		return 0, errors.New(fmt.Sprintf(
+			"codec mismatch: actual codec=%v vs expected codec=%v (resource: %v)", actualCodec, codec, in))
 	}
 
 	actualVersion, err := in.ReadInt()
