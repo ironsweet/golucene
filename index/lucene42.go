@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
+	"io"
 )
 
 const (
@@ -131,11 +132,97 @@ func getDocValuesType(input *store.IndexInput, b byte) (t DocValuesType, err err
 }
 
 type Codec struct {
-	ReadSegmentInfo func(dir *store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error)
-	ReadFieldInfos  func(dir *store.Directory, segment string, context store.IOContext) (fi FieldInfos, err error)
+	ReadSegmentInfo   func(dir *store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error)
+	ReadFieldInfos    func(dir *store.Directory, segment string, context store.IOContext) (fi FieldInfos, err error)
+	GetFieldsProducer func(readState SegmentReadState) (fp FieldsProducer, err error)
 }
 
+func LoadFieldsProducer(name string, state SegmentReadState) FieldsProducer {
+	switch name {
+	case "Lucene41":
+		postingsReader := NewLucene41PostingReader(state.dir,
+			state.fieldInfos,
+			state.segmentInfo,
+			state.context,
+			state.segmentSuffix)
+		success := false
+		defer func() {
+			if !success {
+				util.CloseWhileSupressingError(postingsReader)
+			}
+		}()
+
+		ret := NewBlockTreeTermsReader(state.dir,
+			state.fieldInfos,
+			state.segmentInfo,
+			postingsReader,
+			state.context,
+			state.segmentSuffix,
+			state.termsIndexDivisor)
+		success = true
+		return ret
+	}
+	panic(fmt.Sprintf("Service '%v' not found.", name))
+}
+
+const (
+	PER_FIELD_FORMAT_KEY = "PerFieldPostingsFormat.format"
+	PER_FIELD_SUFFIX_KEY = "PerFieldPostingsFormat.suffix"
+)
+
 func NewLucene42Codec() Codec {
+	fields := make(map[string]FieldsProducer)
+	formats := make(map[string]FieldsProducer)
 	return Codec{ReadSegmentInfo: Lucene40SegmentInfoReader,
-		ReadFieldInfos: Lucene42FieldInfosReader}
+		ReadFieldInfos: Lucene42FieldInfosReader,
+		GetFieldsProducer: func(readState SegmentReadState) (fp FieldsProducer, err error) {
+			// Read _X.per and init each format:
+			success := false
+			defer func() {
+				if !success {
+					fps := make([]FieldsProducer, 0)
+					for _, v := range formats {
+						fps = append(fps, v)
+					}
+					util.CloseWhileSuppressingError(fps)
+				}
+			}()
+			// Read field name -> format name
+			for _, fi := range readState.fieldInfos {
+				if fi.indexed {
+					fieldName := fi.name
+					formatName = fi.attributes[PER_FIELD_FORMAT_KEY]
+					if formatName != nil {
+						// null formatName means the field is in fieldInfos, but has no postings!
+						suffix := fi.attributes[PER_FIELD_SUFFIX_KEY]
+						// assert suffix != nil
+						fp = LoadFieldsProducer(formatName, readState)
+						segmentSuffix := formatName + "_" + suffix
+						if _, ok := formats[segmentSuffix]; !ok {
+							formats[segmentSuffix] = format
+						}
+						fields[fieldName] = formats[segmentSuffix]
+					}
+				}
+			}
+			success = true
+		}}
+}
+
+type FieldsProducer struct {
+	*Fields
+	close func() error
+}
+
+func (fp *FieldsProducer) Close() error {
+	return fp.close()
+}
+
+type PostingsReaderBase interface {
+	io.Closer
+	// init(termsIn IndexInput)
+	// newTermState() BlockTermState
+	// nextTerm(fieldInfo FieldInfo, state BlockTermState)
+	// docs(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int)
+	// docsAndPositions(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits)
 }
