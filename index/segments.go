@@ -117,7 +117,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 						}
 					}
 				} else {
-					return nil, NewIndexFormatTooNewError(genInput.DataInput, version, FORMAT_SEGMENTS_GEN_CURRENT, FORMAT_SEGMENTS_GEN_CURRENT)
+					return nil, store.NewIndexFormatTooNewError(genInput.DataInput, version, FORMAT_SEGMENTS_GEN_CURRENT, FORMAT_SEGMENTS_GEN_CURRENT)
 				}
 			}
 
@@ -169,7 +169,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 		}
 
 		lastGen = gen
-		segmentFileName := FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", gen)
+		segmentFileName := util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", gen)
 
 		v, err := fsf.doBody(segmentFileName)
 		if err != nil {
@@ -189,7 +189,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 				// possibly a segments_(N-1) (because gen > 1).
 				// So, check if the segments_(N-1) exists and
 				// try it if so:
-				prevSegmentFileName := FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", gen-1)
+				prevSegmentFileName := util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", gen-1)
 
 				if prevExists := fsf.directory.FileExists(prevSegmentFileName); prevExists {
 					// if fsf.infoStream != nil {
@@ -316,9 +316,9 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 	if err != nil {
 		return err
 	}
-	if format == CODEC_MAGIC {
+	if format == store.CODEC_MAGIC {
 		// 4.0+
-		_, err = CheckHeaderNoMagic(input.DataInput, "segments", VERSION_40, VERSION_40)
+		_, err = store.CheckHeaderNoMagic(input.DataInput, "segments", VERSION_40, VERSION_40)
 		if err != nil {
 			return err
 		}
@@ -531,8 +531,8 @@ func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si Segmen
 	codec := si.info.codec
 	var cfsDir *store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
 	if si.info.isCompoundFile {
-		self.cfsReader = NewCompoundFileDirectory(dir,
-			SegmentFileName(si.info.name, "", COMPOUND_FILE_EXTENSION), context, false)
+		self.cfsReader = store.NewCompoundFileDirectory(dir,
+			util.SegmentFileName(si.info.name, "", store.COMPOUND_FILE_EXTENSION), context, false)
 		cfsDir = self.cfsReader
 	} else {
 		self.cfsReader = nil

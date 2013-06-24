@@ -18,6 +18,7 @@ const (
 
 	CFD_ENTRY_CODEC = "CompoundFileWriterEntries"
 
+	COMPOUND_FILE_EXTENSION         = "cfs"
 	COMPOUND_FILE_ENTRIES_EXTENSION = "cfe"
 )
 
