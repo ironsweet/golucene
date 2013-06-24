@@ -425,7 +425,10 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 	r = &SegmentReader{}
 	r.AtomicReader = newAtomicReader(r)
 	r.si = si
-	r.core = newSegmentCoreReaders(r, si.info.dir, si, context, termInfosIndexDivisor)
+	r.core, err = newSegmentCoreReaders(r, si.info.dir, si, context, termInfosIndexDivisor)
+	if err != nil {
+		return r, err
+	}
 	success := false
 	defer func() {
 		// With lock-less commits, it's entirely possible (and
@@ -476,12 +479,12 @@ type SegmentCoreReaders struct {
 }
 
 func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si SegmentInfoPerCommit,
-	context store.IOContext, termsIndexDivisor int) SegmentCoreReaders {
+	context store.IOContext, termsIndexDivisor int) (self SegmentCoreReaders, err error) {
 	if termsIndexDivisor == 0 {
 		panic("indexDivisor must be < 0 (don't load terms index) or greater than 0 (got 0)")
 	}
 
-	self := SegmentCoreReaders{refCount: 1}
+	self = SegmentCoreReaders{refCount: 1}
 
 	self.addListener = make(chan CoreClosedListener)
 	self.removeListener = make(chan CoreClosedListener)
@@ -531,17 +534,22 @@ func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si Segmen
 	codec := si.info.codec
 	var cfsDir *store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
 	if si.info.isCompoundFile {
-		self.cfsReader = store.NewCompoundFileDirectory(dir,
+		self.cfsReader, err = store.NewCompoundFileDirectory(dir,
 			util.SegmentFileName(si.info.name, "", store.COMPOUND_FILE_EXTENSION), context, false)
-		cfsDir = self.cfsReader
+		if err != nil {
+			return self, err
+		}
+		cfsDir = self.cfsReader.Directory
 	} else {
-		self.cfsReader = nil
 		cfsDir = dir
 	}
-	self.fieldInfos = codec.ReadFieldInfos(cfsDir, si.info.name, IOContext.READONCE)
+	self.fieldInfos, err = codec.ReadFieldInfos(cfsDir, si.info.name, store.IO_CONTEXT_READONCE)
+	if err != nil {
+		return self, err
+	}
 	self.termsIndexDivisor = termsIndexDivisor
 
-	segmentReadState = NewSegmentReadState(cfsDir, si.info, fieldInfos, context, termsIndexDivisor)
+	segmentReadState := NewSegmentReadState(cfsDir, si.info, fieldInfos, context, termsIndexDivisor)
 	// Ask codec for its Fields
 	self.fields = codec.FieldsProducer(segmentReadState)
 	// assert fields != null;
