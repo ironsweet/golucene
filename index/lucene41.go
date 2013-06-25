@@ -96,8 +96,8 @@ func NewForUtil(in *store.DataInput) (fu ForUtil, err error) {
 		format := util.PackedFormat(formatId)
 		// assert format.isSupported(bitsPerValue)
 		self.encodedSizes[bpv] = encodedSize(format, packedIntsVersion, bitsPerValue)
-		self.encoders[bpv] = getPackedIntsEncoder(format, packedIntsVersion, bitsPerValue)
-		self.docoders[bpv] = getPackedIntsDecoder(format, packedIntsVersion, bitsPerValue)
+		self.encoders[bpv] = util.GetPackedIntsEncoder(format, packedIntsVersion, bitsPerValue)
+		self.docoders[bpv] = util.GetPackedIntsDecoder(format, packedIntsVersion, bitsPerValue)
 		self.iterations[bpv] = computeIterations(self.decoders[bpv])
 	}
 	return self, nil

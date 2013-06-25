@@ -21,9 +21,14 @@ func CheckVersion(version int) {
 
 type PackedFormat int
 
+const (
+	PACKED              = 0
+	PACKED_SINGLE_BLOCK = 1
+)
+
 func (f PackedFormat) byteCount(packedIntsVersion, valueCount, bitsPerValue int) int64 {
 	switch int(f) {
-	case 0:
+	case PACKED:
 		if packedIntsVersion < PACKED_VERSION_BYTE_ALIGNED {
 			return 8 * int64(math.Ceil(float64(valueCount)*float64(bitsPerValue)/64))
 		}
@@ -36,7 +41,7 @@ func (f PackedFormat) byteCount(packedIntsVersion, valueCount, bitsPerValue int)
 
 func (f PackedFormat) longCount(packedIntsVersion, valueCount, bitsPerValue int) int {
 	switch int(f) {
-	case 1:
+	case PACKED_SINGLE_BLOCK:
 		valuesPerBlock := 64 / bitsPerValue
 		return int(math.Ceil(float64(valueCount) / float64(valuesPerBlock)))
 	}
@@ -50,6 +55,11 @@ func (f PackedFormat) longCount(packedIntsVersion, valueCount, bitsPerValue int)
 }
 
 type PackedIntsEncoder interface {
+}
+
+func GetPackedIntsEncoder(format PackedFormat, version, bitsPerValue int) PackedIntsEncoder {
+	CheckVersion(version)
+	return newBulkOperation(format, bitsPerValue)
 }
 
 type PackedIntsDecoder interface {
