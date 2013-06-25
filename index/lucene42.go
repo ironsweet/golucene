@@ -137,14 +137,17 @@ type Codec struct {
 	GetFieldsProducer func(readState SegmentReadState) (fp FieldsProducer, err error)
 }
 
-func LoadFieldsProducer(name string, state SegmentReadState) FieldsProducer {
+func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer, err error) {
 	switch name {
 	case "Lucene41":
-		postingsReader := NewLucene41PostingReader(state.dir,
+		postingsReader, err := NewLucene41PostingReader(state.dir,
 			state.fieldInfos,
 			state.segmentInfo,
 			state.context,
 			state.segmentSuffix)
+		if err != nil {
+			return nil, err
+		}
 		success := false
 		defer func() {
 			if !success {
@@ -152,7 +155,7 @@ func LoadFieldsProducer(name string, state SegmentReadState) FieldsProducer {
 			}
 		}()
 
-		ret := NewBlockTreeTermsReader(state.dir,
+		fp := NewBlockTreeTermsReader(state.dir,
 			state.fieldInfos,
 			state.segmentInfo,
 			postingsReader,
@@ -160,7 +163,7 @@ func LoadFieldsProducer(name string, state SegmentReadState) FieldsProducer {
 			state.segmentSuffix,
 			state.termsIndexDivisor)
 		success = true
-		return ret
+		return fp, nil
 	}
 	panic(fmt.Sprintf("Service '%v' not found.", name))
 }
@@ -209,13 +212,9 @@ func NewLucene42Codec() Codec {
 		}}
 }
 
-type FieldsProducer struct {
-	*Fields
-	close func() error
-}
-
-func (fp *FieldsProducer) Close() error {
-	return fp.close()
+type FieldsProducer interface {
+	Fields
+	io.Closer
 }
 
 type PostingsReaderBase interface {

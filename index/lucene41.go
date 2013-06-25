@@ -3,6 +3,7 @@ package index
 import (
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
+	"math"
 )
 
 const (
@@ -97,14 +98,18 @@ func NewForUtil(in *store.DataInput) (fu ForUtil, err error) {
 		// assert format.isSupported(bitsPerValue)
 		self.encodedSizes[bpv] = encodedSize(format, packedIntsVersion, bitsPerValue)
 		self.encoders[bpv] = util.GetPackedIntsEncoder(format, packedIntsVersion, bitsPerValue)
-		self.docoders[bpv] = util.GetPackedIntsDecoder(format, packedIntsVersion, bitsPerValue)
+		self.decoders[bpv] = util.GetPackedIntsDecoder(format, packedIntsVersion, bitsPerValue)
 		self.iterations[bpv] = computeIterations(self.decoders[bpv])
 	}
 	return self, nil
 }
 
-func encodedSize(format PackedFormat, packedIntsVersion, bitsPerValue int) int {
-	byteCount := format.byteCount(packedIntsVersion, LUCENE41_BLOCK_SIZE, bitsPerValue)
+func encodedSize(format util.PackedFormat, packedIntsVersion, bitsPerValue int) int {
+	byteCount := format.ByteCount(packedIntsVersion, LUCENE41_BLOCK_SIZE, bitsPerValue)
 	// assert byteCount >= 0 && byteCount <= math.MaxInt32()
 	return int(byteCount)
+}
+
+func computeIterations(decoder util.PackedIntsDecoder) int {
+	return int(math.Ceil(float64(LUCENE41_BLOCK_SIZE) / float64(decoder.ByteValueCount())))
 }
