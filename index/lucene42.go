@@ -212,11 +212,6 @@ func NewLucene42Codec() Codec {
 		}}
 }
 
-type FieldsProducer interface {
-	Fields
-	io.Closer
-}
-
 type PostingsReaderBase interface {
 	io.Closer
 	// init(termsIn IndexInput)
