@@ -13,7 +13,11 @@ type FieldsProducer interface {
 	io.Closer
 }
 
-const BTT_EXTENSION = "tim"
+const (
+	BTT_EXTENSION = "tim"
+
+	BTT_INDEX_EXTENSION = "tip"
+)
 
 type BlockTreeTermsReader struct {
 	in             *store.IndexInput
@@ -24,8 +28,8 @@ type BlockTreeTermsReader struct {
 
 func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info SegmentInfo,
 	postingsReader PostingsReaderBase, ctx store.IOContext,
-	segmentSuffix string, indexDivisor int) (fp FieldsProducer, err error) {
-	fp = &BlockTreeTermsReader{postingsReader: postingsReader, segment: info.name}
+	segmentSuffix string, indexDivisor int) (p FieldsProducer, err error) {
+	fp := &BlockTreeTermsReader{postingsReader: postingsReader, segment: info.name}
 	fp.in, err = dir.OpenInput(util.SegmentFileName(info.name, segmentSuffix, BTT_EXTENSION), ctx)
 	if err != nil {
 		return fp, err
