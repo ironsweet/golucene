@@ -137,6 +137,7 @@ type IndexInput struct {
 	desc        string
 	close       func() error
 	FilePointer func() int64
+	Seek        func(pos int64)
 	Length      func() int64
 }
 
@@ -184,6 +185,16 @@ func newBufferedIndexInputBySize(desc string, bufferSize int) *BufferedIndexInpu
 	}
 	super.FilePointer = func() int64 {
 		return in.bufferStart + int64(in.bufferPosition)
+	}
+	super.Seek = func(pos int64) {
+		if pos >= in.bufferStart && pos < (in.bufferStart+int64(in.bufferLength)) {
+			in.bufferPosition = int(pos - in.bufferStart)
+		} else {
+			in.bufferStart = pos
+			in.bufferPosition = 0
+			in.bufferLength = 0 // trigger refill() on read()
+			in.seekInternal(pos)
+		}
 	}
 	return in
 }

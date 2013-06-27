@@ -22,6 +22,8 @@ const (
 type BlockTreeTermsReader struct {
 	in             *store.IndexInput
 	postingsReader PostingsReaderBase
+	dirOffset      int64
+	indexDirOffset int64
 	segment        string
 	version        int
 }
@@ -67,12 +69,12 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 		postingsReader.init(fp.in)
 
 		// Read per-field details
-		seekDir(fp.in, fp.dirOffset)
+		fp.seekDir(fp.in, fp.dirOffset)
 		if indexDivisor != -1 {
-			seekDir(indexIn, fp.indexDirOffset)
+			fp.seekDir(indexIn, fp.indexDirOffset)
 		}
 
-		numFields, err := in.ReadVInt()
+		numFields, err := fp.in.ReadVInt()
 		if err != nil {
 			return fp, err
 		}
@@ -81,21 +83,21 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 		}
 
 		for i := 0; i < numFields; i++ {
-			field, err := in.ReadVInt()
+			field, err := fp.in.ReadVInt()
 			if err != nil {
 				return fp, err
 			}
-			numTerms, err := in.ReadVLong()
+			numTerms, err := fp.in.ReadVLong()
 			if err != nil {
 				return fp, err
 			}
 			// assert numTerms >= 0
-			numBytes, err := in.ReadVInt()
+			numBytes, err := fp.in.ReadVInt()
 			if err != nil {
 				return fp, err
 			}
 			rootCode := make([]byte, numBytes)
-			err = in.ReadBytes(rootCode)
+			err = fp.in.ReadBytes(rootCode)
 			if err != nil {
 				return fp, err
 			}
@@ -105,12 +107,12 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 			if fieldInfo.indexOptions == INDEX_OPT_DOCS_ONLY {
 				sumTotalTermFreq = -1
 			} else {
-				sumTotalTermFreq, err = in.ReadVLong()
+				sumTotalTermFreq, err = fp.in.ReadVLong()
 				if err != nil {
 					return fp, err
 				}
 			}
-			sumDocFreq, err := in.ReadVlong()
+			sumDocFreq, err := fp.in.ReadVlong()
 			if err != nil {
 				return fp, err
 			}
@@ -186,6 +188,17 @@ func (r *BlockTreeTermsReader) readIndexHeader(input *store.IndexInput) (version
 		}
 	}
 	return version, nil
+}
+
+func (r *BlockTreeTermsReader) seekDir(input *store.IndexInput, dirOffset int64) error {
+	if r.version >= BTT_INDEX_VERSION_APPEND_ONLY {
+		input.Seek(input.Length() - 8)
+		dirOffset, err := input.ReadLong()
+		if err != nil {
+			return err
+		}
+	}
+	input.Seek(dirOffset)
 }
 
 func (r *BlockTreeTermsReader) Terms(field string) Terms {
