@@ -55,7 +55,7 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 			return fp, err
 		}
 
-		indexVersion, err := readIndexHeader(indexIn)
+		indexVersion, err := fp.readIndexHeader(indexIn)
 		if err != nil {
 			return fp, err
 		}
@@ -167,6 +167,20 @@ func (r *BlockTreeTermsReader) readHeader(input *store.IndexInput) (version int,
 	}
 	if version < BTT_VERSION_APPEND_ONLY {
 		r.dirOffset, err = input.ReadLong()
+		if err != nil {
+			return version, err
+		}
+	}
+	return version, nil
+}
+
+func (r *BlockTreeTermsReader) readIndexHeader(input *store.IndexInput) (version int, err error) {
+	version, err = util.CheckHeader(input, BTT_INDEX_CODEC_NAME, BTT_INDEX_VERSION_START, BTT_INDEX_VERSION_CURRENT)
+	if err != nil {
+		return version, err
+	}
+	if version < BTT_INDEX_VERSION_APPEND_ONLY {
+		r.indexDirOffset, err = input.ReadLong()
 		if err != nil {
 			return version, err
 		}
