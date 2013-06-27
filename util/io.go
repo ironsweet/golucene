@@ -39,7 +39,7 @@ func CloseWhileHandlingError(priorErr error, objects ...io.Closer) error {
 	return th
 }
 
-func CloseWhileSupressingError(objects ...io.Closer) {
+func CloseWhileSuppressingError(objects ...io.Closer) {
 	for _, object := range objects {
 		if object == nil {
 			continue

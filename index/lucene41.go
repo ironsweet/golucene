@@ -31,7 +31,7 @@ func NewLucene41PostingReader(dir *store.Directory, fis FieldInfos, si SegmentIn
 	success := false
 	var docIn, posIn, payIn *store.IndexInput = nil, nil, nil
 	defer func() {
-		util.CloseWhileSupressingError(docIn, posIn, payIn)
+		util.CloseWhileSuppressingError(docIn, posIn, payIn)
 	}()
 
 	docIn, err = dir.OpenInput(util.SegmentFileName(si.name, segmentSuffix, LUCENE41_DOC_EXTENSION), ctx)

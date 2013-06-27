@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"sort"
 )
 
 type Fields interface {
@@ -140,13 +141,17 @@ func NewFieldInfos(infos []FieldInfo) FieldInfos {
 	self := FieldInfos{byNumber: make(map[int]FieldInfo), byName: make(map[string]FieldInfo)}
 
 	var hasVectors, hasProx, hasPayloads, hasOffsets, hasFreq, hasNorms, hasDocValues bool
+	numbers := make([]int, 0)
 	for _, info := range infos {
 		if prev, ok := self.byNumber[info.number]; ok {
 			panic(fmt.Sprintf("duplicate field numbers: %v and %v have: %v", prev.name, info.name, info.number))
 		}
+		self.byNumber[info.number] = info
+		numbers = append(numbers, info.number)
 		if prev, ok := self.byName[info.name]; ok {
 			panic(fmt.Sprintf("duplicate field names: %v and %v have: %v", prev.number, info.number, info.name))
 		}
+		self.byName[info.name] = info
 
 		self.hasVectors = self.hasVectors || info.storeTermVector
 		self.hasProx = self.hasProx || info.indexed && info.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
@@ -155,6 +160,12 @@ func NewFieldInfos(infos []FieldInfo) FieldInfos {
 		self.hasNorms = self.hasNorms || info.normType != 0
 		self.hasDocValues = self.hasDocValues || info.docValueType != 0
 		self.hasPayloads = self.hasPayloads || info.storePayloads
+	}
+
+	sort.Ints(numbers)
+	self.values = make([]FieldInfo, len(infos))
+	for i, v := range numbers {
+		self.values[i] = self.byNumber[v]
 	}
 
 	return self

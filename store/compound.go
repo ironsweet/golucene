@@ -84,7 +84,7 @@ func NewCompoundFileDirectory(directory *Directory, fileName string, context IOC
 		success := false
 		defer func() {
 			if !success {
-				util.CloseWhileSupressingError(self.handle)
+				util.CloseWhileSuppressingError(self.handle)
 			}
 		}()
 		self.handle, err = directory.createSlicer(fileName, context)

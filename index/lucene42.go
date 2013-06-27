@@ -151,11 +151,11 @@ func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer,
 		success := false
 		defer func() {
 			if !success {
-				util.CloseWhileSupressingError(postingsReader)
+				util.CloseWhileSuppressingError(postingsReader)
 			}
 		}()
 
-		fp := NewBlockTreeTermsReader(state.dir,
+		fp := newBlockTreeTermsReader(state.dir,
 			state.fieldInfos,
 			state.segmentInfo,
 			postingsReader,
@@ -191,15 +191,18 @@ func NewLucene42Codec() Codec {
 				}
 			}()
 			// Read field name -> format name
-			for _, fi := range readState.fieldInfos {
+			for _, fi := range readState.fieldInfos.values {
 				if fi.indexed {
 					fieldName := fi.name
-					formatName = fi.attributes[PER_FIELD_FORMAT_KEY]
+					formatName := fi.attributes[PER_FIELD_FORMAT_KEY]
 					if formatName != nil {
 						// null formatName means the field is in fieldInfos, but has no postings!
 						suffix := fi.attributes[PER_FIELD_SUFFIX_KEY]
 						// assert suffix != nil
-						fp = LoadFieldsProducer(formatName, readState)
+						fp, err = LoadFieldsProducer(formatName, readState)
+						if err != nil {
+							return fp, err
+						}
 						segmentSuffix := formatName + "_" + suffix
 						if _, ok := formats[segmentSuffix]; !ok {
 							formats[segmentSuffix] = format
