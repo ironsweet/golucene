@@ -1,22 +1,26 @@
 package index
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
 	"math"
 )
 
 const (
-	LUCENE41_DOC_EXTENSION   = "doc"
-	LUCENE41_POS_EXTENSION   = "pos"
-	LUCENE41_PAY_EXTENSION   = "pay"
-	LUCENE41_DOC_CODEC       = "Lucene41PostingsWriterDoc"
-	LUCENE41_POS_CODEC       = "Lucene41PostingsWriterPos"
-	LUCENE41_PAY_CODEC       = "Lucene41PostingsWriterPay"
-	LUCENE41_VERSION_START   = 0
-	LUCENE41_VERSION_CURRENT = LUCENE41_VERSION_START
+	LUCENE41_DOC_EXTENSION = "doc"
+	LUCENE41_POS_EXTENSION = "pos"
+	LUCENE41_PAY_EXTENSION = "pay"
 
 	LUCENE41_BLOCK_SIZE = 128
+
+	LUCENE41_TERMS_CODEC = "Lucene41PostingsWriterTerms"
+	LUCENE41_DOC_CODEC   = "Lucene41PostingsWriterDoc"
+	LUCENE41_POS_CODEC   = "Lucene41PostingsWriterPos"
+	LUCENE41_PAY_CODEC   = "Lucene41PostingsWriterPay"
+
+	LUCENE41_VERSION_START   = 0
+	LUCENE41_VERSION_CURRENT = LUCENE41_VERSION_START
 )
 
 type Lucene41PostingReader struct {
@@ -61,6 +65,22 @@ func NewLucene41PostingReader(dir *store.Directory, fis FieldInfos, si SegmentIn
 	}
 
 	return &Lucene41PostingReader{docIn, posIn, payIn, forUtil}, nil
+}
+
+func (r *Lucene41PostingReader) init(termsIn *store.IndexInput) error {
+	// Make sure we are talking to the matching postings writer
+	_, err := store.CheckHeader(termsIn.DataInput, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_START, LUCENE41_VERSION_CURRENT)
+	if err != nil {
+		return err
+	}
+	indexBlockSize, err := termsIn.ReadVInt()
+	if err != nil {
+		return err
+	}
+	if indexBlockSize != LUCENE41_BLOCK_SIZE {
+		panic(fmt.Sprintf("index-time BLOCK_SIZE (%v) != read-time BLOCK_SIZE (%v)", indexBlockSize, LUCENE41_BLOCK_SIZE))
+	}
+	return nil
 }
 
 func (r *Lucene41PostingReader) Close() error {

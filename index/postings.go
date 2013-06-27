@@ -161,7 +161,7 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 }
 
 func (r *BlockTreeTermsReader) readHeader(input *store.IndexInput) (version int, err error) {
-	version, err = util.CheckHeader(input, BTT_CODEC_NAME, BTT_VERSION_START, BTT_VERSION_CURRENT)
+	version, err = store.CheckHeader(input, BTT_CODEC_NAME, BTT_VERSION_START, BTT_VERSION_CURRENT)
 	if err != nil {
 		return version, err
 	}
@@ -175,7 +175,7 @@ func (r *BlockTreeTermsReader) readHeader(input *store.IndexInput) (version int,
 }
 
 func (r *BlockTreeTermsReader) readIndexHeader(input *store.IndexInput) (version int, err error) {
-	version, err = util.CheckHeader(input, BTT_INDEX_CODEC_NAME, BTT_INDEX_VERSION_START, BTT_INDEX_VERSION_CURRENT)
+	version, err = store.CheckHeader(input, BTT_INDEX_CODEC_NAME, BTT_INDEX_VERSION_START, BTT_INDEX_VERSION_CURRENT)
 	if err != nil {
 		return version, err
 	}
@@ -194,4 +194,13 @@ func (r *BlockTreeTermsReader) Terms(field string) Terms {
 
 func (r *BlockTreeTermsReader) Close() error {
 
+}
+
+type PostingsReaderBase interface {
+	io.Closer
+	init(termsIn *store.IndexInput) error
+	// newTermState() BlockTermState
+	// nextTerm(fieldInfo FieldInfo, state BlockTermState)
+	// docs(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int)
+	// docsAndPositions(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits)
 }

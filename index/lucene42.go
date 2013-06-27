@@ -222,12 +222,3 @@ func NewLucene42Codec() Codec {
 			success = true
 		}}
 }
-
-type PostingsReaderBase interface {
-	io.Closer
-	// init(termsIn IndexInput)
-	// newTermState() BlockTermState
-	// nextTerm(fieldInfo FieldInfo, state BlockTermState)
-	// docs(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int)
-	// docsAndPositions(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits)
-}
