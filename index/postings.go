@@ -97,7 +97,7 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 				return fp, err
 			}
 			rootCode := make([]byte, numBytes)
-			err = fp.in.ReadBytes(rootCode)
+			_, err = fp.in.ReadBytes(rootCode)
 			if err != nil {
 				return fp, err
 			}
@@ -112,7 +112,7 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 					return fp, err
 				}
 			}
-			sumDocFreq, err := fp.in.ReadVlong()
+			sumDocFreq, err := fp.in.ReadVLong()
 			if err != nil {
 				return fp, err
 			}

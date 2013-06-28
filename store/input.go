@@ -10,62 +10,64 @@ import (
 )
 
 type DataInput struct {
-	ReadByte  func() (b byte, err error)
+	/*
+		Reads and returns a single byte.
+		Use panic/recover to catch IO error. Internal use only.
+	*/
+	ReadByte  func() byte
 	ReadBytes func(buf []byte) (n int, err error)
 }
 
+type Error string
+
+func (e Error) Error() string {
+	return string(e)
+}
+
+func catchIOError(err *error) {
+	if e := recover(); e != nil {
+		if e2, ok := e.(Error); ok {
+			*err = e2
+		}
+	}
+}
+
 func (in *DataInput) ReadInt() (n int, err error) {
+	defer catchIOError(&err)
 	ds := make([]byte, 4)
 	for i, _ := range ds {
-		ds[i], err = in.ReadByte()
-		if err != nil {
-			return 0, err
-		}
+		ds[i] = in.ReadByte()
 	}
 	return (int(ds[0]&0xFF) << 24) | (int(ds[1]&0xFF) << 16) | (int(ds[2]&0xFF) << 8) | int(ds[3]&0xFF), nil
 }
 
 func (in *DataInput) ReadVInt() (n int, err error) {
-	b, err := in.ReadByte()
-	if err != nil {
-		return 0, err
-	}
+	defer catchIOError(&err)
+	b := in.ReadByte()
 	if b >= 0 {
 		return int(b), nil
 	}
 	n = int(b) & 0x7F
 
-	b, err = in.ReadByte()
-	if err != nil {
-		return 0, err
-	}
+	b = in.ReadByte()
 	n |= (int(b) & 0x7F) << 7
 	if b >= 0 {
 		return n, nil
 	}
 
-	b, err = in.ReadByte()
-	if err != nil {
-		return 0, err
-	}
+	b = in.ReadByte()
 	n |= (int(b) & 0x7F) << 14
 	if b >= 0 {
 		return n, nil
 	}
 
-	b, err = in.ReadByte()
-	if err != nil {
-		return 0, err
-	}
+	b = in.ReadByte()
 	n |= (int(b) & 0x7F) << 21
 	if b >= 0 {
 		return n, nil
 	}
 
-	b, err = in.ReadByte()
-	if err != nil {
-		return 0, err
-	}
+	b = in.ReadByte()
 	// Warning: the next ands use 0x0F / 0xF0 - beware copy/paste errors:
 	n |= (int(b) & 0x0F) << 28
 	if (b & 0xF0) == 0 {
@@ -84,6 +86,65 @@ func (in *DataInput) ReadLong() (n int64, err error) {
 		return 0, err
 	}
 	return (int64(d1) << 32) | (int64(d2) & 0xFFFFFFFF), nil
+}
+
+func (in *DataInput) ReadVLong() (n int64, err error) {
+	defer catchIOError(&err)
+	b := in.ReadByte()
+	if b >= 0 {
+		return int64(b), nil
+	}
+
+	n = int64(b) & 0x7F
+	b = in.ReadByte()
+	n |= (int64(b) & 0x7F) << 7
+	if b >= 0 {
+		return n, nil
+	}
+
+	b = in.ReadByte()
+	n |= (int64(b) & 0x7F) << 14
+	if b >= 0 {
+		return n, nil
+	}
+
+	b = in.ReadByte()
+	n |= (int64(b) & 0x7F) << 21
+	if b >= 0 {
+		return n, nil
+	}
+
+	b = in.ReadByte()
+	n |= (int64(b) & 0x7F) << 28
+	if b >= 0 {
+		return n, nil
+	}
+
+	b = in.ReadByte()
+	n |= (int64(b) & 0x7F) << 35
+	if b >= 0 {
+		return n, nil
+	}
+
+	b = in.ReadByte()
+	n |= (int64(b) & 0x7F) << 42
+	if b >= 0 {
+		return n, nil
+	}
+
+	b = in.ReadByte()
+	n |= (int64(b) & 0x7F) << 49
+	if b >= 0 {
+		return n, nil
+	}
+
+	b = in.ReadByte()
+	n |= (int64(b) & 0x7F) << 56
+	if b >= 0 {
+		return n, nil
+	}
+
+	return 0, errors.New("Invalid vLong detected (negative values disallowed)")
 }
 
 func (in *DataInput) ReadString() (s string, err error) {
@@ -172,16 +233,13 @@ func newBufferedIndexInputBySize(desc string, bufferSize int) *BufferedIndexInpu
 	super := newIndexInput(desc)
 	checkBufferSize(bufferSize)
 	in := &BufferedIndexInput{IndexInput: super, bufferSize: bufferSize}
-	super.ReadByte = func() (b byte, err error) {
+	super.ReadByte = func() byte {
 		if in.bufferPosition >= in.bufferLength {
-			err = in.refill()
-			if err != nil {
-				return 0, err
-			}
+			in.refill()
 		}
-		b = in.buffer[in.bufferPosition]
+		b := in.buffer[in.bufferPosition]
 		in.bufferPosition++
-		return b, nil
+		return b
 	}
 	super.FilePointer = func() int64 {
 		return in.bufferStart + int64(in.bufferPosition)
@@ -230,6 +288,7 @@ func bufferSize(context IOContext) int {
 	}
 }
 
+// use panic/recover to handle error
 func (in *BufferedIndexInput) refill() error {
 	start := in.bufferStart + int64(in.bufferPosition)
 	end := start + int64(in.bufferSize)
@@ -294,12 +353,10 @@ type ChecksumIndexInput struct {
 func NewChecksumIndexInput(main *IndexInput) *ChecksumIndexInput {
 	super := newIndexInput(fmt.Sprintf("ChecksumIndexInput(%v)", main))
 	digest := crc32.NewIEEE()
-	super.ReadByte = func() (b byte, err error) {
-		b, err = main.ReadByte()
-		if err == nil {
-			digest.Write([]byte{b})
-		}
-		return b, err
+	super.ReadByte = func() byte {
+		b := main.ReadByte()
+		digest.Write([]byte{b})
+		return b
 	}
 	super.ReadBytes = func(buf []byte) (n int, err error) {
 		n, err = main.ReadBytes(buf)

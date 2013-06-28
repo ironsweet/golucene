@@ -112,9 +112,12 @@ const (
 
 func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping map[string]FileEntry, err error) {
 	var stream, entriesStream *IndexInput = nil, nil
-	defer func(err *error) {
-		*err = util.CloseWhileHandlingError(*err, stream, entriesStream)
-	}(&err)
+	defer func() {
+		if e := recover(); e != nil {
+			err = e.(Error) // will re-panic if not an IO error
+		}
+		err = util.CloseWhileHandlingError(err, stream, entriesStream)
+	}()
 	// read the first VInt. If it is negative, it's the version number
 	// otherwise it's the count (pre-3.1 indexes)
 	mapping = make(map[string]FileEntry)
@@ -127,18 +130,9 @@ func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping 
 	// impossible for 3.0 to have 63 files in a .cfs, CFS writer was not visible
 	// and separate norms/etc are outside of cfs.
 	if firstInt == int(CODEC_MAGIC_BYTE1) {
-		secondByte, err := stream.ReadByte()
-		if err != nil {
-			return mapping, err
-		}
-		thirdByte, err := stream.ReadByte()
-		if err != nil {
-			return mapping, err
-		}
-		fourthByte, err := stream.ReadByte()
-		if err != nil {
-			return mapping, err
-		}
+		secondByte := stream.ReadByte()
+		thirdByte := stream.ReadByte()
+		fourthByte := stream.ReadByte()
 		if secondByte != CODEC_MAGIC_BYTE2 ||
 			thirdByte != CODEC_MAGIC_BYTE3 ||
 			fourthByte != CODEC_MAGIC_BYTE4 {
