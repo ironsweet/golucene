@@ -14,7 +14,12 @@ type FieldsProducer interface {
 }
 
 const (
-	BTT_EXTENSION = "tim"
+	/* BlockTreeTermsWriter */
+
+	BTT_OUTPUT_FLAGS_NUM_BITS = 2
+	BTT_EXTENSION             = "tim"
+
+	/* BlockTreeTermsReader */
 
 	BTT_INDEX_EXTENSION = "tip"
 )
@@ -22,6 +27,7 @@ const (
 type BlockTreeTermsReader struct {
 	in             *store.IndexInput
 	postingsReader PostingsReaderBase
+	fields         map[string]FieldReader
 	dirOffset      int64
 	indexDirOffset int64
 	segment        string
@@ -123,9 +129,9 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 			if docCount < 0 || docCount > info.docCount { // #docs with field must be <= #docs
 				return fp, errors.New(fmt.Sprintf(
 					"invalid docCount: %v maxDoc: %v (resource=%v)",
-					docCount, info.getDocCount(), fp.in))
+					docCount, info.docCount, fp.in))
 			}
-			if sumDocFreq < docCount { // #postings must be >= #docs with field
+			if sumDocFreq < int64(docCount) { // #postings must be >= #docs with field
 				return fp, errors.New(fmt.Sprintf(
 					"invalid sumDocFreq: %v docCount: %v (resource=%v)",
 					sumDocFreq, docCount, fp.in))
@@ -207,6 +213,39 @@ func (r *BlockTreeTermsReader) Terms(field string) Terms {
 
 func (r *BlockTreeTermsReader) Close() error {
 
+}
+
+type FieldReader struct {
+	numTerms         int64
+	fieldInfo        FieldInfo
+	sumTotalTermFreq int64
+	sumDocFreq       int64
+	docCount         int
+	indexStartFP     int64
+	rootBlockFP      int64
+	rootCode         []byte
+	index            *FST
+}
+
+func newFieldReader(fieldInfo FieldInfo, numTerms int64, rootCode []byte,
+	sumTotalTermFreq, sumDocFreq int64, docCount int, indexStartFP int64, indexIn *store.IndexInput) {
+	// assert numTerms > 0
+	self := FieldReader{
+		fieldInfo:        fieldInfo,
+		numTerms:         numTerms,
+		sumTotalTermFreq: sumTotalTermFreq,
+		sumDocFreq:       sumDocFreq,
+		docCount:         docCount,
+		indexStartFP:     indexStartFP,
+		rootCode:         rootCode}
+
+	self.rootBlockFP = uint64(newByteArrayDataInput(rootCode.bytes, rootCode.offset, rootCode.length).ReadVLong()) >> BTT_OUTPUT_FLAGS_NUM_BITS
+
+	if indexIn != nil {
+		clone = indexIn.Clone()
+		clone.Seek(indexStartFP)
+		self.index = loadFST(clone, ByteSequenceOutputs.getSingleton())
+	} // else self.index = nil
 }
 
 type PostingsReaderBase interface {
