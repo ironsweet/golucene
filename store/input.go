@@ -24,7 +24,7 @@ func (e Error) Error() string {
 	return string(e)
 }
 
-func catchIOError(err *error) {
+func CatchIOError(err *error) {
 	if e := recover(); e != nil {
 		if e2, ok := e.(Error); ok {
 			*err = e2
@@ -33,7 +33,7 @@ func catchIOError(err *error) {
 }
 
 func (in *DataInput) ReadInt() (n int, err error) {
-	defer catchIOError(&err)
+	defer CatchIOError(&err)
 	ds := make([]byte, 4)
 	for i, _ := range ds {
 		ds[i] = in.ReadByte()
@@ -42,7 +42,7 @@ func (in *DataInput) ReadInt() (n int, err error) {
 }
 
 func (in *DataInput) ReadVInt() (n int, err error) {
-	defer catchIOError(&err)
+	defer CatchIOError(&err)
 	b := in.ReadByte()
 	if b >= 0 {
 		return int(b), nil
@@ -89,7 +89,7 @@ func (in *DataInput) ReadLong() (n int64, err error) {
 }
 
 func (in *DataInput) ReadVLong() (n int64, err error) {
-	defer catchIOError(&err)
+	defer CatchIOError(&err)
 	b := in.ReadByte()
 	if b >= 0 {
 		return int64(b), nil

@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/store"
 )
 
 const (
@@ -13,6 +14,9 @@ const (
 )
 
 type FST struct {
+	outputs Outputs
+	packed  bool
+	version int
 }
 
 func loadFST(in *store.DataInput, outputs Outputs) (fst FST, err error) {
@@ -32,12 +36,12 @@ func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits int32) (fst FST
 	if err != nil {
 		return fst, err
 	}
-	defer store.catchIOError(&err)
+	defer store.CatchIOError(&err)
 	fst.packed = (in.ReadByte() == 1)
 	if in.ReadByte() == 1 {
 		// accepts empty string
 		// 1 KB blocks:
-		emptyBytes = newBytesStore(10)
+		emptyBytes := newBytesStore(10)
 		numBytes, err := in.ReadVInt()
 		if err != nil {
 			return fst, err
