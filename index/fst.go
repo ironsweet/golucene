@@ -46,7 +46,7 @@ func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits int32) (fst FST
 		if err != nil {
 			return fst, err
 		}
-		emptyBytes.copyBytes(in, numBytes)
+		emptyBytes.CopyBytes(in, int64(numBytes))
 
 		// De-serialize empty-string output:
 		var reader BytesReader
@@ -113,5 +113,10 @@ func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits int32) (fst FST
 type Outputs interface {
 }
 
-type BytesStore struct {
+type BytesReader struct {
+	*store.DataInput
+	getPosition func() int64
+	setPosition func(pos int64)
+	reversed    func() bool
+	skipBytes   func(count int32)
 }
