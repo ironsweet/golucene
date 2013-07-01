@@ -60,22 +60,19 @@ func (bs *BytesStore) forwardReader() *BytesReader {
 	if len(bs.blocks) == 1 {
 		return newForwardBytesReader(bs.blocks[0])
 	}
-	self := &ByteStoreForwardReader{
-		nextRead: bs.blockSize,
+	self := &ByteStoreForwardReader{nextRead: bs.blockSize}
+	self.BytesReader = &BytesReader{
 		skipBytes: func(count int32) {
 			self.setPosition(self.getPosition() + int64(count))
-		},
-		getPosition: func() int64 {
-			return (int64(self.nextBuffer)-1)*bs.blockSize + self.nextRead
-		},
-		setPosition: func(pos int64) {
+		}, getPosition: func() int64 {
+			return (int64(self.nextBuffer)-1)*int64(bs.blockSize) + int64(self.nextRead)
+		}, setPosition: func(pos int64) {
 			bufferIndex := pos >> bs.blockBits
-			self.nextBuffer = bufferIndex + 1
+			self.nextBuffer = uint32(bufferIndex + 1)
 			self.current = bs.blocks[bufferIndex]
-			self.nextRead = pos & bs.blockMask
+			self.nextRead = uint32(pos) & bs.blockMask
 			// assert self.getPosition() == pos
-		},
-		reversed: func() bool {
+		}, reversed: func() bool {
 			return false
 		}}
 	self.DataInput = &store.DataInput{
@@ -110,7 +107,7 @@ func (bs *BytesStore) forwardReader() *BytesReader {
 			}
 			return len(buf), nil
 		}}
-	return self
+	return self.BytesReader
 }
 
 type ByteStoreForwardReader struct {
@@ -127,7 +124,8 @@ type ForwardBytesReader struct {
 }
 
 func newForwardBytesReader(bytes []byte) *BytesReader {
-	self := &ForwardBytesReader{
+	self := &ForwardBytesReader{}
+	self.BytesReader = &BytesReader{
 		skipBytes: func(count int32) {
 			self.pos += count
 		}, getPosition: func() int64 {
@@ -143,8 +141,8 @@ func newForwardBytesReader(bytes []byte) *BytesReader {
 			return self.bytes[self.pos-1]
 		}, ReadBytes: func(buf []byte) (n int, err error) {
 			copy(bytes[self.pos:], buf)
-			self.pos += len(buf)
+			self.pos += int32(len(buf))
 			return len(buf), nil
 		}}
-	return self
+	return self.BytesReader
 }
