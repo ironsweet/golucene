@@ -49,7 +49,7 @@ func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits int32) (fst FST
 		emptyBytes.CopyBytes(in, int64(numBytes))
 
 		// De-serialize empty-string output:
-		var reader BytesReader
+		var reader *BytesReader
 		if fst.packed {
 			reader = emptyBytes.forwardReader()
 		} else {

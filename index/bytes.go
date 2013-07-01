@@ -56,11 +56,18 @@ func newBytesStore(blockBits uint32) *BytesStore {
 	return self
 }
 
+type BytesStoreForwardReader struct {
+	*BytesReader
+	current    []byte
+	nextBuffer uint32
+	nextRead   uint32
+}
+
 func (bs *BytesStore) forwardReader() *BytesReader {
 	if len(bs.blocks) == 1 {
 		return newForwardBytesReader(bs.blocks[0])
 	}
-	self := &ByteStoreForwardReader{nextRead: bs.blockSize}
+	self := &BytesStoreForwardReader{nextRead: bs.blockSize}
 	self.BytesReader = &BytesReader{
 		skipBytes: func(count int32) {
 			self.setPosition(self.getPosition() + int64(count))
@@ -110,11 +117,55 @@ func (bs *BytesStore) forwardReader() *BytesReader {
 	return self.BytesReader
 }
 
-type ByteStoreForwardReader struct {
+func (bs *BytesStore) reverseReader() *BytesReader {
+	return bs.reverseReaderAllowSingle(true)
+}
+
+type BytesStoreReverseReader struct {
 	*BytesReader
 	current    []byte
 	nextBuffer uint32
-	nextRead   uint32
+	nextRead   int32
+}
+
+func (bs *BytesStore) reverseReaderAllowSingle(allowSingle bool) *BytesReader {
+	if allowSingle && len(bs.blocks) == 1 {
+		return newReverseBytesReader(bs.blocks[0])
+	}
+	var current []byte = nil
+	if len(bs.blocks) > 0 {
+		current = blocks[0]
+	}
+	self := &BytesStoreReverseReader{current: current, nextBuffer: -1, nextRead: 0}
+	self.BytesReader = &BytesReader{
+		skipBytes: func(count int32) {
+			self.setPosition(self.getPosition - count)
+		}, getPosition: func() int64 {
+			return (int64(self.nextBuffer)+1)*int64(bs.blockSize) + int64(nextRead)
+		}, setPosition: func(pos int64) {
+			// NOTE: a little weird because if you
+			// setPosition(0), the next byte you read is
+			// bytes[0] ... but I would expect bytes[-1] (ie,
+			// EOF)...?
+			bufferIndex := int32(pos >> bs.blockSize)
+			self.nextBuffer = bufferIndex - 1
+			self.current = bs.blocks[bufferIndex]
+			self.nextRead = int32(pos) & bs.blockMask
+			// assert getPosition() == pos
+		}, reversed: func() bool {
+			return true
+		}}
+	self.DataInput = &store.DataInput{
+		ReadByte: func() byte {
+			if self.nextRead == -1 {
+				self.current = blocks[self.nextBuffer]
+				self.nextBuffer--
+				self.nextRead = bs.blockSize - 1
+			}
+			self.nextRead--
+			return self.current[self.nextRead+1]
+		}}
+	return self.BytesReader
 }
 
 type ForwardBytesReader struct {
