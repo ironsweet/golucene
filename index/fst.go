@@ -13,10 +13,21 @@ const (
 	FST_DEFAULT_MAX_BLOCK_BITS = 28 // 30 for 64 bit int
 )
 
+type InputType int
+
+const (
+	INPUT_TYPE_BYTE1 = 1
+	INPUT_TYPE_BYTE2 = 2
+	INPUT_TYPE_BYTE4 = 3
+)
+
 type FST struct {
-	outputs Outputs
-	packed  bool
-	version int
+	inputType        InputType
+	outputs          Outputs
+	packed           bool
+	nodeRefToAddress PackedReader
+	version          int
+	emptyOutput      interface{}
 }
 
 func loadFST(in *store.DataInput, outputs Outputs) (fst FST, err error) {
@@ -58,10 +69,10 @@ func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits int32) (fst FST
 			// so we have to check here else BytesStore gets
 			// angry:
 			if numBytes > 0 {
-				reader.seek(numBytes - 1) // setPosition
+				reader.setPosition(int64(numBytes - 1))
 			}
 		}
-		fst.emptyOutput = outputs.readFinalOutput(reader)
+		fst.emptyOutput = outputs.readFinalOutput(reader.DataInput)
 	} // else emptyOutput = nil
 	t := in.ReadByte()
 	switch t {
@@ -75,7 +86,10 @@ func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits int32) (fst FST
 		panic(fmt.Sprintf("invalid input type %v", t))
 	}
 	if fst.packed {
-		fst.nodeRefToAddress = newPackedReader(in)
+		fst.nodeRefToAddress, err = newPackedReader(in)
+		if err != nil {
+			return fst, err
+		}
 	} // else nodeRefToAddress = nil
 	fst.startNode, err = in.ReadVLong()
 	if err != nil {
@@ -111,6 +125,16 @@ func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits int32) (fst FST
 }
 
 type Outputs interface {
+	read(in *store.DataInput) interface{}
+	readFinalOutput(in *store.DataInput) interface{}
+}
+
+type abstractOutputs struct {
+	Outputs
+}
+
+func (out *abstractOutputs) readFinalOutput(in *store.DataInput) interface{} {
+	return out.Outputs.read(in)
 }
 
 type BytesReader struct {
