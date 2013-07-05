@@ -22,20 +22,26 @@ const (
 )
 
 type FST struct {
-	inputType        InputType
-	outputs          Outputs
-	packed           bool
-	nodeRefToAddress PackedReader
-	version          int
-	emptyOutput      interface{}
+	inputType          InputType
+	bytes              *BytesStore
+	startNode          int64
+	outputs            Outputs
+	NO_OUTPUT          interface{}
+	nodeCount          int64
+	arcCount           int64
+	arcWithOutputCount int64
+	packed             bool
+	nodeRefToAddress   PackedReader
+	version            int
+	emptyOutput        interface{}
 }
 
 func loadFST(in *store.DataInput, outputs Outputs) (fst FST, err error) {
 	return loadFST3(in, outputs, FST_DEFAULT_MAX_BLOCK_BITS)
 }
 
-func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits int32) (fst FST, err error) {
-	fst = FST{outputs: outputs}
+func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits uint32) (fst FST, err error) {
+	fst = FST{outputs: outputs, startNode: -1}
 
 	if maxBlockBits < 1 || maxBlockBits > 30 {
 		panic(fmt.Sprintf("maxBlockBits should 1..30; got %v", maxBlockBits))
@@ -52,7 +58,7 @@ func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits int32) (fst FST
 	if in.ReadByte() == 1 {
 		// accepts empty string
 		// 1 KB blocks:
-		emptyBytes := newBytesStore(10)
+		emptyBytes := newBytesStoreFromBits(10)
 		numBytes, err := in.ReadVInt()
 		if err != nil {
 			return fst, err
@@ -112,7 +118,10 @@ func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits int32) (fst FST
 	if err != nil {
 		return fst, err
 	}
-	fst.bytes = newBytesStore(in, numBytes, 1<<maxBlockBits)
+	fst.bytes, err = newBytesStoreFromInput(in, numBytes, 1<<maxBlockBits)
+	if err != nil {
+		return fst, err
+	}
 
 	fst.NO_OUTPUT = outputs.noOutput()
 

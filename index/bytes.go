@@ -14,12 +14,8 @@ type BytesStore struct {
 	nextWrite uint32
 }
 
-func newBytesStore(blockBits uint32) *BytesStore {
-	blockSize := uint32(1) << blockBits
-	self := &BytesStore{blockBits: blockBits,
-		blockSize: blockSize,
-		blockMask: blockSize - 1,
-		nextWrite: blockSize}
+func newBytesStore() *BytesStore {
+	self := &BytesStore{}
 	self.DataOutput = &store.DataOutput{
 		WriteByte: func(b byte) error {
 			if self.nextWrite == self.blockSize {
@@ -54,6 +50,46 @@ func newBytesStore(blockBits uint32) *BytesStore {
 			return nil
 		}}
 	return self
+}
+
+func newBytesStoreFromBits(blockBits uint32) *BytesStore {
+	blockSize := uint32(1) << blockBits
+	self := newBytesStore()
+	self.blockBits = blockBits
+	self.blockSize = blockSize
+	self.blockMask = blockSize - 1
+	self.nextWrite = blockSize
+	return self
+}
+
+func newBytesStoreFromInput(in *store.DataInput, numBytes int64, maxBlockSize uint32) (bs *BytesStore, err error) {
+	var blockSize uint32 = 2
+	var blockBits uint32 = 1
+	for int64(blockSize) < numBytes && blockSize < maxBlockSize {
+		blockSize *= 2
+		blockBits++
+	}
+	self := newBytesStore()
+	self.blockBits = blockBits
+	self.blockSize = blockSize
+	self.blockMask = blockSize - 1
+	left := numBytes
+	for left > 0 {
+		chunk := blockSize
+		if left < int64(chunk) {
+			chunk = uint32(left)
+		}
+		block := make([]byte, chunk)
+		_, err = in.ReadBytes(block)
+		if err != nil {
+			return nil, err
+		}
+		self.blocks = append(self.blocks, block)
+		left -= int64(chunk)
+	}
+	// So .getPosition still works
+	self.nextWrite = uint32(len(self.blocks[len(self.blocks)-1]))
+	return self, nil
 }
 
 type BytesStoreForwardReader struct {
