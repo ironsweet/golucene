@@ -5,20 +5,24 @@ import (
 	"github.com/balzaczyy/golucene/store"
 )
 
-const (
-	FST_FILE_FORMAT_NAME    = "FST"
-	FST_VERSION_PACKED      = 3
-	FST_VERSION_VINT_TARGET = 4
-
-	FST_DEFAULT_MAX_BLOCK_BITS = 28 // 30 for 64 bit int
-)
-
 type InputType int
 
 const (
 	INPUT_TYPE_BYTE1 = 1
 	INPUT_TYPE_BYTE2 = 2
 	INPUT_TYPE_BYTE4 = 3
+)
+
+const (
+	FST_BIT_FINAL_ARC   = 1 << 0
+	FST_BIT_LAST_ARC    = 1 << 1
+	FST_BIT_TARGET_NEXT = 1 << 2
+
+	FST_FILE_FORMAT_NAME    = "FST"
+	FST_VERSION_PACKED      = 3
+	FST_VERSION_VINT_TARGET = 4
+
+	FST_DEFAULT_MAX_BLOCK_BITS = 28 // 30 for 64 bit int
 )
 
 type FST struct {
@@ -133,17 +137,51 @@ func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits uint32) (fst FS
 	fst.allowArrayArcs = false
 }
 
-type Outputs interface {
-	read(in *store.DataInput) interface{}
-	readFinalOutput(in *store.DataInput) interface{}
+func (t *FST) cacheRootArcs() {
+	t.cachedRootArcs = make([]Arc, 0x80)
+	arc := newArc()
+	t.getFirstArc(arc)
+	in := t.getBytesReader()
+	if t.targetHasArcs(arc) {
+		t.readFirstRealTargetArc(arc.target, arc, in)
+		for {
+			// assert arc.label != END_LABEL
+			if arc.label >= len(t.cachedRootArcs) {
+				break
+			}
+			t.cachedRootArcs[arc.label] = newArcFrom(arc)
+			if arc.isLast() {
+				break
+			}
+			t.readNextRealArc(arc, in)
+		}
+	}
 }
 
-type abstractOutputs struct {
-	Outputs
+type Arc struct {
 }
 
-func (out *abstractOutputs) readFinalOutput(in *store.DataInput) interface{} {
-	return out.Outputs.read(in)
+func (t *FST) getFirstArc(arc *Arc) {
+	if t.emptyOutput != nil {
+		arc.flags = FST_BIT_FINAL_ARC | FST_BIT_LAST_ARC
+		arc.nextFinalOutput = t.emptyOutput
+	} else {
+		arc.flags = FST_BIT_LAST_ARC
+		arc.nextFinalOutput = t.NO_OUTPUT
+	}
+	arc.output = t.NO_OUTPUT
+
+	// If there are no nodes, ie, the FST only accepts the
+	// empty string, then startNode is 0
+	arc.target = t.startNode
+	return arc
+}
+
+func (t *FST) getBytesReader() *BytesReader {
+	if t.packed {
+		return t.bytes.forwardReader()
+	}
+	return t.bytes.reverseReader()
 }
 
 type BytesReader struct {
@@ -152,4 +190,18 @@ type BytesReader struct {
 	setPosition func(pos int64)
 	reversed    func() bool
 	skipBytes   func(count int32)
+}
+
+type Outputs interface {
+	read(in *store.DataInput) interface{}
+	readFinalOutput(in *store.DataInput) interface{}
+	noOutput() interface{}
+}
+
+type abstractOutputs struct {
+	Outputs
+}
+
+func (out *abstractOutputs) readFinalOutput(in *store.DataInput) interface{} {
+	return out.Outputs.read(in)
 }
