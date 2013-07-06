@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
 	"math"
@@ -42,7 +43,7 @@ func NewLucene41PostingReader(dir *store.Directory, fis FieldInfos, si SegmentIn
 	if err != nil {
 		return r, err
 	}
-	store.CheckHeader(docIn.DataInput, LUCENE41_DOC_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+	codec.CheckHeader(docIn.DataInput, LUCENE41_DOC_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
 	forUtil, err := NewForUtil(docIn.DataInput)
 	if err != nil {
 		return r, err
@@ -53,14 +54,14 @@ func NewLucene41PostingReader(dir *store.Directory, fis FieldInfos, si SegmentIn
 		if err != nil {
 			return r, err
 		}
-		store.CheckHeader(posIn.DataInput, LUCENE41_POS_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+		codec.CheckHeader(posIn.DataInput, LUCENE41_POS_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
 
 		if fis.hasPayloads || fis.hasOffsets {
 			payIn, err = dir.OpenInput(util.SegmentFileName(si.name, segmentSuffix, LUCENE41_PAY_EXTENSION), ctx)
 			if err != nil {
 				return r, err
 			}
-			store.CheckHeader(payIn.DataInput, LUCENE41_PAY_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+			codec.CheckHeader(payIn.DataInput, LUCENE41_PAY_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
 		}
 	}
 
@@ -69,7 +70,7 @@ func NewLucene41PostingReader(dir *store.Directory, fis FieldInfos, si SegmentIn
 
 func (r *Lucene41PostingReader) init(termsIn *store.IndexInput) error {
 	// Make sure we are talking to the matching postings writer
-	_, err := store.CheckHeader(termsIn.DataInput, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_START, LUCENE41_VERSION_CURRENT)
+	_, err := codec.CheckHeader(termsIn.DataInput, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_START, LUCENE41_VERSION_CURRENT)
 	if err != nil {
 		return err
 	}
@@ -94,7 +95,7 @@ type ForUtil struct {
 	iterations   []int32
 }
 
-func NewForUtil(in *store.DataInput) (fu ForUtil, err error) {
+func NewForUtil(in *util.DataInput) (fu ForUtil, err error) {
 	self := ForUtil{}
 	packedIntsVersion, err := in.ReadVInt()
 	if err != nil {

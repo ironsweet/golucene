@@ -2,11 +2,11 @@ package index
 
 import (
 	"fmt"
-	"github.com/balzaczyy/golucene/store"
+	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/util"
 )
 
-func newPackedHeaderNoHeader(in *store.DataInput, format util.PackedFormat, version, valueCount int32, bitsPerValue uint32) (r util.PackedIntsReader, err error) {
+func newPackedHeaderNoHeader(in *util.DataInput, format util.PackedFormat, version, valueCount int32, bitsPerValue uint32) (r util.PackedIntsReader, err error) {
 	util.CheckVersion(version)
 	switch format {
 	case util.PACKED_SINGLE_BLOCK:
@@ -36,8 +36,8 @@ func newPackedHeaderNoHeader(in *store.DataInput, format util.PackedFormat, vers
 	}
 }
 
-func newPackedReader(in *store.DataInput) (r util.PackedIntsReader, err error) {
-	version, err := store.CheckHeader(in, util.PACKED_CODEC_NAME, util.PACKED_VERSION_START, util.PACKED_VERSION_CURRENT)
+func newPackedReader(in *util.DataInput) (r util.PackedIntsReader, err error) {
+	version, err := codec.CheckHeader(in, util.PACKED_CODEC_NAME, util.PACKED_VERSION_START, util.PACKED_VERSION_CURRENT)
 	if err != nil {
 		return nil, err
 	}

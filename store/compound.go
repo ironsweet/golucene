@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"fmt"
+	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/util"
 	"sync"
 )
@@ -104,10 +105,10 @@ func NewCompoundFileDirectory(directory *Directory, fileName string, context IOC
 }
 
 const (
-	CODEC_MAGIC_BYTE1 = byte(uint32(CODEC_MAGIC) >> 24 & 0xFF)
-	CODEC_MAGIC_BYTE2 = byte(uint32(CODEC_MAGIC) >> 16 & 0xFF)
-	CODEC_MAGIC_BYTE3 = byte(uint32(CODEC_MAGIC) >> 8 & 0xFF)
-	CODEC_MAGIC_BYTE4 = byte(CODEC_MAGIC & 0xFF)
+	CODEC_MAGIC_BYTE1 = byte(uint32(codec.CODEC_MAGIC) >> 24 & 0xFF)
+	CODEC_MAGIC_BYTE2 = byte(uint32(codec.CODEC_MAGIC) >> 16 & 0xFF)
+	CODEC_MAGIC_BYTE3 = byte(uint32(codec.CODEC_MAGIC) >> 8 & 0xFF)
+	CODEC_MAGIC_BYTE4 = byte(codec.CODEC_MAGIC & 0xFF)
 )
 
 func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping map[string]FileEntry, err error) {
@@ -144,7 +145,7 @@ func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping 
 			return mapping, err
 		}
 
-		_, err = CheckHeaderNoMagic(stream.DataInput, CFD_DATA_CODEC, CFD_VERSION_START, CFD_VERSION_START)
+		_, err = codec.CheckHeaderNoMagic(stream.DataInput, CFD_DATA_CODEC, CFD_VERSION_START, CFD_VERSION_START)
 		if err != nil {
 			return mapping, err
 		}
@@ -153,7 +154,7 @@ func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping 
 		if err != nil {
 			return mapping, err
 		}
-		_, err = CheckHeader(entriesStream.DataInput, CFD_ENTRY_CODEC, CFD_VERSION_START, CFD_VERSION_START)
+		_, err = codec.CheckHeader(entriesStream.DataInput, CFD_ENTRY_CODEC, CFD_VERSION_START, CFD_VERSION_START)
 		if err != nil {
 			return mapping, err
 		}

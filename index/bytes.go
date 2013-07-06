@@ -2,6 +2,7 @@ package index
 
 import (
 	"github.com/balzaczyy/golucene/store"
+	"github.com/balzaczyy/golucene/util"
 )
 
 type BytesStore struct {
@@ -62,7 +63,7 @@ func newBytesStoreFromBits(blockBits uint32) *BytesStore {
 	return self
 }
 
-func newBytesStoreFromInput(in *store.DataInput, numBytes int64, maxBlockSize uint32) (bs *BytesStore, err error) {
+func newBytesStoreFromInput(in *util.DataInput, numBytes int64, maxBlockSize uint32) (bs *BytesStore, err error) {
 	var blockSize uint32 = 2
 	var blockBits uint32 = 1
 	for int64(blockSize) < numBytes && blockSize < maxBlockSize {
@@ -118,7 +119,7 @@ func (bs *BytesStore) forwardReader() *BytesReader {
 		}, reversed: func() bool {
 			return false
 		}}
-	self.DataInput = &store.DataInput{
+	self.DataInput = &util.DataInput{
 		ReadByte: func() (b byte, err error) {
 			if self.nextRead == bs.blockSize {
 				self.current = bs.blocks[self.nextBuffer]
@@ -191,7 +192,7 @@ func (bs *BytesStore) reverseReaderAllowSingle(allowSingle bool) *BytesReader {
 		}, reversed: func() bool {
 			return true
 		}}
-	self.DataInput = &store.DataInput{
+	self.DataInput = &util.DataInput{
 		ReadByte: func() (b byte, err error) {
 			if self.nextRead == -1 {
 				self.current = bs.blocks[self.nextBuffer]
@@ -231,7 +232,7 @@ func newForwardBytesReader(bytes []byte) *BytesReader {
 		}, reversed: func() bool {
 			return false
 		}}
-	self.DataInput = &store.DataInput{
+	self.DataInput = &util.DataInput{
 		ReadByte: func() (b byte, err error) {
 			self.pos++
 			return self.bytes[self.pos-1], nil
@@ -261,7 +262,7 @@ func newReverseBytesReader(bytes []byte) *BytesReader {
 		}, reversed: func() bool {
 			return true
 		}}
-	self.DataInput = &store.DataInput{
+	self.DataInput = &util.DataInput{
 		ReadByte: func() (b byte, err error) {
 			self.pos--
 			return self.bytes[self.pos+1], nil

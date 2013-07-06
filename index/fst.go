@@ -2,7 +2,7 @@ package index
 
 import (
 	"fmt"
-	"github.com/balzaczyy/golucene/store"
+	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/util"
 )
 
@@ -89,11 +89,11 @@ type FST struct {
 	nodeAddress *util.GrowableWriter
 }
 
-func loadFST(in *store.DataInput, outputs Outputs) (fst FST, err error) {
+func loadFST(in *util.DataInput, outputs Outputs) (fst FST, err error) {
 	return loadFST3(in, outputs, FST_DEFAULT_MAX_BLOCK_BITS)
 }
 
-func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits uint32) (fst FST, err error) {
+func loadFST3(in *util.DataInput, outputs Outputs, maxBlockBits uint32) (fst FST, err error) {
 	fst = FST{outputs: outputs, startNode: -1}
 
 	if maxBlockBits < 1 || maxBlockBits > 30 {
@@ -102,7 +102,7 @@ func loadFST3(in *store.DataInput, outputs Outputs, maxBlockBits uint32) (fst FS
 
 	// NOTE: only reads most recent format; we don't have
 	// back-compat promise for FSTs (they are experimental):
-	fst.version, err = store.CheckHeader(in, FST_FILE_FORMAT_NAME, FST_VERSION_PACKED, FST_VERSION_VINT_TARGET)
+	fst.version, err = codec.CheckHeader(in, FST_FILE_FORMAT_NAME, FST_VERSION_PACKED, FST_VERSION_VINT_TARGET)
 	if err != nil {
 		return fst, err
 	}
@@ -215,7 +215,7 @@ func (t *FST) cacheRootArcs() {
 	}
 }
 
-func (t *FST) readLabel(in *store.DataInput) (v int32, err error) {
+func (t *FST) readLabel(in *util.DataInput) (v int32, err error) {
 	switch t.inputType {
 	case INPUT_TYPE_BYTE1: // Unsigned byte
 		if b, err := in.ReadByte(); err == nil {
@@ -432,7 +432,7 @@ func (t *FST) getBytesReader() *BytesReader {
 }
 
 type BytesReader struct {
-	*store.DataInput
+	*util.DataInput
 	getPosition func() int64
 	setPosition func(pos int64)
 	reversed    func() bool
@@ -440,8 +440,8 @@ type BytesReader struct {
 }
 
 type Outputs interface {
-	read(in *store.DataInput) (e interface{}, err error)
-	readFinalOutput(in *store.DataInput) (e interface{}, err error)
+	read(in *util.DataInput) (e interface{}, err error)
+	readFinalOutput(in *util.DataInput) (e interface{}, err error)
 	noOutput() interface{}
 }
 
@@ -449,6 +449,6 @@ type abstractOutputs struct {
 	Outputs
 }
 
-func (out *abstractOutputs) readFinalOutput(in *store.DataInput) (e interface{}, err error) {
+func (out *abstractOutputs) readFinalOutput(in *util.DataInput) (e interface{}, err error) {
 	return out.Outputs.read(in)
 }
