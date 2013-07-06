@@ -9,7 +9,7 @@ const (
 	CODEC_MAGIC = 0x3fd76c17
 )
 
-func CheckHeader(in *DataInput, codec string, minVersion, maxVersion int) (v int, err error) {
+func CheckHeader(in *DataInput, codec string, minVersion, maxVersion int32) (v int32, err error) {
 	// Safety to guard against reading a bogus string:
 	actualHeader, err := in.ReadInt()
 	if err != nil {
@@ -23,7 +23,7 @@ func CheckHeader(in *DataInput, codec string, minVersion, maxVersion int) (v int
 	return CheckHeaderNoMagic(in, codec, minVersion, maxVersion)
 }
 
-func CheckHeaderNoMagic(in *DataInput, codec string, minVersion, maxVersion int) (v int, err error) {
+func CheckHeaderNoMagic(in *DataInput, codec string, minVersion, maxVersion int32) (v int32, err error) {
 	actualCodec, err := in.ReadString()
 	if err != nil {
 		return 0, err

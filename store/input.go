@@ -10,70 +10,59 @@ import (
 )
 
 type DataInput struct {
-	/*
-		Reads and returns a single byte.
-		Use panic/recover to catch IO error. Internal use only.
-	*/
-	ReadByte  func() byte
-	ReadBytes func(buf []byte) (n int, err error)
+	/* Reads and returns a single byte.	*/
+	ReadByte func() (b byte, err error)
+	/* Reads a specified number of bytes into an array */
+	ReadBytes func(buf []byte) error
 }
 
-type Error string
-
-func (e Error) Error() string {
-	return string(e)
-}
-
-func CatchIOError(err *error) {
-	if e := recover(); e != nil {
-		if e2, ok := e.(Error); ok {
-			*err = e2
+func (in *DataInput) ReadInt() (n int32, err error) {
+	if b1, err := in.ReadByte(); err == nil {
+		if b2, err := in.ReadByte(); err == nil {
+			if b3, err := in.ReadByte(); err == nil {
+				if b4, err := in.ReadByte(); err == nil {
+					return (int32(b1) << 24) | (int32(b2) << 16) | (int32(b3) << 8) | int32(b4), nil
+				}
+			}
 		}
 	}
+	return 0, err
 }
 
-func (in *DataInput) ReadInt() (n int, err error) {
-	defer CatchIOError(&err)
-	ds := make([]byte, 4)
-	for i, _ := range ds {
-		ds[i] = in.ReadByte()
+func (in *DataInput) ReadVInt() (n int32, err error) {
+	if b, err := in.ReadByte(); err == nil {
+		n = int32(b) & 0x7F
+		if b >= 0 {
+			return n, nil
+		}
+		if b, err = in.ReadByte(); err == nil {
+			n |= (int32(b) & 0x7F) << 7
+			if b >= 0 {
+				return n, nil
+			}
+			if b, err = in.ReadByte(); err == nil {
+				n |= (int32(b) & 0x7F) << 14
+				if b >= 0 {
+					return n, nil
+				}
+				if b, err = in.ReadByte(); err == nil {
+					n |= (int32(b) & 0x7F) << 21
+					if b >= 0 {
+						return n, nil
+					}
+					if b, err = in.ReadByte(); err == nil {
+						// Warning: the next ands use 0x0F / 0xF0 - beware copy/paste errors:
+						n |= (int32(b) & 0x0F) << 28
+						if int32(b)&0x0F == 0 {
+							return n, nil
+						}
+						return 0, errors.New("Invalid vInt detected (too many bits)")
+					}
+				}
+			}
+		}
 	}
-	return (int(ds[0]&0xFF) << 24) | (int(ds[1]&0xFF) << 16) | (int(ds[2]&0xFF) << 8) | int(ds[3]&0xFF), nil
-}
-
-func (in *DataInput) ReadVInt() (n int, err error) {
-	defer CatchIOError(&err)
-	b := in.ReadByte()
-	if b >= 0 {
-		return int(b), nil
-	}
-	n = int(b) & 0x7F
-
-	b = in.ReadByte()
-	n |= (int(b) & 0x7F) << 7
-	if b >= 0 {
-		return n, nil
-	}
-
-	b = in.ReadByte()
-	n |= (int(b) & 0x7F) << 14
-	if b >= 0 {
-		return n, nil
-	}
-
-	b = in.ReadByte()
-	n |= (int(b) & 0x7F) << 21
-	if b >= 0 {
-		return n, nil
-	}
-
-	b = in.ReadByte()
-	// Warning: the next ands use 0x0F / 0xF0 - beware copy/paste errors:
-	n |= (int(b) & 0x0F) << 28
-	if (b & 0xF0) == 0 {
-		return n, nil
-	}
-	return 0, errors.New("Invalid vInt detected (too many bits)")
+	return 0, err
 }
 
 func (in *DataInput) ReadLong() (n int64, err error) {
@@ -89,62 +78,62 @@ func (in *DataInput) ReadLong() (n int64, err error) {
 }
 
 func (in *DataInput) ReadVLong() (n int64, err error) {
-	defer CatchIOError(&err)
-	b := in.ReadByte()
-	if b >= 0 {
-		return int64(b), nil
+	if b, err := in.ReadByte(); err == nil {
+		n = int64(b) & 0x7F
+		if b >= 0 {
+			return n, nil
+		}
+		if b, err = in.ReadByte(); err == nil {
+			n |= (int64(b) & 0x7F) << 7
+			if b >= 0 {
+				return n, nil
+			}
+			if b, err = in.ReadByte(); err == nil {
+				n |= (int64(b) & 0x7F) << 14
+				if b >= 0 {
+					return n, nil
+				}
+				if b, err = in.ReadByte(); err == nil {
+					n |= (int64(b) & 0x7F) << 21
+					if b >= 0 {
+						return n, nil
+					}
+					if b, err = in.ReadByte(); err == nil {
+						n |= (int64(b) & 0x7F) << 28
+						if b >= 0 {
+							return n, nil
+						}
+						if b, err = in.ReadByte(); err == nil {
+							n |= (int64(b) & 0x7F) << 35
+							if b >= 0 {
+								return n, nil
+							}
+							if b, err = in.ReadByte(); err == nil {
+								n |= (int64(b) & 0x7F) << 42
+								if b >= 0 {
+									return n, nil
+								}
+								if b, err = in.ReadByte(); err == nil {
+									n |= (int64(b) & 0x7F) << 49
+									if b >= 0 {
+										return n, nil
+									}
+									if b, err = in.ReadByte(); err == nil {
+										n |= (int64(b) & 0x7F) << 56
+										if b >= 0 {
+											return n, nil
+										}
+										return 0, errors.New("Invalid vLong detected (negative values disallowed)")
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 	}
-
-	n = int64(b) & 0x7F
-	b = in.ReadByte()
-	n |= (int64(b) & 0x7F) << 7
-	if b >= 0 {
-		return n, nil
-	}
-
-	b = in.ReadByte()
-	n |= (int64(b) & 0x7F) << 14
-	if b >= 0 {
-		return n, nil
-	}
-
-	b = in.ReadByte()
-	n |= (int64(b) & 0x7F) << 21
-	if b >= 0 {
-		return n, nil
-	}
-
-	b = in.ReadByte()
-	n |= (int64(b) & 0x7F) << 28
-	if b >= 0 {
-		return n, nil
-	}
-
-	b = in.ReadByte()
-	n |= (int64(b) & 0x7F) << 35
-	if b >= 0 {
-		return n, nil
-	}
-
-	b = in.ReadByte()
-	n |= (int64(b) & 0x7F) << 42
-	if b >= 0 {
-		return n, nil
-	}
-
-	b = in.ReadByte()
-	n |= (int64(b) & 0x7F) << 49
-	if b >= 0 {
-		return n, nil
-	}
-
-	b = in.ReadByte()
-	n |= (int64(b) & 0x7F) << 56
-	if b >= 0 {
-		return n, nil
-	}
-
-	return 0, errors.New("Invalid vLong detected (negative values disallowed)")
+	return 0, err
 }
 
 func (in *DataInput) ReadString() (s string, err error) {
@@ -163,7 +152,7 @@ func (in *DataInput) ReadStringStringMap() (m map[string]string, err error) {
 		return nil, err
 	}
 	m = make(map[string]string)
-	for i := 0; i < count; i++ {
+	for i := int32(0); i < count; i++ {
 		key, err := in.ReadString()
 		if err != nil {
 			return nil, err
@@ -183,7 +172,7 @@ func (in *DataInput) ReadStringSet() (s map[string]bool, err error) {
 		return nil, err
 	}
 	s = make(map[string]bool)
-	for i := 0; i < count; i++ {
+	for i := int32(0); i < count; i++ {
 		key, err := in.ReadString()
 		if err != nil {
 			return nil, err
@@ -233,13 +222,13 @@ func newBufferedIndexInputBySize(desc string, bufferSize int) *BufferedIndexInpu
 	super := newIndexInput(desc)
 	checkBufferSize(bufferSize)
 	in := &BufferedIndexInput{IndexInput: super, bufferSize: bufferSize}
-	super.ReadByte = func() byte {
+	super.ReadByte = func() (b byte, err error) {
 		if in.bufferPosition >= in.bufferLength {
 			in.refill()
 		}
-		b := in.buffer[in.bufferPosition]
+		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
-		return b
+		return b, nil
 	}
 	super.FilePointer = func() int64 {
 		return in.bufferStart + int64(in.bufferPosition)
@@ -353,17 +342,18 @@ type ChecksumIndexInput struct {
 func NewChecksumIndexInput(main *IndexInput) *ChecksumIndexInput {
 	super := newIndexInput(fmt.Sprintf("ChecksumIndexInput(%v)", main))
 	digest := crc32.NewIEEE()
-	super.ReadByte = func() byte {
-		b := main.ReadByte()
-		digest.Write([]byte{b})
-		return b
+	super.ReadByte = func() (b byte, err error) {
+		if b, err = main.ReadByte(); err == nil {
+			digest.Write([]byte{b})
+		}
+		return b, err
 	}
-	super.ReadBytes = func(buf []byte) (n int, err error) {
-		n, err = main.ReadBytes(buf)
+	super.ReadBytes = func(buf []byte) error {
+		err := main.ReadBytes(buf)
 		if err == nil {
 			digest.Write(buf)
 		}
-		return n, err
+		return err
 	}
 	super.FilePointer = main.FilePointer
 	super.Length = main.Length

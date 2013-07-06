@@ -113,9 +113,6 @@ const (
 func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping map[string]FileEntry, err error) {
 	var stream, entriesStream *IndexInput = nil, nil
 	defer func() {
-		if e := recover(); e != nil {
-			err = e.(Error) // will re-panic if not an IO error
-		}
 		err = util.CloseWhileHandlingError(err, stream, entriesStream)
 	}()
 	// read the first VInt. If it is negative, it's the version number
@@ -129,17 +126,24 @@ func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping 
 	}
 	// impossible for 3.0 to have 63 files in a .cfs, CFS writer was not visible
 	// and separate norms/etc are outside of cfs.
-	if firstInt == int(CODEC_MAGIC_BYTE1) {
-		secondByte := stream.ReadByte()
-		thirdByte := stream.ReadByte()
-		fourthByte := stream.ReadByte()
-		if secondByte != CODEC_MAGIC_BYTE2 ||
-			thirdByte != CODEC_MAGIC_BYTE3 ||
-			fourthByte != CODEC_MAGIC_BYTE4 {
-			return mapping, errors.New(fmt.Sprintf(
-				"Illegal/impossible header for CFS file: %v,%v,%v",
-				secondByte, thirdByte, fourthByte))
+	if firstInt == int32(CODEC_MAGIC_BYTE1) {
+		if secondByte, err := stream.ReadByte(); err == nil {
+			if thirdByte, err := stream.ReadByte(); err == nil {
+				if fourthByte, err := stream.ReadByte(); err == nil {
+					if secondByte != CODEC_MAGIC_BYTE2 ||
+						thirdByte != CODEC_MAGIC_BYTE3 ||
+						fourthByte != CODEC_MAGIC_BYTE4 {
+						return mapping, errors.New(fmt.Sprintf(
+							"Illegal/impossible header for CFS file: %v,%v,%v",
+							secondByte, thirdByte, fourthByte))
+					}
+				}
+			}
 		}
+		if err != nil {
+			return mapping, err
+		}
+
 		_, err = CheckHeaderNoMagic(stream.DataInput, CFD_DATA_CODEC, CFD_VERSION_START, CFD_VERSION_START)
 		if err != nil {
 			return mapping, err
@@ -157,7 +161,7 @@ func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping 
 		if err != nil {
 			return mapping, err
 		}
-		for i := 0; i < numEntries; i++ {
+		for i := int32(0); i < numEntries; i++ {
 			id, err := entriesStream.ReadString()
 			if err != nil {
 				return mapping, err

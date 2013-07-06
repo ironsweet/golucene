@@ -22,7 +22,7 @@ func (out *DataOutput) CopyBytes(input *DataInput, numBytes int64) error {
 		} else {
 			toCopy = int32(left)
 		}
-		_, err := input.ReadBytes(out.copyBuffer[0:toCopy])
+		err := input.ReadBytes(out.copyBuffer[0:toCopy])
 		if err != nil {
 			return err
 		}
