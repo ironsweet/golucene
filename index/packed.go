@@ -6,15 +6,12 @@ import (
 	"github.com/balzaczyy/golucene/util"
 )
 
-type PackedReader interface {
-}
-
-func newPackedHeaderNoHeader(in *store.DataInput, format PackedFormat, version, valueCount, bitsPerValue int) {
+func newPackedHeaderNoHeader(in *store.DataInput, format util.PackedFormat, version, valueCount int32, bitsPerValue uint32) (r util.PackedIntsReader, err error) {
 	util.CheckVersion(version)
 	switch format {
-	case PACKED_SINGLE_BLOCK:
+	case util.PACKED_SINGLE_BLOCK:
 		return newPacked64SingleBlock(in, valueCount, bitsPerValue)
-	case PACKED:
+	case util.PACKED:
 		switch bitsPerValue {
 		case 8:
 			return newDirect8(version, in, valueCount)
@@ -39,7 +36,7 @@ func newPackedHeaderNoHeader(in *store.DataInput, format PackedFormat, version, 
 	}
 }
 
-func newPackedReader(in *store.DataInput) (r PackedReader, err error) {
+func newPackedReader(in *store.DataInput) (r util.PackedIntsReader, err error) {
 	version, err := store.CheckHeader(in, util.PACKED_CODEC_NAME, util.PACKED_VERSION_START, util.PACKED_VERSION_CURRENT)
 	if err != nil {
 		return nil, err

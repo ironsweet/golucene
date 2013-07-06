@@ -12,7 +12,7 @@ const (
 	PACKED_VERSION_CURRENT      = PACKED_VERSION_BYTE_ALIGNED
 )
 
-func CheckVersion(version int) {
+func CheckVersion(version int32) {
 	if version < PACKED_VERSION_START {
 		panic(fmt.Sprintf("Version is too old, should be at least %v (got %v)", PACKED_VERSION_START, version))
 	} else if version > PACKED_VERSION_CURRENT {
@@ -27,7 +27,7 @@ const (
 	PACKED_SINGLE_BLOCK = 1
 )
 
-func (f PackedFormat) ByteCount(packedIntsVersion, valueCount, bitsPerValue int) int64 {
+func (f PackedFormat) ByteCount(packedIntsVersion, valueCount int32, bitsPerValue uint32) int64 {
 	switch int(f) {
 	case PACKED:
 		if packedIntsVersion < PACKED_VERSION_BYTE_ALIGNED {
@@ -40,7 +40,7 @@ func (f PackedFormat) ByteCount(packedIntsVersion, valueCount, bitsPerValue int)
 	return 8 * int64(f.longCount(packedIntsVersion, valueCount, bitsPerValue))
 }
 
-func (f PackedFormat) longCount(packedIntsVersion, valueCount, bitsPerValue int) int {
+func (f PackedFormat) longCount(packedIntsVersion, valueCount int32, bitsPerValue uint32) int {
 	switch int(f) {
 	case PACKED_SINGLE_BLOCK:
 		valuesPerBlock := 64 / bitsPerValue
@@ -62,12 +62,33 @@ type PackedIntsDecoder interface {
 	ByteValueCount() uint32
 }
 
-func GetPackedIntsEncoder(format PackedFormat, version, bitsPerValue int) PackedIntsEncoder {
+func GetPackedIntsEncoder(format PackedFormat, version int32, bitsPerValue uint32) PackedIntsEncoder {
 	CheckVersion(version)
 	return newBulkOperation(format, bitsPerValue)
 }
 
-func GetPackedIntsDecoder(format PackedFormat, version, bitsPerValue int) PackedIntsDecoder {
+func GetPackedIntsDecoder(format PackedFormat, version int32, bitsPerValue uint32) PackedIntsDecoder {
 	CheckVersion(version)
 	return newBulkOperation(format, bitsPerValue)
+}
+
+type PackedIntsReader interface {
+	Get(index int32) int64
+	Size() int32
+}
+
+type PackedIntsMutable interface {
+	PackedIntsReader
+}
+
+type GrowableWriter struct {
+	current PackedIntsMutable
+}
+
+func (w *GrowableWriter) Get(index int32) int64 {
+	return w.current.Get(index)
+}
+
+func (w *GrowableWriter) Size() int32 {
+	return w.current.Size()
 }

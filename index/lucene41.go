@@ -88,10 +88,10 @@ func (r *Lucene41PostingReader) Close() error {
 }
 
 type ForUtil struct {
-	encodedSizes []int
+	encodedSizes []int32
 	encoders     []util.PackedIntsEncoder
 	decoders     []util.PackedIntsDecoder
-	iterations   []int
+	iterations   []int32
 }
 
 func NewForUtil(in *store.DataInput) (fu ForUtil, err error) {
@@ -101,10 +101,10 @@ func NewForUtil(in *store.DataInput) (fu ForUtil, err error) {
 		return self, err
 	}
 	util.CheckVersion(packedIntsVersion)
-	self.encodedSizes = make([]int, 33)
+	self.encodedSizes = make([]int32, 33)
 	self.encoders = make([]util.PackedIntsEncoder, 33)
 	self.decoders = make([]util.PackedIntsDecoder, 33)
-	self.iterations = make([]int, 33)
+	self.iterations = make([]int32, 33)
 
 	for bpv := 1; bpv <= 32; bpv++ {
 		code, err := in.ReadVInt()
@@ -112,7 +112,7 @@ func NewForUtil(in *store.DataInput) (fu ForUtil, err error) {
 			return self, err
 		}
 		formatId := uint32(code) >> 5
-		bitsPerValue := (code & 31) + 1
+		bitsPerValue := (uint32(code) & 31) + 1
 
 		format := util.PackedFormat(formatId)
 		// assert format.isSupported(bitsPerValue)
@@ -124,12 +124,12 @@ func NewForUtil(in *store.DataInput) (fu ForUtil, err error) {
 	return self, nil
 }
 
-func encodedSize(format util.PackedFormat, packedIntsVersion, bitsPerValue int) int {
+func encodedSize(format util.PackedFormat, packedIntsVersion int32, bitsPerValue uint32) int32 {
 	byteCount := format.ByteCount(packedIntsVersion, LUCENE41_BLOCK_SIZE, bitsPerValue)
 	// assert byteCount >= 0 && byteCount <= math.MaxInt32()
-	return int(byteCount)
+	return int32(byteCount)
 }
 
-func computeIterations(decoder util.PackedIntsDecoder) int {
-	return int(math.Ceil(float64(LUCENE41_BLOCK_SIZE) / float64(decoder.ByteValueCount())))
+func computeIterations(decoder util.PackedIntsDecoder) int32 {
+	return int32(math.Ceil(float64(LUCENE41_BLOCK_SIZE) / float64(decoder.ByteValueCount())))
 }

@@ -289,7 +289,7 @@ var (
 	}
 )
 
-func newBulkOperation(format PackedFormat, bitsPerValue int) *BulkOperation {
+func newBulkOperation(format PackedFormat, bitsPerValue uint32) *BulkOperation {
 	switch int(format) {
 	case PACKED:
 		// assert packedBulkOps[bitsPerValue - 1] != nil

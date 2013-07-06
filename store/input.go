@@ -29,6 +29,15 @@ func (in *DataInput) ReadInt() (n int32, err error) {
 	return 0, err
 }
 
+func (in *DataInput) ReadShort() (n int16, err error) {
+	if b1, err := in.ReadByte(); err == nil {
+		if b2, err := in.ReadByte(); err == nil {
+			return (int16(b1) << 8) | int16(b2), nil
+		}
+	}
+	return 0, err
+}
+
 func (in *DataInput) ReadVInt() (n int32, err error) {
 	if b, err := in.ReadByte(); err == nil {
 		n = int32(b) & 0x7F
