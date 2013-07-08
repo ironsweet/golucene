@@ -273,7 +273,7 @@ func newPacked8ThreeBlocks(valueCount int32) Packed8ThreeBlocks {
 }
 
 func newPacked8ThreeBlocksFromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
-	r = newPackedThreeBlocks(valueCount)
+	r = newPacked8ThreeBlocks(valueCount)
 	if err = in.ReadBytes(r.blocks); err == nil {
 		// because packed ints have not always been byte-aligned
 		remaining = PACKED.ByteCount(version, valueCount, 24) - 3*valueCount
@@ -289,6 +289,41 @@ func newPacked8ThreeBlocksFromInput(version int32, in *DataInput, valueCount int
 func (r *Packed8ThreeBlocks) Get(index int32) int64 {
 	o := index * 3
 	return blocks[o]<<16 | blocks[o+1]<<8 | blocks[o+2]
+}
+
+var PACKED16_THREE_BLOCKS_MAX_SIZE = int32(math.MaxInt32 / 3)
+
+type Packed16ThreeBlocks struct {
+	PackedIntsReaderImpl
+	blocks []int16
+}
+
+func newPacked16ThreeBlocks(valueCount int32) Packed16ThreeBlocks {
+	if valueCount > PACKED16_THREE_BLOCKS_MAX_SIZE {
+		panic("MAX_SIZE exceeded")
+	}
+	ans := Packed16ThreeBlocks{blocks: make([]int16, valueCount*3)}
+	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, 48)
+	return ans
+}
+
+func newPacked16ThreeBlocksFromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
+	ans := newPacked16ThreeBlocks(valueCount)
+	for i, _ := range ans.blocks {
+		if ans.blocks[i], err = in.ReadShort(); err != nil {
+			break
+		}
+	}
+	if err == nil {
+		// because packed ints have not always been byte-aligned
+		remaining = PACKED.ByteCount(version, valueCount, 48) - 3*valueCount*2
+		for i := 0; i < remaining; i++ {
+			if _, err = in.ReadByte(); err != nil {
+				break
+			}
+		}
+	}
+	return ans, err
 }
 
 type Packed64SingleBlock struct {
