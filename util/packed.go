@@ -98,14 +98,14 @@ func newPackedHeaderNoHeader(in *DataInput, format PackedFormat, version, valueC
 			return newDirect64FromInput(version, in, valueCount)
 		case 24:
 			if valueCount <= PACKED8_THREE_BLOCKS_MAX_SIZE {
-				return newPacked8ThreeBlocks(version, in, valueCount)
+				return newPacked8ThreeBlocksFromInput(version, in, valueCount)
 			}
 		case 48:
 			if valueCount <= PACKED16_THREE_BLOCKS_MAX_SIZE {
-				return newPacked16ThreeBlocks(version, in, valueCount)
+				return newPacked16ThreeBlocksFromInput(version, in, valueCount)
 			}
 		}
-		return newPacked64(version, in, valueCount, bitsPerValue)
+		return newPacked64FromInput(version, in, valueCount, bitsPerValue)
 	default:
 		panic(fmt.Sprintf("Unknown Writer foramt: %v", format))
 	}
@@ -236,7 +236,7 @@ func newDirect32FromInput(version int32, in *DataInput, valueCount int32) (r Pac
 }
 
 type Direct64 struct {
-	PaackedIntsReaderImpl
+	PackedIntsReaderImpl
 	values []int64
 }
 
@@ -254,6 +254,41 @@ func newDirect64FromInput(version int32, in *DataInput, valueCount int32) (r Pac
 		}
 	}
 	return r, err
+}
+
+var PACKED8_THREE_BLOCKS_MAX_SIZE = int32(math.MaxInt32 / 3)
+
+type Packed8ThreeBlocks struct {
+	PackedIntsReaderImpl
+	blocks []byte
+}
+
+func newPacked8ThreeBlocks(valueCount int32) Packed8ThreeBlocks {
+	if valueCount > PACKED8_THREE_BLOCKS_MAX_SIZE {
+		panic("MAX_SIZE exceeded")
+	}
+	ans := Packed8ThreeBlocks{blocks: make([]byte, valueCount*3)}
+	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, 24)
+	return ans
+}
+
+func newPacked8ThreeBlocksFromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
+	r = newPackedThreeBlocks(valueCount)
+	if err = in.ReadBytes(r.blocks); err == nil {
+		// because packed ints have not always been byte-aligned
+		remaining = PACKED.ByteCount(version, valueCount, 24) - 3*valueCount
+		for i := 0; i < remaining; i++ {
+			if _, err = in.ReadByte(); err != nil {
+				break
+			}
+		}
+	}
+	return r, err
+}
+
+func (r *Packed8ThreeBlocks) Get(index int32) int64 {
+	o := index * 3
+	return blocks[o]<<16 | blocks[o+1]<<8 | blocks[o+2]
 }
 
 type Packed64SingleBlock struct {
