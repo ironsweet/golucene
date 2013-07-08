@@ -326,6 +326,57 @@ func newPacked16ThreeBlocksFromInput(version int32, in *DataInput, valueCount in
 	return ans, err
 }
 
+const (
+	PACKED64_BLOCK_SIZE = 64
+)
+
+type Packed64 struct {
+	PackedIntsReaderImpl
+	blocks            []int64
+	maskRight         uint64
+	bpvMinusBlockSIze int32
+}
+
+func newPacked64(valueCount int32, bitsPerValue uint32) Packed64 {
+	longCount := PACKED.LongCount(PACKED_VERSION_CURRENT, valueCount, bitsPerValue)
+	ans := Packed64{
+		blocks:            make([]int64, longCount),
+		maskRight:         uint64(^(int64(0))<<(PACKED64_BLOCK_SIZE-bitsPerValue)) >> (PACKED64_BLOCK_SIZE - bitsPerValue),
+		bpvMinusBlockSize: bitsPerValue - PACKED64_BLOCK_SIZE}
+	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, bitsPerValue)
+	return ans
+}
+
+func newPacked64FromInput(version int32, int *DataInput, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
+	ans := newPacked64(valueCount, bitsPerValue)
+	byteCount := PACKED.ByteCount(version, valueCount, bitsPerValue)
+	longCount := PACKED.LongCount(PACKED_VERSION_CURRENT, valueCount, bitsPerValue)
+	ans.blocks = make([]int64, longCount)
+	// read as many longs as we can
+	for i := 0; i < byteCount/8; i++ {
+		if ans.blocks[i], err = in.ReadLong(); err != nil {
+			break
+		}
+	}
+	if err == nil {
+		if remaining := byteCount % 8; remaining != 0 {
+			// read the last bytes
+			var lastLong int64
+			for i := 0; i < remaining; i++ {
+				b, err := in.ReadByte()
+				if err != nil {
+					break
+				}
+				lastLong |= int64(b) << (5 - i*8)
+			}
+			if err == nil {
+				ans.blocks[len(ans.blocks)-1] = lastLong
+			}
+		}
+	}
+	return ans, err
+}
+
 type GrowableWriter struct {
 	current PackedIntsMutable
 }
