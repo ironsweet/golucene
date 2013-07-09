@@ -407,12 +407,12 @@ func (p *Packed64) Get(index int32) int64 {
 	endBits := (majorBitPos & PACKED64_MOD_MASK) + int64(p.bpvMinusBlockSize)
 
 	if endBits <= 0 { // Single block
-		return (uint64(p.blocks[elementPos]) >> -endBits) & p.maskRight
+		return int64((uint64(p.blocks[elementPos]) >> uint64(-endBits)) & p.maskRight)
 	}
 	// Two blocks
-	return ((p.blocks[elementPos] << endBits) |
-		(uint64(p.blocks[elementPos+1]) >> (PACKED64_BLOCK_SIZE - endBits))) &
-		p.maskRight
+	return ((p.blocks[elementPos] << uint64(endBits)) |
+		int64(uint64(p.blocks[elementPos+1])>>(PACKED64_BLOCK_SIZE-uint64(endBits)))) &
+		int64(p.maskRight)
 }
 
 type GrowableWriter struct {
