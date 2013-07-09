@@ -14,18 +14,34 @@ func (p *Packed64SingleBlock) Get(index int32) int64 {
 	return p.get(index)
 }
 
-func newPacked64SingleBlockFromInput(in *DataInput, valueCount int32, bitsPerValue uint32) (reader *Packed64SingleBlock, err error) {
-	reader = newPacked64SingleBlockBy(valueCount, bitsPerValue)
-	for i, _ := range reader.blocks {
-		reader.blocks[i], err = in.ReadLong()
-		if err == nil {
-			return reader, nil
-		}
-	}
-	return &reader, nil
+func newPacked64SingleBlock(valueCount int32, bitsPerValue uint32) Packed64SingleBlock {
+	// assert isSupported(bitsPerValue)
+	valuesPerBlock := int32(64 / bitsPerValue)
+	ans := Packed64SingleBlock{blocks: make([]int64, requiredCapacity(valueCount, valuesPerBlock))}
+	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, bitsPerValue)
+	return ans
 }
 
-func newPacked64SingleBlockBy(valueCount int32, bitsPerValue uint32) (reader Packed64SingleBlock, err error) {
+func requiredCapacity(valueCount, valuesPerBlock int32) int32 {
+	fit := (valueCount % valuesPerBlock) != 0
+	ans := valueCount / valuesPerBlock
+	if fit {
+		ans++
+	}
+	return ans
+}
+
+func newPacked64SingleBlockFromInput(in *DataInput, valueCount int32, bitsPerValue uint32) (reader PackedIntsReader, err error) {
+	ans := newPacked64SingleBlockBy(valueCount, bitsPerValue)
+	for i, _ := range ans.blocks {
+		if ans.blocks[i], err = in.ReadLong(); err != nil {
+			break
+		}
+	}
+	return &ans, err
+}
+
+func newPacked64SingleBlockBy(valueCount int32, bitsPerValue uint32) Packed64SingleBlock {
 	switch bitsPerValue {
 	case 1:
 		return newPacked64SingleBlock1(valueCount)
