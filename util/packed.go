@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/codec"
 	"math"
 )
 
@@ -81,7 +82,7 @@ type PackedIntsMutable interface {
 	PackedIntsReader
 }
 
-func newPackedHeaderNoHeader(in *DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
+func newPackedReaderNoHeader(in *DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
 	CheckVersion(version)
 	switch format {
 	case PACKED_SINGLE_BLOCK:
@@ -111,26 +112,23 @@ func newPackedHeaderNoHeader(in *DataInput, format PackedFormat, version, valueC
 	}
 }
 
+func asUint32(n int32, err error) (n2 uint32, err2 error) {
+	return uint32(n), err
+}
+
 func newPackedReader(in *DataInput) (r PackedIntsReader, err error) {
-	version, err := codec.CheckHeader(in, PACKED_CODEC_NAME, PACKED_VERSION_START, PACKED_VERSION_CURRENT)
-	if err != nil {
-		return nil, err
+	if version, err := codec.CheckHeader(in, PACKED_CODEC_NAME, PACKED_VERSION_START, PACKED_VERSION_CURRENT); err == nil {
+		if bitsPerValue, err := asUint32(in.ReadVInt()); err == nil {
+			// assert bitsPerValue > 0 && bitsPerValue <= 64
+			if valueCount, err := in.ReadVInt(); err == nil {
+				if id, err := in.ReadVInt(); err == nil {
+					format := PackedFormat(id)
+					return newPackedReaderNoHeader(in, format, version, valueCount, bitsPerValue)
+				}
+			}
+		}
 	}
-	bitsPerValue, err := in.ReadVInt()
-	if err != nil {
-		return nil, err
-	}
-	// assert bitsPerValue > 0 && bitsPerValue <= 64
-	valueCount, err := in.ReadVInt()
-	if err != nil {
-		return nil, err
-	}
-	id, err := in.ReadVInt()
-	if err != nil {
-		return nil, err
-	}
-	format := PackedFormat(id)
-	return newPackedReaderNoHeader(in, format, version, valueCount, bitsPerValue)
+	return
 }
 
 type PackedIntsReaderImpl struct {

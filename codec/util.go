@@ -3,14 +3,18 @@ package codec
 import (
 	"errors"
 	"fmt"
-	"github.com/balzaczyy/golucene/util"
 )
 
 const (
 	CODEC_MAGIC = 0x3fd76c17
 )
 
-func CheckHeader(in *util.DataInput, codec string, minVersion, maxVersion int32) (v int32, err error) {
+type DataInput interface {
+	ReadInt() (n int32, err error)
+	ReadString() (s string, err error)
+}
+
+func CheckHeader(in DataInput, codec string, minVersion, maxVersion int32) (v int32, err error) {
 	// Safety to guard against reading a bogus string:
 	actualHeader, err := in.ReadInt()
 	if err != nil {
@@ -24,7 +28,7 @@ func CheckHeader(in *util.DataInput, codec string, minVersion, maxVersion int32)
 	return CheckHeaderNoMagic(in, codec, minVersion, maxVersion)
 }
 
-func CheckHeaderNoMagic(in *util.DataInput, codec string, minVersion, maxVersion int32) (v int32, err error) {
+func CheckHeaderNoMagic(in DataInput, codec string, minVersion, maxVersion int32) (v int32, err error) {
 	actualCodec, err := in.ReadString()
 	if err != nil {
 		return 0, err
@@ -48,13 +52,13 @@ func CheckHeaderNoMagic(in *util.DataInput, codec string, minVersion, maxVersion
 	return actualVersion, nil
 }
 
-func NewIndexFormatTooNewError(in *util.DataInput, version, minVersion, maxVersion int32) error {
+func NewIndexFormatTooNewError(in DataInput, version, minVersion, maxVersion int32) error {
 	return errors.New(fmt.Sprintf(
 		"Format version is not supported (resource: %v): %v (needs to be between %v and %v)",
 		in, version, minVersion, maxVersion))
 }
 
-func NewIndexFormatTooOldError(in *util.DataInput, version, minVersion, maxVersion int32) error {
+func NewIndexFormatTooOldError(in DataInput, version, minVersion, maxVersion int32) error {
 	return errors.New(fmt.Sprintf(
 		"Format version is not supported (resource: %v): %v (needs to be between %v and %v). This version of Lucene only supports indexes created with release 3.0 and later.",
 		in, version, minVersion, maxVersion))
