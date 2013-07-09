@@ -155,22 +155,26 @@ type Direct8 struct {
 
 func newDirect8(valueCount int32) Direct8 {
 	ans := Direct8{values: make([]byte, valueCount)}
-	ans.PackedIntsReaderImpl = newPakedIntsReaderImpl(valueCount, 8)
+	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, 8)
 	return ans
 }
 
 func newDirect8FromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
-	r = newDirect8(valueCount)
-	if err = in.ReadBytes(values[0:valueCount]); err == nil {
+	ans := newDirect8(valueCount)
+	if err = in.ReadBytes(ans.values[0:valueCount]); err == nil {
 		// because packed ints have not always been byte-aligned
-		remaining = PACKED.ByteCount(version, valueCount, 8) - valueCount
-		for i := 0; i < remaining; i++ {
+		remaining := PackedFormat(PACKED).ByteCount(version, valueCount, 8) - int64(valueCount)
+		for i := int64(0); i < remaining; i++ {
 			if _, err = in.ReadByte(); err != nil {
 				break
 			}
 		}
 	}
-	return r, err
+	return &ans, err
+}
+
+func (d *Direct8) Get(index int32) int64 {
+	return int64(d.values[index])
 }
 
 type Direct16 struct {
@@ -185,22 +189,26 @@ func newDirect16(valueCount int32) Direct16 {
 }
 
 func newDirect16FromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
-	r = newDirect16(valueCount)
-	for i, _ := range r.values {
-		if r.values[i], err = in.ReadShort(); err != nil {
+	ans := newDirect16(valueCount)
+	for i, _ := range ans.values {
+		if ans.values[i], err = in.ReadShort(); err != nil {
 			break
 		}
 	}
 	if err == nil {
 		// because packed ints have not always been byte-aligned
-		remaining = PACKED.ByteCount(version, valueCount, 16) - 2*valueCount
-		for i := 0; i < remaining; i++ {
+		remaining := PackedFormat(PACKED).ByteCount(version, valueCount, 16) - 2*int64(valueCount)
+		for i := int64(0); i < remaining; i++ {
 			if _, err = in.ReadByte(); err != nil {
 				break
 			}
 		}
 	}
-	return r, err
+	return &ans, err
+}
+
+func (d *Direct16) Get(index int32) int64 {
+	return int64(d.values[index])
 }
 
 type Direct32 struct {
@@ -215,22 +223,26 @@ func newDirect32(valueCount int32) Direct32 {
 }
 
 func newDirect32FromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
-	r = newDirect32(valueCount)
-	for i, _ := range r.values {
-		if r.values[i], err = in.ReadInt(); err != nil {
+	ans := newDirect32(valueCount)
+	for i, _ := range ans.values {
+		if ans.values[i], err = in.ReadInt(); err != nil {
 			break
 		}
 	}
 	if err == nil {
 		// because packed ints have not always been byte-aligned
-		remaining = PACKED.ByteCount(version, valueCount, 32) - 4*valueCount
-		for i := 0; i < remaining; i++ {
+		remaining := PackedFormat(PACKED).ByteCount(version, valueCount, 32) - 4*int64(valueCount)
+		for i := int64(0); i < remaining; i++ {
 			if _, err = in.ReadByte(); err != nil {
 				break
 			}
 		}
 	}
-	return r, err
+	return &ans, err
+}
+
+func (d *Direct32) Get(index int32) int64 {
+	return int64(d.values[index])
 }
 
 type Direct64 struct {
@@ -238,20 +250,24 @@ type Direct64 struct {
 	values []int64
 }
 
-func newDirect64(valueCount int32) Direct32 {
-	ans := Direct64{values: make([]int32, valueCount)}
+func newDirect64(valueCount int32) Direct64 {
+	ans := Direct64{values: make([]int64, valueCount)}
 	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, 64)
 	return ans
 }
 
 func newDirect64FromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
-	r = newDirect64(valueCount)
-	for i, _ := range r.values {
-		if r.values[i], err = in.ReadLong(); err != nil {
+	ans := newDirect64(valueCount)
+	for i, _ := range ans.values {
+		if ans.values[i], err = in.ReadLong(); err != nil {
 			break
 		}
 	}
-	return r, err
+	return &ans, err
+}
+
+func (d *Direct64) Get(index int32) int64 {
+	return d.values[index]
 }
 
 var PACKED8_THREE_BLOCKS_MAX_SIZE = int32(math.MaxInt32 / 3)
