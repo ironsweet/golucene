@@ -227,7 +227,7 @@ type SegmentInfo struct {
 	dir            *store.Directory
 	version        string
 	name           string
-	docCount       int
+	docCount       int32
 	isCompoundFile bool
 	codec          Codec
 	diagnostics    map[string]string

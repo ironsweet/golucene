@@ -3,6 +3,7 @@ package index
 import (
 	"errors"
 	"fmt"
+	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
 	"io"
@@ -103,27 +104,42 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 							} else {
 								sumTotalTermFreq, err = fp.in.ReadVLong()
 							}
-						}
-					}
-				}
-			}
-			if err == nil {
-				if sumDocFreq, err := fp.in.ReadVLong(); err == nil {
-					if docCount, err := fp.in.ReadVInt(); err == nil {
-						if docCount < 0 || docCount > info.docCount { // #docs with field must be <= #docs
-							return fp, errors.New(fmt.Sprintf(
-								"invalid docCount: %v maxDoc: %v (resource=%v)",
-								docCount, info.docCount, fp.in))
-						}
-						if sumDocFreq < int64(docCount) { // #postings must be >= #docs with field
-							return fp, errors.New(fmt.Sprintf(
-								"invalid sumDocFreq: %v docCount: %v (resource=%v)",
-								sumDocFreq, docCount, fp.in))
-						}
-						if sumTotalTermFreq != -1 && sumTotalTermFreq < sumDocFreq { // #positions must be >= #postings
-							return fp, errors.New(fmt.Sprintf(
-								"invalid sumTotalTermFreq: %v sumDocFreq: %v (resource=%v)",
-								sumTotalTermFreq, sumDocFreq, fp.in))
+							if err == nil {
+								if sumDocFreq, err := fp.in.ReadVLong(); err == nil {
+									if docCount, err := fp.in.ReadVInt(); err == nil {
+										if docCount < 0 || docCount > info.docCount { // #docs with field must be <= #docs
+											return fp, errors.New(fmt.Sprintf(
+												"invalid docCount: %v maxDoc: %v (resource=%v)",
+												docCount, info.docCount, fp.in))
+										}
+										if sumDocFreq < int64(docCount) { // #postings must be >= #docs with field
+											return fp, errors.New(fmt.Sprintf(
+												"invalid sumDocFreq: %v docCount: %v (resource=%v)",
+												sumDocFreq, docCount, fp.in))
+										}
+										if sumTotalTermFreq != -1 && sumTotalTermFreq < sumDocFreq { // #positions must be >= #postings
+											return fp, errors.New(fmt.Sprintf(
+												"invalid sumTotalTermFreq: %v sumDocFreq: %v (resource=%v)",
+												sumTotalTermFreq, sumDocFreq, fp.in))
+										}
+
+										var indexStartFP int64
+										if indexDivisor != -1 {
+											indexStartFP, err = indexIn.ReadVLong()
+											if err != nil {
+												return fp, err
+											}
+										}
+										if _, ok := fp.fields[fieldInfo.name]; ok {
+											return fp, errors.New(fmt.Sprintf(
+												"duplicate field: %v (resource=%v)", fieldInfo.name, fp.in))
+										}
+										fp.fields[fieldInfo.name] = newFieldReader(
+											fieldInfo, numTerms, rootCode, sumTotalTermFreq,
+											sumDocFreq, docCount, indexStartFP, indexIn)
+									}
+								}
+							}
 						}
 					}
 				}
@@ -131,21 +147,6 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 			if err != nil {
 				return fp, err
 			}
-
-			var indexStartFP int64
-			if indexDivisor != -1 {
-				indexStartFP, err = indexIn.ReadVLong()
-				if err != nil {
-					return fp, err
-				}
-			}
-			if _, ok := fp.fields[fieldInfo.name]; ok {
-				return fp, errors.New(fmt.Sprintf(
-					"duplicate field: %v (resource=%v)", fieldInfo.name, fp.in))
-			}
-			fp.fields[fieldInfo.name] = newFieldReader(
-				fieldInfo, numTerms, rootCode, sumTotalTermFreq,
-				sumDocFreq, docCount, indexStartFP, indexIn)
 		}
 
 		if indexDivisor != -1 {
@@ -157,10 +158,12 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 
 		success = true
 	}
+
+	return fp, nil
 }
 
 func (r *BlockTreeTermsReader) readHeader(input *store.IndexInput) (version int, err error) {
-	version, err = store.CheckHeader(input, BTT_CODEC_NAME, BTT_VERSION_START, BTT_VERSION_CURRENT)
+	version, err = codec.CheckHeader(input, BTT_CODEC_NAME, BTT_VERSION_START, BTT_VERSION_CURRENT)
 	if err != nil {
 		return version, err
 	}
@@ -174,7 +177,7 @@ func (r *BlockTreeTermsReader) readHeader(input *store.IndexInput) (version int,
 }
 
 func (r *BlockTreeTermsReader) readIndexHeader(input *store.IndexInput) (version int, err error) {
-	version, err = store.CheckHeader(input, BTT_INDEX_CODEC_NAME, BTT_INDEX_VERSION_START, BTT_INDEX_VERSION_CURRENT)
+	version, err = codec.CheckHeader(input, BTT_INDEX_CODEC_NAME, BTT_INDEX_VERSION_START, BTT_INDEX_VERSION_CURRENT)
 	if err != nil {
 		return version, err
 	}
@@ -211,7 +214,7 @@ type FieldReader struct {
 	fieldInfo        FieldInfo
 	sumTotalTermFreq int64
 	sumDocFreq       int64
-	docCount         int
+	docCount         int32
 	indexStartFP     int64
 	rootBlockFP      int64
 	rootCode         []byte
@@ -219,7 +222,7 @@ type FieldReader struct {
 }
 
 func newFieldReader(fieldInfo FieldInfo, numTerms int64, rootCode []byte,
-	sumTotalTermFreq, sumDocFreq int64, docCount int, indexStartFP int64, indexIn *store.IndexInput) {
+	sumTotalTermFreq, sumDocFreq int64, docCount int32, indexStartFP int64, indexIn *store.IndexInput) FieldReader {
 	// assert numTerms > 0
 	self := FieldReader{
 		fieldInfo:        fieldInfo,
@@ -237,6 +240,8 @@ func newFieldReader(fieldInfo FieldInfo, numTerms int64, rootCode []byte,
 		clone.Seek(indexStartFP)
 		self.index = loadFST(clone, ByteSequenceOutputs.getSingleton())
 	} // else self.index = nil
+
+	return self
 }
 
 type PostingsReaderBase interface {
