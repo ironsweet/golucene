@@ -157,7 +157,7 @@ func loadFST3(in *util.DataInput, outputs Outputs, maxBlockBits uint32) (fst FST
 	}
 
 	if fst.packed {
-		fst.nodeRefToAddress, err = newPackedReader(in)
+		fst.nodeRefToAddress, err = util.NewPackedReader(in)
 		if err != nil {
 			return fst, err
 		}
