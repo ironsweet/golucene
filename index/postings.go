@@ -88,59 +88,50 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 			return fp, errors.New(fmt.Sprintf("invalid numFields: %v (resource=%v)", numFields, fp.in))
 		}
 
-		for i := 0; i < numFields; i++ {
-			field, err := fp.in.ReadVInt()
-			if err != nil {
-				return fp, err
-			}
-			numTerms, err := fp.in.ReadVLong()
-			if err != nil {
-				return fp, err
-			}
-			// assert numTerms >= 0
-			numBytes, err := fp.in.ReadVInt()
-			if err != nil {
-				return fp, err
-			}
-			rootCode := make([]byte, numBytes)
-			_, err = fp.in.ReadBytes(rootCode)
-			if err != nil {
-				return fp, err
-			}
-			fieldInfo := fieldInfos.byNumber[field]
-			// assert fieldInfo != nil
-			var sumTotalTermFreq int64
-			if fieldInfo.indexOptions == INDEX_OPT_DOCS_ONLY {
-				sumTotalTermFreq = -1
-			} else {
-				sumTotalTermFreq, err = fp.in.ReadVLong()
-				if err != nil {
-					return fp, err
+		for i := int32(0); i < numFields; i++ {
+			if field, err := fp.in.ReadVInt(); err == nil {
+				if numTerms, err := fp.in.ReadVLong(); err == nil {
+					// assert numTerms >= 0
+					if numBytes, err := fp.in.ReadVInt(); err == nil {
+						rootCode := make([]byte, numBytes)
+						if err = fp.in.ReadBytes(rootCode); err == nil {
+							fieldInfo := fieldInfos.byNumber[field]
+							// assert fieldInfo != nil
+							var sumTotalTermFreq int64
+							if fieldInfo.indexOptions == INDEX_OPT_DOCS_ONLY {
+								sumTotalTermFreq = -1
+							} else {
+								sumTotalTermFreq, err = fp.in.ReadVLong()
+							}
+						}
+					}
 				}
 			}
-			sumDocFreq, err := fp.in.ReadVLong()
+			if err == nil {
+				if sumDocFreq, err := fp.in.ReadVLong(); err == nil {
+					if docCount, err := fp.in.ReadVInt(); err == nil {
+						if docCount < 0 || docCount > info.docCount { // #docs with field must be <= #docs
+							return fp, errors.New(fmt.Sprintf(
+								"invalid docCount: %v maxDoc: %v (resource=%v)",
+								docCount, info.docCount, fp.in))
+						}
+						if sumDocFreq < int64(docCount) { // #postings must be >= #docs with field
+							return fp, errors.New(fmt.Sprintf(
+								"invalid sumDocFreq: %v docCount: %v (resource=%v)",
+								sumDocFreq, docCount, fp.in))
+						}
+						if sumTotalTermFreq != -1 && sumTotalTermFreq < sumDocFreq { // #positions must be >= #postings
+							return fp, errors.New(fmt.Sprintf(
+								"invalid sumTotalTermFreq: %v sumDocFreq: %v (resource=%v)",
+								sumTotalTermFreq, sumDocFreq, fp.in))
+						}
+					}
+				}
+			}
 			if err != nil {
 				return fp, err
 			}
-			docCount, err := fp.in.ReadVInt()
-			if err != nil {
-				return fp, err
-			}
-			if docCount < 0 || docCount > info.docCount { // #docs with field must be <= #docs
-				return fp, errors.New(fmt.Sprintf(
-					"invalid docCount: %v maxDoc: %v (resource=%v)",
-					docCount, info.docCount, fp.in))
-			}
-			if sumDocFreq < int64(docCount) { // #postings must be >= #docs with field
-				return fp, errors.New(fmt.Sprintf(
-					"invalid sumDocFreq: %v docCount: %v (resource=%v)",
-					sumDocFreq, docCount, fp.in))
-			}
-			if sumTotalTermFreq != -1 && sumTotalTermFreq < sumDocFreq { // #positions must be >= #postings
-				return fp, errors.New(fmt.Sprintf(
-					"invalid sumTotalTermFreq: %v sumDocFreq: %v (resource=%v)",
-					sumTotalTermFreq, sumDocFreq, fp.in))
-			}
+
 			var indexStartFP int64
 			if indexDivisor != -1 {
 				indexStartFP, err = indexIn.ReadVLong()

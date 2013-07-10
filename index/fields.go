@@ -91,7 +91,7 @@ type FieldInfo struct {
 	// Field's name
 	name string
 	// Internal field number
-	number int
+	number int32
 
 	indexed      bool
 	docValueType DocValuesType
@@ -107,7 +107,7 @@ type FieldInfo struct {
 	attributes map[string]string
 }
 
-func NewFieldInfo(name string, indexed bool, number int, storeTermVector, omitNorms, storePayloads bool,
+func NewFieldInfo(name string, indexed bool, number int32, storeTermVector, omitNorms, storePayloads bool,
 	indexOptions IndexOptions, docValues, normsType DocValuesType, attributes map[string]string) FieldInfo {
 	fi := FieldInfo{name: name, indexed: indexed, number: number, docValueType: docValues, attributes: attributes}
 	if indexed {
@@ -123,6 +123,12 @@ func NewFieldInfo(name string, indexed bool, number int, storeTermVector, omitNo
 	return fi
 }
 
+type Int32Slice []int32
+
+func (p Int32Slice) Len() int           { return len(p) }
+func (p Int32Slice) Less(i, j int) bool { return p[i] < p[j] }
+func (p Int32Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
 type FieldInfos struct {
 	hasFreq      bool
 	hasProx      bool
@@ -132,16 +138,16 @@ type FieldInfos struct {
 	hasNorms     bool
 	hasDocValues bool
 
-	byNumber map[int]FieldInfo
+	byNumber map[int32]FieldInfo
 	byName   map[string]FieldInfo
 	values   []FieldInfo // sorted by ID
 }
 
 func NewFieldInfos(infos []FieldInfo) FieldInfos {
-	self := FieldInfos{byNumber: make(map[int]FieldInfo), byName: make(map[string]FieldInfo)}
+	self := FieldInfos{byNumber: make(map[int32]FieldInfo), byName: make(map[string]FieldInfo)}
 
 	var hasVectors, hasProx, hasPayloads, hasOffsets, hasFreq, hasNorms, hasDocValues bool
-	numbers := make([]int, 0)
+	numbers := make([]int32, 0)
 	for _, info := range infos {
 		if prev, ok := self.byNumber[info.number]; ok {
 			panic(fmt.Sprintf("duplicate field numbers: %v and %v have: %v", prev.name, info.name, info.number))
@@ -162,10 +168,10 @@ func NewFieldInfos(infos []FieldInfo) FieldInfos {
 		self.hasPayloads = self.hasPayloads || info.storePayloads
 	}
 
-	sort.Ints(numbers)
+	sort.Sort(Int32Slice(numbers))
 	self.values = make([]FieldInfo, len(infos))
 	for i, v := range numbers {
-		self.values[i] = self.byNumber[v]
+		self.values[int32(i)] = self.byNumber[v]
 	}
 
 	return self
