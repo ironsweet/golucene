@@ -1,9 +1,8 @@
-package index
+package util
 
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/codec"
-	"github.com/balzaczyy/golucene/util"
 )
 
 type InputType int
@@ -80,20 +79,20 @@ type FST struct {
 	arcCount           int64
 	arcWithOutputCount int64
 	packed             bool
-	nodeRefToAddress   util.PackedIntsReader
+	nodeRefToAddress   PackedIntsReader
 	allowArrayArcs     bool
 	cachedRootArcs     []Arc
 	version            int32
 	emptyOutput        interface{}
 
-	nodeAddress *util.GrowableWriter
+	nodeAddress *GrowableWriter
 }
 
-func loadFST(in *util.DataInput, outputs Outputs) (fst FST, err error) {
+func loadFST(in *DataInput, outputs Outputs) (fst FST, err error) {
 	return loadFST3(in, outputs, FST_DEFAULT_MAX_BLOCK_BITS)
 }
 
-func loadFST3(in *util.DataInput, outputs Outputs, maxBlockBits uint32) (fst FST, err error) {
+func loadFST3(in *DataInput, outputs Outputs, maxBlockBits uint32) (fst FST, err error) {
 	fst = FST{outputs: outputs, startNode: -1}
 
 	if maxBlockBits < 1 || maxBlockBits > 30 {
@@ -157,7 +156,7 @@ func loadFST3(in *util.DataInput, outputs Outputs, maxBlockBits uint32) (fst FST
 	}
 
 	if fst.packed {
-		fst.nodeRefToAddress, err = util.NewPackedReader(in)
+		fst.nodeRefToAddress, err = newPackedReader(in)
 		if err != nil {
 			return fst, err
 		}
@@ -215,7 +214,7 @@ func (t *FST) cacheRootArcs() {
 	}
 }
 
-func (t *FST) readLabel(in *util.DataInput) (v int32, err error) {
+func (t *FST) readLabel(in *DataInput) (v int32, err error) {
 	switch t.inputType {
 	case INPUT_TYPE_BYTE1: // Unsigned byte
 		if b, err := in.ReadByte(); err == nil {
@@ -393,7 +392,7 @@ func (t *FST) seekToNextNode(in *BytesReader) error {
 	var err error
 	var flags byte
 	for {
-		if flags, err := in.ReadByte(); err == nil {
+		if flags, err = in.ReadByte(); err == nil {
 			_, err = t.readLabel(in.DataInput)
 		}
 		if err != nil {
@@ -432,7 +431,7 @@ func (t *FST) getBytesReader() *BytesReader {
 }
 
 type BytesReader struct {
-	*util.DataInput
+	*DataInput
 	getPosition func() int64
 	setPosition func(pos int64)
 	reversed    func() bool
@@ -440,8 +439,8 @@ type BytesReader struct {
 }
 
 type Outputs interface {
-	read(in *util.DataInput) (e interface{}, err error)
-	readFinalOutput(in *util.DataInput) (e interface{}, err error)
+	read(in *DataInput) (e interface{}, err error)
+	readFinalOutput(in *DataInput) (e interface{}, err error)
 	noOutput() interface{}
 }
 
@@ -449,6 +448,6 @@ type abstractOutputs struct {
 	Outputs
 }
 
-func (out *abstractOutputs) readFinalOutput(in *util.DataInput) (e interface{}, err error) {
+func (out *abstractOutputs) readFinalOutput(in *DataInput) (e interface{}, err error) {
 	return out.Outputs.read(in)
 }

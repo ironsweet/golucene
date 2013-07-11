@@ -1,12 +1,9 @@
-package index
+package util
 
-import (
-	"github.com/balzaczyy/golucene/store"
-	"github.com/balzaczyy/golucene/util"
-)
+import ()
 
 type BytesStore struct {
-	*store.DataOutput
+	*DataOutput
 	blocks    [][]byte
 	blockSize uint32
 	blockBits uint32
@@ -17,7 +14,7 @@ type BytesStore struct {
 
 func newBytesStore() *BytesStore {
 	self := &BytesStore{}
-	self.DataOutput = &store.DataOutput{
+	self.DataOutput = &DataOutput{
 		WriteByte: func(b byte) error {
 			if self.nextWrite == self.blockSize {
 				self.current = make([]byte, self.blockSize)
@@ -63,7 +60,7 @@ func newBytesStoreFromBits(blockBits uint32) *BytesStore {
 	return self
 }
 
-func newBytesStoreFromInput(in *util.DataInput, numBytes int64, maxBlockSize uint32) (bs *BytesStore, err error) {
+func newBytesStoreFromInput(in *DataInput, numBytes int64, maxBlockSize uint32) (bs *BytesStore, err error) {
 	var blockSize uint32 = 2
 	var blockBits uint32 = 1
 	for int64(blockSize) < numBytes && blockSize < maxBlockSize {
@@ -119,7 +116,7 @@ func (bs *BytesStore) forwardReader() *BytesReader {
 		}, reversed: func() bool {
 			return false
 		}}
-	self.DataInput = &util.DataInput{
+	self.DataInput = &DataInput{
 		ReadByte: func() (b byte, err error) {
 			if self.nextRead == bs.blockSize {
 				self.current = bs.blocks[self.nextBuffer]
@@ -192,7 +189,7 @@ func (bs *BytesStore) reverseReaderAllowSingle(allowSingle bool) *BytesReader {
 		}, reversed: func() bool {
 			return true
 		}}
-	self.DataInput = &util.DataInput{
+	self.DataInput = &DataInput{
 		ReadByte: func() (b byte, err error) {
 			if self.nextRead == -1 {
 				self.current = bs.blocks[self.nextBuffer]
@@ -232,7 +229,7 @@ func newForwardBytesReader(bytes []byte) *BytesReader {
 		}, reversed: func() bool {
 			return false
 		}}
-	self.DataInput = &util.DataInput{
+	self.DataInput = &DataInput{
 		ReadByte: func() (b byte, err error) {
 			self.pos++
 			return self.bytes[self.pos-1], nil
@@ -262,7 +259,7 @@ func newReverseBytesReader(bytes []byte) *BytesReader {
 		}, reversed: func() bool {
 			return true
 		}}
-	self.DataInput = &util.DataInput{
+	self.DataInput = &DataInput{
 		ReadByte: func() (b byte, err error) {
 			self.pos--
 			return self.bytes[self.pos+1], nil

@@ -1,8 +1,6 @@
-package store
+package util
 
-import (
-	"github.com/balzaczyy/golucene/util"
-)
+import ()
 
 type DataOutput struct {
 	WriteByte  func(b byte) error
@@ -13,7 +11,7 @@ type DataOutput struct {
 
 const DATA_OUTPUT_COPY_BUFFER_SIZE = 16384
 
-func (out *DataOutput) CopyBytes(input *util.DataInput, numBytes int64) error {
+func (out *DataOutput) CopyBytes(input *DataInput, numBytes int64) error {
 	// assert numBytes >= 0
 	left := numBytes
 	if out.copyBuffer == nil {
