@@ -15,14 +15,18 @@ type FieldsProducer interface {
 }
 
 const (
-	/* BlockTreeTermsWriter */
-
 	BTT_OUTPUT_FLAGS_NUM_BITS = 2
 	BTT_EXTENSION             = "tim"
+	BTT_CODEC_NAME            = "BLOCK_TREE_TERMS_DICT"
+	BTT_VERSION_START         = 0
+	BTT_VERSION_APPEND_ONLY   = 1
+	BTT_VERSION_CURRENT       = BTT_VERSION_APPEND_ONLY
 
-	/* BlockTreeTermsReader */
-
-	BTT_INDEX_EXTENSION = "tip"
+	BTT_INDEX_EXTENSION           = "tip"
+	BTT_INDEX_CODEC_NAME          = "BLOCK_TREE_TERMS_INDEX"
+	BTT_INDEX_VERSION_START       = 0
+	BTT_INDEX_VERSION_APPEND_ONLY = 1
+	BTT_INDEX_VERSION_CURRENT     = BTT_INDEX_VERSION_APPEND_ONLY
 )
 
 type BlockTreeTermsReader struct {
@@ -162,7 +166,7 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 	return fp, nil
 }
 
-func (r *BlockTreeTermsReader) readHeader(input *store.IndexInput) (version int, err error) {
+func (r *BlockTreeTermsReader) readHeader(input *store.IndexInput) (version int32, err error) {
 	version, err = codec.CheckHeader(input, BTT_CODEC_NAME, BTT_VERSION_START, BTT_VERSION_CURRENT)
 	if err != nil {
 		return version, err
@@ -176,7 +180,7 @@ func (r *BlockTreeTermsReader) readHeader(input *store.IndexInput) (version int,
 	return version, nil
 }
 
-func (r *BlockTreeTermsReader) readIndexHeader(input *store.IndexInput) (version int, err error) {
+func (r *BlockTreeTermsReader) readIndexHeader(input *store.IndexInput) (version int32, err error) {
 	version, err = codec.CheckHeader(input, BTT_INDEX_CODEC_NAME, BTT_INDEX_VERSION_START, BTT_INDEX_VERSION_CURRENT)
 	if err != nil {
 		return version, err
@@ -199,14 +203,20 @@ func (r *BlockTreeTermsReader) seekDir(input *store.IndexInput, dirOffset int64)
 		}
 	}
 	input.Seek(dirOffset)
+	return nil
 }
 
 func (r *BlockTreeTermsReader) Terms(field string) Terms {
-
+	return r.fields[field]
 }
 
 func (r *BlockTreeTermsReader) Close() error {
-
+	defer func() {
+		// Clear so refs to terms index is GCable even if
+		// app hangs onto us:
+		r.fields = make(map[string]FieldReader)
+	}()
+	return util.Close(r.in, r.postingsReader)
 }
 
 type FieldReader struct {
@@ -218,7 +228,7 @@ type FieldReader struct {
 	indexStartFP     int64
 	rootBlockFP      int64
 	rootCode         []byte
-	index            *FST
+	index            *util.FST
 }
 
 func newFieldReader(fieldInfo FieldInfo, numTerms int64, rootCode []byte,
