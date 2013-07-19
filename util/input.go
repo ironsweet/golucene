@@ -9,6 +9,26 @@ type DataInput struct {
 	ReadByte func() (b byte, err error)
 	/* Reads a specified number of bytes into an array */
 	ReadBytes func(buf []byte) error
+	/** Reads a specified number of bytes into an array at the
+	 * specified offset with control over whether the read
+	 * should be buffered (callers who have their own buffer
+	 * should pass in "false" for useBuffer).  Currently only
+	 * {@link BufferedIndexInput} respects this parameter.
+	 */
+	ReadBytesBufferd func(buf []byte, useBuffer bool) error
+}
+
+func NewDataInput() DataInput {
+	return DataInput{}
+}
+
+func (in *DataInput) ReadShort() (n int16, err error) {
+	if b1, err := in.ReadByte(); err == nil {
+		if b2, err := in.ReadByte(); err == nil {
+			return (int16(b1) << 8) | int16(b2), nil
+		}
+	}
+	return 0, err
 }
 
 func (in *DataInput) ReadInt() (n int32, err error) {
@@ -19,15 +39,6 @@ func (in *DataInput) ReadInt() (n int32, err error) {
 					return (int32(b1) << 24) | (int32(b2) << 16) | (int32(b3) << 8) | int32(b4), nil
 				}
 			}
-		}
-	}
-	return 0, err
-}
-
-func (in *DataInput) ReadShort() (n int16, err error) {
-	if b1, err := in.ReadByte(); err == nil {
-		if b2, err := in.ReadByte(); err == nil {
-			return (int16(b1) << 8) | int16(b2), nil
 		}
 	}
 	return 0, err
