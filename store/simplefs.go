@@ -71,7 +71,8 @@ func newSimpleFSIndexInput(desc, path string, context IOContext, chunkSize int) 
 		return nil, err
 	}
 	in = &SimpleFSIndexInput{super, &sync.Mutex{}}
-	super.readInternal = func(b []byte, offset, length int) error {
+	super.readInternal = func(buf []byte) error {
+		length := len(buf)
 		in.fileLock.Lock()
 		defer in.fileLock.Unlock()
 
@@ -93,7 +94,7 @@ func newSimpleFSIndexInput(desc, path string, context IOContext, chunkSize int) 
 				readLength = in.chunkSize
 			}
 			// FIXME verify slice is working
-			i, err := in.file.Read(b[offset+total : offset+total+readLength])
+			i, err := in.file.Read(buf[total : total+readLength])
 			if err != nil {
 				return errors.New(fmt.Sprintf("%v: %v", err, in))
 			}

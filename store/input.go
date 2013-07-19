@@ -39,7 +39,7 @@ type BufferedIndexInput struct {
 	bufferLength   int
 	bufferPosition int
 	seekInternal   func(pos int64)
-	readInternal   func(b []byte, offset, length int) error
+	readInternal   func(buf []byte) error
 }
 
 func newBufferedIndexInput(desc string, context IOContext) *BufferedIndexInput {
@@ -121,7 +121,7 @@ func (in *BufferedIndexInput) refill() error {
 		in.newBuffer(make([]byte, in.bufferSize)) // allocate buffer lazily
 		in.seekInternal(int64(in.bufferStart))
 	}
-	in.readInternal(in.buffer, 0, newLength)
+	in.readInternal(in.buffer[0:newLength])
 	in.bufferLength = newLength
 	in.bufferStart = start
 	in.bufferPosition = 0
