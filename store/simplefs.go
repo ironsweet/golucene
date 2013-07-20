@@ -50,12 +50,12 @@ func NewSimpleFSDirectory(path string) (d *SimpleFSDirectory, err error) {
 	if err != nil {
 		return nil, err
 	}
-	super.OpenInput = func(name string, context IOContext) (in *IndexInput, err error) {
+	super.OpenInput = func(name string, context IOContext) (in IndexInput, err error) {
 		super.ensureOpen()
 		fpath := filepath.Join(path, name)
 		sin, err := newSimpleFSIndexInput(fmt.Sprintf("SimpleFSIndexInput(path='%v')", fpath),
 			fpath, context, super.chunkSize)
-		return sin.IndexInput, err
+		return sin.BufferedIndexInput, err
 	}
 	return &SimpleFSDirectory{super}, nil
 }

@@ -43,13 +43,13 @@ func NewCompoundFileDirectory(directory *Directory, fileName string, context IOC
 		readBufferSize: bufferSize(context),
 		openForWriter:  openForWrite}
 	super := &Directory{isOpen: false}
-	super.OpenInput = func(name string, context IOContext) (in *IndexInput, err error) {
+	super.OpenInput = func(name string, context IOContext) (in IndexInput, err error) {
 		super.ensureOpen()
 		// assert !self.openForWrite
 		id := util.StripSegmentName(name)
 		if entry, ok := self.entries[id]; ok {
 			is := self.handle.openSlice(name, entry.offset, entry.length)
-			return &is, nil
+			return is, nil
 		}
 		keys := make([]string, 0)
 		for k := range self.entries {
@@ -112,15 +112,14 @@ const (
 )
 
 func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping map[string]FileEntry, err error) {
-	var stream, entriesStream *IndexInput = nil, nil
+	var stream, entriesStream IndexInput = nil, nil
 	defer func() {
 		err = util.CloseWhileHandlingError(err, stream, entriesStream)
 	}()
 	// read the first VInt. If it is negative, it's the version number
 	// otherwise it's the count (pre-3.1 indexes)
 	mapping = make(map[string]FileEntry)
-	slice := handle.openFullSlice()
-	stream = &(slice)
+	stream = handle.openFullSlice()
 	firstInt, err := stream.ReadVInt()
 	if err != nil {
 		return mapping, err
@@ -145,7 +144,7 @@ func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping 
 			return mapping, err
 		}
 
-		_, err = codec.CheckHeaderNoMagic(stream.DataInput, CFD_DATA_CODEC, CFD_VERSION_START, CFD_VERSION_START)
+		_, err = codec.CheckHeaderNoMagic(stream, CFD_DATA_CODEC, CFD_VERSION_START, CFD_VERSION_START)
 		if err != nil {
 			return mapping, err
 		}
@@ -154,7 +153,7 @@ func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping 
 		if err != nil {
 			return mapping, err
 		}
-		_, err = codec.CheckHeader(entriesStream.DataInput, CFD_ENTRY_CODEC, CFD_VERSION_START, CFD_VERSION_START)
+		_, err = codec.CheckHeader(entriesStream, CFD_ENTRY_CODEC, CFD_VERSION_START, CFD_VERSION_START)
 		if err != nil {
 			return mapping, err
 		}

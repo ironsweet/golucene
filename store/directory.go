@@ -18,6 +18,7 @@ const (
 type IOContextType int
 
 var (
+	IO_CONTEXT_DEFAULT  = NewIOContextFromType(IOContextType(IO_CONTEXT_TYPE_DEFAULT))
 	IO_CONTEXT_READONCE = NewIOContextBool(true)
 	IO_CONTEXT_READ     = NewIOContextBool(false)
 )
@@ -29,8 +30,32 @@ type IOContext struct {
 	readOnce bool
 }
 
+func NewIOContextForFlush(flushInfo FlushInfo) IOContext {
+	return IOContext{IOContextType(IO_CONTEXT_TYPE_FLUSH), false}
+}
+
+func NewIOContextFromType(context IOContextType) IOContext {
+	return IOContext{context, false}
+}
+
 func NewIOContextBool(readOnce bool) IOContext {
 	return IOContext{IOContextType(IO_CONTEXT_TYPE_READ), readOnce}
+}
+
+func NewIOContextForMerge(mergeInfo MergeInfo) IOContext {
+	return IOContext{IOContextType(IO_CONTEXT_TYPE_MERGE), false}
+}
+
+type FlushInfo struct {
+	numDocs              int
+	estimatedSegmentSize int64
+}
+
+type MergeInfo struct {
+	totalDocCount       int
+	estimatedMergeBytes int64
+	isExternal          bool
+	mergeMaxNumSegments int
 }
 
 type Lock struct {
@@ -55,7 +80,7 @@ type Directory struct {
 	LockID      func() string
 	ListAll     func() (paths []string, err error)
 	FileExists  func(name string) bool
-	OpenInput   func(name string, context IOContext) (in *IndexInput, err error)
+	OpenInput   func(name string, context IOContext) (in IndexInput, err error)
 }
 
 func (d *Directory) SetLockFactory(lockFactory LockFactory) {
@@ -68,12 +93,12 @@ func (d *Directory) String() string {
 }
 
 type simpleIndexInputSlicer struct {
-	base *IndexInput
+	base IndexInput
 }
 
 func (is simpleIndexInputSlicer) openSlice(desc string, offset, length int64) IndexInput {
-	return *(newSlicedIndexInput(fmt.Sprintf("SlicedIndexInput(%v in %v)", desc, is.base),
-		is.base, offset, length).IndexInput)
+	return newSlicedIndexInput(fmt.Sprintf("SlicedIndexInput(%v in %v)", desc, is.base),
+		is.base, offset, length).BufferedIndexInput
 }
 
 func (is simpleIndexInputSlicer) Close() error {
@@ -81,7 +106,7 @@ func (is simpleIndexInputSlicer) Close() error {
 }
 
 func (is simpleIndexInputSlicer) openFullSlice() IndexInput {
-	return *(is.base)
+	return is.base
 }
 
 func (d *Directory) createSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {

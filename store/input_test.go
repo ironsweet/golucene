@@ -53,10 +53,10 @@ func newMyBufferedIndexInput(length int64) MyBufferedIndexInput {
 	ans.BufferedIndexInput.seekInternal = func(pos int64) {
 		ans.pos = pos
 	}
-	ans.BufferedIndexInput.IndexInput.close = func() error {
+	ans.BufferedIndexInput.close = func() error {
 		return nil
 	}
-	ans.BufferedIndexInput.IndexInput.Length = func() int64 {
+	ans.BufferedIndexInput.length = func() int64 {
 		return ans.length
 	}
 	return ans
