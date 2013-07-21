@@ -178,6 +178,36 @@ func checkReadBytes(input IndexInput, size, pos int, t *testing.T) error {
 	return nil
 }
 
+// This tests that attempts to readBytes() past an EOF will fail, while
+// reads up to the EOF will succeed. The EOF is determined by the
+// BufferedIndexInput's arbitrary length() value.
+func testEOF(t *testing.T) {
+	input := newMyBufferedIndexInput(1024)
+	// see that we can read all the bytes at one go:
+	if err := checkReadBytes(input, int(input.Length()), 0, t); err != nil {
+		t.Error(err)
+	}
+	// go back and see that we can't read more than that, for small and
+	// large overflows:
+	pos := int(input.Length() - 10)
+	input.Seek(int64(pos))
+	if err := checkReadBytes(input, 10, pos, t); err != nil {
+		t.Error(err)
+	}
+	input.Seek(int64(pos))
+	if err := checkReadBytes(input, 11, pos, t); err == nil {
+		t.Error("Block read past end of file")
+	}
+	input.Seek(int64(pos))
+	if err := checkReadBytes(input, 50, pos, t); err == nil {
+		t.Error("Block read past end of file")
+	}
+	input.Seek(int64(pos))
+	if err := checkReadBytes(input, 100000, pos, t); err == nil {
+		t.Error("Block read past end of file")
+	}
+}
+
 func byten(n int64) byte {
 	return byte(n * n % 256)
 }
