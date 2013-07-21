@@ -30,7 +30,7 @@ const (
 )
 
 type BlockTreeTermsReader struct {
-	in             *store.IndexInput
+	in             store.IndexInput
 	postingsReader PostingsReaderBase
 	fields         map[string]FieldReader
 	dirOffset      int64
@@ -49,7 +49,7 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 	}
 
 	success := false
-	var indexIn *store.IndexInput
+	var indexIn store.IndexInput
 	defer func() {
 		if !success {
 			// this.close() will close in:
@@ -72,7 +72,7 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 		if err != nil {
 			return fp, err
 		}
-		if indexVersion != fp.version {
+		if int(indexVersion) != fp.version {
 			return fp, errors.New(fmt.Sprintf("mixmatched version files: %v=%v,%v=%v", fp.in, fp.version, indexIn, indexVersion))
 		}
 
@@ -166,22 +166,26 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 	return fp, nil
 }
 
-func (r *BlockTreeTermsReader) readHeader(input *store.IndexInput) (version int32, err error) {
-	version, err = codec.CheckHeader(input, BTT_CODEC_NAME, BTT_VERSION_START, BTT_VERSION_CURRENT)
+func asInt(n int32, err error) (n2 int, err2 error) {
+	return int(n), err
+}
+
+func (r *BlockTreeTermsReader) readHeader(input store.IndexInput) (version int, err error) {
+	version, err = asInt(codec.CheckHeader(input, BTT_CODEC_NAME, BTT_VERSION_START, BTT_VERSION_CURRENT))
 	if err != nil {
-		return version, err
+		return int(version), err
 	}
 	if version < BTT_VERSION_APPEND_ONLY {
 		r.dirOffset, err = input.ReadLong()
 		if err != nil {
-			return version, err
+			return int(version), err
 		}
 	}
-	return version, nil
+	return int(version), nil
 }
 
-func (r *BlockTreeTermsReader) readIndexHeader(input *store.IndexInput) (version int32, err error) {
-	version, err = codec.CheckHeader(input, BTT_INDEX_CODEC_NAME, BTT_INDEX_VERSION_START, BTT_INDEX_VERSION_CURRENT)
+func (r *BlockTreeTermsReader) readIndexHeader(input store.IndexInput) (version int, err error) {
+	version, err = asInt(codec.CheckHeader(input, BTT_INDEX_CODEC_NAME, BTT_INDEX_VERSION_START, BTT_INDEX_VERSION_CURRENT))
 	if err != nil {
 		return version, err
 	}
@@ -194,7 +198,7 @@ func (r *BlockTreeTermsReader) readIndexHeader(input *store.IndexInput) (version
 	return version, nil
 }
 
-func (r *BlockTreeTermsReader) seekDir(input *store.IndexInput, dirOffset int64) error {
+func (r *BlockTreeTermsReader) seekDir(input store.IndexInput, dirOffset int64) error {
 	if r.version >= BTT_INDEX_VERSION_APPEND_ONLY {
 		input.Seek(input.Length() - 8)
 		dirOffset, err := input.ReadLong()
@@ -207,7 +211,8 @@ func (r *BlockTreeTermsReader) seekDir(input *store.IndexInput, dirOffset int64)
 }
 
 func (r *BlockTreeTermsReader) Terms(field string) Terms {
-	return r.fields[field]
+	ans := r.fields[field]
+	return &ans
 }
 
 func (r *BlockTreeTermsReader) Close() error {
@@ -232,7 +237,7 @@ type FieldReader struct {
 }
 
 func newFieldReader(fieldInfo FieldInfo, numTerms int64, rootCode []byte,
-	sumTotalTermFreq, sumDocFreq int64, docCount int32, indexStartFP int64, indexIn *store.IndexInput) FieldReader {
+	sumTotalTermFreq, sumDocFreq int64, docCount int32, indexStartFP int64, indexIn store.IndexInput) FieldReader {
 	// assert numTerms > 0
 	self := FieldReader{
 		fieldInfo:        fieldInfo,
@@ -254,9 +259,25 @@ func newFieldReader(fieldInfo FieldInfo, numTerms int64, rootCode []byte,
 	return self
 }
 
+func (r *FieldReader) Iterator(reuse TermsEnum) TermsEnum {
+	return newSegmentTermsEnum()
+}
+
+func (r *FieldReader) SumTotalTermFreq() int64 {
+	return r.sumTotalTermFreq
+}
+
+func (r *FieldReader) SumDocFreq() int64 {
+	return r.sumDocFreq
+}
+
+func (r *FieldReader) DocCount() int {
+	return int(r.docCount)
+}
+
 type PostingsReaderBase interface {
 	io.Closer
-	init(termsIn *store.IndexInput) error
+	init(termsIn store.IndexInput) error
 	// newTermState() BlockTermState
 	// nextTerm(fieldInfo FieldInfo, state BlockTermState)
 	// docs(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int)

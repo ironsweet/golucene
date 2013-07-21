@@ -115,7 +115,7 @@ var (
 	}
 )
 
-func getDocValuesType(input *store.IndexInput, b byte) (t DocValuesType, err error) {
+func getDocValuesType(input store.IndexInput, b byte) (t DocValuesType, err error) {
 	switch b {
 	case 0:
 		return DOC_VALUES_TYPE_NUMERIC, nil

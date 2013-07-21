@@ -25,16 +25,16 @@ const (
 )
 
 type Lucene41PostingReader struct {
-	docIn   *store.IndexInput
-	posIn   *store.IndexInput
-	payIn   *store.IndexInput
+	docIn   store.IndexInput
+	posIn   store.IndexInput
+	payIn   store.IndexInput
 	forUtil ForUtil
 }
 
 func NewLucene41PostingReader(dir *store.Directory, fis FieldInfos, si SegmentInfo,
 	ctx store.IOContext, segmentSuffix string) (r PostingsReaderBase, err error) {
 	success := false
-	var docIn, posIn, payIn *store.IndexInput = nil, nil, nil
+	var docIn, posIn, payIn store.IndexInput = nil, nil, nil
 	defer func() {
 		util.CloseWhileSuppressingError(docIn, posIn, payIn)
 	}()
@@ -43,8 +43,8 @@ func NewLucene41PostingReader(dir *store.Directory, fis FieldInfos, si SegmentIn
 	if err != nil {
 		return r, err
 	}
-	codec.CheckHeader(docIn.DataInput, LUCENE41_DOC_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
-	forUtil, err := NewForUtil(docIn.DataInput)
+	codec.CheckHeader(docIn, LUCENE41_DOC_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+	forUtil, err := NewForUtil(docIn)
 	if err != nil {
 		return r, err
 	}
@@ -54,23 +54,23 @@ func NewLucene41PostingReader(dir *store.Directory, fis FieldInfos, si SegmentIn
 		if err != nil {
 			return r, err
 		}
-		codec.CheckHeader(posIn.DataInput, LUCENE41_POS_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+		codec.CheckHeader(posIn, LUCENE41_POS_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
 
 		if fis.hasPayloads || fis.hasOffsets {
 			payIn, err = dir.OpenInput(util.SegmentFileName(si.name, segmentSuffix, LUCENE41_PAY_EXTENSION), ctx)
 			if err != nil {
 				return r, err
 			}
-			codec.CheckHeader(payIn.DataInput, LUCENE41_PAY_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+			codec.CheckHeader(payIn, LUCENE41_PAY_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
 		}
 	}
 
 	return &Lucene41PostingReader{docIn, posIn, payIn, forUtil}, nil
 }
 
-func (r *Lucene41PostingReader) init(termsIn *store.IndexInput) error {
+func (r *Lucene41PostingReader) init(termsIn store.IndexInput) error {
 	// Make sure we are talking to the matching postings writer
-	_, err := codec.CheckHeader(termsIn.DataInput, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_START, LUCENE41_VERSION_CURRENT)
+	_, err := codec.CheckHeader(termsIn, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_START, LUCENE41_VERSION_CURRENT)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,11 @@ type ForUtil struct {
 	iterations   []int32
 }
 
-func NewForUtil(in *util.DataInput) (fu ForUtil, err error) {
+type DataInput interface {
+	ReadVInt() (n int32, err error)
+}
+
+func NewForUtil(in DataInput) (fu ForUtil, err error) {
 	self := ForUtil{}
 	packedIntsVersion, err := in.ReadVInt()
 	if err != nil {
