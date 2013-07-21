@@ -4,25 +4,50 @@ import (
 	"errors"
 )
 
-type DataInput struct {
+type DataInput interface {
+	ReadByte() (b byte, err error)
+	ReadBytes(buf []byte) error
+	ReadShort() (n int16, err error)
+	ReadInt() (n int32, err error)
+	ReadVInt() (n int32, err error)
+	ReadLong() (n int64, err error)
+	ReadVLong() (n int64, err error)
+	ReadString() (s string, err error)
+	ReadStringStringMap() (m map[string]string, err error)
+	ReadStringSet() (m map[string]bool, err error)
+}
+
+type DataReader interface {
 	/* Reads and returns a single byte.	*/
-	ReadByte func() (b byte, err error)
+	ReadByte() (b byte, err error)
 	/* Reads a specified number of bytes into an array */
-	ReadBytes func(buf []byte) error
+	ReadBytes(buf []byte) error
 	/** Reads a specified number of bytes into an array at the
 	 * specified offset with control over whether the read
 	 * should be buffered (callers who have their own buffer
 	 * should pass in "false" for useBuffer).  Currently only
 	 * {@link BufferedIndexInput} respects this parameter.
 	 */
-	ReadBytesBufferd func(buf []byte, useBuffer bool) error
+	ReadBytesBuffered(buf []byte, useBuffer bool) error
 }
 
-func NewDataInput() DataInput {
-	return DataInput{}
+type DataInputImpl struct {
+	DataReader
 }
 
-func (in *DataInput) ReadShort() (n int16, err error) {
+func (in *DataInputImpl) ReadByte() (b byte, err error) {
+	return in.DataReader.ReadByte()
+}
+
+func (in *DataInputImpl) ReadBytes(buf []byte) error {
+	return in.DataReader.ReadBytes(buf)
+}
+
+func (in *DataInputImpl) ReadBytesBuffered(buf []byte, useBuffer bool) error {
+	return in.ReadBytes(buf)
+}
+
+func (in *DataInputImpl) ReadShort() (n int16, err error) {
 	if b1, err := in.ReadByte(); err == nil {
 		if b2, err := in.ReadByte(); err == nil {
 			return (int16(b1) << 8) | int16(b2), nil
@@ -31,7 +56,7 @@ func (in *DataInput) ReadShort() (n int16, err error) {
 	return 0, err
 }
 
-func (in *DataInput) ReadInt() (n int32, err error) {
+func (in *DataInputImpl) ReadInt() (n int32, err error) {
 	if b1, err := in.ReadByte(); err == nil {
 		if b2, err := in.ReadByte(); err == nil {
 			if b3, err := in.ReadByte(); err == nil {
@@ -44,7 +69,7 @@ func (in *DataInput) ReadInt() (n int32, err error) {
 	return 0, err
 }
 
-func (in *DataInput) ReadVInt() (n int32, err error) {
+func (in *DataInputImpl) ReadVInt() (n int32, err error) {
 	if b, err := in.ReadByte(); err == nil {
 		n = int32(b) & 0x7F
 		if b >= 0 {
@@ -80,7 +105,7 @@ func (in *DataInput) ReadVInt() (n int32, err error) {
 	return 0, err
 }
 
-func (in *DataInput) ReadLong() (n int64, err error) {
+func (in *DataInputImpl) ReadLong() (n int64, err error) {
 	d1, err := in.ReadInt()
 	if err != nil {
 		return 0, err
@@ -92,7 +117,7 @@ func (in *DataInput) ReadLong() (n int64, err error) {
 	return (int64(d1) << 32) | (int64(d2) & 0xFFFFFFFF), nil
 }
 
-func (in *DataInput) ReadVLong() (n int64, err error) {
+func (in *DataInputImpl) ReadVLong() (n int64, err error) {
 	if b, err := in.ReadByte(); err == nil {
 		n = int64(b) & 0x7F
 		if b >= 0 {
@@ -151,7 +176,7 @@ func (in *DataInput) ReadVLong() (n int64, err error) {
 	return 0, err
 }
 
-func (in *DataInput) ReadString() (s string, err error) {
+func (in *DataInputImpl) ReadString() (s string, err error) {
 	length, err := in.ReadVInt()
 	if err != nil {
 		return "", err
@@ -161,7 +186,7 @@ func (in *DataInput) ReadString() (s string, err error) {
 	return string(bytes), nil
 }
 
-func (in *DataInput) ReadStringStringMap() (m map[string]string, err error) {
+func (in *DataInputImpl) ReadStringStringMap() (m map[string]string, err error) {
 	count, err := in.ReadInt()
 	if err != nil {
 		return nil, err
@@ -181,7 +206,7 @@ func (in *DataInput) ReadStringStringMap() (m map[string]string, err error) {
 	return m, nil
 }
 
-func (in *DataInput) ReadStringSet() (s map[string]bool, err error) {
+func (in *DataInputImpl) ReadStringSet() (s map[string]bool, err error) {
 	count, err := in.ReadInt()
 	if err != nil {
 		return nil, err

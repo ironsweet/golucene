@@ -60,7 +60,7 @@ func newBytesStoreFromBits(blockBits uint32) *BytesStore {
 	return self
 }
 
-func newBytesStoreFromInput(in *DataInput, numBytes int64, maxBlockSize uint32) (bs *BytesStore, err error) {
+func newBytesStoreFromInput(in DataInput, numBytes int64, maxBlockSize uint32) (bs *BytesStore, err error) {
 	var blockSize uint32 = 2
 	var blockBits uint32 = 1
 	for int64(blockSize) < numBytes && blockSize < maxBlockSize {
@@ -92,16 +92,51 @@ func newBytesStoreFromInput(in *DataInput, numBytes int64, maxBlockSize uint32) 
 
 type BytesStoreForwardReader struct {
 	*BytesReader
+	owner      *BytesStore
 	current    []byte
 	nextBuffer uint32
 	nextRead   uint32
+}
+
+func (r *BytesStoreForwardReader) ReadByte() (b byte, err error) {
+	if r.nextRead == r.owner.blockSize {
+		r.current = r.owner.blocks[r.nextBuffer]
+		r.nextBuffer++
+		r.nextRead = 0
+	}
+	b = r.current[r.nextRead]
+	r.nextRead++
+	return b, nil
+}
+
+func (r *BytesStoreForwardReader) ReadBytes(buf []byte) error {
+	var offset uint32 = 0
+	length := uint32(len(buf))
+	for length > 0 {
+		chunkLeft := r.owner.blockSize - r.nextRead
+		if length <= chunkLeft {
+			copy(buf[offset:], r.current[r.nextRead:r.nextRead+length])
+			r.nextRead += length
+			break
+		} else {
+			if chunkLeft > 0 {
+				copy(buf[offset:], r.current[r.nextRead:r.nextRead+chunkLeft])
+				offset += chunkLeft
+				length -= chunkLeft
+			}
+			r.current = r.owner.blocks[r.nextBuffer]
+			r.nextBuffer++
+			r.nextRead = 0
+		}
+	}
+	return nil
 }
 
 func (bs *BytesStore) forwardReader() *BytesReader {
 	if len(bs.blocks) == 1 {
 		return newForwardBytesReader(bs.blocks[0])
 	}
-	self := &BytesStoreForwardReader{nextRead: bs.blockSize}
+	self := &BytesStoreForwardReader{owner: bs, nextRead: bs.blockSize}
 	self.BytesReader = &BytesReader{
 		skipBytes: func(count int32) {
 			self.setPosition(self.getPosition() + int64(count))
@@ -116,38 +151,7 @@ func (bs *BytesStore) forwardReader() *BytesReader {
 		}, reversed: func() bool {
 			return false
 		}}
-	self.DataInput = &DataInput{
-		ReadByte: func() (b byte, err error) {
-			if self.nextRead == bs.blockSize {
-				self.current = bs.blocks[self.nextBuffer]
-				self.nextBuffer++
-				self.nextRead = 0
-			}
-			b = self.current[self.nextRead]
-			self.nextRead++
-			return b, nil
-		}, ReadBytes: func(buf []byte) error {
-			var offset uint32 = 0
-			length := uint32(len(buf))
-			for length > 0 {
-				chunkLeft := bs.blockSize - self.nextRead
-				if length <= chunkLeft {
-					copy(buf[offset:], self.current[self.nextRead:self.nextRead+length])
-					self.nextRead += length
-					break
-				} else {
-					if chunkLeft > 0 {
-						copy(buf[offset:], self.current[self.nextRead:self.nextRead+chunkLeft])
-						offset += chunkLeft
-						length -= chunkLeft
-					}
-					self.current = bs.blocks[self.nextBuffer]
-					self.nextBuffer++
-					self.nextRead = 0
-				}
-			}
-			return nil
-		}}
+	self.DataInputImpl = &DataInputImpl{self.BytesReader}
 	return self.BytesReader
 }
 
@@ -157,9 +161,31 @@ func (bs *BytesStore) reverseReader() *BytesReader {
 
 type BytesStoreReverseReader struct {
 	*BytesReader
+	owner      *BytesStore
 	current    []byte
 	nextBuffer int32
 	nextRead   int32
+}
+
+func (r *BytesStoreReverseReader) ReadByte() (b byte, err error) {
+	if r.nextRead == -1 {
+		r.current = r.owner.blocks[r.nextBuffer]
+		r.nextBuffer--
+		r.nextRead = int32(r.owner.blockSize - 1)
+	}
+	r.nextRead--
+	return r.current[r.nextRead+1], nil
+}
+
+func (r *BytesStoreReverseReader) ReadBytes(buf []byte) error {
+	var err error
+	for i, _ := range buf {
+		buf[i], err = r.ReadByte()
+		if err != nil {
+			return err
+		}
+	}
+	return err
 }
 
 func (bs *BytesStore) reverseReaderAllowSingle(allowSingle bool) *BytesReader {
@@ -189,25 +215,7 @@ func (bs *BytesStore) reverseReaderAllowSingle(allowSingle bool) *BytesReader {
 		}, reversed: func() bool {
 			return true
 		}}
-	self.DataInput = &DataInput{
-		ReadByte: func() (b byte, err error) {
-			if self.nextRead == -1 {
-				self.current = bs.blocks[self.nextBuffer]
-				self.nextBuffer--
-				self.nextRead = int32(bs.blockSize - 1)
-			}
-			self.nextRead--
-			return self.current[self.nextRead+1], nil
-		}, ReadBytes: func(buf []byte) error {
-			var err error
-			for i, _ := range buf {
-				buf[i], err = self.ReadByte()
-				if err != nil {
-					return err
-				}
-			}
-			return err
-		}}
+	self.DataInputImpl = &DataInputImpl{self.BytesReader}
 	return self.BytesReader
 }
 
@@ -215,6 +223,17 @@ type ForwardBytesReader struct {
 	*BytesReader
 	bytes []byte
 	pos   int32
+}
+
+func (r *ForwardBytesReader) ReadByte() (b byte, err error) {
+	r.pos++
+	return r.bytes[r.pos-1], nil
+}
+
+func (r *ForwardBytesReader) ReadBytes(buf []byte) error {
+	copy(buf, r.bytes[r.pos:r.pos+int32(len(buf))])
+	r.pos += int32(len(buf))
+	return nil
 }
 
 func newForwardBytesReader(bytes []byte) *BytesReader {
@@ -229,15 +248,7 @@ func newForwardBytesReader(bytes []byte) *BytesReader {
 		}, reversed: func() bool {
 			return false
 		}}
-	self.DataInput = &DataInput{
-		ReadByte: func() (b byte, err error) {
-			self.pos++
-			return self.bytes[self.pos-1], nil
-		}, ReadBytes: func(buf []byte) error {
-			copy(buf, self.bytes[self.pos:self.pos+int32(len(buf))])
-			self.pos += int32(len(buf))
-			return nil
-		}}
+	self.DataInputImpl = &DataInputImpl{self.BytesReader}
 	return self.BytesReader
 }
 
@@ -245,6 +256,19 @@ type ReverseBytesReader struct {
 	*BytesReader
 	bytes []byte
 	pos   int32
+}
+
+func (r *ReverseBytesReader) ReadByte() (b byte, err error) {
+	r.pos--
+	return r.bytes[r.pos+1], nil
+}
+
+func (r *ReverseBytesReader) ReadBytes(buf []byte) error {
+	for i, _ := range buf {
+		buf[i] = r.bytes[r.pos]
+		r.pos--
+	}
+	return nil
 }
 
 func newReverseBytesReader(bytes []byte) *BytesReader {
@@ -259,16 +283,6 @@ func newReverseBytesReader(bytes []byte) *BytesReader {
 		}, reversed: func() bool {
 			return true
 		}}
-	self.DataInput = &DataInput{
-		ReadByte: func() (b byte, err error) {
-			self.pos--
-			return self.bytes[self.pos+1], nil
-		}, ReadBytes: func(buf []byte) error {
-			for i, _ := range buf {
-				buf[i] = self.bytes[self.pos]
-				self.pos--
-			}
-			return nil
-		}}
+	self.DataInputImpl = &DataInputImpl{self.BytesReader}
 	return self.BytesReader
 }

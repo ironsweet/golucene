@@ -31,7 +31,7 @@ func requiredCapacity(valueCount, valuesPerBlock int32) int32 {
 	return ans
 }
 
-func newPacked64SingleBlockFromInput(in *DataInput, valueCount int32, bitsPerValue uint32) (reader PackedIntsReader, err error) {
+func newPacked64SingleBlockFromInput(in DataInput, valueCount int32, bitsPerValue uint32) (reader PackedIntsReader, err error) {
 	ans := newPacked64SingleBlockBy(valueCount, bitsPerValue)
 	for i, _ := range ans.blocks {
 		if ans.blocks[i], err = in.ReadLong(); err != nil {

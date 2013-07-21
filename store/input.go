@@ -32,7 +32,7 @@ type IndexInput interface {
 }
 
 type IndexInputImpl struct {
-	*util.DataInput
+	util.DataInput
 	desc   string
 	close  func() error
 	length func() int64
@@ -42,7 +42,7 @@ func newIndexInputImpl(desc string) *IndexInputImpl {
 	if desc == "" {
 		panic("resourceDescription must not be null")
 	}
-	super := &util.DataInput{}
+	super := &util.DataInputImpl{}
 	return &IndexInputImpl{DataInput: super, desc: desc}
 }
 

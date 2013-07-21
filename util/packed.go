@@ -82,7 +82,7 @@ type PackedIntsMutable interface {
 	PackedIntsReader
 }
 
-func newPackedReaderNoHeader(in *DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
+func newPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
 	CheckVersion(version)
 	switch format {
 	case PACKED_SINGLE_BLOCK:
@@ -116,7 +116,7 @@ func asUint32(n int32, err error) (n2 uint32, err2 error) {
 	return uint32(n), err
 }
 
-func newPackedReader(in *DataInput) (r PackedIntsReader, err error) {
+func newPackedReader(in DataInput) (r PackedIntsReader, err error) {
 	if version, err := codec.CheckHeader(in, PACKED_CODEC_NAME, PACKED_VERSION_START, PACKED_VERSION_CURRENT); err == nil {
 		if bitsPerValue, err := asUint32(in.ReadVInt()); err == nil {
 			// assert bitsPerValue > 0 && bitsPerValue <= 64
@@ -159,7 +159,7 @@ func newDirect8(valueCount int32) Direct8 {
 	return ans
 }
 
-func newDirect8FromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newDirect8FromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newDirect8(valueCount)
 	if err = in.ReadBytes(ans.values[0:valueCount]); err == nil {
 		// because packed ints have not always been byte-aligned
@@ -188,7 +188,7 @@ func newDirect16(valueCount int32) Direct16 {
 	return ans
 }
 
-func newDirect16FromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newDirect16FromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newDirect16(valueCount)
 	for i, _ := range ans.values {
 		if ans.values[i], err = in.ReadShort(); err != nil {
@@ -222,7 +222,7 @@ func newDirect32(valueCount int32) Direct32 {
 	return ans
 }
 
-func newDirect32FromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newDirect32FromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newDirect32(valueCount)
 	for i, _ := range ans.values {
 		if ans.values[i], err = in.ReadInt(); err != nil {
@@ -256,7 +256,7 @@ func newDirect64(valueCount int32) Direct64 {
 	return ans
 }
 
-func newDirect64FromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newDirect64FromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newDirect64(valueCount)
 	for i, _ := range ans.values {
 		if ans.values[i], err = in.ReadLong(); err != nil {
@@ -286,7 +286,7 @@ func newPacked8ThreeBlocks(valueCount int32) Packed8ThreeBlocks {
 	return ans
 }
 
-func newPacked8ThreeBlocksFromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newPacked8ThreeBlocksFromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newPacked8ThreeBlocks(valueCount)
 	if err = in.ReadBytes(ans.blocks); err == nil {
 		// because packed ints have not always been byte-aligned
@@ -321,7 +321,7 @@ func newPacked16ThreeBlocks(valueCount int32) Packed16ThreeBlocks {
 	return ans
 }
 
-func newPacked16ThreeBlocksFromInput(version int32, in *DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newPacked16ThreeBlocksFromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newPacked16ThreeBlocks(valueCount)
 	for i, _ := range ans.blocks {
 		if ans.blocks[i], err = in.ReadShort(); err != nil {
@@ -368,7 +368,7 @@ func newPacked64(valueCount int32, bitsPerValue uint32) Packed64 {
 	return ans
 }
 
-func newPacked64FromInput(version int32, in *DataInput, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
+func newPacked64FromInput(version int32, in DataInput, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
 	ans := newPacked64(valueCount, bitsPerValue)
 	byteCount := PackedFormat(PACKED).ByteCount(version, valueCount, bitsPerValue)
 	longCount := PackedFormat(PACKED).longCount(PACKED_VERSION_CURRENT, valueCount, bitsPerValue)

@@ -88,11 +88,11 @@ type FST struct {
 	nodeAddress *GrowableWriter
 }
 
-func LoadFST(in *DataInput, outputs Outputs) (fst FST, err error) {
+func LoadFST(in DataInput, outputs Outputs) (fst FST, err error) {
 	return loadFST3(in, outputs, FST_DEFAULT_MAX_BLOCK_BITS)
 }
 
-func loadFST3(in *DataInput, outputs Outputs, maxBlockBits uint32) (fst FST, err error) {
+func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst FST, err error) {
 	fst = FST{outputs: outputs, startNode: -1}
 
 	if maxBlockBits < 1 || maxBlockBits > 30 {
@@ -131,7 +131,7 @@ func loadFST3(in *DataInput, outputs Outputs, maxBlockBits uint32) (fst FST, err
 						reader.setPosition(int64(numBytes - 1))
 					}
 				}
-				fst.emptyOutput, err = outputs.ReadFinalOutput(reader.DataInput)
+				fst.emptyOutput, err = outputs.ReadFinalOutput(reader.DataInputImpl)
 			}
 		} // else emptyOutput = nil
 	}
@@ -214,7 +214,7 @@ func (t *FST) cacheRootArcs() {
 	}
 }
 
-func (t *FST) readLabel(in *DataInput) (v int32, err error) {
+func (t *FST) readLabel(in DataInput) (v int32, err error) {
 	switch t.inputType {
 	case INPUT_TYPE_BYTE1: // Unsigned byte
 		if b, err := in.ReadByte(); err == nil {
@@ -314,14 +314,14 @@ func (t *FST) readNextRealArc(arc *Arc, in *BytesReader) (ans *Arc, err error) {
 		in.setPosition(arc.nextArc)
 	}
 	if arc.flags, err = in.ReadByte(); err == nil {
-		arc.label, err = t.readLabel(in.DataInput)
+		arc.label, err = t.readLabel(in.DataInputImpl)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if arc.flag(FST_BIT_ARC_HAS_OUTPUT) {
-		arc.output, err = t.outputs.Read(in.DataInput)
+		arc.output, err = t.outputs.Read(in.DataInputImpl)
 		if err != nil {
 			return nil, err
 		}
@@ -330,7 +330,7 @@ func (t *FST) readNextRealArc(arc *Arc, in *BytesReader) (ans *Arc, err error) {
 	}
 
 	if arc.flag(FST_BIT_ARC_HAS_FINAL_OUTPUT) {
-		arc.nextFinalOutput, err = t.outputs.ReadFinalOutput(in.DataInput)
+		arc.nextFinalOutput, err = t.outputs.ReadFinalOutput(in.DataInputImpl)
 		if err != nil {
 			return nil, err
 		}
@@ -393,14 +393,14 @@ func (t *FST) seekToNextNode(in *BytesReader) error {
 	var flags byte
 	for {
 		if flags, err = in.ReadByte(); err == nil {
-			_, err = t.readLabel(in.DataInput)
+			_, err = t.readLabel(in.DataInputImpl)
 		}
 		if err != nil {
 			return err
 		}
 
 		if hasFlag(flags, FST_BIT_ARC_HAS_OUTPUT) {
-			_, err = t.outputs.Read(in.DataInput)
+			_, err = t.outputs.Read(in.DataInputImpl)
 			if err != nil {
 				return err
 			}
@@ -431,7 +431,7 @@ func (t *FST) getBytesReader() *BytesReader {
 }
 
 type BytesReader struct {
-	*DataInput
+	*DataInputImpl
 	getPosition func() int64
 	setPosition func(pos int64)
 	reversed    func() bool
@@ -439,8 +439,8 @@ type BytesReader struct {
 }
 
 type Outputs interface {
-	Read(in *DataInput) (e interface{}, err error)
-	ReadFinalOutput(in *DataInput) (e interface{}, err error)
+	Read(in DataInput) (e interface{}, err error)
+	ReadFinalOutput(in DataInput) (e interface{}, err error)
 	NoOutput() interface{}
 }
 
@@ -448,7 +448,7 @@ type abstractOutputs struct {
 	Outputs
 }
 
-func (out *abstractOutputs) ReadFinalOutput(in *DataInput) (e interface{}, err error) {
+func (out *abstractOutputs) ReadFinalOutput(in DataInput) (e interface{}, err error) {
 	return out.Outputs.Read(in)
 }
 
@@ -462,7 +462,7 @@ func ByteSequenceOutputsSingleton() *ByteSequenceOutputs {
 	return ans
 }
 
-func (out *ByteSequenceOutputs) Read(in *DataInput) (e interface{}, err error) {
+func (out *ByteSequenceOutputs) Read(in DataInput) (e interface{}, err error) {
 	if length, err := in.ReadVInt(); err == nil {
 		if length == 0 {
 			e = out.NoOutput()
