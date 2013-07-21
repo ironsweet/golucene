@@ -138,7 +138,7 @@ func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info S
 											return fp, errors.New(fmt.Sprintf(
 												"duplicate field: %v (resource=%v)", fieldInfo.name, fp.in))
 										}
-										fp.fields[fieldInfo.name] = newFieldReader(
+										fp.fields[fieldInfo.name], err = newFieldReader(
 											fieldInfo, numTerms, rootCode, sumTotalTermFreq,
 											sumDocFreq, docCount, indexStartFP, indexIn)
 									}
@@ -237,9 +237,10 @@ type FieldReader struct {
 }
 
 func newFieldReader(fieldInfo FieldInfo, numTerms int64, rootCode []byte,
-	sumTotalTermFreq, sumDocFreq int64, docCount int32, indexStartFP int64, indexIn store.IndexInput) FieldReader {
+	sumTotalTermFreq, sumDocFreq int64, docCount int32, indexStartFP int64,
+	indexIn store.IndexInput) (r FieldReader, err error) {
 	// assert numTerms > 0
-	self := FieldReader{
+	r = FieldReader{
 		fieldInfo:        fieldInfo,
 		numTerms:         numTerms,
 		sumTotalTermFreq: sumTotalTermFreq,
@@ -248,15 +249,20 @@ func newFieldReader(fieldInfo FieldInfo, numTerms int64, rootCode []byte,
 		indexStartFP:     indexStartFP,
 		rootCode:         rootCode}
 
-	self.rootBlockFP = uint64(newByteArrayDataInput(rootCode.bytes, rootCode.offset, rootCode.length).ReadVLong()) >> BTT_OUTPUT_FLAGS_NUM_BITS
+	in := store.NewByteArrayDataInput(rootCode)
+	n, err := in.ReadVLong()
+	if err != nil {
+		return r, err
+	}
+	r.rootBlockFP = int64(uint64(n) >> BTT_OUTPUT_FLAGS_NUM_BITS)
 
 	if indexIn != nil {
-		clone = indexIn.Clone()
+		clone := indexIn.Clone()
 		clone.Seek(indexStartFP)
-		self.index = loadFST(clone, ByteSequenceOutputs.getSingleton())
-	} // else self.index = nil
+		r.index = util.LoadFST(clone, util.ByteSequenceOutputsSingleton())
+	}
 
-	return self
+	return r
 }
 
 func (r *FieldReader) Iterator(reuse TermsEnum) TermsEnum {

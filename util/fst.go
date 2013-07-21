@@ -88,7 +88,7 @@ type FST struct {
 	nodeAddress *GrowableWriter
 }
 
-func loadFST(in *DataInput, outputs Outputs) (fst FST, err error) {
+func LoadFST(in *DataInput, outputs Outputs) (fst FST, err error) {
 	return loadFST3(in, outputs, FST_DEFAULT_MAX_BLOCK_BITS)
 }
 
@@ -131,7 +131,7 @@ func loadFST3(in *DataInput, outputs Outputs, maxBlockBits uint32) (fst FST, err
 						reader.setPosition(int64(numBytes - 1))
 					}
 				}
-				fst.emptyOutput, err = outputs.readFinalOutput(reader.DataInput)
+				fst.emptyOutput, err = outputs.ReadFinalOutput(reader.DataInput)
 			}
 		} // else emptyOutput = nil
 	}
@@ -168,7 +168,7 @@ func loadFST3(in *DataInput, outputs Outputs, maxBlockBits uint32) (fst FST, err
 				if fst.arcWithOutputCount, err = in.ReadVLong(); err == nil {
 					if numBytes, err := in.ReadVLong(); err == nil {
 						if fst.bytes, err = newBytesStoreFromInput(in, numBytes, 1<<maxBlockBits); err == nil {
-							fst.NO_OUTPUT = outputs.noOutput()
+							fst.NO_OUTPUT = outputs.NoOutput()
 
 							fst.cacheRootArcs()
 
@@ -321,21 +321,21 @@ func (t *FST) readNextRealArc(arc *Arc, in *BytesReader) (ans *Arc, err error) {
 	}
 
 	if arc.flag(FST_BIT_ARC_HAS_OUTPUT) {
-		arc.output, err = t.outputs.read(in.DataInput)
+		arc.output, err = t.outputs.Read(in.DataInput)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		arc.output = t.outputs.noOutput()
+		arc.output = t.outputs.NoOutput()
 	}
 
 	if arc.flag(FST_BIT_ARC_HAS_FINAL_OUTPUT) {
-		arc.nextFinalOutput, err = t.outputs.readFinalOutput(in.DataInput)
+		arc.nextFinalOutput, err = t.outputs.ReadFinalOutput(in.DataInput)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		arc.nextFinalOutput = t.outputs.noOutput()
+		arc.nextFinalOutput = t.outputs.NoOutput()
 	}
 
 	if arc.flag(FST_BIT_STOP_NODE) {
@@ -400,7 +400,7 @@ func (t *FST) seekToNextNode(in *BytesReader) error {
 		}
 
 		if hasFlag(flags, FST_BIT_ARC_HAS_OUTPUT) {
-			_, err = t.outputs.read(in.DataInput)
+			_, err = t.outputs.Read(in.DataInput)
 			if err != nil {
 				return err
 			}
@@ -439,15 +439,42 @@ type BytesReader struct {
 }
 
 type Outputs interface {
-	read(in *DataInput) (e interface{}, err error)
-	readFinalOutput(in *DataInput) (e interface{}, err error)
-	noOutput() interface{}
+	Read(in *DataInput) (e interface{}, err error)
+	ReadFinalOutput(in *DataInput) (e interface{}, err error)
+	NoOutput() interface{}
 }
 
 type abstractOutputs struct {
 	Outputs
 }
 
-func (out *abstractOutputs) readFinalOutput(in *DataInput) (e interface{}, err error) {
-	return out.Outputs.read(in)
+func (out *abstractOutputs) ReadFinalOutput(in *DataInput) (e interface{}, err error) {
+	return out.Outputs.Read(in)
+}
+
+type ByteSequenceOutputs struct {
+	*abstractOutputs
+}
+
+func ByteSequenceOutputsSingleton() *ByteSequenceOutputs {
+	ans := &ByteSequenceOutputs{}
+	ans.abstractOutputs = &abstractOutputs{ans}
+	return ans
+}
+
+func (out *ByteSequenceOutputs) Read(in *DataInput) (e interface{}, err error) {
+	if length, err := in.ReadVInt(); err == nil {
+		if length == 0 {
+			e = out.NoOutput()
+		} else {
+			buf := make([]byte, length)
+			e = buf
+			err = in.ReadBytes(buf)
+		}
+	}
+	return e, err
+}
+
+func (out *ByteSequenceOutputs) NoOutput() interface{} {
+	return nil
 }

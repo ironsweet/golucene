@@ -27,6 +27,8 @@ type IndexInput interface {
 	FilePointer() int64
 	Seek(pos int64)
 	Length() int64
+	// Clone
+	Clone() IndexInput
 }
 
 type IndexInputImpl struct {
@@ -318,7 +320,7 @@ func (in *BufferedIndexInput) Seek(pos int64) {
 	}
 }
 
-func (in *BufferedIndexInput) Clone() *BufferedIndexInput {
+func (in *BufferedIndexInput) Clone() IndexInput {
 	var clone BufferedIndexInput = *in
 	clone.buffer = nil
 	clone.bufferLength = 0
@@ -449,4 +451,139 @@ func newSlicedIndexInputBySize(desc string, base IndexInput, fileOffset, length 
 		BufferedIndexInput: newBufferedIndexInputBySize(fmt.Sprintf(
 			"SlicedIndexInput(%v in %v slice=%v:%v)", desc, base, fileOffset, fileOffset+length), bufferSize),
 		base: base, fileOffset: fileOffset, length: length}
+}
+
+type ByteArrayDataInput struct {
+	bytes []byte
+	pos   int
+	limit int
+}
+
+func NewByteArrayDataInput(bytes []byte) *ByteArrayDataInput {
+	return &ByteArrayDataInput{bytes, 0, len(bytes)}
+}
+
+func (in *ByteArrayDataInput) Length() int {
+	return in.limit
+}
+
+func (in *ByteArrayDataInput) ReadShort() (n int16, err error) {
+	in.pos += 2
+	return (int16(in.bytes[in.pos-2]) << 8) | int16(in.bytes[in.pos-1]), nil
+}
+
+func (in *ByteArrayDataInput) ReadInt() (n int32, err error) {
+	in.pos += 4
+	return (int32(in.bytes[in.pos-4]) << 24) | (int32(in.bytes[in.pos-3]) << 16) |
+		(int32(in.bytes[in.pos-2]) << 8) | int32(in.bytes[in.pos-1]), nil
+}
+
+func (in *ByteArrayDataInput) ReadLong() (n int64, err error) {
+	i1, _ := in.ReadInt()
+	i2, _ := in.ReadInt()
+	return (int64(i1) << 32) | int64(i2), nil
+}
+
+func (in *ByteArrayDataInput) ReadVInt() (n int32, err error) {
+	b := in.bytes[in.pos]
+	in.pos++
+	if b >= 0 {
+		return int32(b), nil
+	}
+	n = int32(b) & 0x7F
+	b = in.bytes[in.pos]
+	in.pos++
+	n |= (int32(b) & 0x7F) << 7
+	if b >= 0 {
+		return n, nil
+	}
+	b = in.bytes[in.pos]
+	in.pos++
+	n |= (int32(b) & 0x7F) << 14
+	if b >= 0 {
+		return n, nil
+	}
+	b = in.bytes[in.pos]
+	in.pos++
+	n |= (int32(b) & 0x7F) << 21
+	if b >= 0 {
+		return n, nil
+	}
+	b = in.bytes[in.pos]
+	in.pos++
+	// Warning: the next ands use 0x0F / 0xF0 - beware copy/paste errors:
+	n |= (int32(b) & 0x0F) << 28
+	if (b & 0xF0) == 0 {
+		return n, nil
+	}
+	return 0, errors.New("Invalid vInt detected (too many bits)")
+}
+
+func (in *ByteArrayDataInput) ReadVLong() (n int64, err error) {
+	b := in.bytes[in.pos]
+	in.pos++
+	if b >= 0 {
+		return int64(b), nil
+	}
+	n = int64(b) & 0x7F
+	b = in.bytes[in.pos]
+	in.pos++
+	n |= (int64(b) & 0x7F) << 7
+	if b >= 0 {
+		return n, nil
+	}
+	b = in.bytes[in.pos]
+	in.pos++
+	n |= (int64(b) & 0x7F) << 14
+	if b >= 0 {
+		return n, nil
+	}
+	b = in.bytes[in.pos]
+	in.pos++
+	n |= (int64(b) & 0x7F) << 21
+	if b >= 0 {
+		return n, nil
+	}
+	b = in.bytes[in.pos]
+	in.pos++
+	n |= (int64(b) & 0x7F) << 28
+	if b >= 0 {
+		return n, nil
+	}
+	b = in.bytes[in.pos]
+	in.pos++
+	n |= (int64(b) & 0x7F) << 35
+	if b >= 0 {
+		return n, nil
+	}
+	b = in.bytes[in.pos]
+	in.pos++
+	n |= (int64(b) & 0x7F) << 42
+	if b >= 0 {
+		return n, nil
+	}
+	b = in.bytes[in.pos]
+	in.pos++
+	n |= (int64(b) & 0x7F) << 49
+	if b >= 0 {
+		return n, nil
+	}
+	b = in.bytes[in.pos]
+	in.pos++
+	n |= (int64(b) & 0x7F) << 56
+	if b >= 0 {
+		return n, nil
+	}
+	return 0, errors.New("Invalid vLong detected (negative values disallowed)")
+}
+
+func (in *ByteArrayDataInput) ReadByte() (b byte, err error) {
+	in.pos++
+	return in.bytes[in.pos-1], nil
+}
+
+func (in *ByteArrayDataInput) ReadBytes(buf []byte) error {
+	copy(buf, in.bytes[in.pos:in.pos+len(buf)])
+	in.pos += len(buf)
+	return nil
 }
