@@ -5,7 +5,7 @@ Go port of Apache Lucene but focus on IndexSearcher
 
 Progress
 --------
-5000/40000 LoC, 35 Weeks Left
+6500/40000 LoC, 33 Weeks Left
 
 License
 -------
