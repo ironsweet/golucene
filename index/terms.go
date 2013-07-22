@@ -3,6 +3,7 @@ package index
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/util"
+	"sort"
 )
 
 type Term struct {
@@ -27,28 +28,40 @@ var (
 	TERMS_ENUM_EMPTY = TermsEnum{}
 )
 
-type TermsEnum struct {
+type TermsEnum interface {
+	// BytesRefIterator
+	// Next() (buf []byte, err error)
+	// Comparator() sort.Interface
+
+	// SeekCeil(text []byte, useCache bool) int
+	// SeekExact(ord int64) error
+	// DocFreq() int
+	// TotalTermFreq() int64
+	// DocsForTermFlag(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum
+}
+
+type TermsEnumImpl struct {
 	SeekCeil        func(text []byte, useCache bool) int
 	docFreq         func() int
 	totalTermFreq   func() int64
 	DocsForTermFlag func(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum
 }
 
-func (iter *TermsEnum) SeekExact(text []byte, useCache bool) bool {
+func (iter *TermsEnumImpl) SeekExactUsingCache(text []byte, useCache bool) bool {
 	return iter.SeekCeil(text, useCache) == SEEK_STATUS_FOUND
 }
 
-func (iter *TermsEnum) SeekExactBy(text []byte, state TermState) {
-	if !iter.SeekExact(text, true) {
+func (iter *TermsEnumImpl) SeekExactByState(text []byte, state TermState) {
+	if !iter.SeekExactUsingCache(text, true) {
 		panic(fmt.Sprintf("term %v does not exist", text))
 	}
 }
 
-func (iter *TermsEnum) DocsForTerm(liveDocs util.Bits, reuse DocsEnum) DocsEnum {
+func (iter *TermsEnumImpl) DocsForTerm(liveDocs util.Bits, reuse DocsEnum) DocsEnum {
 	return iter.DocsForTermFlag(liveDocs, reuse, DOCS_ENUM_FLAG_FREQS)
 }
 
-func (iter *TermsEnum) TermState() TermState {
+func (iter *TermsEnumImpl) TermState() TermState {
 	return TermState{copyFrom: func(other TermState) { panic("not supported!") }}
 }
 

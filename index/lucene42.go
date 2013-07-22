@@ -135,6 +135,7 @@ type Codec struct {
 	ReadSegmentInfo   func(dir *store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error)
 	ReadFieldInfos    func(dir *store.Directory, segment string, context store.IOContext) (fi FieldInfos, err error)
 	GetFieldsProducer func(readState SegmentReadState) (fp FieldsProducer, err error)
+	DocValuesProducer func(readState SegmentReadState) (dvp DocValuesProducer, err error)
 }
 
 func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer, err error) {

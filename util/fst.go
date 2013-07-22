@@ -88,12 +88,12 @@ type FST struct {
 	nodeAddress *GrowableWriter
 }
 
-func LoadFST(in DataInput, outputs Outputs) (fst FST, err error) {
+func LoadFST(in DataInput, outputs Outputs) (fst *FST, err error) {
 	return loadFST3(in, outputs, FST_DEFAULT_MAX_BLOCK_BITS)
 }
 
-func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst FST, err error) {
-	fst = FST{outputs: outputs, startNode: -1}
+func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err error) {
+	fst = &FST{outputs: outputs, startNode: -1}
 
 	if maxBlockBits < 1 || maxBlockBits > 30 {
 		panic(fmt.Sprintf("maxBlockBits should 1..30; got %v", maxBlockBits))

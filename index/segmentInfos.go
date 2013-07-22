@@ -3,6 +3,7 @@ package index
 import (
 	"errors"
 	"fmt"
+	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
 	"log"
@@ -115,7 +116,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 						}
 					}
 				} else {
-					return nil, store.NewIndexFormatTooNewError(genInput.DataInput, version, FORMAT_SEGMENTS_GEN_CURRENT, FORMAT_SEGMENTS_GEN_CURRENT)
+					return nil, codec.NewIndexFormatTooNewError(genInput, version, FORMAT_SEGMENTS_GEN_CURRENT, FORMAT_SEGMENTS_GEN_CURRENT)
 				}
 			}
 
@@ -304,7 +305,7 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 			// Clear any segment infos we had loaded so we
 			// have a clean slate on retry:
 			sis.Clear()
-			util.CloseWhileSupressingError(input)
+			util.CloseWhileSuppressingError(input)
 		} else {
 			input.Close()
 		}
@@ -314,9 +315,9 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 	if err != nil {
 		return err
 	}
-	if format == store.CODEC_MAGIC {
+	if format == codec.CODEC_MAGIC {
 		// 4.0+
-		_, err = store.CheckHeaderNoMagic(input.DataInput, "segments", VERSION_40, VERSION_40)
+		_, err = codec.CheckHeaderNoMagic(input, "segments", VERSION_40, VERSION_40)
 		if err != nil {
 			return err
 		}
@@ -324,11 +325,11 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 		if err != nil {
 			return err
 		}
-		sis.counter, err = input.ReadInt()
+		sis.counter, err = asInt(input.ReadInt())
 		if err != nil {
 			return err
 		}
-		numSegments, err := input.ReadInt()
+		numSegments, err := asInt(input.ReadInt())
 		if err != nil {
 			return err
 		}
@@ -357,11 +358,11 @@ func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string
 			if err != nil {
 				return err
 			}
-			delCount, err := input.ReadInt()
+			delCount, err := asInt(input.ReadInt())
 			if err != nil {
 				return err
 			}
-			if delCount < 0 || delCount > info.docCount {
+			if delCount < 0 || delCount > int(info.docCount) {
 				return errors.New(fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input))
 			}
 			sis.Segments = append(sis.Segments, NewSegmentInfoPerCommit(info, delCount, delGen))

@@ -60,7 +60,7 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 		// assert si.getDelCount() == 0
 		r.liveDocs = nil
 	}
-	r.numDocs = si.info.docCount - si.delCount
+	r.numDocs = int(si.info.docCount) - si.delCount
 	success = true
 	return r, nil
 }
@@ -164,7 +164,10 @@ func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si Segmen
 
 	segmentReadState := newSegmentReadState(cfsDir, si.info, self.fieldInfos, context, termsIndexDivisor)
 	// Ask codec for its Fields
-	self.fields = codec.FieldsProducer(segmentReadState)
+	self.fields, err = codec.GetFieldsProducer(segmentReadState)
+	if err != nil {
+		return self, err
+	}
 	// assert fields != null;
 	// ask codec for its Norms:
 	// TODO: since we don't write any norms file if there are no norms,

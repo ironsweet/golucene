@@ -259,14 +259,14 @@ func newFieldReader(fieldInfo FieldInfo, numTerms int64, rootCode []byte,
 	if indexIn != nil {
 		clone := indexIn.Clone()
 		clone.Seek(indexStartFP)
-		r.index = util.LoadFST(clone, util.ByteSequenceOutputsSingleton())
+		r.index, err = util.LoadFST(clone, util.ByteSequenceOutputsSingleton())
 	}
 
-	return r
+	return r, err
 }
 
 func (r *FieldReader) Iterator(reuse TermsEnum) TermsEnum {
-	return newSegmentTermsEnum()
+	return newSegmentTermsEnum(r)
 }
 
 func (r *FieldReader) SumTotalTermFreq() int64 {
@@ -280,6 +280,18 @@ func (r *FieldReader) SumDocFreq() int64 {
 func (r *FieldReader) DocCount() int {
 	return int(r.docCount)
 }
+
+type SegmentTermsEnum struct {
+	owner *FieldReader
+}
+
+func newSegmentTermsEnum(r *FieldReader) SegmentTermsEnum {
+	return SegmentTermsEnum{owner: r}
+}
+
+// func (iter *SegmentTermsEnum) DocFreq() int {
+// 	// assert !eof
+// }
 
 type PostingsReaderBase interface {
 	io.Closer
