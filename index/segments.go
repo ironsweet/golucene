@@ -174,7 +174,10 @@ func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si Segmen
 	// kinda jaky to assume the codec handles the case of no norms file at all gracefully?!
 
 	if self.fieldInfos.hasDocValues {
-		self.dvProducer = codec.DocValuesProducer(segmentReadState)
+		self.dvProducer, err = codec.GetDocValuesProducer(segmentReadState)
+		if err != nil {
+			return self, err
+		}
 		// assert dvProducer != null;
 	} else {
 		self.dvProducer = nil

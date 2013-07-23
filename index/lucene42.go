@@ -3,9 +3,11 @@ package index
 import (
 	"errors"
 	"fmt"
+	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
 	"io"
+	"sync"
 )
 
 const (
@@ -132,10 +134,10 @@ func getDocValuesType(input store.IndexInput, b byte) (t DocValuesType, err erro
 }
 
 type Codec struct {
-	ReadSegmentInfo   func(dir *store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error)
-	ReadFieldInfos    func(dir *store.Directory, segment string, context store.IOContext) (fi FieldInfos, err error)
-	GetFieldsProducer func(readState SegmentReadState) (fp FieldsProducer, err error)
-	DocValuesProducer func(readState SegmentReadState) (dvp DocValuesProducer, err error)
+	ReadSegmentInfo      func(dir *store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error)
+	ReadFieldInfos       func(dir *store.Directory, segment string, context store.IOContext) (fi FieldInfos, err error)
+	GetFieldsProducer    func(readState SegmentReadState) (fp FieldsProducer, err error)
+	GetDocValuesProducer func(readState SegmentReadState) (dvp DocValuesProducer, err error)
 }
 
 func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer, err error) {
@@ -172,54 +174,333 @@ func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer,
 	panic(fmt.Sprintf("Service '%v' not found.", name))
 }
 
+func LoadDocValuesProducer(name string, state SegmentReadState) (fp DocValuesProducer, err error) {
+	switch name {
+	case "Lucene42":
+		return newLucene42DocValuesProducer(state, LUCENE42_DV_DATA_CODEC, LUCENE42_DV_DATA_EXTENSION,
+			LUCENE42_DV_METADATA_CODEC, LUCENE42_DV_METADATA_EXTENSION)
+	}
+	panic(fmt.Sprintf("Service '%v' not found.", name))
+}
+
+const (
+	LUCENE42_DV_DATA_CODEC         = "Lucene42DocValuesData"
+	LUCENE42_DV_DATA_EXTENSION     = "dvd"
+	LUCENE42_DV_METADATA_CODEC     = "Lucene42DocValuesMetadata"
+	LUCENE42_DV_METADATA_EXTENSION = "dvm"
+
+	LUCENE42_DV_VERSION_START = 0
+
+	LUCENE42_DV_NUMBER = 0
+	LUCENE42_DV_BYTES  = 1
+	LUCENE42_DV_FST    = 2
+)
+
+type Lucene42DocValuesProducer struct {
+	lock             sync.Mutex
+	numerics         map[int]NumericEntry
+	binaries         map[int]BinaryEntry
+	fsts             map[int]FSTEntry
+	data             store.IndexInput
+	numericInstances map[int]NumericDocValues
+	maxDoc           int
+}
+
+func newLucene42DocValuesProducer(state SegmentReadState,
+	dataCodec, dataExtension, metaCodec, metaExtension string) (dvp *Lucene42DocValuesProducer, err error) {
+	dvp = &Lucene42DocValuesProducer{}
+	dvp.maxDoc = int(state.segmentInfo.docCount)
+	metaName := util.SegmentFileName(state.segmentInfo.name, state.segmentSuffix, metaExtension)
+	// read in the entries from the metadata file.
+	in, err := state.dir.OpenInput(metaName, state.context)
+	if err != nil {
+		return dvp, err
+	}
+	success := false
+	defer func() {
+		if success {
+			err = util.Close(in)
+		} else {
+			util.CloseWhileSuppressingError(in)
+		}
+	}()
+
+	_, err = codec.CheckHeader(in, metaCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_START)
+	if err != nil {
+		return dvp, err
+	}
+	dvp.numerics = make(map[int]NumericEntry)
+	dvp.binaries = make(map[int]BinaryEntry)
+	dvp.fsts = make(map[int]FSTEntry)
+	err = dvp.readFields(in, state.fieldInfos)
+	if err != nil {
+		return dvp, err
+	}
+	success = true
+
+	dataName := util.SegmentFileName(state.segmentInfo.name, state.segmentSuffix, dataExtension)
+	data, err := state.dir.OpenInput(dataName, state.context)
+	if err != nil {
+		return dvp, err
+	}
+	_, err = codec.CheckHeader(data, dataCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_START)
+	if err != nil {
+		return dvp, err
+	}
+	return dvp, nil
+}
+
+func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput, infos FieldInfos) (err error) {
+	fieldNumber, err := meta.ReadVInt()
+	if err != nil {
+		return err
+	}
+	for fieldNumber != -1 && err == nil {
+		fieldType, err := meta.ReadByte()
+		if err != nil {
+			break
+		}
+		switch fieldType {
+		case LUCENE42_DV_NUMBER:
+			panic("not implemented yet")
+		case LUCENE42_DV_BYTES:
+			panic("not implemented yet")
+		case LUCENE42_DV_FST:
+			panic("not implemented yet")
+		default:
+			return errors.New(fmt.Sprintf("invalid entry type: %v, input=%v", fieldType, meta))
+		}
+		fieldNumber, err = meta.ReadVInt()
+	}
+	return err
+}
+
+func (dvp *Lucene42DocValuesProducer) Numeric(field FieldInfo) (v NumericDocValues, err error) {
+	dvp.lock.Lock()
+	defer dvp.lock.Unlock()
+
+	if v, ok := dvp.numericInstances[int(field.number)]; ok {
+		return v, nil
+	}
+	if v, err = dvp.loadNumeric(field); err == nil {
+		dvp.numericInstances[int(field.number)] = v
+	}
+	return v, err
+}
+
+func (dvp *Lucene42DocValuesProducer) loadNumeric(field FieldInfo) (v NumericDocValues, err error) {
+	panic("not implemented yet")
+	return nil, nil
+}
+
+func (dvp *Lucene42DocValuesProducer) Binary(field FieldInfo) (v BinaryDocValues, err error) {
+	panic("not implemented yet")
+	return nil, nil
+}
+
+func (dvp *Lucene42DocValuesProducer) Sorted(field FieldInfo) (v SortedDocValues, err error) {
+	panic("not implemented yet")
+	return nil, nil
+}
+
+func (dvp *Lucene42DocValuesProducer) SortedSet(field FieldInfo) (v SortedSetDocValues, err error) {
+	panic("not implemented yet")
+	return nil, nil
+}
+
+func (dvp *Lucene42DocValuesProducer) Close() error {
+	return dvp.data.Close()
+}
+
+type NumericEntry struct {
+	offset            int64
+	format            byte
+	packedIntsVersion int
+}
+
+type BinaryEntry struct {
+	offset            int64
+	numBytes          int64
+	minLength         int
+	maxLength         int
+	packedIntsVersion int
+	blockSize         int
+}
+
+type FSTEntry struct {
+	offset  int64
+	numOrds int64
+}
+
 const (
 	PER_FIELD_FORMAT_KEY = "PerFieldPostingsFormat.format"
 	PER_FIELD_SUFFIX_KEY = "PerFieldPostingsFormat.suffix"
 )
 
 func NewLucene42Codec() Codec {
-	fields := make(map[string]FieldsProducer)
-	formats := make(map[string]FieldsProducer)
+
 	return Codec{ReadSegmentInfo: Lucene40SegmentInfoReader,
 		ReadFieldInfos: Lucene42FieldInfosReader,
 		GetFieldsProducer: func(readState SegmentReadState) (fp FieldsProducer, err error) {
-			// Read _X.per and init each format:
-			success := false
-			defer func() {
-				if !success {
-					fps := make([]FieldsProducer, 0)
-					for _, v := range formats {
-						fps = append(fps, v)
-					}
-					items := make([]io.Closer, len(fps))
-					for i, v := range fps {
-						items[i] = v
-					}
-					util.CloseWhileSuppressingError(items...)
-				}
-			}()
-			// Read field name -> format name
-			for _, fi := range readState.fieldInfos.values {
-				if fi.indexed {
-					fieldName := fi.name
-					if formatName, ok := fi.attributes[PER_FIELD_FORMAT_KEY]; ok {
-						// null formatName means the field is in fieldInfos, but has no postings!
-						suffix := fi.attributes[PER_FIELD_SUFFIX_KEY]
-						// assert suffix != nil
-						segmentSuffix := formatName + "_" + suffix
-						if _, ok := formats[segmentSuffix]; !ok {
-							newReadState := readState // clone
-							newReadState.segmentSuffix = formatName + "_" + suffix
-							fp, err = LoadFieldsProducer(formatName, newReadState)
-							if err != nil {
-								return fp, err
-							}
-							formats[segmentSuffix] = fp
-						}
-						fields[fieldName] = formats[segmentSuffix]
-					}
-				}
+			return newPerFieldPostingsReader(readState)
+		},
+		GetDocValuesProducer: func(readState SegmentReadState) (dvp DocValuesProducer, err error) {
+			return newPerFieldDocValuesReader(readState)
+		},
+	}
+}
+
+type PerFieldPostingsReader struct {
+	fields  map[string]FieldsProducer
+	formats map[string]FieldsProducer
+}
+
+func newPerFieldPostingsReader(state SegmentReadState) (fp FieldsProducer, err error) {
+	ans := PerFieldPostingsReader{
+		make(map[string]FieldsProducer), make(map[string]FieldsProducer)}
+	// Read _X.per and init each format:
+	success := false
+	defer func() {
+		if !success {
+			fps := make([]FieldsProducer, 0)
+			for _, v := range ans.formats {
+				fps = append(fps, v)
 			}
-			success = true
-		}}
+			items := make([]io.Closer, len(fps))
+			for i, v := range fps {
+				items[i] = v
+			}
+			util.CloseWhileSuppressingError(items...)
+		}
+	}()
+	// Read field name -> format name
+	for _, fi := range state.fieldInfos.values {
+		if fi.indexed {
+			fieldName := fi.name
+			if formatName, ok := fi.attributes[PER_FIELD_FORMAT_KEY]; ok {
+				// null formatName means the field is in fieldInfos, but has no postings!
+				suffix := fi.attributes[PER_FIELD_SUFFIX_KEY]
+				// assert suffix != nil
+				segmentSuffix := formatName + "_" + suffix
+				if _, ok := ans.formats[segmentSuffix]; !ok {
+					newReadState := state // clone
+					newReadState.segmentSuffix = formatName + "_" + suffix
+					fp, err = LoadFieldsProducer(formatName, newReadState)
+					if err != nil {
+						return fp, err
+					}
+					ans.formats[segmentSuffix] = fp
+				}
+				ans.fields[fieldName] = ans.formats[segmentSuffix]
+			}
+		}
+	}
+	success = true
+	return &ans, nil
+}
+
+func (r *PerFieldPostingsReader) Terms(field string) Terms {
+	if p, ok := r.fields[field]; ok {
+		return p.Terms(field)
+	}
+	return nil
+}
+
+func (r *PerFieldPostingsReader) Close() error {
+	fps := make([]FieldsProducer, 0)
+	for _, v := range r.formats {
+		fps = append(fps, v)
+	}
+	items := make([]io.Closer, len(fps))
+	for i, v := range fps {
+		items[i] = v
+	}
+	return util.Close(items...)
+}
+
+type PerFieldDocValuesReader struct {
+	fields  map[string]DocValuesProducer
+	formats map[string]DocValuesProducer
+}
+
+func newPerFieldDocValuesReader(state SegmentReadState) (dvp DocValuesProducer, err error) {
+	ans := PerFieldDocValuesReader{
+		make(map[string]DocValuesProducer), make(map[string]DocValuesProducer)}
+	// Read _X.per and init each format:
+	success := false
+	defer func() {
+		if !success {
+			fps := make([]DocValuesProducer, 0)
+			for _, v := range ans.formats {
+				fps = append(fps, v)
+			}
+			items := make([]io.Closer, len(fps))
+			for i, v := range fps {
+				items[i] = v
+			}
+			util.CloseWhileSuppressingError(items...)
+		}
+	}()
+	// Read field name -> format name
+	for _, fi := range state.fieldInfos.values {
+		if fi.docValueType != 0 {
+			fieldName := fi.name
+			if formatName, ok := fi.attributes[PER_FIELD_FORMAT_KEY]; ok {
+				// null formatName means the field is in fieldInfos, but has no docvalues!
+				suffix := fi.attributes[PER_FIELD_SUFFIX_KEY]
+				// assert suffix != nil
+				segmentSuffix := formatName + "_" + suffix
+				if _, ok := ans.formats[segmentSuffix]; !ok {
+					newReadState := state // clone
+					newReadState.segmentSuffix = formatName + "_" + suffix
+					if p, err := LoadDocValuesProducer(formatName, newReadState); err == nil {
+						ans.formats[segmentSuffix] = p
+					}
+				}
+				ans.fields[fieldName] = ans.formats[segmentSuffix]
+			}
+		}
+	}
+	success = true
+	return &ans, nil
+}
+
+func (dvp *PerFieldDocValuesReader) Numeric(field FieldInfo) (v NumericDocValues, err error) {
+	if p, ok := dvp.fields[field.name]; ok {
+		return p.Numeric(field)
+	}
+	return nil, nil
+}
+
+func (dvp *PerFieldDocValuesReader) Binary(field FieldInfo) (v BinaryDocValues, err error) {
+	if p, ok := dvp.fields[field.name]; ok {
+		return p.Binary(field)
+	}
+	return nil, nil
+}
+
+func (dvp *PerFieldDocValuesReader) Sorted(field FieldInfo) (v SortedDocValues, err error) {
+	if p, ok := dvp.fields[field.name]; ok {
+		return p.Sorted(field)
+	}
+	return nil, nil
+}
+
+func (dvp *PerFieldDocValuesReader) SortedSet(field FieldInfo) (v SortedSetDocValues, err error) {
+	if p, ok := dvp.fields[field.name]; ok {
+		return p.SortedSet(field)
+	}
+	return nil, nil
+}
+
+func (dvp *PerFieldDocValuesReader) Close() error {
+	fps := make([]DocValuesProducer, 0)
+	for _, v := range dvp.formats {
+		fps = append(fps, v)
+	}
+	items := make([]io.Closer, len(fps))
+	for i, v := range fps {
+		items[i] = v
+	}
+	return util.Close(items...)
 }
