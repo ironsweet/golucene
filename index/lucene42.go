@@ -191,7 +191,9 @@ const (
 	LUCENE42_DV_METADATA_CODEC     = "Lucene42DocValuesMetadata"
 	LUCENE42_DV_METADATA_EXTENSION = "dvm"
 
-	LUCENE42_DV_VERSION_START = 0
+	LUCENE42_DV_VERSION_START           = 0
+	LUCENE42_DV_VERSION_GCD_COMPRESSION = 1
+	LUCENE42_DV_VERSION_CURRENT         = LUCENE42_DV_VERSION_GCD_COMPRESSION
 
 	LUCENE42_DV_NUMBER = 0
 	LUCENE42_DV_BYTES  = 1
@@ -227,7 +229,7 @@ func newLucene42DocValuesProducer(state SegmentReadState,
 		}
 	}()
 
-	_, err = codec.CheckHeader(in, metaCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_START)
+	version, err := codec.CheckHeader(in, metaCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_CURRENT)
 	if err != nil {
 		return dvp, err
 	}
@@ -240,23 +242,25 @@ func newLucene42DocValuesProducer(state SegmentReadState,
 	}
 	success = true
 
+	success = false
 	dataName := util.SegmentFileName(state.segmentInfo.name, state.segmentSuffix, dataExtension)
-	data, err := state.dir.OpenInput(dataName, state.context)
+	dvp.data, err = state.dir.OpenInput(dataName, state.context)
 	if err != nil {
 		return dvp, err
 	}
-	_, err = codec.CheckHeader(data, dataCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_START)
+	version2, err := codec.CheckHeader(data, dataCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_CURRENT)
 	if err != nil {
 		return dvp, err
+	}
+
+	if version != version2 {
+		return dvp, errors.New("Format versions mismatch")
 	}
 	return dvp, nil
 }
 
 func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput, infos FieldInfos) (err error) {
 	fieldNumber, err := meta.ReadVInt()
-	if err != nil {
-		return err
-	}
 	for fieldNumber != -1 && err == nil {
 		fieldType, err := meta.ReadByte()
 		if err != nil {

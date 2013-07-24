@@ -174,7 +174,7 @@ func (r *CompressingStoredFieldsReader) ensureOpen() {
 
 func (r *CompressingStoredFieldsReader) Close() (err error) {
 	if !r.closed {
-		if err = util.Close(r.fieldsStream, r.indexReader); err == nil {
+		if err = util.Close(r.fieldsStream); err == nil {
 			r.closed = true
 		}
 	}

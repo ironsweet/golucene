@@ -51,7 +51,7 @@ func (d LZ4Decompressor) decompress(in DataInput, originalLength int, buf []byte
 	}
 	decompressedLength, err := LZ4Decompress(in, len(res), res)
 	if decompressedLength > originalLength {
-		return nil, errors.New(fmt.Sprintf("Corrupted: lengths mismatch: %v > %v", decompressedLength, originalLength))
+		return nil, errors.New(fmt.Sprintf("Corrupted: lengths mismatch: %v > %v (resource=%v)", decompressedLength, originalLength, in))
 	}
 	return res, nil
 }
