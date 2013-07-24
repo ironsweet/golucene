@@ -138,3 +138,65 @@ func encodedSize(format util.PackedFormat, packedIntsVersion int32, bitsPerValue
 func computeIterations(decoder util.PackedIntsDecoder) int32 {
 	return int32(math.Ceil(float64(LUCENE41_BLOCK_SIZE) / float64(decoder.ByteValueCount())))
 }
+
+type Lucene41StoredFieldsProducer struct {
+	*CompressingStoredFieldsProducer
+}
+
+func newLucene41StoredFieldsProducer(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
+	formatName := "Lucene41StoredFields"
+	compressionMode := codec.COMPRESSION_MODE_FAST
+	// chunkSize := 1 << 14
+	p, err := newCompressingSortedFieldsProducer(d, si, "", fn, ctx, formatName, compressionMode)
+	if err == nil {
+		r = &Lucene41StoredFieldsProducer{p}
+	}
+	return r, nil
+}
+
+type CompressingStoredFieldsProducer struct {
+	indexReader  *CompressingStoredFieldsIndexProducer
+	fieldsStream store.IndexInput
+	closed       bool
+}
+
+func newCompressingSortedFieldsProducer(d *store.Directory, si SegmentInfo, segmentSuffix string, fn FieldInfos,
+	ctx store.IOContext, formatName string, compressionMode codec.CompressionMode) (r *CompressingStoredFieldsProducer, err error) {
+	panic("not implemented yet")
+	return nil, nil
+}
+
+func (r *CompressingStoredFieldsProducer) ensureOpen() {
+	if r.closed {
+		panic("this FieldsReader is closed")
+	}
+}
+
+func (r *CompressingStoredFieldsProducer) Close() (err error) {
+	if !r.closed {
+		if err = util.Close(r.fieldsStream, r.indexReader); err == nil {
+			r.closed = true
+		}
+	}
+	return err
+}
+
+func (r *CompressingStoredFieldsProducer) visitDocument(n int, visitor StoredFieldVisitor) error {
+	panic("not implemented yet")
+	return nil
+}
+
+func (r *CompressingStoredFieldsProducer) clone() StoredFieldsReader {
+	r.ensureOpen()
+	// return CompressingStoredFieldsProducer()
+	panic("not implemented yet")
+	return nil
+}
+
+type CompressingStoredFieldsIndexProducer struct {
+	fieldsIndexIn store.IndexInput
+}
+
+func (r *CompressingStoredFieldsIndexProducer) Close() error {
+	return util.Close(r.fieldsIndexIn)
+}

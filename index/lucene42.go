@@ -134,10 +134,12 @@ func getDocValuesType(input store.IndexInput, b byte) (t DocValuesType, err erro
 }
 
 type Codec struct {
-	ReadSegmentInfo      func(dir *store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error)
-	ReadFieldInfos       func(dir *store.Directory, segment string, context store.IOContext) (fi FieldInfos, err error)
-	GetFieldsProducer    func(readState SegmentReadState) (fp FieldsProducer, err error)
-	GetDocValuesProducer func(readState SegmentReadState) (dvp DocValuesProducer, err error)
+	ReadSegmentInfo           func(d *store.Directory, segment string, ctx store.IOContext) (si SegmentInfo, err error)
+	ReadFieldInfos            func(d *store.Directory, segment string, ctx store.IOContext) (fi FieldInfos, err error)
+	GetFieldsProducer         func(s SegmentReadState) (r FieldsProducer, err error)
+	GetDocValuesProducer      func(s SegmentReadState) (r DocValuesProducer, err error)
+	GetNormsDocValuesProducer func(s SegmentReadState) (r DocValuesProducer, err error)
+	GetStoredFieldsReader     func(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error)
 }
 
 func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer, err error) {
@@ -338,14 +340,19 @@ const (
 )
 
 func NewLucene42Codec() Codec {
-
 	return Codec{ReadSegmentInfo: Lucene40SegmentInfoReader,
 		ReadFieldInfos: Lucene42FieldInfosReader,
 		GetFieldsProducer: func(readState SegmentReadState) (fp FieldsProducer, err error) {
 			return newPerFieldPostingsReader(readState)
 		},
-		GetDocValuesProducer: func(readState SegmentReadState) (dvp DocValuesProducer, err error) {
-			return newPerFieldDocValuesReader(readState)
+		GetDocValuesProducer: func(s SegmentReadState) (dvp DocValuesProducer, err error) {
+			return newPerFieldDocValuesReader(s)
+		},
+		GetNormsDocValuesProducer: func(s SegmentReadState) (dvp DocValuesProducer, err error) {
+			return newLucene42DocValuesProducer(s, "Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm")
+		},
+		GetStoredFieldsReader: func(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
+			return newLucene41StoredFieldsProducer(d, si, fn, ctx)
 		},
 	}
 }

@@ -184,16 +184,22 @@ func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si Segmen
 	}
 
 	if self.fieldInfos.hasNorms {
-		self.normsProducer = codec.NormsProducer(segmentReadState)
+		self.normsProducer, err = codec.GetNormsDocValuesProducer(segmentReadState)
+		if err != nil {
+			return self, err
+		}
 		// assert normsProducer != null;
 	} else {
 		self.normsProducer = nil
 	}
 
-	self.fieldsReaderOrig = si.info.codec.StoredFieldsReader(cfsDir, si.info, fieldInfos, context)
+	self.fieldsReaderOrig, err = si.info.codec.GetStoredFieldsReader(cfsDir, si.info, self.fieldInfos, context)
+	if err != nil {
+		return self, err
+	}
 
 	if self.fieldInfos.hasVectors { // open term vector files only as needed
-		self.termVectorsReaderOrig = si.info.codecTermVectorsReader(cfsDir, si.info, fieldInfos, context)
+		self.termVectorsReaderOrig = si.info.GetTermVectorsReader(cfsDir, si.info, self.fieldInfos, context)
 	} else {
 		self.termVectorsReaderOrig = nil
 	}
