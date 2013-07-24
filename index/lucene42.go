@@ -352,7 +352,7 @@ func NewLucene42Codec() Codec {
 			return newLucene42DocValuesProducer(s, "Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm")
 		},
 		GetStoredFieldsReader: func(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
-			return newLucene41StoredFieldsProducer(d, si, fn, ctx)
+			return newLucene41StoredFieldsReader(d, si, fn, ctx)
 		},
 	}
 }
