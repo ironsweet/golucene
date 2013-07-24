@@ -194,9 +194,4 @@ func (r *CompressingStoredFieldsReader) clone() StoredFieldsReader {
 }
 
 type CompressingStoredFieldsIndexReader struct {
-	fieldsIndexIn store.IndexInput
-}
-
-func (r *CompressingStoredFieldsIndexReader) Close() error {
-	return util.Close(r.fieldsIndexIn)
 }
