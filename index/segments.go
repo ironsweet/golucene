@@ -199,7 +199,10 @@ func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si Segmen
 	}
 
 	if self.fieldInfos.hasVectors { // open term vector files only as needed
-		self.termVectorsReaderOrig = si.info.GetTermVectorsReader(cfsDir, si.info, self.fieldInfos, context)
+		self.termVectorsReaderOrig, err = si.info.codec.GetTermVectorsReader(cfsDir, si.info, self.fieldInfos, context)
+		if err != nil {
+			return self, err
+		}
 	} else {
 		self.termVectorsReaderOrig = nil
 	}
@@ -211,15 +214,15 @@ func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si Segmen
 	// purge the FieldCache (will hit NPE because core is
 	// not assigned yet).
 	self.owner = owner
-	return self
+	return self, nil
 }
 
 func (r *SegmentCoreReaders) decRef() {
 	if atomic.AddInt32(&r.refCount, -1) == 0 {
 		util.Close( /*self.termVectorsLocal, self.fieldsReaderLocal, docValuesLocal, normsLocal,*/
-			self.fields, self.dvProducer, self.termVectorsReaderOrig, self.fieldsReaderOrig,
-			self.cfsReader, self.normsProducer)
-		notifyListener <- self
+			r.fields, r.dvProducer, r.termVectorsReaderOrig, r.fieldsReaderOrig,
+			r.cfsReader, r.normsProducer)
+		notifyListener <- r
 	}
 }
 
@@ -262,12 +265,6 @@ type SortedSetDocValues interface {
 	setDocument(docID int)
 	lookupOrd(ord int64, result []byte)
 	valueCount() int64
-}
-
-type StoredFieldsReader interface {
-	io.Closer
-	visitDocument(n int, visitor StoredFieldVisitor) error
-	clone() StoredFieldsReader
 }
 
 type StoredFieldVisitor interface {

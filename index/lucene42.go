@@ -140,6 +140,7 @@ type Codec struct {
 	GetDocValuesProducer      func(s SegmentReadState) (r DocValuesProducer, err error)
 	GetNormsDocValuesProducer func(s SegmentReadState) (r DocValuesProducer, err error)
 	GetStoredFieldsReader     func(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error)
+	GetTermVectorsReader      func(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
 }
 
 func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer, err error) {
@@ -248,7 +249,7 @@ func newLucene42DocValuesProducer(state SegmentReadState,
 	if err != nil {
 		return dvp, err
 	}
-	version2, err := codec.CheckHeader(data, dataCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_CURRENT)
+	version2, err := codec.CheckHeader(dvp.data, dataCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_CURRENT)
 	if err != nil {
 		return dvp, err
 	}
@@ -357,6 +358,9 @@ func NewLucene42Codec() Codec {
 		},
 		GetStoredFieldsReader: func(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
 			return newLucene41StoredFieldsReader(d, si, fn, ctx)
+		},
+		GetTermVectorsReader: func(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
+			return newLucene42TermVectorsReader(d, si, fn, ctx)
 		},
 	}
 }
@@ -514,4 +518,46 @@ func (dvp *PerFieldDocValuesReader) Close() error {
 		items[i] = v
 	}
 	return util.Close(items...)
+}
+
+type Lucene42TermVectorsReader struct {
+	*CompressingTermVectorsReader
+}
+
+func newLucene42TermVectorsReader(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
+	formatName := "Lucene41StoredFields"
+	compressionMode := codec.COMPRESSION_MODE_FAST
+	// chunkSize := 1 << 12
+	p, err := newCompressingTermVectorsReader(d, si, "", fn, ctx, formatName, compressionMode)
+	if err == nil {
+		r = &Lucene42TermVectorsReader{p}
+	}
+	return r, nil
+}
+
+type CompressingTermVectorsReader struct {
+	vectorsStream store.IndexInput
+	closed        bool
+}
+
+func newCompressingTermVectorsReader(d *store.Directory, si SegmentInfo, segmentSuffix string, fn FieldInfos,
+	ctx store.IOContext, formatName string, compressionMode codec.CompressionMode) (r *CompressingTermVectorsReader, err error) {
+	panic("not implemented yet")
+	return nil, nil
+}
+
+func (r *CompressingTermVectorsReader) Close() (err error) {
+	if !r.closed {
+		err = util.Close(r.vectorsStream)
+		r.closed = true
+	}
+	return err
+}
+
+func (r *CompressingTermVectorsReader) get(doc int) Fields {
+	panic("not implemented yet")
+}
+
+func (r *CompressingTermVectorsReader) clone() TermVectorsReader {
+	panic("not implemented yet")
 }
