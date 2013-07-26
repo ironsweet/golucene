@@ -24,10 +24,10 @@ const (
 )
 
 type CompoundFileDirectory struct {
-	*Directory
+	*DirectoryImpl
 	lock sync.Mutex
 
-	directory      *Directory
+	directory      Directory
 	fileName       string
 	readBufferSize int
 	entries        map[string]FileEntry
@@ -36,50 +36,13 @@ type CompoundFileDirectory struct {
 	handle IndexInputSlicer
 }
 
-func NewCompoundFileDirectory(directory *Directory, fileName string, context IOContext, openForWrite bool) (d CompoundFileDirectory, err error) {
+func NewCompoundFileDirectory(directory Directory, fileName string, context IOContext, openForWrite bool) (d CompoundFileDirectory, err error) {
 	self := CompoundFileDirectory{
 		directory:      directory,
 		fileName:       fileName,
 		readBufferSize: bufferSize(context),
 		openForWriter:  openForWrite}
-	super := &Directory{isOpen: false}
-	super.OpenInput = func(name string, context IOContext) (in IndexInput, err error) {
-		super.ensureOpen()
-		// assert !self.openForWrite
-		id := util.StripSegmentName(name)
-		if entry, ok := self.entries[id]; ok {
-			is := self.handle.openSlice(name, entry.offset, entry.length)
-			return is, nil
-		}
-		keys := make([]string, 0)
-		for k := range self.entries {
-			keys = append(keys, k)
-		}
-		panic(fmt.Sprintf("No sub-file with id %v found (fileName=%v files: %v)", id, name, keys))
-	}
-	super.ListAll = func() (paths []string, err error) {
-		super.ensureOpen()
-		// if self.writer != nil {
-		// 	return self.writer.ListAll()
-		// }
-		// Add the segment name
-		seg := util.ParseSegmentName(self.fileName)
-		keys := make([]string, 0)
-		for k := range self.entries {
-			keys = append(keys, seg+k)
-		}
-		return keys, nil
-	}
-	super.FileExists = func(name string) bool {
-		super.ensureOpen()
-		// if self.writer != nil {
-		// 	return self.writer.FileExists(name)
-		// }
-		if _, ok := self.entries[util.StripSegmentName(name)]; ok {
-			return true
-		}
-		return false
-	}
+	super := &DirectoryImpl{isOpen: false}
 
 	if !openForWrite {
 		success := false
@@ -104,6 +67,44 @@ func NewCompoundFileDirectory(directory *Directory, fileName string, context IOC
 	}
 }
 
+func (d *CompoundFileDirectory) openInput(name string, context IOContext) (in IndexInput, err error) {
+	d.ensureOpen()
+	// assert !d.openForWrite
+	id := util.StripSegmentName(name)
+	if entry, ok := d.entries[id]; ok {
+		is := d.handle.openSlice(name, entry.offset, entry.length)
+		return is, nil
+	}
+	keys := make([]string, 0)
+	for k := range d.entries {
+		keys = append(keys, k)
+	}
+	panic(fmt.Sprintf("No sub-file with id %v found (fileName=%v files: %v)", id, name, keys))
+}
+
+func (d *CompoundFileDirectory) listAll() (paths []string, err error) {
+	d.ensureOpen()
+	// if self.writer != nil {
+	// 	return self.writer.ListAll()
+	// }
+	// Add the segment name
+	seg := util.ParseSegmentName(d.fileName)
+	keys := make([]string, 0, len(d.entries))
+	for k := range d.entries {
+		keys = append(keys, seg+k)
+	}
+	return keys, nil
+}
+
+func (d *CompoundFileDirectory) fileExists(name string) bool {
+	d.ensureOpen()
+	// if d.writer != nil {
+	// 	return d.writer.FileExists(name)
+	// }
+	_, ok := d.entries[util.StripSegmentName(name)]
+	return ok
+}
+
 const (
 	CODEC_MAGIC_BYTE1 = byte(uint32(codec.CODEC_MAGIC) >> 24 & 0xFF)
 	CODEC_MAGIC_BYTE2 = byte(uint32(codec.CODEC_MAGIC) >> 16 & 0xFF)
@@ -111,7 +112,7 @@ const (
 	CODEC_MAGIC_BYTE4 = byte(codec.CODEC_MAGIC & 0xFF)
 )
 
-func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping map[string]FileEntry, err error) {
+func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping map[string]FileEntry, err error) {
 	var stream, entriesStream IndexInput = nil, nil
 	defer func() {
 		err = util.CloseWhileHandlingError(err, stream, entriesStream)
@@ -149,7 +150,7 @@ func readEntries(handle IndexInputSlicer, dir *Directory, name string) (mapping 
 			return mapping, err
 		}
 		entriesFileName := util.SegmentFileName(util.StripExtension(name), "", COMPOUND_FILE_ENTRIES_EXTENSION)
-		entriesStream, err = dir.OpenInput(entriesFileName, IO_CONTEXT_READONCE)
+		entriesStream, err = dir.openInput(entriesFileName, IO_CONTEXT_READONCE)
 		if err != nil {
 			return mapping, err
 		}

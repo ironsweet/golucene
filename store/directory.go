@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"strconv"
@@ -62,34 +63,138 @@ type Lock struct {
 	self interface{}
 }
 
-type LockFactory struct {
-	self       interface{}
+type LockFactory interface {
+	make(name string) Lock
+	clear(name string) error
+	setLockPrefix(prefix string)
+	getLockPrefix() string
+}
+
+type LockFactoryImpl struct {
 	lockPrefix string
-	Make       func(name string) Lock
-	Clear      func(name string) error
+}
+
+func (f *LockFactoryImpl) setLockPrefix(prefix string) {
+	f.lockPrefix = prefix
+}
+
+func (f *LockFactoryImpl) getLockPrefix() string {
+	return f.lockPrefix
 }
 
 type FSLockFactory struct {
-	*LockFactory
+	*LockFactoryImpl
 	lockDir string // can not be set twice
 }
 
-type Directory struct {
+func newFSLockFactory() *FSLockFactory {
+	ans := &FSLockFactory{}
+	ans.LockFactoryImpl = &LockFactoryImpl{}
+	return ans
+}
+
+func (f *FSLockFactory) setLockDir(lockDir string) {
+	if f.lockDir != "" {
+		panic("You can set the lock directory for this factory only once.")
+	}
+	f.lockDir = lockDir
+}
+
+func (f *FSLockFactory) getLockDir() string {
+	return f.lockDir
+}
+
+func (f *FSLockFactory) clear(name string) error {
+	panic("invalid")
+}
+
+func (f *FSLockFactory) make(name string) Lock {
+	panic("invalid")
+}
+
+type Directory interface {
+	io.Closer
+	// Files related methods
+	listAll() (paths []string, err error)
+	fileExists(name string) bool
+	// DeleteFile(name string) error
+	// FileLength(name string) int64
+	// CreateOutput(name string, ctx, IOContext) (out IndexOutput, err error)
+	// Sync(names []string) error
+	openInput(name string, context IOContext) (in IndexInput, err error)
+	// Locks related methods
+	makeLock(name string) Lock
+	clearLock(name string) error
+	setLockFactory(lockFactory LockFactory) error
+	getLockFactory() LockFactory
+	getLockID() string
+	// Utilities
+	// Copy(to Directory, src, dest string, ctx IOContext) error
+	// Experimental methods
+	createSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error)
+	// Private methods
+	ensureOpen()
+}
+
+type DirectoryImpl struct {
+	Directory
 	isOpen      bool
 	lockFactory LockFactory
-	LockID      func() string
-	ListAll     func() (paths []string, err error)
-	FileExists  func(name string) bool
-	OpenInput   func(name string, context IOContext) (in IndexInput, err error)
 }
 
-func (d *Directory) SetLockFactory(lockFactory LockFactory) {
+func newDirectoryImpl(self Directory) *DirectoryImpl {
+	return &DirectoryImpl{Directory: self, isOpen: true}
+}
+
+func (d *DirectoryImpl) makeLock(name string) Lock {
+	return d.lockFactory.make(name)
+}
+
+func (d *DirectoryImpl) clearLock(name string) error {
+	if d.lockFactory != nil {
+		return d.lockFactory.clear(name)
+	}
+	return nil
+}
+
+func (d *DirectoryImpl) setLockFactory(lockFactory LockFactory) error {
+	// assert lockFactory != nil
 	d.lockFactory = lockFactory
-	d.lockFactory.lockPrefix = d.LockID()
+	d.lockFactory.setLockPrefix(d.getLockID())
+	return nil
 }
 
-func (d *Directory) String() string {
+func (d *DirectoryImpl) getLockFactory() LockFactory {
+	return d.lockFactory
+}
+
+func (d *DirectoryImpl) getLockID() string {
+	return d.String()
+}
+
+func (d *DirectoryImpl) String() string {
 	return fmt.Sprintf("Directory lockFactory=%v", d.lockFactory)
+}
+
+func (d *DirectoryImpl) createSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {
+	d.ensureOpen()
+	base, err := d.Directory.openInput(name, context)
+	if err != nil {
+		return nil, err
+	}
+	return simpleIndexInputSlicer{base}, nil
+}
+
+func (d *DirectoryImpl) ensureOpen() {
+	if !d.isOpen {
+		panic("this Directory is closed")
+	}
+}
+
+type IndexInputSlicer interface {
+	io.Closer
+	openSlice(desc string, offset, length int64) IndexInput
+	openFullSlice() IndexInput
 }
 
 type simpleIndexInputSlicer struct {
@@ -109,78 +214,46 @@ func (is simpleIndexInputSlicer) openFullSlice() IndexInput {
 	return is.base
 }
 
-func (d *Directory) createSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {
-	d.ensureOpen()
-	base, err := d.OpenInput(name, context)
-	if err != nil {
-		return nil, err
-	}
-	return simpleIndexInputSlicer{base}, nil
+type SlicedIndexInput struct {
+	*BufferedIndexInput
+	base       IndexInput
+	fileOffset int64
+	length     int64
 }
 
-func (d *Directory) ensureOpen() {
-	if !d.isOpen {
-		panic("this Directory is closed")
-	}
+func newSlicedIndexInput(desc string, base IndexInput, fileOffset, length int64) SlicedIndexInput {
+	return newSlicedIndexInputBySize(desc, base, fileOffset, length, BUFFER_SIZE)
+}
+
+func newSlicedIndexInputBySize(desc string, base IndexInput, fileOffset, length int64, bufferSize int) SlicedIndexInput {
+	return SlicedIndexInput{
+		BufferedIndexInput: newBufferedIndexInputBySize(fmt.Sprintf(
+			"SlicedIndexInput(%v in %v slice=%v:%v)", desc, base, fileOffset, fileOffset+length), bufferSize),
+		base: base, fileOffset: fileOffset, length: length}
 }
 
 type FSDirectory struct {
-	*Directory
+	*DirectoryImpl
 	path      string
 	chunkSize int
 }
 
-func (d *FSDirectory) SetLockFactory(lockFactory LockFactory) {
-	d.Directory.SetLockFactory(lockFactory)
+// TODO support lock factory
+func newFSDirectory(self Directory, path string) (d *FSDirectory, err error) {
+	d = &FSDirectory{}
+	d.DirectoryImpl = newDirectoryImpl(self)
+	d.path = path
+	d.chunkSize = math.MaxInt32
 
-	// for filesystem based LockFactory, delete the lockPrefix, if the locks are placed
-	// in index dir. If no index dir is given, set ourselves
-	if lf, ok := lockFactory.self.(*FSLockFactory); ok {
-		if lf.lockDir == "" {
-			lf.lockDir = d.path
-			lf.lockPrefix = ""
-		} else if lf.lockDir == d.path {
-			lf.lockPrefix = ""
-		}
-	}
-}
-
-func newFSDirectory(path string) (d *FSDirectory, err error) {
-	d = &FSDirectory{chunkSize: math.MaxInt32}
-	if f, err := os.Open(path); err == nil {
-		fi, err := f.Stat()
-		if err != nil {
-			return d, err
-		}
-		if !fi.IsDir() {
-			return d, errors.New(fmt.Sprintf("file '%v' exists but is not a directory", path))
-		}
+	if fi, err := os.Stat(path); err == nil && !fi.IsDir() {
+		return d, errors.New(fmt.Sprintf("file '%v' exists but is not a directory", path))
 	}
 
-	super := Directory{ListAll: func() (paths []string, err error) {
-		d.ensureOpen()
-		return ListAll(d.path)
-	}, FileExists: func(name string) bool {
-		d.ensureOpen()
-		if _, err := os.Stat(name); err != nil {
-			return true
-		}
-		return false
-	}, LockID: func() string {
-		d.ensureOpen()
-		var digest int
-		for _, ch := range d.path {
-			digest = 31*digest + int(ch)
-		}
-		return fmt.Sprintf("lucene-%v", strconv.FormatUint(uint64(digest), 10))
-	}}
-	d.Directory = &super
 	// TODO default to native lock factory
-	d.SetLockFactory(*(NewSimpleFSLockFactory(path).LockFactory))
+	d.setLockFactory(NewSimpleFSLockFactory(path))
 	return d, nil
 }
 
-// TODO support lock factory
 func OpenFSDirectory(path string) (d FSDirectory, err error) {
 	// TODO support native implementations
 	super, err := NewSimpleFSDirectory(path)
@@ -190,7 +263,23 @@ func OpenFSDirectory(path string) (d FSDirectory, err error) {
 	return *(super.FSDirectory), nil
 }
 
-func ListAll(path string) (paths []string, err error) {
+func (d *FSDirectory) setLockFactory(lockFactory LockFactory) error {
+	d.DirectoryImpl.setLockFactory(lockFactory)
+
+	// for filesystem based LockFactory, delete the lockPrefix, if the locks are placed
+	// in index dir. If no index dir is given, set ourselves
+	if lf, ok := lockFactory.(*FSLockFactory); ok {
+		if lf.lockDir == "" {
+			lf.lockDir = d.path
+			lf.lockPrefix = ""
+		} else if lf.lockDir == d.path {
+			lf.lockPrefix = ""
+		}
+	}
+	return nil
+}
+
+func FSDirectoryListAll(path string) (paths []string, err error) {
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
 		return nil, errors.New(fmt.Sprintf("directory '%v' does not exist", path))
@@ -205,4 +294,24 @@ func ListAll(path string) (paths []string, err error) {
 
 	// Exclude subdirs
 	return f.Readdirnames(0)
+}
+
+func (d *FSDirectory) listAll() (paths []string, err error) {
+	d.ensureOpen()
+	return FSDirectoryListAll(d.path)
+}
+
+func (d *FSDirectory) fileExists(name string) bool {
+	d.ensureOpen()
+	_, err := os.Stat(name)
+	return err != nil
+}
+
+func (d *FSDirectory) getLockID() string {
+	d.ensureOpen()
+	var digest int
+	for _, ch := range d.path {
+		digest = 31*digest + int(ch)
+	}
+	return fmt.Sprintf("lucene-%v", strconv.FormatUint(uint64(digest), 10))
 }

@@ -17,28 +17,27 @@ type SimpleFSLockFactory struct {
 	*FSLockFactory
 }
 
-func NewSimpleFSLockFactory(path string) SimpleFSLockFactory {
-	ans := SimpleFSLockFactory{}
-
-	origin := &LockFactory{}
-	origin.self = ans
-	origin.Make = func(name string) Lock {
-		if origin.lockPrefix != "" {
-			name = fmt.Sprintf("%v-%v", origin.lockPrefix, name)
-		}
-		ans := SimpleFSLock{nil, filepath.Join(path, name), name}
-		ans.Lock = &Lock{ans}
-		return *(ans.Lock)
-	}
-	origin.Clear = func(name string) error {
-		if origin.lockPrefix != "" {
-			name = fmt.Sprintf("%v-%v", origin.lockPrefix, name)
-		}
-		return os.Remove(filepath.Join(path, name))
-	}
-
-	ans.FSLockFactory = &FSLockFactory{origin, path}
+func NewSimpleFSLockFactory(path string) *SimpleFSLockFactory {
+	ans := &SimpleFSLockFactory{}
+	ans.FSLockFactory = newFSLockFactory()
+	ans.setLockDir(path)
 	return ans
+}
+
+func (f *SimpleFSLockFactory) make(name string) Lock {
+	if f.lockPrefix != "" {
+		name = fmt.Sprintf("%v-%v", f.lockPrefix, name)
+	}
+	ans := SimpleFSLock{nil, filepath.Join(f.lockDir, name), name}
+	ans.Lock = &Lock{ans}
+	return *(ans.Lock)
+}
+
+func (f *SimpleFSLockFactory) clear(name string) error {
+	if f.lockPrefix != "" {
+		name = fmt.Sprintf("%v-%v", f.lockPrefix, name)
+	}
+	return os.Remove(filepath.Join(f.lockDir, name))
 }
 
 type SimpleFSDirectory struct {
@@ -46,18 +45,20 @@ type SimpleFSDirectory struct {
 }
 
 func NewSimpleFSDirectory(path string) (d *SimpleFSDirectory, err error) {
-	super, err := newFSDirectory(path)
+	d = &SimpleFSDirectory{}
+	d.FSDirectory, err = newFSDirectory(d, path)
 	if err != nil {
 		return nil, err
 	}
-	super.OpenInput = func(name string, context IOContext) (in IndexInput, err error) {
-		super.ensureOpen()
-		fpath := filepath.Join(path, name)
-		sin, err := newSimpleFSIndexInput(fmt.Sprintf("SimpleFSIndexInput(path='%v')", fpath),
-			fpath, context, super.chunkSize)
-		return sin.BufferedIndexInput, err
-	}
-	return &SimpleFSDirectory{super}, nil
+	return
+}
+
+func (d *SimpleFSDirectory) openInput(name string, context IOContext) (in IndexInput, err error) {
+	d.ensureOpen()
+	fpath := filepath.Join(d.path, name)
+	sin, err := newSimpleFSIndexInput(fmt.Sprintf("SimpleFSIndexInput(path='%v')", fpath),
+		fpath, context, d.chunkSize)
+	return sin.BufferedIndexInput, err
 }
 
 type SimpleFSIndexInput struct {

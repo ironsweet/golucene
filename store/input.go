@@ -429,30 +429,6 @@ func (in *ChecksumIndexInput) Length() int64 {
 	return in.main.Length()
 }
 
-type IndexInputSlicer interface {
-	io.Closer
-	openSlice(desc string, offset, length int64) IndexInput
-	openFullSlice() IndexInput
-}
-
-type SlicedIndexInput struct {
-	*BufferedIndexInput
-	base       IndexInput
-	fileOffset int64
-	length     int64
-}
-
-func newSlicedIndexInput(desc string, base IndexInput, fileOffset, length int64) SlicedIndexInput {
-	return newSlicedIndexInputBySize(desc, base, fileOffset, length, BUFFER_SIZE)
-}
-
-func newSlicedIndexInputBySize(desc string, base IndexInput, fileOffset, length int64, bufferSize int) SlicedIndexInput {
-	return SlicedIndexInput{
-		BufferedIndexInput: newBufferedIndexInputBySize(fmt.Sprintf(
-			"SlicedIndexInput(%v in %v slice=%v:%v)", desc, base, fileOffset, fileOffset+length), bufferSize),
-		base: base, fileOffset: fileOffset, length: length}
-}
-
 type ByteArrayDataInput struct {
 	bytes []byte
 	pos   int
