@@ -7,12 +7,15 @@ import (
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
 	"io"
+	"sort"
 )
 
 type FieldsProducer interface {
 	Fields
 	io.Closer
 }
+
+// TODO use for BTTR only
 
 const (
 	BTT_OUTPUT_FLAGS_NUM_BITS = 2
@@ -282,16 +285,70 @@ func (r *FieldReader) DocCount() int {
 }
 
 type SegmentTermsEnum struct {
+	*TermsEnumImpl
 	owner *FieldReader
+	eof   bool
+	term  []byte
 }
 
-func newSegmentTermsEnum(r *FieldReader) SegmentTermsEnum {
-	return SegmentTermsEnum{owner: r}
+func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
+	return &SegmentTermsEnum{owner: r}
 }
 
-// func (iter *SegmentTermsEnum) DocFreq() int {
-// 	// assert !eof
-// }
+func (e *SegmentTermsEnum) Comparator() sort.Interface {
+	panic("not implemented yet")
+}
+
+func (e *SegmentTermsEnum) SeekExactUsingCache(target []byte, useCache bool) bool {
+	panic("not implemented yet")
+}
+
+func (e *SegmentTermsEnum) SeekCeilUsingCache(text []byte, useCache bool) SeekStatus {
+	panic("not implemented yet")
+}
+
+func (e *SegmentTermsEnum) Next() (buf []byte, err error) {
+	panic("not implemented yet")
+}
+
+func (e *SegmentTermsEnum) Term() []byte {
+	if e.eof {
+		panic("assertion error")
+	}
+	return e.term
+}
+
+func (e *SegmentTermsEnum) DocFreq() int {
+	panic("not implemented yet")
+}
+
+func (e *SegmentTermsEnum) TotalTermFreq() int64 {
+	panic("not implemented yet")
+}
+
+func (e *SegmentTermsEnum) DocsByFlags(skipDocs util.Bits, reuse DocsEnum, flags int) DocsEnum {
+	panic("not implemented yet")
+}
+
+func (e *SegmentTermsEnum) DocsAndPositionsByFlags(skipDocs util.Bits, reuse DocsAndPositionsEnum, flags int) DocsAndPositionsEnum {
+	panic("not implemented yet")
+}
+
+func (e *SegmentTermsEnum) SeekExactFromLast(target []byte, otherState TermState) error {
+	panic("not implemented yet")
+}
+
+func (e *SegmentTermsEnum) TermState() TermState {
+	panic("not implemented yet")
+}
+
+func (e *SegmentTermsEnum) SeekExactByPosition(ord int64) error {
+	panic("not implemented yet")
+}
+
+func (e *SegmentTermsEnum) Ord() int64 {
+	panic("not supported!")
+}
 
 type PostingsReaderBase interface {
 	io.Closer

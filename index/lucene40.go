@@ -2,7 +2,10 @@ package index
 
 import (
 	"errors"
+	"fmt"
+	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
+	"github.com/balzaczyy/golucene/util"
 )
 
 const (
@@ -17,7 +20,7 @@ const (
 var (
 	Lucene40SegmentInfoReader = func(dir store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error) {
 		si = SegmentInfo{}
-		fileName := SegmentFileName(segment, "", LUCENE40_SI_EXTENSION)
+		fileName := util.SegmentFileName(segment, "", LUCENE40_SI_EXTENSION)
 		input, err := dir.OpenInput(fileName, context)
 		if err != nil {
 			return si, err
@@ -26,13 +29,13 @@ var (
 		success := false
 		defer func() {
 			if !success {
-				util.CloseWhileSupressingException(input)
+				util.CloseWhileSuppressingError(input)
 			} else {
 				input.Close()
 			}
 		}()
 
-		_, err = CheckHeader(input.DataInput, LUCENE40_CODEC_NAME, LUCENE40_VERSION_START, LUCENE40_VERSION_CURRENT)
+		_, err = codec.CheckHeader(input, LUCENE40_CODEC_NAME, LUCENE40_VERSION_START, LUCENE40_VERSION_CURRENT)
 		if err != nil {
 			return si, err
 		}

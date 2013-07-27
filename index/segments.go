@@ -222,7 +222,7 @@ func (r *SegmentCoreReaders) decRef() {
 		util.Close( /*self.termVectorsLocal, self.fieldsReaderLocal, docValuesLocal, normsLocal,*/
 			r.fields, r.dvProducer, r.termVectorsReaderOrig, r.fieldsReaderOrig,
 			r.cfsReader, r.normsProducer)
-		notifyListener <- r
+		r.notifyListener <- r.owner
 	}
 }
 
@@ -284,9 +284,3 @@ const (
 	SOTRED_FIELD_VISITOR_STATUS_NO   = StoredFieldVisitorStatus(2)
 	SOTRED_FIELD_VISITOR_STATUS_STOP = StoredFieldVisitorStatus(3)
 )
-
-type TermVectorsReader interface {
-	io.Closer
-	fields(doc int) Fields
-	clone() TermVectorsReader
-}

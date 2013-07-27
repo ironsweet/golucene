@@ -25,44 +25,74 @@ const (
 )
 
 var (
-	TERMS_ENUM_EMPTY = TermsEnum{}
+	TERMS_ENUM_EMPTY = TermsEnumEmpty{}
 )
+
+type SeekStatus int
 
 type TermsEnum interface {
 	// BytesRefIterator
-	// Next() (buf []byte, err error)
-	// Comparator() sort.Interface
+	Next() (buf []byte, err error)
+	Comparator() sort.Interface
 
-	// SeekCeil(text []byte, useCache bool) int
-	// SeekExact(ord int64) error
-	// DocFreq() int
-	// TotalTermFreq() int64
-	// DocsForTermFlag(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum
+	Attributes() util.AttributeSource
+	SeekExactUsingCache(text []byte, useCache bool) bool
+	SeekCeilUsingCache(text []byte, useCache bool) SeekStatus
+	SeekCeil(text []byte) SeekStatus
+	SeekExactByPosition(ord int64) error
+	SeekExactFromLast(text []byte, state TermState) error
+	Term() []byte
+	Ord() int64
+	DocFreq() int
+	TotalTermFreq() int64
+	Docs(liveDocs util.Bits, reuse DocsEnum) DocsEnum
+	DocsByFlags(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum
+	DocsAndPositions(liveDocs util.Bits, reuse DocsAndPositionsEnum) DocsAndPositionsEnum
+	DocsAndPositionsByFlags(liveDocs util.Bits, reuse DocsAndPositionsEnum, flags int) DocsAndPositionsEnum
+	TermState() TermState
 }
 
 type TermsEnumImpl struct {
-	SeekCeil        func(text []byte, useCache bool) int
-	docFreq         func() int
-	totalTermFreq   func() int64
-	DocsForTermFlag func(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum
+	TermsEnum
+	atts util.AttributeSource
 }
 
-func (iter *TermsEnumImpl) SeekExactUsingCache(text []byte, useCache bool) bool {
-	return iter.SeekCeil(text, useCache) == SEEK_STATUS_FOUND
+func newTermsEnumImpl(self TermsEnum) *TermsEnumImpl {
+	return &TermsEnumImpl{self, util.NewAttributeSource()}
 }
 
-func (iter *TermsEnumImpl) SeekExactByState(text []byte, state TermState) {
-	if !iter.SeekExactUsingCache(text, true) {
+func (e *TermsEnumImpl) Attributes() util.AttributeSource {
+	return e.atts
+}
+
+func (e *TermsEnumImpl) SeekExactUsingCache(text []byte, useCache bool) bool {
+	return e.SeekCeilUsingCache(text, useCache) == SEEK_STATUS_FOUND
+}
+
+func (e *TermsEnumImpl) SeekCeil(text []byte) SeekStatus {
+	return e.SeekCeilUsingCache(text, true)
+}
+
+func (e *TermsEnumImpl) SeekExactFromLast(text []byte, state TermState) error {
+	if !e.SeekExactUsingCache(text, true) {
 		panic(fmt.Sprintf("term %v does not exist", text))
 	}
+	return nil
 }
 
-func (iter *TermsEnumImpl) DocsForTerm(liveDocs util.Bits, reuse DocsEnum) DocsEnum {
-	return iter.DocsForTermFlag(liveDocs, reuse, DOCS_ENUM_FLAG_FREQS)
+func (e *TermsEnumImpl) Docs(liveDocs util.Bits, reuse DocsEnum) DocsEnum {
+	return e.DocsByFlags(liveDocs, reuse, DOCS_ENUM_FLAG_FREQS)
 }
 
-func (iter *TermsEnumImpl) TermState() TermState {
+func (e *TermsEnumImpl) DocsAndPositions(liveDocs util.Bits, reuse DocsAndPositionsEnum) DocsAndPositionsEnum {
+	return e.DocsAndPositionsByFlags(liveDocs, reuse, DOCS_POSITIONS_ENUM_FLAG_OFF_SETS|DOCS_POSITIONS_ENUM_FLAG_PAYLOADS)
+}
+
+func (e *TermsEnumImpl) TermState() TermState {
 	return TermState{copyFrom: func(other TermState) { panic("not supported!") }}
+}
+
+type TermsEnumEmpty struct {
 }
 
 type TermContext struct {
@@ -91,10 +121,10 @@ func NewTermContextFromTerm(ctx *IndexReaderContext, t Term, cache bool) *TermCo
 		if fields != nil {
 			terms := fields.Terms(t.Field)
 			if terms != nil {
-				termsEnum := terms.Iterator(TermsEnum{}) // empty TermsEnum
-				if termsEnum.SeekExact(t.Bytes, cache) {
+				termsEnum := terms.Iterator(nil)
+				if termsEnum.SeekExactUsingCache(t.Bytes, cache) {
 					termState := termsEnum.TermState()
-					perReaderTermState.register(termState, v.Ord, termsEnum.docFreq(), termsEnum.totalTermFreq())
+					perReaderTermState.register(termState, v.Ord, termsEnum.DocFreq(), termsEnum.TotalTermFreq())
 				}
 			}
 		}
