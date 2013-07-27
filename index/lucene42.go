@@ -30,7 +30,7 @@ const (
 )
 
 var (
-	Lucene42FieldInfosReader = func(dir *store.Directory, segment string, context store.IOContext) (fi FieldInfos, err error) {
+	Lucene42FieldInfosReader = func(dir store.Directory, segment string, context store.IOContext) (fi FieldInfos, err error) {
 		fi = FieldInfos{}
 		fileName := SegmentFileName(segment, "", LUCENE42_FI_EXTENSION)
 		input, err := dir.OpenInput(fileName, iocontext)
@@ -134,13 +134,13 @@ func getDocValuesType(input store.IndexInput, b byte) (t DocValuesType, err erro
 }
 
 type Codec struct {
-	ReadSegmentInfo           func(d *store.Directory, segment string, ctx store.IOContext) (si SegmentInfo, err error)
-	ReadFieldInfos            func(d *store.Directory, segment string, ctx store.IOContext) (fi FieldInfos, err error)
+	ReadSegmentInfo           func(d store.Directory, segment string, ctx store.IOContext) (si SegmentInfo, err error)
+	ReadFieldInfos            func(d store.Directory, segment string, ctx store.IOContext) (fi FieldInfos, err error)
 	GetFieldsProducer         func(s SegmentReadState) (r FieldsProducer, err error)
 	GetDocValuesProducer      func(s SegmentReadState) (r DocValuesProducer, err error)
 	GetNormsDocValuesProducer func(s SegmentReadState) (r DocValuesProducer, err error)
-	GetStoredFieldsReader     func(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error)
-	GetTermVectorsReader      func(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
+	GetStoredFieldsReader     func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error)
+	GetTermVectorsReader      func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
 }
 
 func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer, err error) {
@@ -356,10 +356,10 @@ func NewLucene42Codec() Codec {
 		GetNormsDocValuesProducer: func(s SegmentReadState) (dvp DocValuesProducer, err error) {
 			return newLucene42DocValuesProducer(s, "Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm")
 		},
-		GetStoredFieldsReader: func(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
+		GetStoredFieldsReader: func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
 			return newLucene41StoredFieldsReader(d, si, fn, ctx)
 		},
-		GetTermVectorsReader: func(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
+		GetTermVectorsReader: func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
 			return newLucene42TermVectorsReader(d, si, fn, ctx)
 		},
 	}
@@ -524,7 +524,7 @@ type Lucene42TermVectorsReader struct {
 	*CompressingTermVectorsReader
 }
 
-func newLucene42TermVectorsReader(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
+func newLucene42TermVectorsReader(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
 	formatName := "Lucene41StoredFields"
 	compressionMode := codec.COMPRESSION_MODE_FAST
 	// chunkSize := 1 << 12
@@ -540,7 +540,7 @@ type CompressingTermVectorsReader struct {
 	closed        bool
 }
 
-func newCompressingTermVectorsReader(d *store.Directory, si SegmentInfo, segmentSuffix string, fn FieldInfos,
+func newCompressingTermVectorsReader(d store.Directory, si SegmentInfo, segmentSuffix string, fn FieldInfos,
 	ctx store.IOContext, formatName string, compressionMode codec.CompressionMode) (r *CompressingTermVectorsReader, err error) {
 	panic("not implemented yet")
 	return nil, nil

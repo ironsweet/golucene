@@ -15,7 +15,7 @@ const (
 )
 
 var (
-	Lucene40SegmentInfoReader = func(dir *store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error) {
+	Lucene40SegmentInfoReader = func(dir store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error) {
 		si = SegmentInfo{}
 		fileName := SegmentFileName(segment, "", LUCENE40_SI_EXTENSION)
 		input, err := dir.OpenInput(fileName, context)

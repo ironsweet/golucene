@@ -91,7 +91,7 @@ type SegmentCoreReaders struct {
 	notifyListener chan *SegmentReader
 }
 
-func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si SegmentInfoPerCommit,
+func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si SegmentInfoPerCommit,
 	context store.IOContext, termsIndexDivisor int) (self SegmentCoreReaders, err error) {
 	if termsIndexDivisor == 0 {
 		panic("indexDivisor must be < 0 (don't load terms index) or greater than 0 (got 0)")
@@ -145,7 +145,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir *store.Directory, si Segmen
 	}()
 
 	codec := si.info.codec
-	var cfsDir *store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
+	var cfsDir store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
 	if si.info.isCompoundFile {
 		self.cfsReader, err = store.NewCompoundFileDirectory(dir,
 			util.SegmentFileName(si.info.name, "", store.COMPOUND_FILE_EXTENSION), context, false)
@@ -227,7 +227,7 @@ func (r *SegmentCoreReaders) decRef() {
 }
 
 type SegmentReadState struct {
-	dir               *store.Directory
+	dir               store.Directory
 	segmentInfo       SegmentInfo
 	fieldInfos        FieldInfos
 	context           store.IOContext
@@ -235,7 +235,7 @@ type SegmentReadState struct {
 	segmentSuffix     string
 }
 
-func newSegmentReadState(dir *store.Directory, info SegmentInfo, fieldInfos FieldInfos,
+func newSegmentReadState(dir store.Directory, info SegmentInfo, fieldInfos FieldInfos,
 	context store.IOContext, termsIndexDivisor int) SegmentReadState {
 	return SegmentReadState{dir, info, fieldInfos, context, termsIndexDivisor, ""}
 }

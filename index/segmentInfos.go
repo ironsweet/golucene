@@ -13,12 +13,12 @@ import (
 )
 
 type FindSegmentsFile struct {
-	directory                *store.Directory
+	directory                store.Directory
 	doBody                   func(segmentFileName string) (obj interface{}, err error)
 	defaultGenLookaheadCount int
 }
 
-func NewFindSegmentsFile(directory *store.Directory,
+func NewFindSegmentsFile(directory store.Directory,
 	doBody func(segmentFileName string) (obj interface{}, err error)) *FindSegmentsFile {
 	return &FindSegmentsFile{directory, doBody, 10}
 }
@@ -225,7 +225,7 @@ const (
 )
 
 type SegmentInfo struct {
-	dir            *store.Directory
+	dir            store.Directory
 	version        string
 	name           string
 	docCount       int32
@@ -286,7 +286,7 @@ func GenerationFromSegmentsFileName(fileName string) int64 {
 	}
 }
 
-func (sis *SegmentInfos) Read(directory *store.Directory, segmentFileName string) error {
+func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string) error {
 	success := false
 
 	// Clear any previous segments:

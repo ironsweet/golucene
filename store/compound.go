@@ -67,7 +67,25 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 	}
 }
 
-func (d *CompoundFileDirectory) openInput(name string, context IOContext) (in IndexInput, err error) {
+func (d *CompoundFileDirectory) Close() error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	if !d.isOpen {
+		// allow double close - usually to be consistent with other closeables
+		return nil // already closed
+	}
+	d.isOpen = false
+	/*
+		if d.writer != nil {
+			// assert d.openForWrite
+			return writer.Close()
+		} else {*/
+	return util.Close(d.handle)
+	// }
+}
+
+func (d *CompoundFileDirectory) OpenInput(name string, context IOContext) (in IndexInput, err error) {
 	d.ensureOpen()
 	// assert !d.openForWrite
 	id := util.StripSegmentName(name)
@@ -82,7 +100,7 @@ func (d *CompoundFileDirectory) openInput(name string, context IOContext) (in In
 	panic(fmt.Sprintf("No sub-file with id %v found (fileName=%v files: %v)", id, name, keys))
 }
 
-func (d *CompoundFileDirectory) listAll() (paths []string, err error) {
+func (d *CompoundFileDirectory) ListAll() (paths []string, err error) {
 	d.ensureOpen()
 	// if self.writer != nil {
 	// 	return self.writer.ListAll()
@@ -96,7 +114,7 @@ func (d *CompoundFileDirectory) listAll() (paths []string, err error) {
 	return keys, nil
 }
 
-func (d *CompoundFileDirectory) fileExists(name string) bool {
+func (d *CompoundFileDirectory) FileExists(name string) bool {
 	d.ensureOpen()
 	// if d.writer != nil {
 	// 	return d.writer.FileExists(name)
@@ -150,7 +168,7 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 			return mapping, err
 		}
 		entriesFileName := util.SegmentFileName(util.StripExtension(name), "", COMPOUND_FILE_ENTRIES_EXTENSION)
-		entriesStream, err = dir.openInput(entriesFileName, IO_CONTEXT_READONCE)
+		entriesStream, err = dir.OpenInput(entriesFileName, IO_CONTEXT_READONCE)
 		if err != nil {
 			return mapping, err
 		}
@@ -186,22 +204,4 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 		panic("not supported yet; will also be obsolete soon")
 	}
 	return mapping, nil
-}
-
-func (d *CompoundFileDirectory) Close() error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	if !d.isOpen {
-		// allow double close - usually to be consistent with other closeables
-		return nil // already closed
-	}
-	d.isOpen = false
-	/*
-		if d.writer != nil {
-			// assert d.openForWrite
-			return writer.Close()
-		} else {*/
-	return util.Close(d.handle)
-	// }
 }

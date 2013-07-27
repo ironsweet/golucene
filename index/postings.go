@@ -39,7 +39,7 @@ type BlockTreeTermsReader struct {
 	version        int
 }
 
-func newBlockTreeTermsReader(dir *store.Directory, fieldInfos FieldInfos, info SegmentInfo,
+func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info SegmentInfo,
 	postingsReader PostingsReaderBase, ctx store.IOContext,
 	segmentSuffix string, indexDivisor int) (p FieldsProducer, err error) {
 	fp := &BlockTreeTermsReader{postingsReader: postingsReader, segment: info.name}

@@ -31,7 +31,7 @@ type Lucene41PostingReader struct {
 	forUtil ForUtil
 }
 
-func NewLucene41PostingReader(dir *store.Directory, fis FieldInfos, si SegmentInfo,
+func NewLucene41PostingReader(dir store.Directory, fis FieldInfos, si SegmentInfo,
 	ctx store.IOContext, segmentSuffix string) (r PostingsReaderBase, err error) {
 	success := false
 	var docIn, posIn, payIn store.IndexInput = nil, nil, nil
@@ -143,7 +143,7 @@ type Lucene41StoredFieldsReader struct {
 	*CompressingStoredFieldsReader
 }
 
-func newLucene41StoredFieldsReader(d *store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
+func newLucene41StoredFieldsReader(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
 	formatName := "Lucene41StoredFields"
 	compressionMode := codec.COMPRESSION_MODE_FAST
 	// chunkSize := 1 << 14
@@ -160,7 +160,7 @@ type CompressingStoredFieldsReader struct {
 	closed       bool
 }
 
-func newCompressingSortedFieldsReader(d *store.Directory, si SegmentInfo, segmentSuffix string, fn FieldInfos,
+func newCompressingSortedFieldsReader(d store.Directory, si SegmentInfo, segmentSuffix string, fn FieldInfos,
 	ctx store.IOContext, formatName string, compressionMode codec.CompressionMode) (r *CompressingStoredFieldsReader, err error) {
 	panic("not implemented yet")
 	return nil, nil

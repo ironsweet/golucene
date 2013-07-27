@@ -115,13 +115,13 @@ func (f *FSLockFactory) make(name string) Lock {
 type Directory interface {
 	io.Closer
 	// Files related methods
-	listAll() (paths []string, err error)
-	fileExists(name string) bool
+	ListAll() (paths []string, err error)
+	FileExists(name string) bool
 	// DeleteFile(name string) error
 	// FileLength(name string) int64
 	// CreateOutput(name string, ctx, IOContext) (out IndexOutput, err error)
 	// Sync(names []string) error
-	openInput(name string, context IOContext) (in IndexInput, err error)
+	OpenInput(name string, context IOContext) (in IndexInput, err error)
 	// Locks related methods
 	makeLock(name string) Lock
 	clearLock(name string) error
@@ -178,7 +178,7 @@ func (d *DirectoryImpl) String() string {
 
 func (d *DirectoryImpl) createSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {
 	d.ensureOpen()
-	base, err := d.Directory.openInput(name, context)
+	base, err := d.Directory.OpenInput(name, context)
 	if err != nil {
 		return nil, err
 	}
@@ -296,12 +296,12 @@ func FSDirectoryListAll(path string) (paths []string, err error) {
 	return f.Readdirnames(0)
 }
 
-func (d *FSDirectory) listAll() (paths []string, err error) {
+func (d *FSDirectory) ListAll() (paths []string, err error) {
 	d.ensureOpen()
 	return FSDirectoryListAll(d.path)
 }
 
-func (d *FSDirectory) fileExists(name string) bool {
+func (d *FSDirectory) FileExists(name string) bool {
 	d.ensureOpen()
 	_, err := os.Stat(name)
 	return err != nil

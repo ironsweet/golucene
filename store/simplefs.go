@@ -53,7 +53,7 @@ func NewSimpleFSDirectory(path string) (d *SimpleFSDirectory, err error) {
 	return
 }
 
-func (d *SimpleFSDirectory) openInput(name string, context IOContext) (in IndexInput, err error) {
+func (d *SimpleFSDirectory) OpenInput(name string, context IOContext) (in IndexInput, err error) {
 	d.ensureOpen()
 	fpath := filepath.Join(d.path, name)
 	sin, err := newSimpleFSIndexInput(fmt.Sprintf("SimpleFSIndexInput(path='%v')", fpath),
