@@ -111,17 +111,15 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 			case listener = <-self.addListener:
 				coreClosedListeners = append(coreClosedListeners, listener)
 			case listener = <-self.removeListener:
-				i := -1
+				n := len(coreClosedListeners)
 				for i, v := range coreClosedListeners {
 					if v == listener {
+						newListeners := make([]CoreClosedListener, 0, n-1)
+						newListeners = append(newListeners, coreClosedListeners[0:i]...)
+						newListeners = append(newListeners, coreClosedListeners[i+1:]...)
+						coreClosedListeners = newListeners
 						break
 					}
-				}
-				if n := len(coreClosedListeners); i >= 0 && i < n {
-					newListeners := make([]CoreClosedListener, 0, n-1)
-					newListeners = append(newListeners, coreClosedListeners[0:i]...)
-					newListeners = append(newListeners, coreClosedListeners[i+1:]...)
-					coreClosedListeners = newListeners
 				}
 			case owner := <-self.notifyListener:
 				isRunning = false

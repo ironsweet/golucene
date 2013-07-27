@@ -201,11 +201,10 @@ func (r *BlockTreeTermsReader) readIndexHeader(input store.IndexInput) (version 
 	return version, nil
 }
 
-func (r *BlockTreeTermsReader) seekDir(input store.IndexInput, dirOffset int64) error {
+func (r *BlockTreeTermsReader) seekDir(input store.IndexInput, dirOffset int64) (err error) {
 	if r.version >= BTT_INDEX_VERSION_APPEND_ONLY {
 		input.Seek(input.Length() - 8)
-		dirOffset, err = input.ReadLong()
-		if err != nil {
+		if dirOffset, err = input.ReadLong(); err != nil {
 			return err
 		}
 	}
