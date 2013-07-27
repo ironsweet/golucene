@@ -2,7 +2,7 @@ package search
 
 import (
 	"fmt"
-	"lucene/index"
+	"github.com/balzaczyy/golucene/index"
 )
 
 type Query interface {

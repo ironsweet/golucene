@@ -1,8 +1,8 @@
 package search
 
 import (
-	"lucene/index"
-	"lucene/util"
+	"github.com/balzaczyy/golucene/index"
+	"github.com/balzaczyy/golucene/util"
 )
 
 type Weight interface {

@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	TERMS_ENUM_EMPTY = TermsEnumEmpty{}
+	TERMS_ENUM_EMPTY = &TermsEnumEmpty{}
 )
 
 type SeekStatus int
@@ -93,6 +93,55 @@ func (e *TermsEnumImpl) TermState() TermState {
 }
 
 type TermsEnumEmpty struct {
+	*TermsEnumImpl
+}
+
+func (e *TermsEnumEmpty) SeekCeilUsingCache(term []byte, useCache bool) SeekStatus {
+	return SEEK_STATUS_END
+}
+
+func (e *TermsEnumEmpty) SeekExactByPosition(ord int64) error {
+	return nil
+}
+
+func (e *TermsEnumEmpty) Term() []byte {
+	panic("this method should never be called")
+}
+
+func (e *TermsEnumEmpty) Comparator() sort.Interface {
+	return nil
+}
+
+func (e *TermsEnumEmpty) DocFreq() int {
+	panic("this method should never be called")
+}
+
+func (e *TermsEnumEmpty) TotalTermFreq() int64 {
+	panic("this method should never be called")
+}
+
+func (e *TermsEnumEmpty) Ord() int64 {
+	panic("this method should never be called")
+}
+
+func (e *TermsEnumEmpty) DocsByFlags(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum {
+	panic("this method should never be called")
+}
+
+func (e *TermsEnumEmpty) DocsAndPositionsByFlags(liveDocs util.Bits, reuse DocsAndPositionsEnum, flags int) DocsAndPositionsEnum {
+	panic("this method should never be called")
+}
+
+func (e *TermsEnumEmpty) Next() (term []byte, err error) {
+	return nil, nil
+}
+
+func (e *TermsEnumEmpty) TermState() TermState {
+	panic("this method should never be called")
+}
+
+func (e *TermsEnumEmpty) SeekExactFromLast(term []byte, state TermState) error {
+	panic("this method should never be called")
 }
 
 type TermContext struct {

@@ -1,8 +1,8 @@
 package search
 
 import (
-	"lucene/index"
-	"lucene/util"
+	"github.com/balzaczyy/golucene/index"
+	"github.com/balzaczyy/golucene/util"
 )
 
 type TermQuery struct {
@@ -65,7 +65,7 @@ func (tw TermWeight) Scorer(context index.AtomicReaderContext,
 	if !ok {
 		return Scorer{}, false
 	}
-	docs := termsEnum.DocsForTerm(acceptDocs, index.DOCS_ENUM_EMPTY)
+	docs := termsEnum.Docs(acceptDocs, index.DOCS_ENUM_EMPTY)
 	// assert docs != null;
 	return *(newTermScorer(tw, docs, tw.similarity.exactSimScorer(tw.stats, context)).Scorer), true
 }
@@ -78,7 +78,7 @@ func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnu
 		return index.TERMS_ENUM_EMPTY, false
 	}
 	te = ctx.Reader().Terms(tw.query.term.Field).Iterator(index.TERMS_ENUM_EMPTY)
-	te.SeekExactBy(tw.query.term.Bytes, *state)
+	te.SeekExactFromLast(tw.query.term.Bytes, *state)
 	return te, true
 }
 

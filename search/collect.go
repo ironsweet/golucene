@@ -2,7 +2,7 @@ package search
 
 import (
 	"container/heap"
-	"lucene/index"
+	"github.com/balzaczyy/golucene/index"
 	"math"
 )
 

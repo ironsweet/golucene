@@ -1,7 +1,7 @@
 package search
 
 import (
-	"lucene/index"
+	"github.com/balzaczyy/golucene/index"
 	"math"
 )
 
