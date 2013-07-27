@@ -84,7 +84,7 @@ type SegmentCoreReaders struct {
 
 	fieldsReaderOrig      StoredFieldsReader
 	termVectorsReaderOrig TermVectorsReader
-	cfsReader             store.CompoundFileDirectory
+	cfsReader             *store.CompoundFileDirectory
 
 	addListener    chan CoreClosedListener
 	removeListener chan CoreClosedListener

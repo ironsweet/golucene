@@ -36,8 +36,8 @@ type CompoundFileDirectory struct {
 	handle IndexInputSlicer
 }
 
-func NewCompoundFileDirectory(directory Directory, fileName string, context IOContext, openForWrite bool) (d CompoundFileDirectory, err error) {
-	self := CompoundFileDirectory{
+func NewCompoundFileDirectory(directory Directory, fileName string, context IOContext, openForWrite bool) (d *CompoundFileDirectory, err error) {
+	self := &CompoundFileDirectory{
 		directory:      directory,
 		fileName:       fileName,
 		readBufferSize: bufferSize(context),
