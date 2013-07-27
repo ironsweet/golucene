@@ -146,7 +146,6 @@ type FieldInfos struct {
 func NewFieldInfos(infos []FieldInfo) FieldInfos {
 	self := FieldInfos{byNumber: make(map[int32]FieldInfo), byName: make(map[string]FieldInfo)}
 
-	var hasVectors, hasProx, hasPayloads, hasOffsets, hasFreq, hasNorms, hasDocValues bool
 	numbers := make([]int32, 0)
 	for _, info := range infos {
 		if prev, ok := self.byNumber[info.number]; ok {

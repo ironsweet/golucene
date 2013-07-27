@@ -102,9 +102,8 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	self.addListener = make(chan CoreClosedListener)
 	self.removeListener = make(chan CoreClosedListener)
 	self.notifyListener = make(chan *SegmentReader)
-	go func() {
+	go func() { // ensure listners are synchronized
 		coreClosedListeners := make([]CoreClosedListener, 0)
-		nRemoved := 0
 		isRunning := true
 		var listener CoreClosedListener
 		for isRunning {
@@ -112,21 +111,17 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 			case listener = <-self.addListener:
 				coreClosedListeners = append(coreClosedListeners, listener)
 			case listener = <-self.removeListener:
+				i := -1
 				for i, v := range coreClosedListeners {
 					if v == listener {
-						coreClosedListeners[i] = nil
-						nRemoved++
+						break
 					}
 				}
-				if n := len(coreClosedListeners); n > 16 && nRemoved > n/2 {
-					newListeners := make([]CoreClosedListener, 0)
-					i := 0
-					for _, v := range coreClosedListeners {
-						if v == nil {
-							continue
-						}
-						newListeners = append(newListeners, v)
-					}
+				if n := len(coreClosedListeners); i >= 0 && i < n {
+					newListeners := make([]CoreClosedListener, 0, n-1)
+					newListeners = append(newListeners, coreClosedListeners[0:i]...)
+					newListeners = append(newListeners, coreClosedListeners[i+1:]...)
+					coreClosedListeners = newListeners
 				}
 			case owner := <-self.notifyListener:
 				isRunning = false

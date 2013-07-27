@@ -204,7 +204,7 @@ func (r *BlockTreeTermsReader) readIndexHeader(input store.IndexInput) (version 
 func (r *BlockTreeTermsReader) seekDir(input store.IndexInput, dirOffset int64) error {
 	if r.version >= BTT_INDEX_VERSION_APPEND_ONLY {
 		input.Seek(input.Length() - 8)
-		dirOffset, err := input.ReadLong()
+		dirOffset, err = input.ReadLong()
 		if err != nil {
 			return err
 		}
