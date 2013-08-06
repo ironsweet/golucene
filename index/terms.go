@@ -11,6 +11,10 @@ type Term struct {
 	Bytes []byte
 }
 
+func NewTerm(fld string, text string) Term {
+	return Term{fld, []byte(text)}
+}
+
 type Terms interface {
 	Iterator(reuse TermsEnum) TermsEnum
 	DocCount() int

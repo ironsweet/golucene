@@ -14,7 +14,7 @@ type AbstractQuery struct {
 	boost float32
 }
 
-func NewAbstractQuery() Query {
+func NewAbstractQuery() *AbstractQuery {
 	return &AbstractQuery{1.0}
 }
 

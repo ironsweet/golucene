@@ -254,13 +254,13 @@ func newFSDirectory(self Directory, path string) (d *FSDirectory, err error) {
 	return d, nil
 }
 
-func OpenFSDirectory(path string) (d FSDirectory, err error) {
+func OpenFSDirectory(path string) (d *FSDirectory, err error) {
 	// TODO support native implementations
 	super, err := NewSimpleFSDirectory(path)
 	if err != nil {
-		return d, err
+		return nil, err
 	}
-	return *(super.FSDirectory), nil
+	return super.FSDirectory, nil
 }
 
 func (d *FSDirectory) setLockFactory(lockFactory LockFactory) error {

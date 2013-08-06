@@ -1,16 +1,22 @@
-package lucene
+package search
 
 import (
-	"lucene/search"
-	"lucene/store"
+	"github.com/balzaczyy/golucene/index"
+	"github.com/balzaczyy/golucene/store"
 	"testing"
 )
 
 func TestIndexSearcher(t *testing.T) {
-	d := store.OpenFSDirectory("testdata/belfrysample")
-	r := store.OpenDirectoryReader(d)
-	ss := search.NewIndexSearcher(r)
-	assertEquals(t, 8, ss.Search("bat"))
+	d, err := store.OpenFSDirectory("testdata/belfrysample")
+	if err != nil {
+		t.Error(err)
+	}
+	r, err := index.OpenDirectoryReader(d)
+	if err != nil {
+		t.Error(err)
+	}
+	ss := NewIndexSearcher(r)
+	assertEquals(t, 8, ss.SearchTop(NewTermQuery(index.NewTerm("content", "bat")), 10))
 }
 
 // func TestSingleSearch(t *testing.T) {

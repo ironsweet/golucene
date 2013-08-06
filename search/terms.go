@@ -12,6 +12,18 @@ type TermQuery struct {
 	perReaderTermState *index.TermContext
 }
 
+func NewTermQuery(t index.Term) *TermQuery {
+	return NewTermQueryWithDocFreq(t, -1)
+}
+
+func NewTermQueryWithDocFreq(t index.Term, docFreq int) *TermQuery {
+	ans := &TermQuery{}
+	ans.AbstractQuery = NewAbstractQuery()
+	ans.term = t
+	ans.docFreq = docFreq
+	return ans
+}
+
 func (q *TermQuery) CreateWeight(ss IndexSearcher) Weight {
 	ctx := ss.TopReaderContext()
 	var termState *index.TermContext
@@ -77,7 +89,7 @@ func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnu
 		// : "no termstate found but term exists in reader term=" + term;
 		return index.TERMS_ENUM_EMPTY, false
 	}
-	te = ctx.Reader().Terms(tw.query.term.Field).Iterator(index.TERMS_ENUM_EMPTY)
+	te = ctx.Reader().(*index.AtomicReader).Terms(tw.query.term.Field).Iterator(index.TERMS_ENUM_EMPTY)
 	te.SeekExactFromLast(tw.query.term.Bytes, *state)
 	return te, true
 }

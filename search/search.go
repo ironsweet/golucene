@@ -7,7 +7,7 @@ import (
 
 // IndexSearcher
 type IndexSearcher struct {
-	reader        *index.IndexReader
+	reader        index.IndexReader
 	readerContext index.IndexReaderContext
 	leafContexts  []index.AtomicReaderContext
 	similarity    Similarity
@@ -21,6 +21,10 @@ func NewIndexSearcherFromContext(context index.IndexReaderContext) IndexSearcher
 	//assert context.isTopLevel: "IndexSearcher's ReaderContext must be topLevel for reader" + context.reader();
 	defaultSimilarity := NewDefaultSimilarity()
 	return IndexSearcher{context.Reader(), context, context.Leaves(), defaultSimilarity}
+}
+
+func (ss IndexSearcher) SearchTop(q Query, n int) TopDocs {
+	return ss.Search(q, nil, n)
 }
 
 func (ss IndexSearcher) Search(q Query, f Filter, n int) TopDocs {
@@ -55,15 +59,15 @@ func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, 
 		c.SetNextReader(ctx)
 		// GOTO: CollectionTerminatedException
 		if scorer, ok := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true,
-			ctx.Reader().LiveDocs()); ok {
+			ctx.Reader().(*index.AtomicReader).LiveDocs()); ok {
 			scorer.ScoreAndCollect(c)
 			// GOTO: CollectionTerminatedException
 		}
 	}
 }
 
-func (ss IndexSearcher) TopReaderContext() *index.IndexReaderContext {
-	return &ss.readerContext
+func (ss IndexSearcher) TopReaderContext() index.IndexReaderContext {
+	return ss.readerContext
 }
 
 func wrapFilter(q Query, f Filter) Query {
@@ -74,7 +78,7 @@ func wrapFilter(q Query, f Filter) Query {
 }
 
 func (ss IndexSearcher) createNormalizedWeight(q Query) Weight {
-	q = rewrite(q, *(ss.reader))
+	q = rewrite(q, ss.reader)
 	w := q.CreateWeight(ss)
 	v := w.ValueForNormalization()
 	norm := ss.similarity.queryNorm(v)
@@ -99,7 +103,7 @@ func (ss IndexSearcher) TermStatistics(term index.Term, context index.TermContex
 }
 
 func (ss IndexSearcher) CollectionStatistics(field string) CollectionStatistics {
-	terms := index.GetMultiTerms(*(ss.reader), field)
+	terms := index.GetMultiTerms(ss.reader, field)
 	if terms == nil {
 		return NewCollectionStatistics(field, int64(ss.reader.MaxDoc()), 0, 0, 0)
 	}
