@@ -11,25 +11,32 @@ import (
 	"sync/atomic"
 )
 
-type IndexReader struct {
-	self              interface{} // to infer embedders
+type IndexReader interface {
+	io.Closer
+	decRef() error
+	ensureOpen()
+	registerParentReader(r IndexReader)
+	NumDocs() int
+	MaxDoc() int
+	doClose() error
+	Context() IndexReaderContext
+}
+
+type IndexReaderImpl struct {
+	IndexReader
 	lock              sync.Mutex
 	closed            bool
 	closedByChild     bool
-	doClose           func() error
 	refCount          int32 // synchronized
-	parentReaders     map[*IndexReader]bool
+	parentReaders     map[IndexReader]bool
 	parentReadersLock sync.RWMutex
-	Context           func() IndexReaderContext
-	MaxDoc            func() int
-	NumDocs           func() int
 }
 
-func newIndexReader(self interface{}) *IndexReader {
-	return &IndexReader{self: self, refCount: 1}
+func newIndexReader(self IndexReader) *IndexReaderImpl {
+	return &IndexReaderImpl{IndexReader: self, refCount: 1}
 }
 
-func (r *IndexReader) decRef() error {
+func (r *IndexReaderImpl) decRef() error {
 	// only check refcount here (don't call ensureOpen()), so we can
 	// still close the reader if it was made invalid by a child:
 	if r.refCount <= 0 {
@@ -54,7 +61,7 @@ func (r *IndexReader) decRef() error {
 	return nil
 }
 
-func (r *IndexReader) ensureOpen() {
+func (r *IndexReaderImpl) ensureOpen() {
 	if atomic.LoadInt32(&r.refCount) <= 0 {
 		panic("this IndexReader is closed")
 	}
@@ -65,14 +72,14 @@ func (r *IndexReader) ensureOpen() {
 	}
 }
 
-func (r *IndexReader) registerParentReader(reader *IndexReader) {
+func (r *IndexReaderImpl) registerParentReader(reader IndexReader) {
 	r.ensureOpen()
 	r.parentReadersLock.Lock()
 	r.parentReaders[reader] = true
 	r.parentReadersLock.Unlock()
 }
 
-func (r *IndexReader) Close() error {
+func (r *IndexReaderImpl) Close() error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	if !r.closed {
@@ -82,41 +89,45 @@ func (r *IndexReader) Close() error {
 	return nil
 }
 
-type IndexReaderContext struct {
-	self            interface{} // to infer embedders
+type IndexReaderContext interface {
+	Reader() IndexReader
+	Leaves() []AtomicReaderContext
+	Children() []IndexReaderContext
+}
+
+type IndexReaderContextImpl struct {
+	IndexReaderContext
 	parent          *CompositeReaderContext
 	isTopLevel      bool
 	docBaseInParent int
 	ordInParent     int
-	Reader          func() *IndexReader
-	Leaves          func() []AtomicReaderContext
-	Children        func() []IndexReaderContext
 }
 
-func newIndexReaderContext(self interface{}, parent *CompositeReaderContext, ordInParent, docBaseInParent int) *IndexReaderContext {
-	return &IndexReaderContext{
-		parent:          parent,
-		isTopLevel:      parent == nil,
-		docBaseInParent: docBaseInParent,
-		ordInParent:     ordInParent}
+func newIndexReaderContext(self IndexReaderContext, parent *CompositeReaderContext, ordInParent, docBaseInParent int) *IndexReaderContextImpl {
+	return &IndexReaderContextImpl{
+		IndexReaderContext: self,
+		parent:             parent,
+		isTopLevel:         parent == nil,
+		docBaseInParent:    docBaseInParent,
+		ordInParent:        ordInParent}
 }
 
 type AtomicReader struct {
-	*IndexReader  // inherit IndexReader
+	*IndexReaderImpl
 	readerContext *AtomicReaderContext
 	Fields        func() Fields
 	LiveDocs      func() util.Bits
 }
 
-func newAtomicReader(self interface{}) *AtomicReader {
-	r := &AtomicReader{IndexReader: newIndexReader(self)}
+func newAtomicReader(self IndexReader) *AtomicReader {
+	r := &AtomicReader{IndexReaderImpl: newIndexReader(self)}
 	r.readerContext = newAtomicReaderContextFromReader(r)
 	return r
 }
 
-func (r *AtomicReader) Context() AtomicReaderContext {
+func (r *AtomicReader) Context() IndexReaderContext {
 	r.IndexReader.ensureOpen()
-	return *(r.readerContext)
+	return r.readerContext
 }
 
 func (r *AtomicReader) Terms(field string) Terms {
@@ -128,10 +139,10 @@ func (r *AtomicReader) Terms(field string) Terms {
 }
 
 type AtomicReaderContext struct {
-	*IndexReaderContext // inherit IndexReaderContext
-	Ord, DocBase        int
-	reader              *AtomicReader
-	leaves              []AtomicReaderContext
+	*IndexReaderContextImpl
+	Ord, DocBase int
+	reader       *AtomicReader
+	leaves       []AtomicReaderContext
 }
 
 func newAtomicReaderContextFromReader(r *AtomicReader) *AtomicReaderContext {
@@ -140,35 +151,36 @@ func newAtomicReaderContextFromReader(r *AtomicReader) *AtomicReaderContext {
 
 func newAtomicReaderContext(parent *CompositeReaderContext, reader *AtomicReader, ord, docBase, leafOrd, leafDocBase int) *AtomicReaderContext {
 	ans := &AtomicReaderContext{}
-	super := newIndexReaderContext(ans, parent, ord, docBase)
-	super.Leaves = func() []AtomicReaderContext {
-		if !ans.IndexReaderContext.isTopLevel {
-			panic("This is not a top-level context.")
-		}
-		// assert leaves != null
-		return ans.leaves
-	}
-	super.Children = func() []IndexReaderContext {
-		return nil
-	}
-	ans.IndexReaderContext = super
+	ans.IndexReaderContext = newIndexReaderContext(ans, parent, ord, docBase)
 	ans.Ord = leafOrd
 	ans.DocBase = leafDocBase
 	ans.reader = reader
-	if super.isTopLevel {
+	if ans.isTopLevel {
 		ans.leaves = []AtomicReaderContext{*ans}
 	}
 	return ans
 }
 
-func (ctx *AtomicReaderContext) Reader() *AtomicReader {
+func (ctx *AtomicReaderContext) Leaves() []AtomicReaderContext {
+	if !ctx.IndexReaderContextImpl.isTopLevel {
+		panic("This is not a top-level context.")
+	}
+	// assert leaves != null
+	return ctx.leaves
+}
+
+func (ctx *AtomicReaderContext) Children() []IndexReaderContext {
+	return nil
+}
+
+func (ctx *AtomicReaderContext) Reader() IndexReader {
 	return ctx.reader
 }
 
 type CompositeReader struct {
-	*IndexReader                                    // inherit IndexReader
+	*IndexReaderImpl
 	readerContext           *CompositeReaderContext // lazy load
-	getSequentialSubReaders func() []*IndexReader
+	getSequentialSubReaders func() []IndexReader
 }
 
 func newCompositeReader() *CompositeReader {
@@ -177,21 +189,21 @@ func newCompositeReader() *CompositeReader {
 	return ans
 }
 
-func (r *CompositeReader) Context() CompositeReaderContext {
+func (r *CompositeReader) Context() IndexReaderContext {
 	r.IndexReader.ensureOpen()
 	// lazy init without thread safety for perf reasons: Building the readerContext twice does not hurt!
 	if r.readerContext == nil {
 		// assert getSequentialSubReaders() != null;
 		r.readerContext = newCompositeReaderContext(r)
 	}
-	return *(r.readerContext)
+	return r.readerContext
 }
 
 type CompositeReaderContext struct {
-	*IndexReaderContext // inherit IndexReaderContext
-	children            []IndexReaderContext
-	leaves              []AtomicReaderContext
-	reader              *CompositeReader
+	*IndexReaderContextImpl
+	children []IndexReaderContext
+	leaves   []AtomicReaderContext
+	reader   *CompositeReader
 }
 
 func newCompositeReaderContext(r *CompositeReader) *CompositeReaderContext {
@@ -214,24 +226,26 @@ func newCompositeReaderContext6(parent *CompositeReaderContext,
 	children []IndexReaderContext,
 	leaves []AtomicReaderContext) *CompositeReaderContext {
 	ans := &CompositeReaderContext{}
-	super := newIndexReaderContext(ans, parent, ordInParent, docBaseInParent)
-	super.Leaves = func() []AtomicReaderContext {
-		if !ans.IndexReaderContext.isTopLevel {
-			panic("This is not a top-level context.")
-		}
-		// assert leaves != null
-		return ans.leaves
-	}
-	super.Children = func() []IndexReaderContext {
-		return ans.children
-	}
+	ans.IndexReaderContextImpl = newIndexReaderContext(ans, parent, ordInParent, docBaseInParent)
 	ans.children = children
 	ans.leaves = leaves
 	ans.reader = reader
 	return ans
 }
 
-func (ctx *CompositeReaderContext) Reader() *CompositeReader {
+func (ctx *CompositeReaderContext) Leaves() []AtomicReaderContext {
+	if !ctx.isTopLevel {
+		panic("This is not a top-level context.")
+	}
+	// assert leaves != null
+	return ctx.leaves
+}
+
+func (ctx *CompositeReaderContext) Children() []IndexReaderContext {
+	return ctx.children
+}
+
+func (ctx *CompositeReaderContext) Reader() IndexReader {
 	return ctx.reader
 }
 
@@ -246,18 +260,18 @@ func newCompositeReaderContextBuilder(r *CompositeReader) CompositeReaderContext
 }
 
 func (b CompositeReaderContextBuilder) build() *CompositeReaderContext {
-	return b.build4(nil, b.reader.IndexReader, 0, 0).self.(*CompositeReaderContext)
+	return b.build4(nil, b.reader.IndexReader, 0, 0).(*CompositeReaderContext)
 }
 
 func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
-	reader *IndexReader, ord, docBase int) *IndexReaderContext {
-	if ar, ok := reader.self.(*AtomicReader); ok {
+	reader IndexReader, ord, docBase int) IndexReaderContext {
+	if ar, ok := reader.(*AtomicReader); ok {
 		atomic := newAtomicReaderContext(parent, ar, ord, docBase, len(b.leaves), b.leafDocBase)
 		b.leaves = append(b.leaves, *atomic)
 		b.leafDocBase += reader.MaxDoc()
 		return atomic.IndexReaderContext
 	}
-	cr := reader.self.(*CompositeReader)
+	cr := reader.(*CompositeReader)
 	sequentialSubReaders := cr.getSequentialSubReaders()
 	children := make([]IndexReaderContext, len(sequentialSubReaders))
 	var newParent *CompositeReaderContext
@@ -268,7 +282,7 @@ func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 	}
 	newDocBase := 0
 	for i, r := range sequentialSubReaders {
-		children[i] = *(b.build4(parent, r, i, newDocBase))
+		children[i] = b.build4(parent, r, i, newDocBase)
 		newDocBase = r.MaxDoc()
 	}
 	// assert newDocBase == cr.maxDoc()
@@ -289,13 +303,13 @@ func (rs ReaderSlice) String() string {
 
 type BaseCompositeReader struct {
 	*CompositeReader
-	subReaders []*IndexReader
+	subReaders []IndexReader
 	starts     []int
 	maxDoc     int
 	numDocs    int
 }
 
-func newBaseCompositeReader(readers []*IndexReader) *BaseCompositeReader {
+func newBaseCompositeReader(readers []IndexReader) *BaseCompositeReader {
 	ans := &BaseCompositeReader{}
 	ans.subReaders = readers
 	ans.starts = make([]int, len(readers)+1) // build starts array
@@ -323,7 +337,7 @@ type DirectoryReader struct {
 }
 
 func newDirectoryReader(directory store.Directory, segmentReaders []*AtomicReader) *DirectoryReader {
-	readers := make([]*IndexReader, len(segmentReaders))
+	readers := make([]IndexReader, len(segmentReaders))
 	for i, v := range segmentReaders {
 		readers[i] = v.IndexReader
 	}

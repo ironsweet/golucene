@@ -145,13 +145,13 @@ func (e *TermsEnumEmpty) SeekExactFromLast(term []byte, state TermState) error {
 }
 
 type TermContext struct {
-	TopReaderContext *IndexReaderContext
+	TopReaderContext IndexReaderContext
 	states           []*TermState
 	DocFreq          int
 	TotalTermFreq    int64
 }
 
-func NewTermContext(ctx *IndexReaderContext) *TermContext {
+func NewTermContext(ctx IndexReaderContext) *TermContext {
 	// assert ctx != nil && ctx.IsTopLevel
 	var n int
 	if ctx.Leaves() == nil {
@@ -162,7 +162,7 @@ func NewTermContext(ctx *IndexReaderContext) *TermContext {
 	return &TermContext{TopReaderContext: ctx, states: make([]*TermState, n)}
 }
 
-func NewTermContextFromTerm(ctx *IndexReaderContext, t Term, cache bool) *TermContext {
+func NewTermContextFromTerm(ctx IndexReaderContext, t Term, cache bool) *TermContext {
 	// assert ctx != nil && ctx.IsTopLevel
 	perReaderTermState := NewTermContext(ctx)
 	for _, v := range ctx.Leaves() {

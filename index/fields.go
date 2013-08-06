@@ -56,12 +56,12 @@ func GetMultiFields(r IndexReader) Fields {
 		return nil
 	case 1:
 		// already an atomic reader / reader with one leave
-		return leaves[0].Reader().Fields()
+		return leaves[0].Reader().(*AtomicReader).Fields()
 	default:
 		fields := make([]Fields, 0)
 		slices := make([]ReaderSlice, 0)
 		for _, ctx := range leaves {
-			f := ctx.Reader().Fields()
+			f := ctx.Reader().(*AtomicReader).Fields()
 			if f == nil {
 				continue
 			}
