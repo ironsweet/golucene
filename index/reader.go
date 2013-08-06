@@ -54,6 +54,8 @@ func (r *IndexReaderImpl) decRef() error {
 		}()
 		r.doClose()
 		success = true
+		r.reportCloseToParentReaders()
+		r.notifyReaderClosedListeners()
 	} else if rc < 0 {
 		panic(fmt.Sprintf("too many decRef calls: refCount is %v after decrement", rc))
 	}
@@ -75,8 +77,26 @@ func (r *IndexReaderImpl) ensureOpen() {
 func (r *IndexReaderImpl) registerParentReader(reader IndexReader) {
 	r.ensureOpen()
 	r.parentReadersLock.Lock()
+	defer r.parentReadersLock.Unlock()
 	r.parentReaders[reader] = true
-	r.parentReadersLock.Unlock()
+}
+
+func (r *IndexReaderImpl) notifyReaderClosedListeners() {
+	panic("not implemented yet")
+}
+
+func (r *IndexReaderImpl) reportCloseToParentReaders() {
+	r.parentReadersLock.Lock()
+	defer r.parentReadersLock.Unlock()
+	for parent, _ := range r.parentReaders {
+		p := parent.(*IndexReaderImpl)
+		p.closedByChild = true
+		// cross memory barrier by a fake write:
+		// FIXME do we need it in Go?
+		atomic.AddInt32(&p.refCount, 0)
+		// recurse:
+		p.reportCloseToParentReaders()
+	}
 }
 
 func (r *IndexReaderImpl) Close() error {
@@ -96,20 +116,18 @@ type IndexReaderContext interface {
 }
 
 type IndexReaderContextImpl struct {
-	IndexReaderContext
 	parent          *CompositeReaderContext
 	isTopLevel      bool
 	docBaseInParent int
 	ordInParent     int
 }
 
-func newIndexReaderContext(self IndexReaderContext, parent *CompositeReaderContext, ordInParent, docBaseInParent int) *IndexReaderContextImpl {
+func newIndexReaderContext(parent *CompositeReaderContext, ordInParent, docBaseInParent int) *IndexReaderContextImpl {
 	return &IndexReaderContextImpl{
-		IndexReaderContext: self,
-		parent:             parent,
-		isTopLevel:         parent == nil,
-		docBaseInParent:    docBaseInParent,
-		ordInParent:        ordInParent}
+		parent:          parent,
+		isTopLevel:      parent == nil,
+		docBaseInParent: docBaseInParent,
+		ordInParent:     ordInParent}
 }
 
 type AtomicReader struct {
@@ -151,7 +169,7 @@ func newAtomicReaderContextFromReader(r *AtomicReader) *AtomicReaderContext {
 
 func newAtomicReaderContext(parent *CompositeReaderContext, reader *AtomicReader, ord, docBase, leafOrd, leafDocBase int) *AtomicReaderContext {
 	ans := &AtomicReaderContext{}
-	ans.IndexReaderContext = newIndexReaderContext(ans, parent, ord, docBase)
+	ans.IndexReaderContextImpl = newIndexReaderContext(parent, ord, docBase)
 	ans.Ord = leafOrd
 	ans.DocBase = leafDocBase
 	ans.reader = reader
@@ -226,7 +244,7 @@ func newCompositeReaderContext6(parent *CompositeReaderContext,
 	children []IndexReaderContext,
 	leaves []AtomicReaderContext) *CompositeReaderContext {
 	ans := &CompositeReaderContext{}
-	ans.IndexReaderContextImpl = newIndexReaderContext(ans, parent, ordInParent, docBaseInParent)
+	ans.IndexReaderContextImpl = newIndexReaderContext(parent, ordInParent, docBaseInParent)
 	ans.children = children
 	ans.leaves = leaves
 	ans.reader = reader
@@ -269,7 +287,7 @@ func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 		atomic := newAtomicReaderContext(parent, ar, ord, docBase, len(b.leaves), b.leafDocBase)
 		b.leaves = append(b.leaves, *atomic)
 		b.leafDocBase += reader.MaxDoc()
-		return atomic.IndexReaderContext
+		return atomic
 	}
 	cr := reader.(*CompositeReader)
 	sequentialSubReaders := cr.getSequentialSubReaders()
@@ -286,7 +304,7 @@ func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 		newDocBase = r.MaxDoc()
 	}
 	// assert newDocBase == cr.maxDoc()
-	return newParent.IndexReaderContext
+	return newParent
 }
 
 var (
