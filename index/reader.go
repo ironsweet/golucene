@@ -6,6 +6,7 @@ import (
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
 	"io"
+	"log"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -203,12 +204,13 @@ type CompositeReader struct {
 
 func newCompositeReader() *CompositeReader {
 	ans := &CompositeReader{}
-	ans.IndexReader = newIndexReader(ans)
+	ans.IndexReaderImpl = newIndexReader(ans)
 	return ans
 }
 
 func (r *CompositeReader) Context() IndexReaderContext {
-	r.IndexReader.ensureOpen()
+	log.Print("Obtaining context for CompositeReader...")
+	r.ensureOpen()
 	// lazy init without thread safety for perf reasons: Building the readerContext twice does not hurt!
 	if r.readerContext == nil {
 		// assert getSequentialSubReaders() != null;
@@ -329,6 +331,10 @@ type BaseCompositeReader struct {
 
 func newBaseCompositeReader(readers []IndexReader) *BaseCompositeReader {
 	ans := &BaseCompositeReader{}
+	ans.CompositeReader = newCompositeReader()
+	ans.CompositeReader.getSequentialSubReaders = func() []IndexReader {
+		return ans.subReaders
+	}
 	ans.subReaders = readers
 	ans.starts = make([]int, len(readers)+1) // build starts array
 	var maxDoc, numDocs int
@@ -379,6 +385,7 @@ func newStandardDirectoryReader(directory store.Directory, readers []*AtomicRead
 // TODO support IndexCommit
 func openStandardDirectoryReader(directory store.Directory,
 	termInfosIndexDivisor int) (r *DirectoryReader, err error) {
+	log.Print("Initializing SegmentsFile...")
 	obj, err := NewFindSegmentsFile(directory, func(segmentFileName string) (obj interface{}, err error) {
 		sis := &SegmentInfos{}
 		sis.Read(directory, segmentFileName)
@@ -396,5 +403,5 @@ func openStandardDirectoryReader(directory store.Directory,
 		}
 		return newStandardDirectoryReader(directory, readers, *sis, termInfosIndexDivisor, false), nil
 	}).run()
-	return obj.(*DirectoryReader), err
+	return obj.(*StandardDirectoryReader).DirectoryReader, err
 }

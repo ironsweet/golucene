@@ -25,6 +25,7 @@ func NewFindSegmentsFile(directory store.Directory,
 
 // TODO support IndexCommit
 func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
+	log.Print("Finding segments file...")
 	// if commit != nil {
 	// 	if fsf.directory != commit.Directory {
 	// 		return nil, errors.New("the specified commit does not match the specified Directory")
@@ -57,7 +58,9 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 	// when necessary.
 
 	for {
+		log.Print("Trying...")
 		if useFirstMethod {
+			log.Print("Trying first method...")
 			// List the directory and use the highest
 			// segments_N file.  This method works well as long
 			// as there is no stale caching on the directory
@@ -92,27 +95,29 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 				// }
 			} else {
 				defer genInput.Close()
+				log.Print("Reading segments info...")
 
 				version, err := genInput.ReadInt()
 				if err != nil {
 					return nil, err
 				}
+				log.Printf("Version: %v", version)
 				if version == FORMAT_SEGMENTS_GEN_CURRENT {
+					log.Print("Version is current.")
 					gen0, err := genInput.ReadLong()
 					if err != nil {
 						return nil, err
+					}
+					gen1, err := genInput.ReadLong()
+					if err != nil {
+						return nil, err
 					} else {
-						gen1, err := genInput.ReadLong()
-						if err != nil {
-							return nil, err
-						} else {
-							// if fsf.infoStream != nil {
-							log.Printf("fallback check: %v; %v", gen0, gen1)
-							// }
-							if gen0 == gen1 {
-								// The file is consistent.
-								genB = gen0
-							}
+						// if fsf.infoStream != nil {
+						log.Printf("fallback check: %v; %v", gen0, gen1)
+						// }
+						if gen0 == gen1 {
+							// The file is consistent.
+							genB = gen0
 						}
 					}
 				} else {

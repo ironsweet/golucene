@@ -2,6 +2,7 @@ package search
 
 import (
 	"github.com/balzaczyy/golucene/index"
+	"log"
 	"math"
 )
 
@@ -14,6 +15,7 @@ type IndexSearcher struct {
 }
 
 func NewIndexSearcher(r index.IndexReader) IndexSearcher {
+	log.Print("Initializing IndexSearcher from IndexReader: ", r)
 	return NewIndexSearcherFromContext(r.Context())
 }
 
@@ -55,7 +57,8 @@ func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, 
 	// TODO: should we make this
 	// threaded...?  the Collector could be sync'd?
 	// always use single thread:
-	for _, ctx := range leaves {
+	for _, ctx := range leaves { // search each subreader
+		log.Print(ctx)
 		c.SetNextReader(ctx)
 		// GOTO: CollectionTerminatedException
 		if scorer, ok := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true,

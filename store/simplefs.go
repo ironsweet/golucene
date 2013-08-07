@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -54,11 +55,12 @@ func NewSimpleFSDirectory(path string) (d *SimpleFSDirectory, err error) {
 }
 
 func (d *SimpleFSDirectory) OpenInput(name string, context IOContext) (in IndexInput, err error) {
+	log.Printf("Opening %v...", name)
 	d.ensureOpen()
 	fpath := filepath.Join(d.path, name)
 	sin, err := newSimpleFSIndexInput(fmt.Sprintf("SimpleFSIndexInput(path='%v')", fpath),
 		fpath, context, d.chunkSize)
-	return sin.BufferedIndexInput, err
+	return sin, err
 }
 
 type SimpleFSIndexInput struct {

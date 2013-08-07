@@ -7,6 +7,7 @@ import (
 	"hash"
 	"hash/crc32"
 	"io"
+	"log"
 	"os"
 )
 
@@ -159,16 +160,17 @@ func (in *BufferedIndexInput) ReadShort() (n int16, err error) {
 		in.bufferPosition += 2
 		return int16((in.buffer[in.bufferPosition-2] << 8) | (in.buffer[in.bufferPosition-1])), nil
 	}
-	return in.ReadShort()
+	return in.DataInputImpl.ReadShort()
 }
 
 func (in *BufferedIndexInput) ReadInt() (n int32, err error) {
+	log.Print("Reading int from buffer...")
 	if 4 <= in.bufferLength-in.bufferPosition {
 		in.bufferPosition += 4
 		return int32((in.buffer[in.bufferPosition-4] << 24) | (in.buffer[in.bufferPosition-3] << 16) |
 			(in.buffer[in.bufferPosition-2] << 8) | (in.buffer[in.bufferPosition-1])), nil
 	}
-	return in.ReadInt()
+	return in.DataInputImpl.ReadInt()
 }
 
 func (in *BufferedIndexInput) ReadLong() (n int64, err error) {
@@ -181,7 +183,7 @@ func (in *BufferedIndexInput) ReadLong() (n int64, err error) {
 			(in.buffer[in.bufferPosition-2] << 8) | (in.buffer[in.bufferPosition-1]))
 		return (i1 << 32) | i2, nil
 	}
-	return in.ReadLong()
+	return in.DataInputImpl.ReadLong()
 }
 
 func (in *BufferedIndexInput) ReadVInt() (n int32, err error) {
@@ -219,7 +221,7 @@ func (in *BufferedIndexInput) ReadVInt() (n int32, err error) {
 		}
 		return 0, errors.New("Invalid vInt detected (too many bits)")
 	}
-	return in.ReadVInt()
+	return in.DataInputImpl.ReadVInt()
 }
 
 func (in *BufferedIndexInput) ReadVLong() (n int64, err error) {
@@ -280,7 +282,7 @@ func (in *BufferedIndexInput) ReadVLong() (n int64, err error) {
 		}
 		return 0, errors.New("Invalid vLong detected (negative values disallowed)")
 	}
-	return in.ReadVLong()
+	return in.DataInputImpl.ReadVLong()
 }
 
 // use panic/recover to handle error

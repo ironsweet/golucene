@@ -1,6 +1,7 @@
 package search
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/index"
 	"github.com/balzaczyy/golucene/store"
 	"testing"
