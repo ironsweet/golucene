@@ -11,11 +11,12 @@ type Query interface {
 }
 
 type AbstractQuery struct {
+	Query
 	boost float32
 }
 
-func NewAbstractQuery() *AbstractQuery {
-	return &AbstractQuery{1.0}
+func NewAbstractQuery(self Query) *AbstractQuery {
+	return &AbstractQuery{self, 1.0}
 }
 
 func (q *AbstractQuery) CreateWeight(ss IndexSearcher) Weight {
@@ -23,5 +24,5 @@ func (q *AbstractQuery) CreateWeight(ss IndexSearcher) Weight {
 }
 
 func (q *AbstractQuery) Rewrite(r index.IndexReader) Query {
-	return q
+	return q.Query
 }

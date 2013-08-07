@@ -1,6 +1,7 @@
 package search
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/index"
 	"github.com/balzaczyy/golucene/util"
 )
@@ -18,7 +19,7 @@ func NewTermQuery(t index.Term) *TermQuery {
 
 func NewTermQueryWithDocFreq(t index.Term, docFreq int) *TermQuery {
 	ans := &TermQuery{}
-	ans.AbstractQuery = NewAbstractQuery()
+	ans.AbstractQuery = NewAbstractQuery(ans)
 	ans.term = t
 	ans.docFreq = docFreq
 	return ans
@@ -41,6 +42,14 @@ func (q *TermQuery) CreateWeight(ss IndexSearcher) Weight {
 	}
 
 	return NewTermWeight(q, ss, *termState)
+}
+
+func (q *TermQuery) String() string {
+	boost := ""
+	if q.boost != 1.0 {
+		boost = fmt.Sprintf("^%v", q.boost)
+	}
+	return fmt.Sprintf("%v:%v%v", q.term.Field, string(q.term.Bytes), boost)
 }
 
 type TermWeight struct {

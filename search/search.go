@@ -82,6 +82,7 @@ func wrapFilter(q Query, f Filter) Query {
 
 func (ss IndexSearcher) createNormalizedWeight(q Query) Weight {
 	q = rewrite(q, ss.reader)
+	log.Printf("After rewrite: %v", q)
 	w := q.CreateWeight(ss)
 	v := w.ValueForNormalization()
 	norm := ss.similarity.queryNorm(v)
@@ -93,6 +94,7 @@ func (ss IndexSearcher) createNormalizedWeight(q Query) Weight {
 }
 
 func rewrite(q Query, r index.IndexReader) Query {
+	log.Printf("Rewriting '%v'...", q)
 	after := q.Rewrite(r)
 	for after != q {
 		q = after
