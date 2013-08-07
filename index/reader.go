@@ -208,9 +208,9 @@ type CompositeReader struct {
 	getSequentialSubReaders func() []IndexReader
 }
 
-func newCompositeReader() *CompositeReader {
+func newCompositeReader(self IndexReader) *CompositeReader {
 	ans := &CompositeReader{}
-	ans.IndexReaderImpl = newIndexReader(ans)
+	ans.IndexReaderImpl = newIndexReader(self)
 	return ans
 }
 
@@ -338,9 +338,10 @@ type BaseCompositeReader struct {
 	numDocs    int
 }
 
-func newBaseCompositeReader(readers []IndexReader) *BaseCompositeReader {
+func newBaseCompositeReader(self IndexReader, readers []IndexReader) *BaseCompositeReader {
+	log.Printf("Initializing BaseCompositeReader with %v IndexReaders", len(readers))
 	ans := &BaseCompositeReader{}
-	ans.CompositeReader = newCompositeReader()
+	ans.CompositeReader = newCompositeReader(self)
 	ans.CompositeReader.getSequentialSubReaders = func() []IndexReader {
 		log.Printf("Found %v sub readers.", len(ans.subReaders))
 		return ans.subReaders
@@ -375,7 +376,9 @@ func newDirectoryReader(directory store.Directory, segmentReaders []*AtomicReade
 	for i, v := range segmentReaders {
 		readers[i] = v.IndexReader
 	}
-	return &DirectoryReader{newBaseCompositeReader(readers), directory}
+	ans := &DirectoryReader{directory: directory}
+	ans.BaseCompositeReader = newBaseCompositeReader(ans, readers)
+	return ans
 }
 
 func OpenDirectoryReader(directory store.Directory) (r *DirectoryReader, err error) {
