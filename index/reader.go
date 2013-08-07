@@ -21,6 +21,7 @@ type IndexReader interface {
 	MaxDoc() int
 	doClose() error
 	Context() IndexReaderContext
+	Leaves() []AtomicReaderContext
 }
 
 type IndexReaderImpl struct {
@@ -108,6 +109,11 @@ func (r *IndexReaderImpl) Close() error {
 		return r.decRef()
 	}
 	return nil
+}
+
+func (r *IndexReaderImpl) Leaves() []AtomicReaderContext {
+	log.Printf("Debug %%v", r.IndexReader.Context())
+	return r.IndexReader.Context().Leaves()
 }
 
 type IndexReaderContext interface {
@@ -285,12 +291,15 @@ func (b CompositeReaderContextBuilder) build() *CompositeReaderContext {
 
 func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 	reader IndexReader, ord, docBase int) IndexReaderContext {
+	log.Print("Building CompositeReaderContext...")
 	if ar, ok := reader.(*AtomicReader); ok {
+		log.Print("AtomicReader is detected.")
 		atomic := newAtomicReaderContext(parent, ar, ord, docBase, len(b.leaves), b.leafDocBase)
 		b.leaves = append(b.leaves, *atomic)
 		b.leafDocBase += reader.MaxDoc()
 		return atomic
 	}
+	log.Print("CompositeReader is detected.")
 	cr := reader.(*CompositeReader)
 	sequentialSubReaders := cr.getSequentialSubReaders()
 	children := make([]IndexReaderContext, len(sequentialSubReaders))
@@ -333,6 +342,7 @@ func newBaseCompositeReader(readers []IndexReader) *BaseCompositeReader {
 	ans := &BaseCompositeReader{}
 	ans.CompositeReader = newCompositeReader()
 	ans.CompositeReader.getSequentialSubReaders = func() []IndexReader {
+		log.Printf("Found %v sub readers.", len(ans.subReaders))
 		return ans.subReaders
 	}
 	ans.subReaders = readers

@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"log"
 	"sort"
 )
 
@@ -49,9 +50,11 @@ func (mf MultiFields) Terms(field string) Terms {
 }
 
 func GetMultiFields(r IndexReader) Fields {
-	leaves := r.Context().Leaves()
+	log.Print("Obtaining MultiFields from IndexReader...")
+	leaves := r.Leaves()
 	switch len(leaves) {
 	case 0:
+		log.Print("No fields are found.")
 		// no fields
 		return nil
 	case 1:
@@ -68,6 +71,7 @@ func GetMultiFields(r IndexReader) Fields {
 			fields = append(fields, f)
 			slices = append(slices, ReaderSlice{ctx.DocBase, r.MaxDoc(), len(fields)})
 		}
+		log.Printf("Found %v fields in %v slices.", len(fields), len(slices))
 		switch len(fields) {
 		case 0:
 			return nil
