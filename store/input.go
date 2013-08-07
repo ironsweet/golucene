@@ -32,18 +32,18 @@ type IndexInput interface {
 }
 
 type IndexInputImpl struct {
-	util.DataInput
+	*util.DataInputImpl
 	desc   string
 	close  func() error
 	length func() int64
 }
 
-func newIndexInputImpl(desc string) *IndexInputImpl {
+func newIndexInputImpl(desc string, r util.DataReader) *IndexInputImpl {
 	if desc == "" {
 		panic("resourceDescription must not be null")
 	}
-	super := &util.DataInputImpl{}
-	return &IndexInputImpl{DataInput: super, desc: desc}
+	super := &util.DataInputImpl{r}
+	return &IndexInputImpl{DataInputImpl: super, desc: desc}
 }
 
 func (in *IndexInputImpl) Length() int64 {
@@ -70,9 +70,10 @@ func newBufferedIndexInput(desc string, context IOContext) *BufferedIndexInput {
 }
 
 func newBufferedIndexInputBySize(desc string, bufferSize int) *BufferedIndexInput {
-	super := newIndexInputImpl(desc)
 	checkBufferSize(bufferSize)
-	return &BufferedIndexInput{IndexInputImpl: super, bufferSize: bufferSize}
+	ans := &BufferedIndexInput{bufferSize: bufferSize}
+	ans.IndexInputImpl = newIndexInputImpl(desc, ans)
+	return ans
 }
 
 func (in *BufferedIndexInput) ReadByte() (b byte, err error) {
@@ -95,10 +96,10 @@ func checkBufferSize(bufferSize int) {
 }
 
 func (in *BufferedIndexInput) ReadBytes(buf []byte) error {
-	return in.ReadBytesWithBuffer(buf, true)
+	return in.ReadBytesBuffered(buf, true)
 }
 
-func (in *BufferedIndexInput) ReadBytesWithBuffer(buf []byte, useBuffer bool) error {
+func (in *BufferedIndexInput) ReadBytesBuffered(buf []byte, useBuffer bool) error {
 	available := in.bufferLength - in.bufferPosition
 	if length := len(buf); length <= available {
 		// the buffer contains enough data to satisfy this request
@@ -158,7 +159,7 @@ func (in *BufferedIndexInput) ReadShort() (n int16, err error) {
 		in.bufferPosition += 2
 		return int16((in.buffer[in.bufferPosition-2] << 8) | (in.buffer[in.bufferPosition-1])), nil
 	}
-	return in.DataInput.ReadShort()
+	return in.ReadShort()
 }
 
 func (in *BufferedIndexInput) ReadInt() (n int32, err error) {
@@ -167,7 +168,7 @@ func (in *BufferedIndexInput) ReadInt() (n int32, err error) {
 		return int32((in.buffer[in.bufferPosition-4] << 24) | (in.buffer[in.bufferPosition-3] << 16) |
 			(in.buffer[in.bufferPosition-2] << 8) | (in.buffer[in.bufferPosition-1])), nil
 	}
-	return in.DataInput.ReadInt()
+	return in.ReadInt()
 }
 
 func (in *BufferedIndexInput) ReadLong() (n int64, err error) {
@@ -180,7 +181,7 @@ func (in *BufferedIndexInput) ReadLong() (n int64, err error) {
 			(in.buffer[in.bufferPosition-2] << 8) | (in.buffer[in.bufferPosition-1]))
 		return (i1 << 32) | i2, nil
 	}
-	return in.DataInput.ReadLong()
+	return in.ReadLong()
 }
 
 func (in *BufferedIndexInput) ReadVInt() (n int32, err error) {
@@ -218,7 +219,7 @@ func (in *BufferedIndexInput) ReadVInt() (n int32, err error) {
 		}
 		return 0, errors.New("Invalid vInt detected (too many bits)")
 	}
-	return in.DataInput.ReadVInt()
+	return in.ReadVInt()
 }
 
 func (in *BufferedIndexInput) ReadVLong() (n int64, err error) {
@@ -279,7 +280,7 @@ func (in *BufferedIndexInput) ReadVLong() (n int64, err error) {
 		}
 		return 0, errors.New("Invalid vLong detected (negative values disallowed)")
 	}
-	return in.DataInput.ReadVLong()
+	return in.ReadVLong()
 }
 
 // use panic/recover to handle error
@@ -389,9 +390,9 @@ type ChecksumIndexInput struct {
 }
 
 func NewChecksumIndexInput(main IndexInput) *ChecksumIndexInput {
-	super := newIndexInputImpl(fmt.Sprintf("ChecksumIndexInput(%v)", main))
-	digest := crc32.NewIEEE()
-	return &ChecksumIndexInput{super, main, digest}
+	ans := &ChecksumIndexInput{main: main, digest: crc32.NewIEEE()}
+	ans.IndexInputImpl = newIndexInputImpl(fmt.Sprintf("ChecksumIndexInput(%v)", main), ans)
+	return ans
 }
 
 func (in *ChecksumIndexInput) ReadByte() (b byte, err error) {

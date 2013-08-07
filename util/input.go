@@ -28,20 +28,20 @@ type DataReader interface {
 	 * should pass in "false" for useBuffer).  Currently only
 	 * {@link BufferedIndexInput} respects this parameter.
 	 */
-	ReadBytesBuffered(buf []byte, useBuffer bool) error
+	// ReadBytesBuffered(buf []byte, useBuffer bool) error
 }
 
 type DataInputImpl struct {
 	DataReader
 }
 
-func (in *DataInputImpl) ReadByte() (b byte, err error) {
-	return in.DataReader.ReadByte()
-}
+// func (in *DataInputImpl) ReadByte() (b byte, err error) {
+// 	return in.DataReader.ReadByte()
+// }
 
-func (in *DataInputImpl) ReadBytes(buf []byte) error {
-	return in.DataReader.ReadBytes(buf)
-}
+// func (in *DataInputImpl) ReadBytes(buf []byte) error {
+// 	return in.DataReader.ReadBytes(buf)
+// }
 
 func (in *DataInputImpl) ReadBytesBuffered(buf []byte, useBuffer bool) error {
 	return in.ReadBytes(buf)
