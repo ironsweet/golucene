@@ -300,7 +300,7 @@ func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 		return atomic
 	}
 	log.Print("CompositeReader is detected.")
-	cr := reader.(*CompositeReader)
+	cr := reader.(*DirectoryReader).CompositeReader
 	sequentialSubReaders := cr.getSequentialSubReaders()
 	children := make([]IndexReaderContext, len(sequentialSubReaders))
 	var newParent *CompositeReaderContext
@@ -372,6 +372,7 @@ type DirectoryReader struct {
 }
 
 func newDirectoryReader(directory store.Directory, segmentReaders []*AtomicReader) *DirectoryReader {
+	log.Printf("Initializing DirectoryReader with %v segment readers...", len(segmentReaders))
 	readers := make([]IndexReader, len(segmentReaders))
 	for i, v := range segmentReaders {
 		readers[i] = v.IndexReader
@@ -392,6 +393,7 @@ type StandardDirectoryReader struct {
 // TODO support IndexWriter
 func newStandardDirectoryReader(directory store.Directory, readers []*AtomicReader,
 	sis SegmentInfos, termInfosIndexDivisor int, applyAllDeletes bool) *StandardDirectoryReader {
+	log.Printf("Initializing StandardDirectoryReader with %v sub readers...", len(readers))
 	return &StandardDirectoryReader{newDirectoryReader(directory, readers)}
 }
 
@@ -402,6 +404,7 @@ func openStandardDirectoryReader(directory store.Directory,
 	obj, err := NewFindSegmentsFile(directory, func(segmentFileName string) (obj interface{}, err error) {
 		sis := &SegmentInfos{}
 		sis.Read(directory, segmentFileName)
+		log.Printf("Found %v segments...", len(sis.Segments))
 		readers := make([]*AtomicReader, len(sis.Segments))
 		for i := len(sis.Segments) - 1; i >= 0; i-- {
 			sr, err := NewSegmentReader(sis.Segments[i], termInfosIndexDivisor, store.IO_CONTEXT_READ)
