@@ -1,23 +1,33 @@
 package search
 
 import (
-	"fmt"
+	// "fmt"
 	"github.com/balzaczyy/golucene/index"
 	"github.com/balzaczyy/golucene/store"
 	"testing"
 )
 
-func TestIndexSearcher(t *testing.T) {
+func TestLastCommitGeneration(t *testing.T) {
 	d, err := store.OpenFSDirectory("testdata/belfrysample")
 	if err != nil {
 		t.Error(err)
 	}
-	r, err := index.OpenDirectoryReader(d)
+
+	files, err := d.ListAll()
 	if err != nil {
 		t.Error(err)
 	}
-	ss := NewIndexSearcher(r)
-	assertEquals(t, 8, ss.SearchTop(NewTermQuery(index.NewTerm("content", "bat")), 10))
+	if files != nil {
+		genA := index.LastCommitGeneration(files)
+		assertEquals(t, 1, genA)
+	}
+	// r, err := index.OpenDirectoryReader(d)
+	// if err != nil {
+	// 	t.Error(err)
+	// }
+
+	// ss := NewIndexSearcher(r)
+	// assertEquals(t, 8, ss.SearchTop(NewTermQuery(index.NewTerm("content", "bat")), 10))
 }
 
 // func TestSingleSearch(t *testing.T) {

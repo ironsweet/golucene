@@ -3,11 +3,13 @@ package util
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 )
 
 func FileNameFromGeneration(base, ext string, gen int64) string {
+	log.Printf("Filename from generation: %v, %v, %v", base, ext, gen)
 	switch {
 	case gen == -1:
 		return ""

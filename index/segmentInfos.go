@@ -174,6 +174,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 
 		lastGen = gen
 		segmentFileName := util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", gen)
+		log.Printf("SegmentFileName: %v", segmentFileName)
 
 		v, err := fsf.doBody(segmentFileName)
 		if err != nil {
@@ -266,7 +267,7 @@ func LastCommitGeneration(files []string) int64 {
 	}
 	max := int64(-1)
 	for _, file := range files {
-		if strings.HasPrefix(file, INDEX_FILENAME_SEGMENTS) && file != INDEX_FILENAME_SEGMENTS {
+		if strings.HasPrefix(file, INDEX_FILENAME_SEGMENTS) && file != INDEX_FILENAME_SEGMENTS_GEN {
 			gen := GenerationFromSegmentsFileName(file)
 			if gen > max {
 				max = gen
@@ -292,6 +293,7 @@ func GenerationFromSegmentsFileName(fileName string) int64 {
 }
 
 func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string) error {
+	log.Printf("Reading segment info from %v...", segmentFileName)
 	success := false
 
 	// Clear any previous segments:

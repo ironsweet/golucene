@@ -403,7 +403,10 @@ func openStandardDirectoryReader(directory store.Directory,
 	log.Print("Initializing SegmentsFile...")
 	obj, err := NewFindSegmentsFile(directory, func(segmentFileName string) (obj interface{}, err error) {
 		sis := &SegmentInfos{}
-		sis.Read(directory, segmentFileName)
+		err = sis.Read(directory, segmentFileName)
+		if err != nil {
+			return nil, err
+		}
 		log.Printf("Found %v segments...", len(sis.Segments))
 		readers := make([]*AtomicReader, len(sis.Segments))
 		for i := len(sis.Segments) - 1; i >= 0; i-- {
