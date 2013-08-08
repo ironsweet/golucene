@@ -56,9 +56,11 @@ func Close(objects ...io.Closer) error {
 			continue
 		}
 		t := object.Close()
-		addSuppressed(th, t)
-		if th == nil {
-			th = t
+		if t != nil {
+			addSuppressed(th, t)
+			if th == nil {
+				th = t
+			}
 		}
 	}
 

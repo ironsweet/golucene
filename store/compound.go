@@ -38,6 +38,7 @@ type CompoundFileDirectory struct {
 
 func NewCompoundFileDirectory(directory Directory, fileName string, context IOContext, openForWrite bool) (d *CompoundFileDirectory, err error) {
 	self := &CompoundFileDirectory{
+		lock:           sync.Mutex{},
 		directory:      directory,
 		fileName:       fileName,
 		readBufferSize: bufferSize(context),
@@ -68,6 +69,9 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 }
 
 func (d *CompoundFileDirectory) Close() error {
+	if d == nil { // interface not nil
+		return nil
+	}
 	d.lock.Lock()
 	defer d.lock.Unlock()
 

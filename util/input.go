@@ -2,7 +2,6 @@ package util
 
 import (
 	"errors"
-	"log"
 )
 
 type DataInput interface {
@@ -58,7 +57,6 @@ func (in *DataInputImpl) ReadShort() (n int16, err error) {
 }
 
 func (in *DataInputImpl) ReadInt() (n int32, err error) {
-	log.Print("Reading int...")
 	if b1, err := in.ReadByte(); err == nil {
 		if b2, err := in.ReadByte(); err == nil {
 			if b3, err := in.ReadByte(); err == nil {

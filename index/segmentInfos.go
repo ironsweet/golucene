@@ -351,7 +351,8 @@ func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string)
 			codecName, err := input.ReadString()
 			if err != nil {
 				return err
-			} else if codecName != "lucene42" {
+			}
+			if codecName != "Lucene42" {
 				log.Panicf("Not supported yet: %v", codecName)
 			}
 			// method := CodecForName(codecName)
