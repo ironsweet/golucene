@@ -108,34 +108,36 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	self.removeListener = make(chan CoreClosedListener)
 	self.notifyListener = make(chan *SegmentReader)
 	// TODO re-enable later
-	// go func() { // ensure listners are synchronized
-	// 	coreClosedListeners := make([]CoreClosedListener, 0)
-	// 	isRunning := true
-	// 	var listener CoreClosedListener
-	// 	for isRunning {
-	// 		log.Print("Listening for events...")
-	// 		select {
-	// 		case listener = <-self.addListener:
-	// 			coreClosedListeners = append(coreClosedListeners, listener)
-	// 		case listener = <-self.removeListener:
-	// 			n := len(coreClosedListeners)
-	// 			for i, v := range coreClosedListeners {
-	// 				if v == listener {
-	// 					newListeners := make([]CoreClosedListener, 0, n-1)
-	// 					newListeners = append(newListeners, coreClosedListeners[0:i]...)
-	// 					newListeners = append(newListeners, coreClosedListeners[i+1:]...)
-	// 					coreClosedListeners = newListeners
-	// 					break
-	// 				}
-	// 			}
-	// 		case owner := <-self.notifyListener:
-	// 			isRunning = false
-	// 			for _, v := range coreClosedListeners {
-	// 				v.onClose(owner)
-	// 			}
-	// 		}
-	// 	}
-	// }()
+	go func() { // ensure listners are synchronized
+		coreClosedListeners := make([]CoreClosedListener, 0)
+		isRunning := true
+		var listener CoreClosedListener
+		for isRunning {
+			log.Print("Listening for events...")
+			select {
+			case listener = <-self.addListener:
+				coreClosedListeners = append(coreClosedListeners, listener)
+			case listener = <-self.removeListener:
+				n := len(coreClosedListeners)
+				for i, v := range coreClosedListeners {
+					if v == listener {
+						newListeners := make([]CoreClosedListener, 0, n-1)
+						newListeners = append(newListeners, coreClosedListeners[0:i]...)
+						newListeners = append(newListeners, coreClosedListeners[i+1:]...)
+						coreClosedListeners = newListeners
+						break
+					}
+				}
+			case owner := <-self.notifyListener:
+				log.Print("Shutting down SegmentCoreReaders...")
+				isRunning = false
+				for _, v := range coreClosedListeners {
+					v.onClose(owner)
+				}
+			}
+		}
+		log.Print("Listeners are done.")
+	}()
 
 	success := false
 	defer func() {
@@ -145,7 +147,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	}()
 
 	codec := si.info.codec
-	log.Printf("Obtaining CFS Directory...")
+	log.Print("Obtaining CFS Directory...")
 	var cfsDir store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
 	if si.info.isCompoundFile {
 		log.Print("Detected CompoundFile.")
@@ -158,12 +160,14 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	} else {
 		cfsDir = dir
 	}
+	log.Print("Reading FieldInfos...")
 	self.fieldInfos, err = codec.ReadFieldInfos(cfsDir, si.info.name, store.IO_CONTEXT_READONCE)
 	if err != nil {
 		return self, err
 	}
 	self.termsIndexDivisor = termsIndexDivisor
 
+	log.Print("Obtaining SegmentReadState...")
 	segmentReadState := newSegmentReadState(cfsDir, si.info, self.fieldInfos, context, termsIndexDivisor)
 	// Ask codec for its Fields
 	self.fields, err = codec.GetFieldsProducer(segmentReadState)
