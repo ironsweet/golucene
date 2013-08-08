@@ -420,6 +420,7 @@ func openStandardDirectoryReader(directory store.Directory,
 				return nil, util.CloseWhileHandlingError(err, rs...)
 			}
 		}
+		log.Printf("Obtained %v SegmentReaders.", len(readers))
 		return newStandardDirectoryReader(directory, readers, *sis, termInfosIndexDivisor, false), nil
 	}).run()
 	return obj.(*StandardDirectoryReader).DirectoryReader, err

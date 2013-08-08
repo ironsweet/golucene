@@ -4,6 +4,7 @@ import (
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
 	"io"
+	"log"
 	"sync/atomic"
 )
 
@@ -35,9 +36,12 @@ type SegmentReader struct {
 }
 
 func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, context store.IOContext) (r *SegmentReader, err error) {
+	log.Print("Initializing SegmentReader...")
 	r = &SegmentReader{}
+	log.Print("Obtaining AtomicReader...")
 	r.AtomicReader = newAtomicReader(r)
 	r.si = si
+	log.Print("Obtaining SegmentCoreReaders...")
 	r.core, err = newSegmentCoreReaders(r, si.info.dir, si, context, termInfosIndexDivisor)
 	if err != nil {
 		return r, err
@@ -58,7 +62,7 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 		panic("not supported yet")
 	} else {
 		// assert si.getDelCount() == 0
-		r.liveDocs = nil
+		// r.liveDocs = nil
 	}
 	r.numDocs = int(si.info.docCount) - si.delCount
 	success = true
@@ -99,36 +103,39 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 
 	self = SegmentCoreReaders{refCount: 1}
 
+	log.Print("Initializing listeners...")
 	self.addListener = make(chan CoreClosedListener)
 	self.removeListener = make(chan CoreClosedListener)
 	self.notifyListener = make(chan *SegmentReader)
-	go func() { // ensure listners are synchronized
-		coreClosedListeners := make([]CoreClosedListener, 0)
-		isRunning := true
-		var listener CoreClosedListener
-		for isRunning {
-			select {
-			case listener = <-self.addListener:
-				coreClosedListeners = append(coreClosedListeners, listener)
-			case listener = <-self.removeListener:
-				n := len(coreClosedListeners)
-				for i, v := range coreClosedListeners {
-					if v == listener {
-						newListeners := make([]CoreClosedListener, 0, n-1)
-						newListeners = append(newListeners, coreClosedListeners[0:i]...)
-						newListeners = append(newListeners, coreClosedListeners[i+1:]...)
-						coreClosedListeners = newListeners
-						break
-					}
-				}
-			case owner := <-self.notifyListener:
-				isRunning = false
-				for _, v := range coreClosedListeners {
-					v.onClose(owner)
-				}
-			}
-		}
-	}()
+	// TODO re-enable later
+	// go func() { // ensure listners are synchronized
+	// 	coreClosedListeners := make([]CoreClosedListener, 0)
+	// 	isRunning := true
+	// 	var listener CoreClosedListener
+	// 	for isRunning {
+	// 		log.Print("Listening for events...")
+	// 		select {
+	// 		case listener = <-self.addListener:
+	// 			coreClosedListeners = append(coreClosedListeners, listener)
+	// 		case listener = <-self.removeListener:
+	// 			n := len(coreClosedListeners)
+	// 			for i, v := range coreClosedListeners {
+	// 				if v == listener {
+	// 					newListeners := make([]CoreClosedListener, 0, n-1)
+	// 					newListeners = append(newListeners, coreClosedListeners[0:i]...)
+	// 					newListeners = append(newListeners, coreClosedListeners[i+1:]...)
+	// 					coreClosedListeners = newListeners
+	// 					break
+	// 				}
+	// 			}
+	// 		case owner := <-self.notifyListener:
+	// 			isRunning = false
+	// 			for _, v := range coreClosedListeners {
+	// 				v.onClose(owner)
+	// 			}
+	// 		}
+	// 	}
+	// }()
 
 	success := false
 	defer func() {
@@ -138,8 +145,10 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	}()
 
 	codec := si.info.codec
+	log.Printf("Obtaining CFS Directory...")
 	var cfsDir store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
 	if si.info.isCompoundFile {
+		log.Print("Detected CompoundFile.")
 		self.cfsReader, err = store.NewCompoundFileDirectory(dir,
 			util.SegmentFileName(si.info.name, "", store.COMPOUND_FILE_EXTENSION), context, false)
 		if err != nil {
