@@ -156,7 +156,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 		if err != nil {
 			return self, err
 		}
-		cfsDir = self.cfsReader.Directory
+		cfsDir = self.cfsReader
 	} else {
 		cfsDir = dir
 	}
@@ -170,6 +170,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	log.Print("Obtaining SegmentReadState...")
 	segmentReadState := newSegmentReadState(cfsDir, si.info, self.fieldInfos, context, termsIndexDivisor)
 	// Ask codec for its Fields
+	log.Print("Obtaining FieldsProducer...")
 	self.fields, err = codec.GetFieldsProducer(segmentReadState)
 	if err != nil {
 		return self, err
@@ -180,39 +181,44 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	// kinda jaky to assume the codec handles the case of no norms file at all gracefully?!
 
 	if self.fieldInfos.hasDocValues {
+		log.Print("Obtaining DocValuesProducer...")
 		self.dvProducer, err = codec.GetDocValuesProducer(segmentReadState)
 		if err != nil {
 			return self, err
 		}
 		// assert dvProducer != null;
 	} else {
-		self.dvProducer = nil
+		// self.dvProducer = nil
 	}
 
 	if self.fieldInfos.hasNorms {
+		log.Print("Obtaining NormsDocValuesProducer...")
 		self.normsProducer, err = codec.GetNormsDocValuesProducer(segmentReadState)
 		if err != nil {
 			return self, err
 		}
 		// assert normsProducer != null;
 	} else {
-		self.normsProducer = nil
+		// self.normsProducer = nil
 	}
 
+	log.Print("Obtaining StoredFieldsReader...")
 	self.fieldsReaderOrig, err = si.info.codec.GetStoredFieldsReader(cfsDir, si.info, self.fieldInfos, context)
 	if err != nil {
 		return self, err
 	}
 
 	if self.fieldInfos.hasVectors { // open term vector files only as needed
+		log.Print("Obtaining TermVectorsReader...")
 		self.termVectorsReaderOrig, err = si.info.codec.GetTermVectorsReader(cfsDir, si.info, self.fieldInfos, context)
 		if err != nil {
 			return self, err
 		}
 	} else {
-		self.termVectorsReaderOrig = nil
+		// self.termVectorsReaderOrig = nil
 	}
 
+	log.Print("Success")
 	success = true
 
 	// Must assign this at the end -- if we hit an

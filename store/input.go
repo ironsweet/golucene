@@ -55,6 +55,10 @@ func (in *IndexInputImpl) Close() error {
 	return in.close()
 }
 
+func (in *IndexInputImpl) String() string {
+	return in.desc
+}
+
 type BufferedIndexInput struct {
 	*IndexInputImpl
 	bufferSize     int

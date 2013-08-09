@@ -5,6 +5,7 @@ import (
 	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
+	"log"
 	"math"
 )
 
@@ -33,6 +34,7 @@ type Lucene41PostingReader struct {
 
 func NewLucene41PostingReader(dir store.Directory, fis FieldInfos, si SegmentInfo,
 	ctx store.IOContext, segmentSuffix string) (r PostingsReaderBase, err error) {
+	log.Print("Initializing Lucene41PostingReader...")
 	success := false
 	var docIn, posIn, payIn store.IndexInput = nil, nil, nil
 	defer func() {
@@ -45,7 +47,10 @@ func NewLucene41PostingReader(dir store.Directory, fis FieldInfos, si SegmentInf
 	if err != nil {
 		return r, err
 	}
-	codec.CheckHeader(docIn, LUCENE41_DOC_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+	_, err = codec.CheckHeader(docIn, LUCENE41_DOC_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+	if err != nil {
+		return r, err
+	}
 	forUtil, err := NewForUtil(docIn)
 	if err != nil {
 		return r, err
@@ -56,14 +61,20 @@ func NewLucene41PostingReader(dir store.Directory, fis FieldInfos, si SegmentInf
 		if err != nil {
 			return r, err
 		}
-		codec.CheckHeader(posIn, LUCENE41_POS_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+		_, err = codec.CheckHeader(posIn, LUCENE41_POS_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+		if err != nil {
+			return r, err
+		}
 
 		if fis.hasPayloads || fis.hasOffsets {
 			payIn, err = dir.OpenInput(util.SegmentFileName(si.name, segmentSuffix, LUCENE41_PAY_EXTENSION), ctx)
 			if err != nil {
 				return r, err
 			}
-			codec.CheckHeader(payIn, LUCENE41_PAY_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+			_, err = codec.CheckHeader(payIn, LUCENE41_PAY_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+			if err != nil {
+				return r, err
+			}
 		}
 	}
 
@@ -72,6 +83,7 @@ func NewLucene41PostingReader(dir store.Directory, fis FieldInfos, si SegmentInf
 }
 
 func (r *Lucene41PostingReader) init(termsIn store.IndexInput) error {
+	log.Printf("Initializing from: %v", termsIn)
 	// Make sure we are talking to the matching postings writer
 	_, err := codec.CheckHeader(termsIn, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_START, LUCENE41_VERSION_CURRENT)
 	if err != nil {
@@ -81,6 +93,7 @@ func (r *Lucene41PostingReader) init(termsIn store.IndexInput) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("Index block size: %v", indexBlockSize)
 	if indexBlockSize != LUCENE41_BLOCK_SIZE {
 		panic(fmt.Sprintf("index-time BLOCK_SIZE (%v) != read-time BLOCK_SIZE (%v)", indexBlockSize, LUCENE41_BLOCK_SIZE))
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
 	"io"
+	"log"
 	"sync"
 )
 
@@ -31,6 +32,7 @@ const (
 
 var (
 	Lucene42FieldInfosReader = func(dir store.Directory, segment string, context store.IOContext) (fi FieldInfos, err error) {
+		log.Printf("Reading FieldInfos from %v...", dir)
 		fi = FieldInfos{}
 		fileName := util.SegmentFileName(segment, "", LUCENE42_FI_EXTENSION)
 		input, err := dir.OpenInput(fileName, context)
@@ -47,7 +49,8 @@ var (
 			}
 		}()
 
-		_, err = codec.CheckHeader(input, LUCENE42_FI_CODEC_NAME,
+		_, err = codec.CheckHeader(input,
+			LUCENE42_FI_CODEC_NAME,
 			LUCENE42_FI_FORMAT_START,
 			LUCENE42_FI_FORMAT_CURRENT)
 		if err != nil {
@@ -58,6 +61,7 @@ var (
 		if err != nil {
 			return fi, err
 		}
+		log.Printf("Found %v FieldInfos.", size)
 
 		infos := make([]FieldInfo, size)
 		for i, _ := range infos {
@@ -175,6 +179,7 @@ func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer,
 			state.segmentSuffix,
 			state.termsIndexDivisor)
 		if err != nil {
+			log.Print("DEBUG", err)
 			return fp, err
 		}
 		success = true
@@ -378,11 +383,14 @@ type PerFieldPostingsReader struct {
 
 func newPerFieldPostingsReader(state SegmentReadState) (fp FieldsProducer, err error) {
 	ans := PerFieldPostingsReader{
-		make(map[string]FieldsProducer), make(map[string]FieldsProducer)}
+		make(map[string]FieldsProducer),
+		make(map[string]FieldsProducer),
+	}
 	// Read _X.per and init each format:
 	success := false
 	defer func() {
 		if !success {
+			log.Printf("Failed to initialize PerFieldPostingsReader.")
 			fps := make([]FieldsProducer, 0)
 			for _, v := range ans.formats {
 				fps = append(fps, v)
@@ -396,14 +404,20 @@ func newPerFieldPostingsReader(state SegmentReadState) (fp FieldsProducer, err e
 	}()
 	// Read field name -> format name
 	for _, fi := range state.fieldInfos.values {
+		log.Printf("Processing %v...", fi)
 		if fi.indexed {
 			fieldName := fi.name
+			log.Printf("Name: %v", fieldName)
 			if formatName, ok := fi.attributes[PER_FIELD_FORMAT_KEY]; ok {
+				log.Printf("Format: %v", formatName)
 				// null formatName means the field is in fieldInfos, but has no postings!
 				suffix := fi.attributes[PER_FIELD_SUFFIX_KEY]
+				log.Printf("Suffix: %v", suffix)
 				// assert suffix != nil
 				segmentSuffix := formatName + "_" + suffix
+				log.Printf("Segment suffix: %v", segmentSuffix)
 				if _, ok := ans.formats[segmentSuffix]; !ok {
+					log.Printf("Loading fields producer: %v", segmentSuffix)
 					newReadState := state // clone
 					newReadState.segmentSuffix = formatName + "_" + suffix
 					fp, err = LoadFieldsProducer(formatName, newReadState)

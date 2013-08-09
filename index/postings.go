@@ -7,6 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
 	"io"
+	"log"
 	"sort"
 )
 
@@ -45,6 +46,7 @@ type BlockTreeTermsReader struct {
 func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info SegmentInfo,
 	postingsReader PostingsReaderBase, ctx store.IOContext,
 	segmentSuffix string, indexDivisor int) (p FieldsProducer, err error) {
+	log.Print("Initializing BlockTreeTermsReader...")
 	fp := &BlockTreeTermsReader{postingsReader: postingsReader, segment: info.name}
 	fp.in, err = dir.OpenInput(util.SegmentFileName(info.name, segmentSuffix, BTT_EXTENSION), ctx)
 	if err != nil {
@@ -75,96 +77,117 @@ func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info Se
 		if err != nil {
 			return fp, err
 		}
+		log.Printf("Index version: %v", indexVersion)
 		if int(indexVersion) != fp.version {
 			return fp, errors.New(fmt.Sprintf("mixmatched version files: %v=%v,%v=%v", fp.in, fp.version, indexIn, indexVersion))
 		}
+	}
 
-		// Have PostingsReader init itself
-		postingsReader.init(fp.in)
+	// Have PostingsReader init itself
+	postingsReader.init(fp.in)
 
-		// Read per-field details
-		fp.seekDir(fp.in, fp.dirOffset)
-		if indexDivisor != -1 {
-			fp.seekDir(indexIn, fp.indexDirOffset)
-		}
+	// Read per-field details
+	fp.seekDir(fp.in, fp.dirOffset)
+	if indexDivisor != -1 {
+		fp.seekDir(indexIn, fp.indexDirOffset)
+	}
 
-		numFields, err := fp.in.ReadVInt()
+	numFields, err := fp.in.ReadVInt()
+	if err != nil {
+		return fp, err
+	}
+	log.Printf("Fields number: %v", numFields)
+	if numFields < 0 {
+		return fp, errors.New(fmt.Sprintf("invalid numFields: %v (resource=%v)", numFields, fp.in))
+	}
+
+	for i := int32(0); i < numFields; i++ {
+		field, err := fp.in.ReadVInt()
 		if err != nil {
 			return fp, err
 		}
-		if numFields < 0 {
-			return fp, errors.New(fmt.Sprintf("invalid numFields: %v (resource=%v)", numFields, fp.in))
+		log.Printf("Field: %v", field)
+
+		numTerms, err := fp.in.ReadVLong()
+		if err != nil {
+			return fp, err
 		}
+		// assert numTerms >= 0
+		log.Printf("Terms number: %v", numTerms)
 
-		for i := int32(0); i < numFields; i++ {
-			if field, err := fp.in.ReadVInt(); err == nil {
-				if numTerms, err := fp.in.ReadVLong(); err == nil {
-					// assert numTerms >= 0
-					if numBytes, err := fp.in.ReadVInt(); err == nil {
-						rootCode := make([]byte, numBytes)
-						if err = fp.in.ReadBytes(rootCode); err == nil {
-							fieldInfo := fieldInfos.byNumber[field]
-							// assert fieldInfo != nil
-							var sumTotalTermFreq int64
-							if fieldInfo.indexOptions == INDEX_OPT_DOCS_ONLY {
-								sumTotalTermFreq = -1
-							} else {
-								sumTotalTermFreq, err = fp.in.ReadVLong()
-							}
-							if err == nil {
-								if sumDocFreq, err := fp.in.ReadVLong(); err == nil {
-									if docCount, err := fp.in.ReadVInt(); err == nil {
-										if docCount < 0 || docCount > info.docCount { // #docs with field must be <= #docs
-											return fp, errors.New(fmt.Sprintf(
-												"invalid docCount: %v maxDoc: %v (resource=%v)",
-												docCount, info.docCount, fp.in))
-										}
-										if sumDocFreq < int64(docCount) { // #postings must be >= #docs with field
-											return fp, errors.New(fmt.Sprintf(
-												"invalid sumDocFreq: %v docCount: %v (resource=%v)",
-												sumDocFreq, docCount, fp.in))
-										}
-										if sumTotalTermFreq != -1 && sumTotalTermFreq < sumDocFreq { // #positions must be >= #postings
-											return fp, errors.New(fmt.Sprintf(
-												"invalid sumTotalTermFreq: %v sumDocFreq: %v (resource=%v)",
-												sumTotalTermFreq, sumDocFreq, fp.in))
-										}
+		numBytes, err := fp.in.ReadVInt()
+		if err != nil {
+			return fp, err
+		}
+		log.Printf("Bytes number: %v", numBytes)
 
-										var indexStartFP int64
-										if indexDivisor != -1 {
-											indexStartFP, err = indexIn.ReadVLong()
-											if err != nil {
-												return fp, err
-											}
-										}
-										if _, ok := fp.fields[fieldInfo.name]; ok {
-											return fp, errors.New(fmt.Sprintf(
-												"duplicate field: %v (resource=%v)", fieldInfo.name, fp.in))
-										}
-										fp.fields[fieldInfo.name], err = newFieldReader(
-											fieldInfo, numTerms, rootCode, sumTotalTermFreq,
-											sumDocFreq, docCount, indexStartFP, indexIn)
-									}
-								}
-							}
-						}
-					}
-				}
-			}
+		rootCode := make([]byte, numBytes)
+		err = fp.in.ReadBytes(rootCode)
+		if err != nil {
+			return fp, err
+		}
+		fieldInfo := fieldInfos.byNumber[field]
+		// assert fieldInfo != nil
+		var sumTotalTermFreq int64
+		if fieldInfo.indexOptions == INDEX_OPT_DOCS_ONLY {
+			sumTotalTermFreq = -1
+		} else {
+			sumTotalTermFreq, err = fp.in.ReadVLong()
 			if err != nil {
 				return fp, err
 			}
 		}
+		sumDocFreq, err := fp.in.ReadVLong()
+		if err != nil {
+			return fp, err
+		}
+		docCount, err := fp.in.ReadVInt()
+		if err != nil {
+			return fp, err
+		}
+		if docCount < 0 || docCount > info.docCount { // #docs with field must be <= #docs
+			return fp, errors.New(fmt.Sprintf(
+				"invalid docCount: %v maxDoc: %v (resource=%v)",
+				docCount, info.docCount, fp.in))
+		}
+		if sumDocFreq < int64(docCount) { // #postings must be >= #docs with field
+			return fp, errors.New(fmt.Sprintf(
+				"invalid sumDocFreq: %v docCount: %v (resource=%v)",
+				sumDocFreq, docCount, fp.in))
+		}
+		if sumTotalTermFreq != -1 && sumTotalTermFreq < sumDocFreq { // #positions must be >= #postings
+			return fp, errors.New(fmt.Sprintf(
+				"invalid sumTotalTermFreq: %v sumDocFreq: %v (resource=%v)",
+				sumTotalTermFreq, sumDocFreq, fp.in))
+		}
 
+		var indexStartFP int64
 		if indexDivisor != -1 {
-			err = indexIn.Close()
+			indexStartFP, err = indexIn.ReadVLong()
 			if err != nil {
 				return fp, err
 			}
 		}
-
-		success = true
+		if _, ok := fp.fields[fieldInfo.name]; ok {
+			return fp, errors.New(fmt.Sprintf(
+				"duplicate field: %v (resource=%v)", fieldInfo.name, fp.in))
+		}
+		fp.fields[fieldInfo.name], err = newFieldReader(
+			fieldInfo, numTerms, rootCode, sumTotalTermFreq,
+			sumDocFreq, docCount, indexStartFP, indexIn)
+		if err != nil {
+			return fp, err
+		}
 	}
+
+	if indexDivisor != -1 {
+		err = indexIn.Close()
+		if err != nil {
+			return fp, err
+		}
+	}
+
+	success = true
 
 	return fp, nil
 }
@@ -202,6 +225,7 @@ func (r *BlockTreeTermsReader) readIndexHeader(input store.IndexInput) (version 
 }
 
 func (r *BlockTreeTermsReader) seekDir(input store.IndexInput, dirOffset int64) (err error) {
+	log.Printf("Seeking to: %v", dirOffset)
 	if r.version >= BTT_INDEX_VERSION_APPEND_ONLY {
 		input.Seek(input.Length() - 8)
 		if dirOffset, err = input.ReadLong(); err != nil {
