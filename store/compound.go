@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/util"
+	"log"
 	"sync"
 )
 
@@ -43,9 +44,10 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 		fileName:       fileName,
 		readBufferSize: bufferSize(context),
 		openForWriter:  openForWrite}
-	super := &DirectoryImpl{isOpen: false}
+	self.DirectoryImpl = newDirectoryImpl(self)
 
 	if !openForWrite {
+		log.Printf("Open for read.")
 		success := false
 		defer func() {
 			if !success {
@@ -61,7 +63,7 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 			return self, err
 		}
 		success = true
-		super.isOpen = true
+		self.DirectoryImpl.isOpen = true
 		return self, err
 	} else {
 		panic("not supported yet")
@@ -69,13 +71,15 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 }
 
 func (d *CompoundFileDirectory) Close() error {
+	log.Printf("Closing %v...", d)
 	if d == nil { // interface not nil
 		return nil
 	}
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if !d.isOpen {
+	if d == nil || !d.isOpen {
+		log.Print("CompoundFileDirectory is already closed.")
 		// allow double close - usually to be consistent with other closeables
 		return nil // already closed
 	}
@@ -93,6 +97,7 @@ func (d *CompoundFileDirectory) OpenInput(name string, context IOContext) (in In
 	d.ensureOpen()
 	// assert !d.openForWrite
 	id := util.StripSegmentName(name)
+	log.Printf("DEBUG %v %v %v", name, id, d.entries)
 	if entry, ok := d.entries[id]; ok {
 		is := d.handle.openSlice(name, entry.offset, entry.length)
 		return is, nil
@@ -176,6 +181,7 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 		if err != nil {
 			return mapping, err
 		}
+		log.Printf("DEBUG: %v", entriesStream)
 		_, err = codec.CheckHeader(entriesStream, CFD_ENTRY_CODEC, CFD_VERSION_START, CFD_VERSION_START)
 		if err != nil {
 			return mapping, err
@@ -184,6 +190,7 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 		if err != nil {
 			return mapping, err
 		}
+		log.Printf("Entries number: %v", numEntries)
 		for i := int32(0); i < numEntries; i++ {
 			id, err := entriesStream.ReadString()
 			if err != nil {
@@ -193,6 +200,7 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 				return mapping, errors.New(fmt.Sprintf(
 					"Duplicate cfs entry id=%v in CFS: %v", id, entriesStream))
 			}
+			log.Printf("Found entrye: %v", id)
 			offset, err := entriesStream.ReadLong()
 			if err != nil {
 				return mapping, err

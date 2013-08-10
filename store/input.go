@@ -162,7 +162,7 @@ func (in *BufferedIndexInput) ReadBytesBuffered(buf []byte, useBuffer bool) erro
 func (in *BufferedIndexInput) ReadShort() (n int16, err error) {
 	if 2 <= in.bufferLength-in.bufferPosition {
 		in.bufferPosition += 2
-		return int16((in.buffer[in.bufferPosition-2] << 8) | (in.buffer[in.bufferPosition-1])), nil
+		return (int16(in.buffer[in.bufferPosition-2]) << 8) | int16(in.buffer[in.bufferPosition-1]), nil
 	}
 	return in.DataInputImpl.ReadShort()
 }
@@ -171,8 +171,8 @@ func (in *BufferedIndexInput) ReadInt() (n int32, err error) {
 	log.Print("Reading int from buffer...")
 	if 4 <= in.bufferLength-in.bufferPosition {
 		in.bufferPosition += 4
-		return int32((in.buffer[in.bufferPosition-4] << 24) | (in.buffer[in.bufferPosition-3] << 16) |
-			(in.buffer[in.bufferPosition-2] << 8) | (in.buffer[in.bufferPosition-1])), nil
+		return (int32(in.buffer[in.bufferPosition-4]) << 24) | (int32(in.buffer[in.bufferPosition-3]) << 16) |
+			(int32(in.buffer[in.bufferPosition-2]) << 8) | int32(in.buffer[in.bufferPosition-1]), nil
 	}
 	return in.DataInputImpl.ReadInt()
 }
@@ -180,11 +180,11 @@ func (in *BufferedIndexInput) ReadInt() (n int32, err error) {
 func (in *BufferedIndexInput) ReadLong() (n int64, err error) {
 	if 8 <= in.bufferLength-in.bufferPosition {
 		in.bufferPosition += 4
-		i1 := int64((in.buffer[in.bufferPosition-4] << 24) | (in.buffer[in.bufferPosition-3] << 16) |
-			(in.buffer[in.bufferPosition-2] << 8) | (in.buffer[in.bufferPosition-1]))
+		i1 := (int64(in.buffer[in.bufferPosition-4]) << 24) | (int64(in.buffer[in.bufferPosition-3]) << 16) |
+			(int64(in.buffer[in.bufferPosition-2]) << 8) | int64(in.buffer[in.bufferPosition-1])
 		in.bufferPosition += 4
-		i2 := int64((in.buffer[in.bufferPosition-4] << 24) | (in.buffer[in.bufferPosition-3] << 16) |
-			(in.buffer[in.bufferPosition-2] << 8) | (in.buffer[in.bufferPosition-1]))
+		i2 := (int64(in.buffer[in.bufferPosition-4]) << 24) | (int64(in.buffer[in.bufferPosition-3]) << 16) |
+			(int64(in.buffer[in.bufferPosition-2]) << 8) | int64(in.buffer[in.bufferPosition-1])
 		return (i1 << 32) | i2, nil
 	}
 	return in.DataInputImpl.ReadLong()

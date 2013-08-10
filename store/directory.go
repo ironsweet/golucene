@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"strconv"
@@ -187,6 +188,7 @@ func (d *DirectoryImpl) createSlicer(name string, context IOContext) (is IndexIn
 
 func (d *DirectoryImpl) ensureOpen() {
 	if !d.isOpen {
+		log.Print("This Directory is closed.")
 		panic("this Directory is closed")
 	}
 }
