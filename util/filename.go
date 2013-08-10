@@ -50,8 +50,8 @@ func SegmentFileName(name, suffix, ext string) string {
 
 func indexOfSegmentName(filename string) int {
 	// If it is a .del file, there's an '_' after the first character
-	if idx := strings.Index(filename, "_"); idx > 1 {
-		return idx
+	if idx := strings.Index(filename[1:], "_"); idx >= 0 {
+		return idx + 1
 	}
 	// If it's not, strip everything that's before the '.'
 	return strings.Index(filename, ".")

@@ -2,7 +2,6 @@ package util
 
 import (
 	"errors"
-	"log"
 )
 
 type DataInput interface {
