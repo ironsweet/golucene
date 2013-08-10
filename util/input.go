@@ -2,6 +2,7 @@ package util
 
 import (
 	"errors"
+	"log"
 )
 
 type DataInput interface {
@@ -72,22 +73,22 @@ func (in *DataInputImpl) ReadInt() (n int32, err error) {
 func (in *DataInputImpl) ReadVInt() (n int32, err error) {
 	if b, err := in.ReadByte(); err == nil {
 		n = int32(b) & 0x7F
-		if b >= 0 {
+		if b < 128 {
 			return n, nil
 		}
 		if b, err = in.ReadByte(); err == nil {
 			n |= (int32(b) & 0x7F) << 7
-			if b >= 0 {
+			if b < 128 {
 				return n, nil
 			}
 			if b, err = in.ReadByte(); err == nil {
 				n |= (int32(b) & 0x7F) << 14
-				if b >= 0 {
+				if b < 128 {
 					return n, nil
 				}
 				if b, err = in.ReadByte(); err == nil {
 					n |= (int32(b) & 0x7F) << 21
-					if b >= 0 {
+					if b < 128 {
 						return n, nil
 					}
 					if b, err = in.ReadByte(); err == nil {
@@ -119,48 +120,48 @@ func (in *DataInputImpl) ReadLong() (n int64, err error) {
 
 func (in *DataInputImpl) ReadVLong() (n int64, err error) {
 	if b, err := in.ReadByte(); err == nil {
-		n = int64(b) & 0x7F
-		if b >= 0 {
+		n = int64(b & 0x7F)
+		if b < 128 {
 			return n, nil
 		}
 		if b, err = in.ReadByte(); err == nil {
-			n |= (int64(b) & 0x7F) << 7
-			if b >= 0 {
+			n |= (int64(b&0x7F) << 7)
+			if b < 128 {
 				return n, nil
 			}
 			if b, err = in.ReadByte(); err == nil {
-				n |= (int64(b) & 0x7F) << 14
-				if b >= 0 {
+				n |= (int64(b&0x7F) << 14)
+				if b < 128 {
 					return n, nil
 				}
 				if b, err = in.ReadByte(); err == nil {
-					n |= (int64(b) & 0x7F) << 21
-					if b >= 0 {
+					n |= (int64(b&0x7F) << 21)
+					if b < 128 {
 						return n, nil
 					}
 					if b, err = in.ReadByte(); err == nil {
-						n |= (int64(b) & 0x7F) << 28
-						if b >= 0 {
+						n |= (int64(b&0x7F) << 28)
+						if b < 128 {
 							return n, nil
 						}
 						if b, err = in.ReadByte(); err == nil {
-							n |= (int64(b) & 0x7F) << 35
-							if b >= 0 {
+							n |= (int64(b&0x7F) << 35)
+							if b < 128 {
 								return n, nil
 							}
 							if b, err = in.ReadByte(); err == nil {
-								n |= (int64(b) & 0x7F) << 42
-								if b >= 0 {
+								n |= (int64(b&0x7F) << 42)
+								if b < 128 {
 									return n, nil
 								}
 								if b, err = in.ReadByte(); err == nil {
-									n |= (int64(b) & 0x7F) << 49
-									if b >= 0 {
+									n |= (int64(b&0x7F) << 49)
+									if b < 128 {
 										return n, nil
 									}
 									if b, err = in.ReadByte(); err == nil {
-										n |= (int64(b) & 0x7F) << 56
-										if b >= 0 {
+										n |= (int64(b&0x7F) << 56)
+										if b < 128 {
 											return n, nil
 										}
 										return 0, errors.New("Invalid vLong detected (negative values disallowed)")

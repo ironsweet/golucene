@@ -186,26 +186,26 @@ func (in *BufferedIndexInput) ReadVInt() (n int32, err error) {
 	if 5 <= in.bufferLength-in.bufferPosition {
 		b := in.buffer[in.bufferPosition]
 		in.bufferPosition++
-		if b >= 0 {
+		if b < 128 {
 			return int32(b), nil
 		}
 		n := int32(b) & 0x7F
 		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
 		n |= (int32(b) & 0x7F) << 7
-		if b >= 0 {
+		if b < 128 {
 			return n, nil
 		}
 		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
 		n |= (int32(b) & 0x7F) << 14
-		if b >= 0 {
+		if b < 128 {
 			return n, nil
 		}
 		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
 		n |= (int32(b) & 0x7F) << 21
-		if b >= 0 {
+		if b < 128 {
 			return n, nil
 		}
 		b = in.buffer[in.bufferPosition]
@@ -221,59 +221,61 @@ func (in *BufferedIndexInput) ReadVInt() (n int32, err error) {
 }
 
 func (in *BufferedIndexInput) ReadVLong() (n int64, err error) {
+	log.Print("DEBUG ReadVLong() from buffer")
 	if 9 <= in.bufferLength-in.bufferPosition {
+		log.Print("DEBUG read from buffer")
 		b := in.buffer[in.bufferPosition]
 		in.bufferPosition++
-		if b >= 0 {
+		if b < 128 {
 			return int64(b), nil
 		}
-		n := int64(b) & 0x7F
+		n := int64(b & 0x7F)
 		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
-		n |= (int64(b) & 0x7F) << 7
-		if b >= 0 {
+		n |= (int64(b&0x7F) << 7)
+		if b < 128 {
 			return n, nil
 		}
 		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
-		n |= (int64(b) & 0x7F) << 14
-		if b >= 0 {
+		n |= (int64(b&0x7F) << 14)
+		if b < 128 {
 			return n, nil
 		}
 		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
-		n |= (int64(b) & 0x7F) << 21
-		if b >= 0 {
+		n |= (int64(b&0x7F) << 21)
+		if b < 128 {
 			return n, nil
 		}
 		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
-		n |= (int64(b) & 0x7F) << 28
-		if b >= 0 {
+		n |= (int64(b&0x7F) << 28)
+		if b < 128 {
 			return n, nil
 		}
 		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
-		n |= (int64(b) & 0x7F) << 35
-		if b >= 0 {
+		n |= (int64(b&0x7F) << 35)
+		if b < 128 {
 			return n, nil
 		}
 		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
-		n |= (int64(b) & 0x7F) << 42
-		if b >= 0 {
+		n |= (int64(b&0x7F) << 42)
+		if b < 128 {
 			return n, nil
 		}
 		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
-		n |= (int64(b) & 0x7F) << 49
-		if b >= 0 {
+		n |= (int64(b&0x7F) << 49)
+		if b < 128 {
 			return n, nil
 		}
 		b = in.buffer[in.bufferPosition]
 		in.bufferPosition++
-		n |= (int64(b) & 0x7F) << 56
-		if b >= 0 {
+		n |= (int64(b&0x7F) << 56)
+		if b < 128 {
 			return n, nil
 		}
 		return 0, errors.New("Invalid vLong detected (negative values disallowed)")
@@ -462,26 +464,26 @@ func (in *ByteArrayDataInput) ReadLong() (n int64, err error) {
 func (in *ByteArrayDataInput) ReadVInt() (n int32, err error) {
 	b := in.bytes[in.pos]
 	in.pos++
-	if b >= 0 {
+	if b < 128 {
 		return int32(b), nil
 	}
 	n = int32(b) & 0x7F
 	b = in.bytes[in.pos]
 	in.pos++
 	n |= (int32(b) & 0x7F) << 7
-	if b >= 0 {
+	if b < 128 {
 		return n, nil
 	}
 	b = in.bytes[in.pos]
 	in.pos++
 	n |= (int32(b) & 0x7F) << 14
-	if b >= 0 {
+	if b < 128 {
 		return n, nil
 	}
 	b = in.bytes[in.pos]
 	in.pos++
 	n |= (int32(b) & 0x7F) << 21
-	if b >= 0 {
+	if b < 128 {
 		return n, nil
 	}
 	b = in.bytes[in.pos]
@@ -495,58 +497,59 @@ func (in *ByteArrayDataInput) ReadVInt() (n int32, err error) {
 }
 
 func (in *ByteArrayDataInput) ReadVLong() (n int64, err error) {
+	log.Print("DEBUG ReadVLong from bytes")
 	b := in.bytes[in.pos]
 	in.pos++
-	if b >= 0 {
+	if b < 128 {
 		return int64(b), nil
 	}
-	n = int64(b) & 0x7F
+	n = int64(b & 0x7F)
 	b = in.bytes[in.pos]
 	in.pos++
-	n |= (int64(b) & 0x7F) << 7
-	if b >= 0 {
+	n |= (int64(b&0x7F) << 7)
+	if b < 128 {
 		return n, nil
 	}
 	b = in.bytes[in.pos]
 	in.pos++
-	n |= (int64(b) & 0x7F) << 14
-	if b >= 0 {
+	n |= (int64(b&0x7F) << 14)
+	if b < 128 {
 		return n, nil
 	}
 	b = in.bytes[in.pos]
 	in.pos++
-	n |= (int64(b) & 0x7F) << 21
-	if b >= 0 {
+	n |= (int64(b&0x7F) << 21)
+	if b < 128 {
 		return n, nil
 	}
 	b = in.bytes[in.pos]
 	in.pos++
-	n |= (int64(b) & 0x7F) << 28
-	if b >= 0 {
+	n |= (int64(b&0x7F) << 28)
+	if b < 128 {
 		return n, nil
 	}
 	b = in.bytes[in.pos]
 	in.pos++
-	n |= (int64(b) & 0x7F) << 35
-	if b >= 0 {
+	n |= (int64(b&0x7F) << 35)
+	if b < 128 {
 		return n, nil
 	}
 	b = in.bytes[in.pos]
 	in.pos++
-	n |= (int64(b) & 0x7F) << 42
-	if b >= 0 {
+	n |= (int64(b&0x7F) << 42)
+	if b < 128 {
 		return n, nil
 	}
 	b = in.bytes[in.pos]
 	in.pos++
-	n |= (int64(b) & 0x7F) << 49
-	if b >= 0 {
+	n |= (int64(b&0x7F) << 49)
+	if b < 128 {
 		return n, nil
 	}
 	b = in.bytes[in.pos]
 	in.pos++
-	n |= (int64(b) & 0x7F) << 56
-	if b >= 0 {
+	n |= (int64(b&0x7F) << 56)
+	if b < 128 {
 		return n, nil
 	}
 	return 0, errors.New("Invalid vLong detected (negative values disallowed)")

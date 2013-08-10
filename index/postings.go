@@ -146,6 +146,7 @@ func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info Se
 		if err != nil {
 			return fp, err
 		}
+		log.Printf("DocCount: %v", docCount)
 		if docCount < 0 || docCount > info.docCount { // #docs with field must be <= #docs
 			return fp, errors.New(fmt.Sprintf(
 				"invalid docCount: %v maxDoc: %v (resource=%v)",
