@@ -19,7 +19,9 @@ func TestLastCommitGeneration(t *testing.T) {
 	}
 	if files != nil {
 		genA := index.LastCommitGeneration(files)
-		assertEquals(t, 1, genA)
+		if genA != 1 {
+			t.Error("Should be 1, but was %v", genA)
+		}
 	}
 	// r, err := index.OpenDirectoryReader(d)
 	// if err != nil {
