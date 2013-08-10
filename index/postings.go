@@ -66,6 +66,7 @@ func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info Se
 	if err != nil {
 		return fp, err
 	}
+	log.Printf("Version: %v", fp.version)
 
 	if indexDivisor != -1 {
 		indexIn, err = dir.OpenInput(util.SegmentFileName(info.name, segmentSuffix, BTT_INDEX_EXTENSION), ctx)

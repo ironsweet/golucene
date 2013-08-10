@@ -39,6 +39,7 @@ var (
 		if err != nil {
 			return fi, err
 		}
+		log.Print("DEBUG ", input)
 
 		success := false
 		defer func() {
@@ -179,7 +180,7 @@ func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer,
 			state.segmentSuffix,
 			state.termsIndexDivisor)
 		if err != nil {
-			log.Print("DEBUG", err)
+			log.Print("DEBUG: ", err)
 			return fp, err
 		}
 		success = true

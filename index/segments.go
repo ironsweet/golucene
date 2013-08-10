@@ -100,6 +100,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	if termsIndexDivisor == 0 {
 		panic("indexDivisor must be < 0 (don't load terms index) or greater than 0 (got 0)")
 	}
+	log.Printf("Initializing SegmentCoreReaders from directory: %v", dir)
 
 	self = SegmentCoreReaders{refCount: 1}
 
@@ -142,6 +143,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	success := false
 	defer func() {
 		if !success {
+			log.Print("Failed to initialize SegmentCoreReaders.")
 			self.decRef()
 		}
 	}()
@@ -156,10 +158,12 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 		if err != nil {
 			return self, err
 		}
+		log.Printf("CompoundFileDirectory: %v", self.cfsReader)
 		cfsDir = self.cfsReader
 	} else {
 		cfsDir = dir
 	}
+	log.Printf("CFS Directory: %v", cfsDir)
 	log.Print("Reading FieldInfos...")
 	self.fieldInfos, err = codec.ReadFieldInfos(cfsDir, si.info.name, store.IO_CONTEXT_READONCE)
 	if err != nil {
