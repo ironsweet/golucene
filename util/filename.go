@@ -48,9 +48,9 @@ func SegmentFileName(name, suffix, ext string) string {
 	return name
 }
 
-func IndexOfSegmentName(filename string) int {
+func indexOfSegmentName(filename string) int {
 	// If it is a .del file, there's an '_' after the first character
-	if idx := strings.Index(filename, "_"); idx != -1 {
+	if idx := strings.Index(filename, "_"); idx > 1 {
 		return idx
 	}
 	// If it's not, strip everything that's before the '.'
@@ -58,14 +58,14 @@ func IndexOfSegmentName(filename string) int {
 }
 
 func StripSegmentName(filename string) string {
-	if idx := IndexOfSegmentName(filename); idx != -1 {
+	if idx := indexOfSegmentName(filename); idx != -1 {
 		return filename[idx:]
 	}
 	return filename
 }
 
 func ParseSegmentName(filename string) string {
-	if idx := IndexOfSegmentName(filename); idx != -1 {
+	if idx := indexOfSegmentName(filename); idx != -1 {
 		return filename[0:idx]
 	}
 	return filename

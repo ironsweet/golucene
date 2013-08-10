@@ -1,6 +1,8 @@
 package util
 
 import (
+	"errors"
+	"fmt"
 	"io"
 )
 
@@ -19,7 +21,7 @@ func CloseWhileHandlingError(priorErr error, objects ...io.Closer) error {
 		if object == nil {
 			continue
 		}
-		t := object.Close()
+		t := safeClose(object)
 		if t == nil {
 			continue
 		}
@@ -44,7 +46,7 @@ func CloseWhileSuppressingError(objects ...io.Closer) {
 		if object == nil {
 			continue
 		}
-		object.Close()
+		safeClose(object)
 	}
 }
 
@@ -55,7 +57,7 @@ func Close(objects ...io.Closer) error {
 		if object == nil {
 			continue
 		}
-		t := object.Close()
+		t := safeClose(object)
 		if t != nil {
 			addSuppressed(th, t)
 			if th == nil {
@@ -65,6 +67,15 @@ func Close(objects ...io.Closer) error {
 	}
 
 	return th
+}
+
+func safeClose(obj io.Closer) (err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			err = errors.New(fmt.Sprintf("%v", p))
+		}
+	}()
+	return obj.Close()
 }
 
 func addSuppressed(err error, suppressed error) error {
