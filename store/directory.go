@@ -223,15 +223,40 @@ type SlicedIndexInput struct {
 	length     int64
 }
 
-func newSlicedIndexInput(desc string, base IndexInput, fileOffset, length int64) SlicedIndexInput {
+func newSlicedIndexInput(desc string, base IndexInput, fileOffset, length int64) *SlicedIndexInput {
 	return newSlicedIndexInputBySize(desc, base, fileOffset, length, BUFFER_SIZE)
 }
 
-func newSlicedIndexInputBySize(desc string, base IndexInput, fileOffset, length int64, bufferSize int) SlicedIndexInput {
-	return SlicedIndexInput{
-		BufferedIndexInput: newBufferedIndexInputBySize(fmt.Sprintf(
-			"SlicedIndexInput(%v in %v slice=%v:%v)", desc, base, fileOffset, fileOffset+length), bufferSize),
-		base: base, fileOffset: fileOffset, length: length}
+func newSlicedIndexInputBySize(desc string, base IndexInput, fileOffset, length int64, bufferSize int) *SlicedIndexInput {
+	ans := &SlicedIndexInput{base: base, fileOffset: fileOffset, length: length}
+	super := newBufferedIndexInputBySize(fmt.Sprintf(
+		"SlicedIndexInput(%v in %v slice=%v:%v)", desc, base, fileOffset, fileOffset+length), bufferSize)
+	super.readInternal = func(buf []byte) (err error) {
+		start := super.FilePointer()
+		if start+int64(len(buf)) > ans.length {
+			return errors.New(fmt.Sprintf("read past EOF: %v", ans))
+		}
+		ans.base.Seek(ans.fileOffset + start)
+		return base.ReadBytesBuffered(buf, false)
+	}
+	super.seekInternal = func(pos int64) {}
+	super.close = func() error {
+		return ans.base.Close()
+	}
+	super.length = func() int64 {
+		return ans.length
+	}
+	ans.BufferedIndexInput = super
+	return ans
+}
+
+func (in *SlicedIndexInput) Clone() IndexInput {
+	return &SlicedIndexInput{
+		in.BufferedIndexInput.Clone().(*BufferedIndexInput),
+		in.base.Clone(),
+		in.fileOffset,
+		in.length,
+	}
 }
 
 type FSDirectory struct {

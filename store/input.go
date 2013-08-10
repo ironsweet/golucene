@@ -14,16 +14,8 @@ import (
 type IndexInput interface {
 	io.Closer
 	// util.DataInput
-	ReadByte() (b byte, err error)
-	ReadBytes(buf []byte) error
-	ReadShort() (n int16, err error)
-	ReadInt() (n int32, err error)
-	ReadVInt() (n int32, err error)
-	ReadLong() (n int64, err error)
-	ReadVLong() (n int64, err error)
-	ReadString() (s string, err error)
-	ReadStringStringMap() (m map[string]string, err error)
-	ReadStringSet() (m map[string]bool, err error)
+	util.DataInput
+	ReadBytesBuffered(buf []byte, useBuffer bool) error
 	// IndexInput
 	FilePointer() int64
 	Seek(pos int64)
