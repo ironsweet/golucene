@@ -1,7 +1,10 @@
 package store
 
 import (
+	"github.com/balzaczyy/golucene/codec"
+	"github.com/balzaczyy/golucene/util"
 	"math/rand"
+	"testing"
 )
 
 func newTestIOContext(r *rand.Rand) IOContext {
@@ -31,6 +34,20 @@ func newTestIOContextFrom(r *rand.Rand, oldContext IOContext) IOContext {
 	return context
 }
 
-func TestReadingFromSlicedIndexInput(t *tesitng.T) {
+func TestReadingFromSlicedIndexInputOSX(t *testing.T) {
+	path := "../search/testdata/osx/belfrysample"
+	d, err := OpenFSDirectory(path)
+	if err != nil {
+		t.Error(err)
+	}
+	ctx := NewIOContextBool(false)
+	cd, err := NewCompoundFileDirectory(d, "_0.cfs", ctx, false)
+	name := util.SegmentFileName("_0", "Lucene41_0", "pos")
+	posIn, err := cd.OpenInput(name, ctx)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(posIn)
+	codec.CheckHeader(posIn, "Lucene41PostingsWriterPos", 0, 0)
 	// codec header mismatch: actual header=0 vs expected header=1071082519 (resource: SlicedIndexInput(SlicedIndexInput(_0_Lucene41_0.pos in SimpleFSIndexInput(path='/private/tmp/kc/index/belfrysample/_0.cfs')) in SimpleFSIndexInput(path='/private/tmp/kc/index/belfrysample/_0.cfs') slice=1461:3426))
 }
