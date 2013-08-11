@@ -97,7 +97,6 @@ func (d *CompoundFileDirectory) OpenInput(name string, context IOContext) (in In
 	d.ensureOpen()
 	// assert !d.openForWrite
 	id := util.StripSegmentName(name)
-	log.Printf("DEBUG %v %v %v", name, id, d.entries)
 	if entry, ok := d.entries[id]; ok {
 		is := d.handle.openSlice(name, entry.offset, entry.length)
 		return is, nil

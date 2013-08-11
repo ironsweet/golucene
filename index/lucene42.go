@@ -168,6 +168,10 @@ func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer,
 		success := false
 		defer func() {
 			if !success {
+				log.Printf("Failed load FieldsProducer for %v.", name)
+				if err != nil {
+					log.Print("DEBUG ", err)
+				}
 				util.CloseWhileSuppressingError(postingsReader)
 			}
 		}()
@@ -392,6 +396,9 @@ func newPerFieldPostingsReader(state SegmentReadState) (fp FieldsProducer, err e
 	defer func() {
 		if !success {
 			log.Printf("Failed to initialize PerFieldPostingsReader.")
+			if err != nil {
+				log.Print("DEBUG ", err)
+			}
 			fps := make([]FieldsProducer, 0)
 			for _, v := range ans.formats {
 				fps = append(fps, v)

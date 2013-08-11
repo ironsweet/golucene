@@ -39,6 +39,10 @@ func NewLucene41PostingReader(dir store.Directory, fis FieldInfos, si SegmentInf
 	var docIn, posIn, payIn store.IndexInput = nil, nil, nil
 	defer func() {
 		if !success {
+			log.Print("Failed to initializing Lucene41PostingReader.")
+			if err != nil {
+				log.Print("DEBUG ", err)
+			}
 			util.CloseWhileSuppressingError(docIn, posIn, payIn)
 		}
 	}()
@@ -47,6 +51,7 @@ func NewLucene41PostingReader(dir store.Directory, fis FieldInfos, si SegmentInf
 	if err != nil {
 		return r, err
 	}
+	log.Print("DEBUG docIn: ", docIn)
 	_, err = codec.CheckHeader(docIn, LUCENE41_DOC_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
 	if err != nil {
 		return r, err
@@ -61,6 +66,7 @@ func NewLucene41PostingReader(dir store.Directory, fis FieldInfos, si SegmentInf
 		if err != nil {
 			return r, err
 		}
+		log.Print("DEBUG posIn: ", docIn)
 		_, err = codec.CheckHeader(posIn, LUCENE41_POS_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
 		if err != nil {
 			return r, err
@@ -71,6 +77,7 @@ func NewLucene41PostingReader(dir store.Directory, fis FieldInfos, si SegmentInf
 			if err != nil {
 				return r, err
 			}
+			log.Print("DEBUG payIn: ", payIn)
 			_, err = codec.CheckHeader(payIn, LUCENE41_PAY_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
 			if err != nil {
 				return r, err

@@ -30,3 +30,7 @@ func newTestIOContextFrom(r *rand.Rand, oldContext IOContext) IOContext {
 	}
 	return context
 }
+
+func TestReadingFromSlicedIndexInput(t *tesitng.T) {
+	// codec header mismatch: actual header=0 vs expected header=1071082519 (resource: SlicedIndexInput(SlicedIndexInput(_0_Lucene41_0.pos in SimpleFSIndexInput(path='/private/tmp/kc/index/belfrysample/_0.cfs')) in SimpleFSIndexInput(path='/private/tmp/kc/index/belfrysample/_0.cfs') slice=1461:3426))
+}

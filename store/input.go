@@ -74,6 +74,7 @@ func newBufferedIndexInputBySize(desc string, bufferSize int) *BufferedIndexInpu
 }
 
 func (in *BufferedIndexInput) ReadByte() (b byte, err error) {
+	log.Print("Reading byte from buffer...")
 	if in.bufferPosition >= in.bufferLength {
 		in.refill()
 	}
@@ -160,8 +161,8 @@ func (in *BufferedIndexInput) ReadShort() (n int16, err error) {
 }
 
 func (in *BufferedIndexInput) ReadInt() (n int32, err error) {
-	log.Print("Reading int from buffer...")
 	if 4 <= in.bufferLength-in.bufferPosition {
+		log.Print("Reading int from buffer...")
 		in.bufferPosition += 4
 		return (int32(in.buffer[in.bufferPosition-4]) << 24) | (int32(in.buffer[in.bufferPosition-3]) << 16) |
 			(int32(in.buffer[in.bufferPosition-2]) << 8) | int32(in.buffer[in.bufferPosition-1]), nil
@@ -285,6 +286,7 @@ func (in *BufferedIndexInput) ReadVLong() (n int64, err error) {
 
 // use panic/recover to handle error
 func (in *BufferedIndexInput) refill() error {
+	log.Print("Refilling buffer...")
 	start := in.bufferStart + int64(in.bufferPosition)
 	end := start + int64(in.bufferSize)
 	if end > in.Length() { // don't read past EOF
