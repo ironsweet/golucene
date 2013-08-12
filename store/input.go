@@ -74,7 +74,6 @@ func newBufferedIndexInputBySize(desc string, bufferSize int) *BufferedIndexInpu
 }
 
 func (in *BufferedIndexInput) ReadByte() (b byte, err error) {
-	log.Print("Reading byte from buffer...")
 	if in.bufferPosition >= in.bufferLength {
 		in.refill()
 	}
@@ -286,7 +285,6 @@ func (in *BufferedIndexInput) ReadVLong() (n int64, err error) {
 
 // use panic/recover to handle error
 func (in *BufferedIndexInput) refill() error {
-	log.Print("Refilling buffer...")
 	start := in.bufferStart + int64(in.bufferPosition)
 	end := start + int64(in.bufferSize)
 	if end > in.Length() { // don't read past EOF
@@ -383,6 +381,17 @@ func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *F
 		return nil
 	}
 	return in, nil
+}
+
+func (in *FSIndexInput) Clone() IndexInput {
+	clone := &(*in)
+	clone.BufferedIndexInput = in.BufferedIndexInput.Clone().(*BufferedIndexInput)
+	clone.isClone = true
+	return clone
+}
+
+func (in *FSIndexInput) String() string {
+	return fmt.Sprintf("%v, off=%v, end=%v", in.BufferedIndexInput.String(), in.off, in.end)
 }
 
 type ChecksumIndexInput struct {

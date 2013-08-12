@@ -66,7 +66,7 @@ func NewLucene41PostingReader(dir store.Directory, fis FieldInfos, si SegmentInf
 		if err != nil {
 			return r, err
 		}
-		log.Print("DEBUG posIn: ", docIn)
+		log.Print("DEBUG posIn: ", posIn)
 		_, err = codec.CheckHeader(posIn, LUCENE41_POS_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
 		if err != nil {
 			return r, err

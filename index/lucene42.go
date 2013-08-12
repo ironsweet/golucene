@@ -168,7 +168,7 @@ func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer,
 		success := false
 		defer func() {
 			if !success {
-				log.Printf("Failed load FieldsProducer for %v.", name)
+				log.Printf("Failed to load FieldsProducer for %v.", name)
 				if err != nil {
 					log.Print("DEBUG ", err)
 				}

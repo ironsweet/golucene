@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/codec"
+	"log"
 )
 
 type InputType int
@@ -93,6 +94,13 @@ func LoadFST(in DataInput, outputs Outputs) (fst *FST, err error) {
 }
 
 func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err error) {
+	log.Printf("Loading FST from: %v", in)
+	defer func() {
+		log.Print("Failed to load FST.")
+		if err != nil {
+			log.Printf("DEBUG ", err)
+		}
+	}()
 	fst = &FST{outputs: outputs, startNode: -1}
 
 	if maxBlockBits < 1 || maxBlockBits > 30 {
@@ -456,10 +464,14 @@ type ByteSequenceOutputs struct {
 	*abstractOutputs
 }
 
+var oneByteSequenceOutputs *ByteSequenceOutputs
+
 func ByteSequenceOutputsSingleton() *ByteSequenceOutputs {
-	ans := &ByteSequenceOutputs{}
-	ans.abstractOutputs = &abstractOutputs{ans}
-	return ans
+	if oneByteSequenceOutputs == nil {
+		oneByteSequenceOutputs := &ByteSequenceOutputs{}
+		oneByteSequenceOutputs.abstractOutputs = &abstractOutputs{oneByteSequenceOutputs}
+	}
+	return oneByteSequenceOutputs
 }
 
 func (out *ByteSequenceOutputs) Read(in DataInput) (e interface{}, err error) {

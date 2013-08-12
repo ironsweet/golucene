@@ -199,7 +199,7 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 				return mapping, errors.New(fmt.Sprintf(
 					"Duplicate cfs entry id=%v in CFS: %v", id, entriesStream))
 			}
-			log.Printf("Found entrye: %v", id)
+			log.Printf("Found entry: %v", id)
 			offset, err := entriesStream.ReadLong()
 			if err != nil {
 				return mapping, err
