@@ -8,7 +8,6 @@ import (
 	"hash/crc32"
 	"io"
 	"log"
-	"os"
 )
 
 type IndexInput interface {
@@ -348,50 +347,6 @@ func bufferSize(context IOContext) int {
 	default:
 		return BUFFER_SIZE
 	}
-}
-
-type FSIndexInput struct {
-	*BufferedIndexInput
-	file      *os.File
-	isClone   bool
-	chunkSize int
-	off       int64
-	end       int64
-}
-
-func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *FSIndexInput, err error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	super := newBufferedIndexInput(desc, context)
-	in = &FSIndexInput{super, f, false, chunkSize, 0, fi.Size()}
-	super.length = func() int64 {
-		return in.end - in.off
-	}
-	super.close = func() error {
-		// only close the file if this is not a clone
-		if !in.isClone {
-			in.file.Close()
-		}
-		return nil
-	}
-	return in, nil
-}
-
-func (in *FSIndexInput) Clone() IndexInput {
-	clone := &(*in)
-	clone.BufferedIndexInput = in.BufferedIndexInput.Clone().(*BufferedIndexInput)
-	clone.isClone = true
-	return clone
-}
-
-func (in *FSIndexInput) String() string {
-	return fmt.Sprintf("%v, off=%v, end=%v", in.BufferedIndexInput.String(), in.off, in.end)
 }
 
 type ChecksumIndexInput struct {

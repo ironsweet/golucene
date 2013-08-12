@@ -1,0 +1,137 @@
+package store
+
+import (
+	"errors"
+	"fmt"
+	"math"
+	"os"
+	"strconv"
+)
+
+type FSDirectory struct {
+	*DirectoryImpl
+	path      string
+	chunkSize int
+}
+
+// TODO support lock factory
+func newFSDirectory(self Directory, path string) (d *FSDirectory, err error) {
+	d = &FSDirectory{}
+	d.DirectoryImpl = newDirectoryImpl(self)
+	d.path = path
+	d.chunkSize = math.MaxInt32
+
+	if fi, err := os.Stat(path); err == nil && !fi.IsDir() {
+		return d, errors.New(fmt.Sprintf("file '%v' exists but is not a directory", path))
+	}
+
+	// TODO default to native lock factory
+	d.setLockFactory(NewSimpleFSLockFactory(path))
+	return d, nil
+}
+
+func OpenFSDirectory(path string) (d *FSDirectory, err error) {
+	// TODO support native implementations
+	super, err := NewSimpleFSDirectory(path)
+	if err != nil {
+		return nil, err
+	}
+	return super.FSDirectory, nil
+}
+
+func (d *FSDirectory) setLockFactory(lockFactory LockFactory) error {
+	d.DirectoryImpl.setLockFactory(lockFactory)
+
+	// for filesystem based LockFactory, delete the lockPrefix, if the locks are placed
+	// in index dir. If no index dir is given, set ourselves
+	if lf, ok := lockFactory.(*FSLockFactory); ok {
+		if lf.lockDir == "" {
+			lf.lockDir = d.path
+			lf.lockPrefix = ""
+		} else if lf.lockDir == d.path {
+			lf.lockPrefix = ""
+		}
+	}
+	return nil
+}
+
+func FSDirectoryListAll(path string) (paths []string, err error) {
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil, errors.New(fmt.Sprintf("directory '%v' does not exist", path))
+	} else if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if !fi.IsDir() {
+		return nil, errors.New(fmt.Sprintf("file '%v' exists but is not a directory", path))
+	}
+
+	// Exclude subdirs
+	return f.Readdirnames(0)
+}
+
+func (d *FSDirectory) ListAll() (paths []string, err error) {
+	d.ensureOpen()
+	return FSDirectoryListAll(d.path)
+}
+
+func (d *FSDirectory) FileExists(name string) bool {
+	d.ensureOpen()
+	_, err := os.Stat(name)
+	return err != nil
+}
+
+func (d *FSDirectory) getLockID() string {
+	d.ensureOpen()
+	var digest int
+	for _, ch := range d.path {
+		digest = 31*digest + int(ch)
+	}
+	return fmt.Sprintf("lucene-%v", strconv.FormatUint(uint64(digest), 10))
+}
+
+type FSIndexInput struct {
+	*BufferedIndexInput
+	file      *os.File
+	isClone   bool
+	chunkSize int
+	off       int64
+	end       int64
+}
+
+func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *FSIndexInput, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	super := newBufferedIndexInput(desc, context)
+	in = &FSIndexInput{super, f, false, chunkSize, 0, fi.Size()}
+	super.length = func() int64 {
+		return in.end - in.off
+	}
+	super.close = func() error {
+		// only close the file if this is not a clone
+		if !in.isClone {
+			in.file.Close()
+		}
+		return nil
+	}
+	return in, nil
+}
+
+func (in *FSIndexInput) Clone() IndexInput {
+	clone := &(*in)
+	clone.BufferedIndexInput = in.BufferedIndexInput.Clone().(*BufferedIndexInput)
+	clone.isClone = true
+	return clone
+}
+
+func (in *FSIndexInput) String() string {
+	return fmt.Sprintf("%v, off=%v, end=%v", in.BufferedIndexInput.String(), in.off, in.end)
+}
