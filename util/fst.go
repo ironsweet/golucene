@@ -35,7 +35,7 @@ const (
 )
 
 type Arc struct {
-	label           int32
+	label           int
 	output          interface{}
 	node            int64 // from node
 	target          int64 // to node
@@ -43,9 +43,9 @@ type Arc struct {
 	nextFinalOutput interface{}
 	nextArc         int64
 	posArcsStart    int64
-	bytesPerArc     uint32
-	arcIdx          int32
-	numArcs         uint32
+	bytesPerArc     int
+	arcIdx          int
+	numArcs         int
 }
 
 func newArcFrom(other Arc) Arc {
@@ -94,7 +94,7 @@ func LoadFST(in DataInput, outputs Outputs) (fst *FST, err error) {
 }
 
 func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err error) {
-	log.Printf("Loading FST from: %v", in)
+	log.Printf("Loading FST from %v and output to %v...", in, outputs)
 	defer func() {
 		log.Print("Failed to load FST.")
 		if err != nil {
@@ -124,13 +124,16 @@ func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err
 			// 1 KB blocks:
 			emptyBytes := newBytesStoreFromBits(10)
 			if numBytes, err := in.ReadVInt(); err == nil {
+				log.Printf("Number of bytes: %v", numBytes)
 				emptyBytes.CopyBytes(in, int64(numBytes))
 
 				// De-serialize empty-string output:
-				var reader *BytesReader
+				var reader BytesReader
 				if fst.packed {
+					log.Printf("Forward reader.")
 					reader = emptyBytes.forwardReader()
 				} else {
+					log.Printf("Reverse reader.")
 					reader = emptyBytes.reverseReader()
 					// NoOutputs uses 0 bytes when writing its output,
 					// so we have to check here else BytesStore gets
@@ -139,7 +142,8 @@ func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err
 						reader.setPosition(int64(numBytes - 1))
 					}
 				}
-				fst.emptyOutput, err = outputs.ReadFinalOutput(reader.DataInputImpl)
+				log.Printf("Reading final output from %v to %v...", reader, outputs)
+				fst.emptyOutput, err = outputs.ReadFinalOutput(reader)
 			}
 		} // else emptyOutput = nil
 	}
@@ -210,7 +214,7 @@ func (t *FST) cacheRootArcs() {
 		t.readFirstRealTargetArc(arc.target, &arc, in)
 		for {
 			// assert arc.label != END_LABEL
-			if arc.label >= int32(len(t.cachedRootArcs)) {
+			if arc.label >= len(t.cachedRootArcs) {
 				break
 			}
 			t.cachedRootArcs[arc.label] = newArcFrom(arc)
@@ -222,18 +226,18 @@ func (t *FST) cacheRootArcs() {
 	}
 }
 
-func (t *FST) readLabel(in DataInput) (v int32, err error) {
+func (t *FST) readLabel(in DataInput) (v int, err error) {
 	switch t.inputType {
 	case INPUT_TYPE_BYTE1: // Unsigned byte
 		if b, err := in.ReadByte(); err == nil {
-			v = int32(b)
+			v = int(b)
 		}
 	case INPUT_TYPE_BYTE2: // Unsigned short
 		if s, err := in.ReadShort(); err == nil {
-			v = int32(s)
+			v = int(s)
 		}
 	default:
-		v, err = in.ReadVInt()
+		v, err = AsInt(in.ReadVInt())
 	}
 	return v, err
 }
@@ -258,22 +262,22 @@ func (t *FST) getFirstArc(arc *Arc) *Arc {
 	return arc
 }
 
-func (t *FST) readUnpackedNodeTarget(in *BytesReader) (target int64, err error) {
+func (t *FST) readUnpackedNodeTarget(in BytesReader) (target int64, err error) {
 	if t.version < FST_VERSION_VINT_TARGET {
 		return AsInt64(in.ReadInt())
 	}
 	return in.ReadVLong()
 }
 
-func AsUint32(n int32, err error) (n2 uint32, err2 error) {
-	return uint32(n), err
+func AsInt(n int32, err error) (n2 int, err2 error) {
+	return int(n), err
 }
 
 func AsInt64(n int32, err error) (n2 int64, err2 error) {
 	return int64(n), err
 }
 
-func (t *FST) readFirstRealTargetArc(node int64, arc *Arc, in *BytesReader) (ans *Arc, err error) {
+func (t *FST) readFirstRealTargetArc(node int64, arc *Arc, in BytesReader) (ans *Arc, err error) {
 	address := t.getNodeAddress(node)
 	in.setPosition(address)
 	arc.node = node
@@ -284,14 +288,14 @@ func (t *FST) readFirstRealTargetArc(node int64, arc *Arc, in *BytesReader) (ans
 	}
 	if flag == FST_ARCS_AS_FIXED_ARRAY {
 		// this is first arc in a fixed-array
-		arc.numArcs, err = AsUint32(in.ReadVInt())
+		arc.numArcs, err = AsInt(in.ReadVInt())
 		if err != nil {
 			return nil, err
 		}
 		if t.packed || t.version >= FST_VERSION_VINT_TARGET {
-			arc.bytesPerArc, err = AsUint32(in.ReadVInt())
+			arc.bytesPerArc, err = AsInt(in.ReadVInt())
 		} else {
-			arc.bytesPerArc, err = AsUint32(in.ReadInt())
+			arc.bytesPerArc, err = AsInt(in.ReadInt())
 		}
 		if err != nil {
 			return nil, err
@@ -308,7 +312,7 @@ func (t *FST) readFirstRealTargetArc(node int64, arc *Arc, in *BytesReader) (ans
 	return t.readNextRealArc(arc, in)
 }
 
-func (t *FST) readNextRealArc(arc *Arc, in *BytesReader) (ans *Arc, err error) {
+func (t *FST) readNextRealArc(arc *Arc, in BytesReader) (ans *Arc, err error) {
 	// TODO: can't assert this because we call from readFirstArc
 	// assert !flag(arc.flags, BIT_LAST_ARC);
 
@@ -317,19 +321,19 @@ func (t *FST) readNextRealArc(arc *Arc, in *BytesReader) (ans *Arc, err error) {
 		arc.arcIdx++
 		// assert arc.arcIdx < arc.numArcs
 		in.setPosition(arc.posArcsStart)
-		in.skipBytes(arc.arcIdx * int32(arc.bytesPerArc))
+		in.skipBytes(int(arc.arcIdx * arc.bytesPerArc))
 	} else { // arcs are packed
 		in.setPosition(arc.nextArc)
 	}
 	if arc.flags, err = in.ReadByte(); err == nil {
-		arc.label, err = t.readLabel(in.DataInputImpl)
+		arc.label, err = t.readLabel(in)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if arc.flag(FST_BIT_ARC_HAS_OUTPUT) {
-		arc.output, err = t.outputs.Read(in.DataInputImpl)
+		arc.output, err = t.outputs.Read(in)
 		if err != nil {
 			return nil, err
 		}
@@ -338,7 +342,7 @@ func (t *FST) readNextRealArc(arc *Arc, in *BytesReader) (ans *Arc, err error) {
 	}
 
 	if arc.flag(FST_BIT_ARC_HAS_FINAL_OUTPUT) {
-		arc.nextFinalOutput, err = t.outputs.ReadFinalOutput(in.DataInputImpl)
+		arc.nextFinalOutput, err = t.outputs.ReadFinalOutput(in)
 		if err != nil {
 			return nil, err
 		}
@@ -363,7 +367,7 @@ func (t *FST) readNextRealArc(arc *Arc, in *BytesReader) (ans *Arc, err error) {
 					t.seekToNextNode(in)
 				} else {
 					in.setPosition(arc.posArcsStart)
-					in.skipBytes(int32(arc.bytesPerArc * arc.numArcs))
+					in.skipBytes(arc.bytesPerArc * arc.numArcs)
 				}
 			}
 			arc.target = in.getPosition()
@@ -396,19 +400,19 @@ func (t *FST) readNextRealArc(arc *Arc, in *BytesReader) (ans *Arc, err error) {
 	return arc, nil
 }
 
-func (t *FST) seekToNextNode(in *BytesReader) error {
+func (t *FST) seekToNextNode(in BytesReader) error {
 	var err error
 	var flags byte
 	for {
 		if flags, err = in.ReadByte(); err == nil {
-			_, err = t.readLabel(in.DataInputImpl)
+			_, err = t.readLabel(in)
 		}
 		if err != nil {
 			return err
 		}
 
 		if hasFlag(flags, FST_BIT_ARC_HAS_OUTPUT) {
-			_, err = t.outputs.Read(in.DataInputImpl)
+			_, err = t.outputs.Read(in)
 			if err != nil {
 				return err
 			}
@@ -431,19 +435,24 @@ func (t *FST) seekToNextNode(in *BytesReader) error {
 	}
 }
 
-func (t *FST) getBytesReader() *BytesReader {
+func (t *FST) getBytesReader() BytesReader {
 	if t.packed {
 		return t.bytes.forwardReader()
 	}
 	return t.bytes.reverseReader()
 }
 
-type BytesReader struct {
-	*DataInputImpl
-	getPosition func() int64
-	setPosition func(pos int64)
-	reversed    func() bool
-	skipBytes   func(count int32)
+type RandomAccess interface {
+	getPosition() int64
+	setPosition(pos int64)
+	reversed() bool
+	skipBytes(count int)
+}
+
+type BytesReader interface {
+	// *DataInputImpl
+	DataInput
+	RandomAccess
 }
 
 type Outputs interface {
@@ -457,6 +466,7 @@ type abstractOutputs struct {
 }
 
 func (out *abstractOutputs) ReadFinalOutput(in DataInput) (e interface{}, err error) {
+	log.Printf("Reading final output from %v...", in)
 	return out.Outputs.Read(in)
 }
 
@@ -468,14 +478,16 @@ var oneByteSequenceOutputs *ByteSequenceOutputs
 
 func ByteSequenceOutputsSingleton() *ByteSequenceOutputs {
 	if oneByteSequenceOutputs == nil {
-		oneByteSequenceOutputs := &ByteSequenceOutputs{}
+		oneByteSequenceOutputs = &ByteSequenceOutputs{}
 		oneByteSequenceOutputs.abstractOutputs = &abstractOutputs{oneByteSequenceOutputs}
 	}
 	return oneByteSequenceOutputs
 }
 
 func (out *ByteSequenceOutputs) Read(in DataInput) (e interface{}, err error) {
+	log.Printf("Reading from %v...", in)
 	if length, err := in.ReadVInt(); err == nil {
+		log.Printf("Length: %v", length)
 		if length == 0 {
 			e = out.NoOutput()
 		} else {
@@ -483,10 +495,16 @@ func (out *ByteSequenceOutputs) Read(in DataInput) (e interface{}, err error) {
 			e = buf
 			err = in.ReadBytes(buf)
 		}
+	} else {
+		log.Printf("Failed to read length due to %v", err)
 	}
 	return e, err
 }
 
 func (out *ByteSequenceOutputs) NoOutput() interface{} {
 	return nil
+}
+
+func (out *ByteSequenceOutputs) String() string {
+	return "ByteSequenceOutputs"
 }

@@ -1,6 +1,8 @@
 package util
 
-import ()
+import (
+	"log"
+)
 
 type BytesStore struct {
 	*DataOutput
@@ -91,7 +93,7 @@ func newBytesStoreFromInput(in DataInput, numBytes int64, maxBlockSize uint32) (
 }
 
 type BytesStoreForwardReader struct {
-	*BytesReader
+	*DataInputImpl
 	owner      *BytesStore
 	current    []byte
 	nextBuffer uint32
@@ -132,35 +134,41 @@ func (r *BytesStoreForwardReader) ReadBytes(buf []byte) error {
 	return nil
 }
 
-func (bs *BytesStore) forwardReader() *BytesReader {
+func (r *BytesStoreForwardReader) skipBytes(count int) {
+	r.setPosition(r.getPosition() + int64(count))
+}
+
+func (r *BytesStoreForwardReader) getPosition() int64 {
+	return (int64(r.nextBuffer)-1)*int64(r.owner.blockSize) + int64(r.nextRead)
+}
+
+func (r *BytesStoreForwardReader) setPosition(pos int64) {
+	bufferIndex := pos >> r.owner.blockBits
+	r.nextBuffer = uint32(bufferIndex + 1)
+	r.current = r.owner.blocks[bufferIndex]
+	r.nextRead = uint32(pos) & r.owner.blockMask
+	// assert self.getPosition() == pos
+}
+
+func (r *BytesStoreForwardReader) reversed() bool {
+	return false
+}
+
+func (bs *BytesStore) forwardReader() BytesReader {
 	if len(bs.blocks) == 1 {
 		return newForwardBytesReader(bs.blocks[0])
 	}
-	self := &BytesStoreForwardReader{owner: bs, nextRead: bs.blockSize}
-	self.BytesReader = &BytesReader{
-		skipBytes: func(count int32) {
-			self.setPosition(self.getPosition() + int64(count))
-		}, getPosition: func() int64 {
-			return (int64(self.nextBuffer)-1)*int64(bs.blockSize) + int64(self.nextRead)
-		}, setPosition: func(pos int64) {
-			bufferIndex := pos >> bs.blockBits
-			self.nextBuffer = uint32(bufferIndex + 1)
-			self.current = bs.blocks[bufferIndex]
-			self.nextRead = uint32(pos) & bs.blockMask
-			// assert self.getPosition() == pos
-		}, reversed: func() bool {
-			return false
-		}}
-	self.DataInputImpl = &DataInputImpl{self.BytesReader}
-	return self.BytesReader
+	ans := &BytesStoreForwardReader{owner: bs, nextRead: bs.blockSize}
+	ans.DataInputImpl = &DataInputImpl{ans}
+	return ans
 }
 
-func (bs *BytesStore) reverseReader() *BytesReader {
+func (bs *BytesStore) reverseReader() BytesReader {
 	return bs.reverseReaderAllowSingle(true)
 }
 
 type BytesStoreReverseReader struct {
-	*BytesReader
+	*DataInputImpl
 	owner      *BytesStore
 	current    []byte
 	nextBuffer int32
@@ -188,41 +196,48 @@ func (r *BytesStoreReverseReader) ReadBytes(buf []byte) error {
 	return err
 }
 
-func (bs *BytesStore) reverseReaderAllowSingle(allowSingle bool) *BytesReader {
+func (r *BytesStoreReverseReader) skipBytes(count int) {
+	r.setPosition(r.getPosition() - int64(count))
+}
+
+func (r *BytesStoreReverseReader) getPosition() int64 {
+	return (int64(r.nextBuffer)+1)*int64(r.owner.blockSize) + int64(r.nextRead)
+}
+
+func (r *BytesStoreReverseReader) setPosition(pos int64) {
+	// NOTE: a little weird because if you
+	// setPosition(0), the next byte you read is
+	// bytes[0] ... but I would expect bytes[-1] (ie,
+	// EOF)...?
+	bufferIndex := int32(pos >> r.owner.blockSize)
+	r.nextBuffer = bufferIndex - 1
+	r.current = r.owner.blocks[bufferIndex]
+	r.nextRead = int32(uint32(pos) & r.owner.blockMask)
+	// assert getPosition() == pos
+}
+
+func (r *BytesStoreReverseReader) reversed() bool {
+	return true
+}
+
+func (bs *BytesStore) reverseReaderAllowSingle(allowSingle bool) BytesReader {
 	if allowSingle && len(bs.blocks) == 1 {
+		log.Print("DEBUG Single block.")
 		return newReverseBytesReader(bs.blocks[0])
 	}
 	var current []byte = nil
 	if len(bs.blocks) > 0 {
 		current = bs.blocks[0]
 	}
-	self := &BytesStoreReverseReader{current: current, nextBuffer: -1, nextRead: 0}
-	self.BytesReader = &BytesReader{
-		skipBytes: func(count int32) {
-			self.setPosition(self.getPosition() - int64(count))
-		}, getPosition: func() int64 {
-			return (int64(self.nextBuffer)+1)*int64(bs.blockSize) + int64(self.nextRead)
-		}, setPosition: func(pos int64) {
-			// NOTE: a little weird because if you
-			// setPosition(0), the next byte you read is
-			// bytes[0] ... but I would expect bytes[-1] (ie,
-			// EOF)...?
-			bufferIndex := int32(pos >> bs.blockSize)
-			self.nextBuffer = bufferIndex - 1
-			self.current = bs.blocks[bufferIndex]
-			self.nextRead = int32(uint32(pos) & bs.blockMask)
-			// assert getPosition() == pos
-		}, reversed: func() bool {
-			return true
-		}}
-	self.DataInputImpl = &DataInputImpl{self.BytesReader}
-	return self.BytesReader
+	ans := &BytesStoreReverseReader{current: current, nextBuffer: -1, nextRead: 0}
+	ans.DataInputImpl = &DataInputImpl{ans}
+	return ans
 }
 
 type ForwardBytesReader struct {
-	*BytesReader
+	*DataInputImpl
 	bytes []byte
-	pos   int32
+	pos   int
 }
 
 func (r *ForwardBytesReader) ReadByte() (b byte, err error) {
@@ -231,31 +246,37 @@ func (r *ForwardBytesReader) ReadByte() (b byte, err error) {
 }
 
 func (r *ForwardBytesReader) ReadBytes(buf []byte) error {
-	copy(buf, r.bytes[r.pos:r.pos+int32(len(buf))])
-	r.pos += int32(len(buf))
+	copy(buf, r.bytes[r.pos:r.pos+len(buf)])
+	r.pos += len(buf)
 	return nil
 }
 
-func newForwardBytesReader(bytes []byte) *BytesReader {
-	self := &ForwardBytesReader{bytes: bytes}
-	self.BytesReader = &BytesReader{
-		skipBytes: func(count int32) {
-			self.pos += count
-		}, getPosition: func() int64 {
-			return int64(self.pos)
-		}, setPosition: func(pos int64) {
-			self.pos = int32(pos)
-		}, reversed: func() bool {
-			return false
-		}}
-	self.DataInputImpl = &DataInputImpl{self.BytesReader}
-	return self.BytesReader
+func (r *ForwardBytesReader) skipBytes(count int) {
+	r.pos += count
+}
+
+func (r *ForwardBytesReader) getPosition() int64 {
+	return int64(r.pos)
+}
+
+func (r *ForwardBytesReader) setPosition(pos int64) {
+	r.pos = int(pos)
+}
+
+func (r *ForwardBytesReader) reversed() bool {
+	return false
+}
+
+func newForwardBytesReader(bytes []byte) BytesReader {
+	ans := &ForwardBytesReader{bytes: bytes}
+	ans.DataInputImpl = &DataInputImpl{ans}
+	return ans
 }
 
 type ReverseBytesReader struct {
-	*BytesReader
+	*DataInputImpl
 	bytes []byte
-	pos   int32
+	pos   int
 }
 
 func (r *ReverseBytesReader) ReadByte() (b byte, err error) {
@@ -271,18 +292,24 @@ func (r *ReverseBytesReader) ReadBytes(buf []byte) error {
 	return nil
 }
 
-func newReverseBytesReader(bytes []byte) *BytesReader {
-	self := &ReverseBytesReader{bytes: bytes}
-	self.BytesReader = &BytesReader{
-		skipBytes: func(count int32) {
-			self.pos -= count
-		}, getPosition: func() int64 {
-			return int64(self.pos)
-		}, setPosition: func(pos int64) {
-			self.pos = int32(pos)
-		}, reversed: func() bool {
-			return true
-		}}
-	self.DataInputImpl = &DataInputImpl{self.BytesReader}
-	return self.BytesReader
+func newReverseBytesReader(bytes []byte) BytesReader {
+	ans := &ReverseBytesReader{bytes: bytes}
+	ans.DataInputImpl = &DataInputImpl{ans}
+	return ans
+}
+
+func (r *ReverseBytesReader) skipBytes(count int) {
+	r.pos -= count
+}
+
+func (r *ReverseBytesReader) getPosition() int64 {
+	return int64(r.pos)
+}
+
+func (r *ReverseBytesReader) setPosition(pos int64) {
+	r.pos = int(pos)
+}
+
+func (r *ReverseBytesReader) reversed() bool {
+	return true
 }
