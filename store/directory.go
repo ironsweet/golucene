@@ -228,15 +228,7 @@ func newSlicedIndexInputBySize(desc string, base IndexInput, fileOffset, length 
 	ans := &SlicedIndexInput{base: base, fileOffset: fileOffset, length: length}
 	super := newBufferedIndexInputBySize(fmt.Sprintf(
 		"SlicedIndexInput(%v in %v slice=%v:%v)", desc, base, fileOffset, fileOffset+length), bufferSize)
-	super.readInternal = func(buf []byte) (err error) {
-		start := super.FilePointer()
-		if start+int64(len(buf)) > ans.length {
-			return errors.New(fmt.Sprintf("read past EOF: %v", ans))
-		}
-		ans.base.Seek(ans.fileOffset + start)
-		return base.ReadBytesBuffered(buf, false)
-	}
-	super.seekInternal = func(pos int64) {}
+	super.SeekReader = ans
 	super.close = func() error {
 		return ans.base.Close()
 	}
@@ -245,6 +237,18 @@ func newSlicedIndexInputBySize(desc string, base IndexInput, fileOffset, length 
 	}
 	ans.BufferedIndexInput = super
 	return ans
+}
+
+func (in *SlicedIndexInput) readInternal(buf []byte) (err error) {
+	start := in.FilePointer()
+	if start+int64(len(buf)) > in.length {
+		return errors.New(fmt.Sprintf("read past EOF: %v", in))
+	}
+	in.base.Seek(in.fileOffset + start)
+	return in.base.ReadBytesBuffered(buf, false)
+}
+
+func (in *SlicedIndexInput) seekInternal(pos int64) {
 }
 
 func (in *SlicedIndexInput) Clone() IndexInput {

@@ -218,20 +218,11 @@ type MyBufferedIndexInput struct {
 	length int64
 }
 
-func newMyBufferedIndexInput(length int64) MyBufferedIndexInput {
-	ans := MyBufferedIndexInput{pos: 0, length: length}
+func newMyBufferedIndexInput(length int64) *MyBufferedIndexInput {
+	ans := &MyBufferedIndexInput{pos: 0, length: length}
 	ans.BufferedIndexInput = newBufferedIndexInputBySize(fmt.Sprintf(
 		"MyBufferedIndexInput(len=%v)", length), BUFFER_SIZE)
-	ans.BufferedIndexInput.readInternal = func(buf []byte) error {
-		for i, _ := range buf {
-			buf[i] = byten(ans.pos)
-			ans.pos++
-		}
-		return nil
-	}
-	ans.BufferedIndexInput.seekInternal = func(pos int64) {
-		ans.pos = pos
-	}
+	ans.SeekReader = ans
 	ans.BufferedIndexInput.close = func() error {
 		return nil
 	}
@@ -239,4 +230,16 @@ func newMyBufferedIndexInput(length int64) MyBufferedIndexInput {
 		return ans.length
 	}
 	return ans
+}
+
+func (in *MyBufferedIndexInput) readInternal(buf []byte) error {
+	for i, _ := range buf {
+		buf[i] = byten(in.pos)
+		in.pos++
+	}
+	return nil
+}
+
+func (in *MyBufferedIndexInput) seekInternal(pos int64) {
+	in.pos = pos
 }

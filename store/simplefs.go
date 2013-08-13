@@ -74,40 +74,45 @@ func newSimpleFSIndexInput(desc, path string, context IOContext, chunkSize int) 
 		return nil, err
 	}
 	in = &SimpleFSIndexInput{super, &sync.Mutex{}}
-	super.readInternal = func(buf []byte) error {
-		length := len(buf)
-		in.fileLock.Lock()
-		defer in.fileLock.Unlock()
-
-		// TODO make use of Go's relative Seek or ReadAt function
-		position := in.off + in.FilePointer()
-		_, err := in.file.Seek(position, 0)
-		if err != nil {
-			return err
-		}
-
-		if position+int64(length) > in.end {
-			return errors.New(fmt.Sprintf("read past EOF: %v", in))
-		}
-
-		total := 0
-		for {
-			readLength := length - total
-			if in.chunkSize < readLength {
-				readLength = in.chunkSize
-			}
-			// FIXME verify slice is working
-			i, err := in.file.Read(buf[total : total+readLength])
-			if err != nil {
-				return errors.New(fmt.Sprintf("%v: %v", err, in))
-			}
-			total += i
-			if total >= length {
-				break
-			}
-		}
-		return nil
-	}
-	super.seekInternal = func(position int64) {}
+	in.SeekReader = in
 	return in, nil
+}
+
+func (in *SimpleFSIndexInput) readInternal(buf []byte) error {
+	length := len(buf)
+	in.fileLock.Lock()
+	defer in.fileLock.Unlock()
+
+	// TODO make use of Go's relative Seek or ReadAt function
+	position := in.off + in.FilePointer()
+	_, err := in.file.Seek(position, 0)
+	if err != nil {
+		return err
+	}
+
+	if position+int64(length) > in.end {
+		return errors.New(fmt.Sprintf("read past EOF: %v", in))
+	}
+
+	total := 0
+	for {
+		readLength := length - total
+		if in.chunkSize < readLength {
+			readLength = in.chunkSize
+		}
+		// FIXME verify slice is working
+		i, err := in.file.Read(buf[total : total+readLength])
+		if err != nil {
+			return errors.New(fmt.Sprintf("%v: %v", err, in))
+		}
+		total += i
+		if total >= length {
+			break
+		}
+	}
+	return nil
+}
+
+func (in *SimpleFSIndexInput) seekInternal(pos int64) {
+
 }

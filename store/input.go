@@ -50,15 +50,19 @@ func (in *IndexInputImpl) String() string {
 	return in.desc
 }
 
+type SeekReader interface {
+	seekInternal(pos int64)
+	readInternal(buf []byte) error
+}
+
 type BufferedIndexInput struct {
 	*IndexInputImpl
+	SeekReader
 	bufferSize     int
 	buffer         []byte
 	bufferStart    int64
 	bufferLength   int
 	bufferPosition int
-	seekInternal   func(pos int64)
-	readInternal   func(buf []byte) error
 }
 
 func newBufferedIndexInput(desc string, context IOContext) *BufferedIndexInput {
