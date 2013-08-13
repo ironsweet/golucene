@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"log"
 )
 
@@ -90,6 +91,10 @@ func newBytesStoreFromInput(in DataInput, numBytes int64, maxBlockSize uint32) (
 	// So .getPosition still works
 	self.nextWrite = uint32(len(self.blocks[len(self.blocks)-1]))
 	return self, nil
+}
+
+func (s *BytesStore) String() string {
+	return fmt.Sprintf("%v-bits x%v bytes store", s.blockBits, len(s.blocks))
 }
 
 type BytesStoreForwardReader struct {
@@ -312,4 +317,8 @@ func (r *ReverseBytesReader) setPosition(pos int64) {
 
 func (r *ReverseBytesReader) reversed() bool {
 	return true
+}
+
+func (r *ReverseBytesReader) String() string {
+	return fmt.Sprintf("BytesReader(reversed, [%v,%v])", r.pos, len(r.bytes))
 }
