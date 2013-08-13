@@ -129,9 +129,13 @@ func (in *FSIndexInput) Close() error {
 }
 
 func (in *FSIndexInput) Clone() IndexInput {
-	clone := &(*in)
-	clone.BufferedIndexInput = in.BufferedIndexInput.Clone().(*BufferedIndexInput)
-	clone.isClone = true
+	clone := &FSIndexInput{
+		in.BufferedIndexInput.Clone().(*BufferedIndexInput),
+		in.file,
+		true,
+		in.chunkSize,
+		in.off,
+		in.end}
 	clone.LengthCloser = clone
 	return clone
 }

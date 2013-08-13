@@ -116,3 +116,9 @@ func (in *SimpleFSIndexInput) readInternal(buf []byte) error {
 func (in *SimpleFSIndexInput) seekInternal(pos int64) {
 
 }
+
+func (in *SimpleFSIndexInput) Clone() IndexInput {
+	ans := &SimpleFSIndexInput{in.FSIndexInput.Clone().(*FSIndexInput), &sync.Mutex{}}
+	ans.SeekReader = ans
+	return ans
+}

@@ -320,13 +320,27 @@ func (in *BufferedIndexInput) Seek(pos int64) {
 	}
 }
 
+// type BufferedIndexInput struct {
+// 	*IndexInputImpl
+// 	bufferSize     int
+// 	buffer         []byte
+// 	bufferStart    int64
+// 	bufferLength   int
+// 	bufferPosition int
+// 	seekInternal   func(pos int64)
+// 	readInternal   func(buf []byte) error
+// }
+
 func (in *BufferedIndexInput) Clone() IndexInput {
-	var clone BufferedIndexInput = *in
-	clone.buffer = nil
-	clone.bufferLength = 0
-	clone.bufferPosition = 0
-	clone.bufferStart = in.FilePointer()
-	return &clone
+	ans := &BufferedIndexInput{
+		bufferSize:     in.bufferSize,
+		buffer:         nil,
+		bufferStart:    in.FilePointer(),
+		bufferLength:   0,
+		bufferPosition: 0,
+	}
+	ans.IndexInputImpl = newIndexInputImpl(in.desc, ans)
+	return ans
 }
 
 const (
