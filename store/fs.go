@@ -111,24 +111,28 @@ func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *F
 		return nil, err
 	}
 	super := newBufferedIndexInput(desc, context)
-	in = &FSIndexInput{super, f, false, chunkSize, 0, fi.Size()}
-	super.length = func() int64 {
-		return in.end - in.off
+	ans := &FSIndexInput{super, f, false, chunkSize, 0, fi.Size()}
+	ans.LengthCloser = ans
+	return ans, nil
+}
+
+func (in *FSIndexInput) Length() int64 {
+	return in.end - in.off
+}
+
+func (in *FSIndexInput) Close() error {
+	// only close the file if this is not a clone
+	if !in.isClone {
+		in.file.Close()
 	}
-	super.close = func() error {
-		// only close the file if this is not a clone
-		if !in.isClone {
-			in.file.Close()
-		}
-		return nil
-	}
-	return in, nil
+	return nil
 }
 
 func (in *FSIndexInput) Clone() IndexInput {
 	clone := &(*in)
 	clone.BufferedIndexInput = in.BufferedIndexInput.Clone().(*BufferedIndexInput)
 	clone.isClone = true
+	clone.LengthCloser = clone
 	return clone
 }
 

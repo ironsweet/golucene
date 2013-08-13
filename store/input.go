@@ -23,11 +23,15 @@ type IndexInput interface {
 	Clone() IndexInput
 }
 
+type LengthCloser interface {
+	Close() error
+	Length() int64
+}
+
 type IndexInputImpl struct {
 	*util.DataInputImpl
-	desc   string
-	close  func() error
-	length func() int64
+	LengthCloser
+	desc string
 }
 
 func newIndexInputImpl(desc string, r util.DataReader) *IndexInputImpl {
@@ -36,14 +40,6 @@ func newIndexInputImpl(desc string, r util.DataReader) *IndexInputImpl {
 	}
 	super := &util.DataInputImpl{r}
 	return &IndexInputImpl{DataInputImpl: super, desc: desc}
-}
-
-func (in *IndexInputImpl) Length() int64 {
-	return in.length()
-}
-
-func (in *IndexInputImpl) Close() error {
-	return in.close()
 }
 
 func (in *IndexInputImpl) String() string {

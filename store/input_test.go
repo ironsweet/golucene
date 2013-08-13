@@ -223,12 +223,7 @@ func newMyBufferedIndexInput(length int64) *MyBufferedIndexInput {
 	ans.BufferedIndexInput = newBufferedIndexInputBySize(fmt.Sprintf(
 		"MyBufferedIndexInput(len=%v)", length), BUFFER_SIZE)
 	ans.SeekReader = ans
-	ans.BufferedIndexInput.close = func() error {
-		return nil
-	}
-	ans.BufferedIndexInput.length = func() int64 {
-		return ans.length
-	}
+	ans.LengthCloser = ans
 	return ans
 }
 
@@ -242,4 +237,12 @@ func (in *MyBufferedIndexInput) readInternal(buf []byte) error {
 
 func (in *MyBufferedIndexInput) seekInternal(pos int64) {
 	in.pos = pos
+}
+
+func (in *MyBufferedIndexInput) Close() error {
+	return nil
+}
+
+func (in *MyBufferedIndexInput) Length() int64 {
+	return in.length
 }

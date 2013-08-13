@@ -229,12 +229,7 @@ func newSlicedIndexInputBySize(desc string, base IndexInput, fileOffset, length 
 	super := newBufferedIndexInputBySize(fmt.Sprintf(
 		"SlicedIndexInput(%v in %v slice=%v:%v)", desc, base, fileOffset, fileOffset+length), bufferSize)
 	super.SeekReader = ans
-	super.close = func() error {
-		return ans.base.Close()
-	}
-	super.length = func() int64 {
-		return ans.length
-	}
+	super.LengthCloser = ans
 	ans.BufferedIndexInput = super
 	return ans
 }
@@ -249,6 +244,14 @@ func (in *SlicedIndexInput) readInternal(buf []byte) (err error) {
 }
 
 func (in *SlicedIndexInput) seekInternal(pos int64) {
+}
+
+func (in *SlicedIndexInput) Close() error {
+	return in.base.Close()
+}
+
+func (in *SlicedIndexInput) Length() int64 {
+	return in.length
 }
 
 func (in *SlicedIndexInput) Clone() IndexInput {
