@@ -381,7 +381,7 @@ func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string)
 		}
 	} else {
 		// TODO support <4.0 index
-		panic("not supported yet")
+		panic("Index format pre-4.0 not supported yet")
 	}
 
 	checksumNow := int64(input.Checksum())

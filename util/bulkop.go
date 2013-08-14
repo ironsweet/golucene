@@ -184,7 +184,7 @@ type BulkOperationPackedSingleBlock struct {
 const BLOCK_COUNT = 1
 
 func newBulkOperationPackedSingleBlock(bitsPerValue uint32) *BulkOperation {
-	log.Printf("Initializing BulkOperationPackedSingleBlock(%v)", bitsPerValue)
+	// log.Printf("Initializing BulkOperationPackedSingleBlock(%v)", bitsPerValue)
 	self := &BulkOperationPackedSingleBlock{
 		bitsPerValue: bitsPerValue,
 		valueCount:   64 / int(bitsPerValue),
@@ -301,7 +301,7 @@ var (
 )
 
 func newBulkOperation(format PackedFormat, bitsPerValue uint32) *BulkOperation {
-	log.Printf("Initializing BulkOperation(%v,%v)", format, bitsPerValue)
+	// log.Printf("Initializing BulkOperation(%v,%v)", format, bitsPerValue)
 	switch int(format) {
 	case PACKED:
 		// assert packedBulkOps[bitsPerValue - 1] != nil

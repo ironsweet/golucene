@@ -157,7 +157,7 @@ type Codec struct {
 func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer, err error) {
 	switch name {
 	case "Lucene41":
-		postingsReader, err := NewLucene41PostingReader(state.dir,
+		postingsReader, err := NewLucene41PostingsReader(state.dir,
 			state.fieldInfos,
 			state.segmentInfo,
 			state.context,

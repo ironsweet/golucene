@@ -147,6 +147,7 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 	// otherwise it's the count (pre-3.1 indexes)
 	mapping = make(map[string]FileEntry)
 	stream = handle.openFullSlice()
+	log.Printf("Reading from stream: %v", stream)
 	firstInt, err := stream.ReadVInt()
 	if err != nil {
 		return mapping, err

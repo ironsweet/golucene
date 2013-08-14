@@ -3,7 +3,7 @@ package util
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/codec"
-	"log"
+	// "log"
 	"math"
 )
 
@@ -70,7 +70,7 @@ func GetPackedIntsEncoder(format PackedFormat, version int32, bitsPerValue uint3
 }
 
 func GetPackedIntsDecoder(format PackedFormat, version int32, bitsPerValue uint32) PackedIntsDecoder {
-	log.Printf("Obtaining PackedIntsDecoder(%v, %v), version=%v", format, bitsPerValue, version)
+	// log.Printf("Obtaining PackedIntsDecoder(%v, %v), version=%v", format, bitsPerValue, version)
 	CheckVersion(version)
 	return newBulkOperation(format, bitsPerValue)
 }

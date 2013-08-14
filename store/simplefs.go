@@ -63,6 +63,39 @@ func (d *SimpleFSDirectory) OpenInput(name string, context IOContext) (in IndexI
 	return sin, err
 }
 
+func (d *SimpleFSDirectory) createSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error) {
+	d.ensureOpen()
+	f, err := os.Open(filepath.Join(d.path, name))
+	if err != nil {
+		return nil, err
+	}
+	return &fileIndexInputSlicer{f, ctx, d.chunkSize}, nil
+}
+
+type fileIndexInputSlicer struct {
+	file      *os.File
+	ctx       IOContext
+	chunkSize int
+}
+
+func (s *fileIndexInputSlicer) Close() error {
+	return s.file.Close()
+}
+
+func (s *fileIndexInputSlicer) openSlice(desc string, offset, length int64) IndexInput {
+	return newSimpleFSIndexInputFromFileSlice(fmt.Sprintf("SimpleFSIndexInput(%v in path='%v' slice=%v:%v)",
+		desc, s.file.Name(), offset, offset+length),
+		s.file, offset, length, bufferSize(s.ctx), s.chunkSize)
+}
+
+func (s *fileIndexInputSlicer) openFullSlice() IndexInput {
+	fi, err := s.file.Stat()
+	if err != nil {
+		panic(err)
+	}
+	return s.openSlice("full-slice", 0, fi.Size())
+}
+
 type SimpleFSIndexInput struct {
 	*FSIndexInput
 	fileLock sync.Locker
@@ -76,6 +109,13 @@ func newSimpleFSIndexInput(desc, path string, context IOContext, chunkSize int) 
 	in = &SimpleFSIndexInput{super, &sync.Mutex{}}
 	in.SeekReader = in
 	return in, nil
+}
+
+func newSimpleFSIndexInputFromFileSlice(desc string, file *os.File, off, length int64, bufferSize, chunkSize int) *SimpleFSIndexInput {
+	super := newFSIndexInputFromFileSlice(desc, file, off, length, bufferSize, chunkSize)
+	ans := &SimpleFSIndexInput{super, &sync.Mutex{}}
+	ans.SeekReader = ans
+	return ans
 }
 
 func (in *SimpleFSIndexInput) readInternal(buf []byte) error {

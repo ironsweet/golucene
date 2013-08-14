@@ -175,6 +175,7 @@ func (d *DirectoryImpl) String() string {
 }
 
 func (d *DirectoryImpl) createSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {
+	panic("Should be overrided, I guess")
 	d.ensureOpen()
 	base, err := d.Directory.OpenInput(name, context)
 	if err != nil {
@@ -202,7 +203,7 @@ type simpleIndexInputSlicer struct {
 
 func (is simpleIndexInputSlicer) openSlice(desc string, offset, length int64) IndexInput {
 	return newSlicedIndexInput(fmt.Sprintf("SlicedIndexInput(%v in %v)", desc, is.base),
-		is.base, offset, length).BufferedIndexInput
+		is.base, offset, length)
 }
 
 func (is simpleIndexInputSlicer) Close() error {
@@ -254,7 +255,11 @@ func (in *SlicedIndexInput) Length() int64 {
 	return in.length
 }
 
-func (in *SlicedIndexInput) Clone() IndexInput {
+func (in *SlicedIndexInput) Clone() (ans IndexInput) {
+	log.Printf("DEGBU before clone: %v", in)
+	defer func() {
+		log.Printf("DEBUG after clone: %v", ans)
+	}()
 	return &SlicedIndexInput{
 		in.BufferedIndexInput.Clone().(*BufferedIndexInput),
 		in.base.Clone(),

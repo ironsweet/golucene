@@ -58,7 +58,7 @@ func assertEquals(t *testing.T, a, b interface{}) {
 // see MyBufferedIndexInput below.
 func TestReadBytes(t *testing.T) {
 	input := newMyBufferedIndexInput(math.MaxInt64)
-	err := runReadBytes(input.BufferedIndexInput, BUFFER_SIZE, random(), t)
+	err := runReadBytes(input, BUFFER_SIZE, random(), t)
 	if err != nil {
 		t.Error(err)
 	}

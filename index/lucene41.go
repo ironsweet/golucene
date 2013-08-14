@@ -25,21 +25,21 @@ const (
 	LUCENE41_VERSION_CURRENT = LUCENE41_VERSION_START
 )
 
-type Lucene41PostingReader struct {
+type Lucene41PostingsReader struct {
 	docIn   store.IndexInput
 	posIn   store.IndexInput
 	payIn   store.IndexInput
 	forUtil ForUtil
 }
 
-func NewLucene41PostingReader(dir store.Directory, fis FieldInfos, si SegmentInfo,
+func NewLucene41PostingsReader(dir store.Directory, fis FieldInfos, si SegmentInfo,
 	ctx store.IOContext, segmentSuffix string) (r PostingsReaderBase, err error) {
-	log.Print("Initializing Lucene41PostingReader...")
+	log.Print("Initializing Lucene41PostingsReader...")
 	success := false
 	var docIn, posIn, payIn store.IndexInput = nil, nil, nil
 	defer func() {
 		if !success {
-			log.Print("Failed to initializing Lucene41PostingReader.")
+			log.Print("Failed to initialize Lucene41PostingsReader.")
 			if err != nil {
 				log.Print("DEBUG ", err)
 			}
@@ -86,10 +86,10 @@ func NewLucene41PostingReader(dir store.Directory, fis FieldInfos, si SegmentInf
 	}
 
 	success = true
-	return &Lucene41PostingReader{docIn, posIn, payIn, forUtil}, nil
+	return &Lucene41PostingsReader{docIn, posIn, payIn, forUtil}, nil
 }
 
-func (r *Lucene41PostingReader) init(termsIn store.IndexInput) error {
+func (r *Lucene41PostingsReader) init(termsIn store.IndexInput) error {
 	log.Printf("Initializing from: %v", termsIn)
 	// Make sure we are talking to the matching postings writer
 	_, err := codec.CheckHeader(termsIn, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_START, LUCENE41_VERSION_CURRENT)
@@ -107,7 +107,7 @@ func (r *Lucene41PostingReader) init(termsIn store.IndexInput) error {
 	return nil
 }
 
-func (r *Lucene41PostingReader) Close() error {
+func (r *Lucene41PostingsReader) Close() error {
 	return util.Close(r.docIn, r.posIn, r.payIn)
 }
 

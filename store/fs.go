@@ -30,13 +30,13 @@ func newFSDirectory(self Directory, path string) (d *FSDirectory, err error) {
 	return d, nil
 }
 
-func OpenFSDirectory(path string) (d *FSDirectory, err error) {
+func OpenFSDirectory(path string) (d Directory, err error) {
 	// TODO support native implementations
 	super, err := NewSimpleFSDirectory(path)
 	if err != nil {
 		return nil, err
 	}
-	return super.FSDirectory, nil
+	return super, nil
 }
 
 func (d *FSDirectory) setLockFactory(lockFactory LockFactory) error {
@@ -114,6 +114,13 @@ func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *F
 	ans := &FSIndexInput{super, f, false, chunkSize, 0, fi.Size()}
 	ans.LengthCloser = ans
 	return ans, nil
+}
+
+func newFSIndexInputFromFileSlice(desc string, f *os.File, off, length int64, bufferSize, chunkSize int) *FSIndexInput {
+	super := newBufferedIndexInputBySize(desc, bufferSize)
+	ans := &FSIndexInput{super, f, true, chunkSize, off, off + length}
+	ans.LengthCloser = ans
+	return ans
 }
 
 func (in *FSIndexInput) Length() int64 {
