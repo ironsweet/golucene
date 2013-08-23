@@ -35,11 +35,12 @@ var (
 		log.Printf("Reading FieldInfos from %v...", dir)
 		fi = FieldInfos{}
 		fileName := util.SegmentFileName(segment, "", LUCENE42_FI_EXTENSION)
+		log.Printf("Segment: %v", fileName)
 		input, err := dir.OpenInput(fileName, context)
 		if err != nil {
 			return fi, err
 		}
-		log.Print("DEBUG ", input)
+		log.Printf("Reading %v", input)
 
 		success := false
 		defer func() {
@@ -109,6 +110,7 @@ var (
 			if err != nil {
 				return fi, err
 			}
+			log.Print("DEBUG ", normsType)
 			attributes, err := input.ReadStringStringMap()
 			if err != nil {
 				return fi, err
@@ -131,12 +133,14 @@ var (
 func getDocValuesType(input store.IndexInput, b byte) (t DocValuesType, err error) {
 	switch b {
 	case 0:
-		return DOC_VALUES_TYPE_NUMERIC, nil
+		return DocValuesType(0), nil
 	case 1:
-		return DOC_VALUES_TYPE_BINARY, nil
+		return DOC_VALUES_TYPE_NUMERIC, nil
 	case 2:
-		return DOC_VALUES_TYPE_SORTED, nil
+		return DOC_VALUES_TYPE_BINARY, nil
 	case 3:
+		return DOC_VALUES_TYPE_SORTED, nil
+	case 4:
 		return DOC_VALUES_TYPE_SORTED_SET, nil
 	default:
 		return DocValuesType(0), errors.New(

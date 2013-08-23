@@ -119,12 +119,17 @@ func NewFieldInfo(name string, indexed bool, number int32, storeTermVector, omit
 		fi.storePayloads = storePayloads
 		fi.omitNorms = omitNorms
 		fi.indexOptions = indexOptions
-		if omitNorms {
+		if !omitNorms {
 			fi.normType = normsType
 		}
 	} // for non-indexed fields, leave defaults
 	// assert checkConsistency()
 	return fi
+}
+
+func (fi FieldInfo) String() string {
+	return fmt.Sprintf("%v-%v, isIndexed=%v, docValueType=%v, hasVectors=%v, normType=%v, omitNorms=%v, indexOptions=%v, hasPayloads=%v, attributes=%v",
+		fi.number, fi.name, fi.indexed, fi.docValueType, fi.storeTermVector, fi.normType, fi.omitNorms, fi.indexOptions, fi.storePayloads, fi.attributes)
 }
 
 type Int32Slice []int32
@@ -178,6 +183,18 @@ func NewFieldInfos(infos []FieldInfo) FieldInfos {
 	}
 
 	return self
+}
+
+func (fis FieldInfos) String() string {
+	return fmt.Sprintf(`
+hasFreq = %v
+hasProx = %v
+hasPayloads = %v
+hasOffsets = %v
+hasVectors = %v
+hasNorms = %v
+hasDocValues = %v
+%v`, fis.hasFreq, fis.hasProx, fis.hasPayloads, fis.hasOffsets, fis.hasVectors, fis.hasNorms, fis.hasDocValues, fis.values)
 }
 
 type IndexOptions int

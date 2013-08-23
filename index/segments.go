@@ -153,8 +153,9 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	var cfsDir store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
 	if si.info.isCompoundFile {
 		log.Print("Detected CompoundFile.")
-		self.cfsReader, err = store.NewCompoundFileDirectory(dir,
-			util.SegmentFileName(si.info.name, "", store.COMPOUND_FILE_EXTENSION), context, false)
+		name := util.SegmentFileName(si.info.name, "", store.COMPOUND_FILE_EXTENSION)
+		log.Print("DEBUG ", name)
+		self.cfsReader, err = store.NewCompoundFileDirectory(dir, name, context, false)
 		if err != nil {
 			return self, err
 		}
@@ -169,6 +170,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	if err != nil {
 		return self, err
 	}
+	log.Printf("DEBUG FieldsInfos: %v", self.fieldInfos)
 	self.termsIndexDivisor = termsIndexDivisor
 
 	log.Print("Obtaining SegmentReadState...")

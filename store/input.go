@@ -160,7 +160,7 @@ func (in *BufferedIndexInput) ReadShort() (n int16, err error) {
 
 func (in *BufferedIndexInput) ReadInt() (n int32, err error) {
 	if 4 <= in.bufferLength-in.bufferPosition {
-		log.Print("Reading int from buffer...")
+		// log.Print("Reading int from buffer...")
 		in.bufferPosition += 4
 		return (int32(in.buffer[in.bufferPosition-4]) << 24) | (int32(in.buffer[in.bufferPosition-3]) << 16) |
 			(int32(in.buffer[in.bufferPosition-2]) << 8) | int32(in.buffer[in.bufferPosition-1]), nil
