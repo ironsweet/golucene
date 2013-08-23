@@ -423,5 +423,8 @@ func openStandardDirectoryReader(directory store.Directory,
 		log.Printf("Obtained %v SegmentReaders.", len(readers))
 		return newStandardDirectoryReader(directory, readers, *sis, termInfosIndexDivisor, false), nil
 	}).run()
+	if err != nil {
+		return nil, err
+	}
 	return obj.(*StandardDirectoryReader).DirectoryReader, err
 }
