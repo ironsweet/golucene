@@ -53,7 +53,7 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 	r = &SegmentReader{}
 	log.Print("Obtaining AtomicReader...")
 	r.AtomicReaderImpl = newAtomicReader(r)
-	r.FieldsReader = r
+	r.ARFieldsReader = r
 	r.si = si
 	log.Print("Obtaining SegmentCoreReaders...")
 	r.core, err = newSegmentCoreReaders(r, si.info.dir, si, context, termInfosIndexDivisor)
@@ -87,11 +87,110 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 	return r, nil
 }
 
+func (r *SegmentReader) LiveDocs() util.Bits {
+	r.ensureOpen()
+	return r.liveDocs
+}
+
+func (r *SegmentReader) doClose() error {
+	r.core.decRef()
+	return nil
+}
+
+func (r *SegmentReader) FieldInfos() FieldInfos {
+	r.ensureOpen()
+	return r.core.fieldInfos
+}
+
+func (r *SegmentReader) FieldsReader() StoredFieldsReader {
+	r.ensureOpen()
+	panic("not implemented yet")
+}
+
+func (r *SegmentReader) Document(docId int, visitor StoredFieldVisitor) error {
+	panic("not implemented yet")
+}
+
+func (r *SegmentReader) Fields() Fields {
+	r.ensureOpen()
+	return r.core.fields
+}
+
+func (r *SegmentReader) NumDocs() int {
+	// Don't call ensureOpen() here (it could affect performance)
+	return r.numDocs
+}
+
+func (r *SegmentReader) MaxDoc() int {
+	// Don't call ensureOpen() here (it could affect performance)
+	return int(r.si.info.docCount)
+}
+
+func (r *SegmentReader) TermVectorsReader() TermVectorsReader {
+	panic("not implemented yet")
+}
+
+func (r *SegmentReader) TermVectors(docID int) (fs Fields, err error) {
+	panic("not implemented yet")
+}
+
 // SegmentReader.java L179
 func (r *SegmentReader) String() string {
 	// SegmentInfo.toString takes dir and number of
 	// *pending* deletions; so we reverse compute that here:
 	return r.si.StringOf(r.si.info.dir, int(r.si.info.docCount)-r.numDocs-r.si.delCount)
+}
+
+func (r *SegmentReader) SegmentName() string {
+	return r.si.info.name
+}
+
+func (r *SegmentReader) SegmentInfos() SegmentInfoPerCommit {
+	return r.si
+}
+
+func (r *SegmentReader) Directory() store.Directory {
+	// Don't ensureOpen here -- in certain cases, when a
+	// cloned/reopened reader needs to commit, it may call
+	// this method on the closed original reader
+	return r.si.info.dir
+}
+
+func (r *SegmentReader) CoreCacheKey() interface{} {
+	return r.core
+}
+
+func (r *SegmentReader) CombinedCoreAndDeletesKey() interface{} {
+	return r
+}
+
+func (r *SegmentReader) TermInfosIndexDivisor() int {
+	return r.core.termsIndexDivisor
+}
+
+func (r *SegmentReader) NumericDocValues(field string) (v NumericDocValues, err error) {
+	r.ensureOpen()
+	panic("not implemented yet")
+}
+
+func (r *SegmentReader) BinaryDocValues(field string) (v BinaryDocValues, err error) {
+	r.ensureOpen()
+	panic("not implemented yet")
+}
+
+func (r *SegmentReader) SortedDocValues(field string) (v SortedDocValues, err error) {
+	r.ensureOpen()
+	panic("not implemented yet")
+}
+
+func (r *SegmentReader) SortedSetDocValues(field string) (v SortedSetDocValues, err error) {
+	r.ensureOpen()
+	panic("not implemented yet")
+}
+
+func (r *SegmentReader) NormValues(field string) (v NumericDocValues, err error) {
+	r.ensureOpen()
+	panic("not implemented yet")
 }
 
 type CoreClosedListener interface {

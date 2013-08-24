@@ -137,7 +137,7 @@ func newIndexReaderContext(parent *CompositeReaderContext, ordInParent, docBaseI
 		ordInParent:     ordInParent}
 }
 
-type FieldsReader interface {
+type ARFieldsReader interface {
 	Terms(field string) Terms
 	Fields() Fields
 	LiveDocs() util.Bits
@@ -145,13 +145,13 @@ type FieldsReader interface {
 
 type AtomicReader interface {
 	IndexReader
-	FieldsReader
+	ARFieldsReader
 }
 
 type AtomicReaderImpl struct {
 	*IndexReaderImpl
-	FieldsReader  // need child class implementation
-	readerContext *AtomicReaderContext
+	ARFieldsReader // need child class implementation
+	readerContext  *AtomicReaderContext
 }
 
 func newAtomicReader(self IndexReader) *AtomicReaderImpl {
