@@ -210,7 +210,7 @@ func newCompressingStoredFieldsReader(d store.Directory, si SegmentInfo, segment
 	success := false
 	defer func() {
 		if !success {
-			log.Println("Failed to initialize CompressionSortedFieldsReader.")
+			log.Println("Failed to initialize CompressionStoredFieldsReader.")
 			if err != nil {
 				log.Print(err)
 			}
@@ -229,7 +229,7 @@ func newCompressingStoredFieldsReader(d store.Directory, si SegmentInfo, segment
 	if int64(codec.HeaderLength(codecNameIdx)) != indexStream.FilePointer() {
 		panic("assert fail")
 	}
-	r.indexReader, err = newCompressingSortedFieldsIndexReader(indexStream, si)
+	r.indexReader, err = newCompressingStoredFieldsIndexReader(indexStream, si)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +300,7 @@ type CompressingStoredFieldsIndexReader struct {
 	startPointersDeltas []util.PackedIntsReader
 }
 
-func newCompressingSortedFieldsIndexReader(fieldsIndexIn store.IndexInput, si SegmentInfo) (r *CompressingStoredFieldsIndexReader, err error) {
+func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput, si SegmentInfo) (r *CompressingStoredFieldsIndexReader, err error) {
 	r = &CompressingStoredFieldsIndexReader{}
 	r.maxDoc = int(si.docCount)
 	r.docBases = make([]int, 0, 16)

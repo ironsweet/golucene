@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
 	"io"
@@ -25,6 +26,18 @@ func NewSegmentInfoPerCommit(info SegmentInfo, delCount int, delGen int64) Segme
 
 func (si SegmentInfoPerCommit) HasDeletions() bool {
 	return si.delGen != -1
+}
+
+func (si SegmentInfoPerCommit) StringOf(dir store.Directory, pendingDelCount int) string {
+	return si.info.StringOf(dir, si.delCount+pendingDelCount)
+}
+
+func (si SegmentInfoPerCommit) String() string {
+	s := si.info.StringOf(si.info.dir, si.delCount)
+	if si.delGen != -1 {
+		s = fmt.Sprintf("%v:delGen=%v", s, si.delGen)
+	}
+	return s
 }
 
 type SegmentReader struct {
@@ -54,6 +67,10 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 		// of things that were opened so that we don't have to
 		// wait for a GC to do so.
 		if !success {
+			log.Printf("Failed to initialize SegmentReader.")
+			if err != nil {
+				log.Print(err)
+			}
 			r.core.decRef()
 		}
 	}()
@@ -67,6 +84,13 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 	r.numDocs = int(si.info.docCount) - si.delCount
 	success = true
 	return r, nil
+}
+
+// SegmentReader.java L179
+func (r *SegmentReader) String() string {
+	// SegmentInfo.toString takes dir and number of
+	// *pending* deletions; so we reverse compute that here:
+	return r.si.StringOf(r.si.info.dir, int(r.si.info.docCount)-r.numDocs-r.si.delCount)
 }
 
 type CoreClosedListener interface {

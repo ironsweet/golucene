@@ -137,11 +137,15 @@ func newIndexReaderContext(parent *CompositeReaderContext, ordInParent, docBaseI
 		ordInParent:     ordInParent}
 }
 
-type AtomicReader struct {
+type AtomicReader interface {
+	IndexReader
+	Fields() Fields
+	LiveDocs() util.Bits
+}
+
+type AtomicReaderImpl struct {
 	*IndexReaderImpl
 	readerContext *AtomicReaderContext
-	Fields        func() Fields
-	LiveDocs      func() util.Bits
 }
 
 func newAtomicReader(self IndexReader) *AtomicReader {
@@ -150,12 +154,28 @@ func newAtomicReader(self IndexReader) *AtomicReader {
 	return r
 }
 
-func (r *AtomicReader) Context() IndexReaderContext {
-	r.IndexReader.ensureOpen()
+func (r *AtomicReaderImpl) Context() IndexReaderContext {
+	r.ensureOpen()
 	return r.readerContext
 }
 
-func (r *AtomicReader) Terms(field string) Terms {
+func (r *AtomicReaderImpl) DocFreq(term Term) (n int, err error) {
+	panic("not implemented yet")
+}
+
+func (r *AtomicReaderImpl) TotalTermFreq(term Term) (n int64, err error) {
+	panic("not implemented yet")
+}
+
+func (r *AtomicReaderImpl) SumDocFreq(field string) (n int64, err error) {
+	panic("not implemented yet")
+}
+
+func (r *AtomicReaderImpl) DocCount(field string) (n int, err error) {
+	panic("not ")
+}
+
+func (r *AtomicReaderImpl) Terms(field string) Terms {
 	fields := r.Fields()
 	if fields == nil {
 		return nil
@@ -350,17 +370,21 @@ func newBaseCompositeReader(self IndexReader, readers []IndexReader) *BaseCompos
 	ans.starts = make([]int, len(readers)+1) // build starts array
 	var maxDoc, numDocs int
 	for i, r := range readers {
+		log.Print("DEBUG ", r)
 		ans.starts[i] = maxDoc
 		maxDoc += r.MaxDoc() // compute maxDocs
-		if maxDoc < 0 {      // overflow
+		log.Print("DEBUG2")
+		if maxDoc < 0 { // overflow
 			panic(fmt.Sprintf("Too many documents, composite IndexReaders cannot exceed %v", math.MaxInt32))
 		}
 		numDocs += r.NumDocs() // compute numDocs
+		log.Printf("Obtained %v docs (max %v)", numDocs, maxDoc)
 		r.registerParentReader(ans.CompositeReader.IndexReader)
 	}
 	ans.starts[len(readers)] = maxDoc
 	ans.maxDoc = maxDoc
 	ans.numDocs = numDocs
+	log.Print("Success")
 	return ans
 }
 

@@ -1,6 +1,7 @@
 package index
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/codec"
@@ -240,6 +241,41 @@ type SegmentInfo struct {
 	diagnostics    map[string]string
 	attributes     map[string]string
 	Files          map[string]bool // must use CheckFileNames()
+}
+
+func (si *SegmentInfo) String() string {
+	return si.StringOf(si.dir, 0)
+}
+
+func (si *SegmentInfo) StringOf(dir store.Directory, delCount int) string {
+	var buf bytes.Buffer
+	buf.WriteString(si.name)
+	buf.WriteString("(")
+	if si.version == "" {
+		buf.WriteString("?")
+	} else {
+		buf.WriteString(si.version)
+	}
+	buf.WriteString("):")
+	if si.isCompoundFile {
+		buf.WriteString("c")
+	} else {
+		buf.WriteString("C")
+	}
+
+	if si.dir != dir {
+		buf.WriteString("x")
+	}
+	buf.WriteString(strconv.Itoa(int(si.docCount)))
+
+	if delCount != 0 {
+		buf.WriteString("/")
+		buf.WriteString(strconv.Itoa(delCount))
+	}
+
+	// TODO: we could append toString of attributes() here?
+
+	return buf.String()
 }
 
 var CODEC_FILE_PATTERN = regexp.MustCompile("_[a-z0-9]+(_.*)?\\..*")
