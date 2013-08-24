@@ -1,6 +1,7 @@
 package index
 
 import (
+	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
@@ -290,8 +291,89 @@ func (r *CompressingStoredFieldsReader) clone() StoredFieldsReader {
 }
 
 type CompressingStoredFieldsIndexReader struct {
+	maxDoc              int
+	docBases            []int
+	startPointers       []int64
+	avgChunkDocs        []int
+	avgChunkSizes       []int64
+	docBasesDeltas      []util.PackedIntsReader
+	startPointersDeltas []util.PackedIntsReader
 }
 
 func newCompressingSortedFieldsIndexReader(fieldsIndexIn store.IndexInput, si SegmentInfo) (r *CompressingStoredFieldsIndexReader, err error) {
-	panic("not implemented yet")
+	r = &CompressingStoredFieldsIndexReader{}
+	r.maxDoc = int(si.docCount)
+	r.docBases = make([]int, 0, 16)
+	r.startPointers = make([]int64, 0, 16)
+	r.avgChunkDocs = make([]int, 0, 16)
+	r.avgChunkSizes = make([]int64, 0, 16)
+	r.docBasesDeltas = make([]util.PackedIntsReader, 0, 16)
+	r.startPointersDeltas = make([]util.PackedIntsReader, 0, 16)
+
+	packedIntsVersion, err := fieldsIndexIn.ReadVInt()
+	if err != nil {
+		return nil, err
+	}
+
+	for blockCount := 0; ; blockCount++ {
+		numChunks, err := fieldsIndexIn.ReadVInt()
+		if err != nil {
+			return nil, err
+		}
+		if numChunks == 0 {
+			break
+		}
+
+		{ // doc bases
+			n, err := fieldsIndexIn.ReadVInt()
+			if err != nil {
+				return nil, err
+			}
+			r.docBases = append(r.docBases, int(n))
+			n, err = fieldsIndexIn.ReadVInt()
+			if err != nil {
+				return nil, err
+			}
+			r.avgChunkDocs = append(r.avgChunkDocs, int(n))
+			bitsPerDocBase, err := fieldsIndexIn.ReadVInt()
+			if err != nil {
+				return nil, err
+			}
+			if bitsPerDocBase > 32 {
+				return nil, errors.New(fmt.Sprintf("Corrupted bitsPerDocBase (resource=%v)", fieldsIndexIn))
+			}
+			pr, err := util.NewPackedReaderNoHeader(fieldsIndexIn, util.PACKED, packedIntsVersion, numChunks, uint32(bitsPerDocBase))
+			if err != nil {
+				return nil, err
+			}
+			r.docBasesDeltas = append(r.docBasesDeltas, pr)
+		}
+
+		{ // start pointers
+			n, err := fieldsIndexIn.ReadVLong()
+			if err != nil {
+				return nil, err
+			}
+			r.startPointers = append(r.startPointers, n)
+			n, err = fieldsIndexIn.ReadVLong()
+			if err != nil {
+				return nil, err
+			}
+			r.avgChunkSizes = append(r.avgChunkSizes, n)
+			bitsPerStartPointer, err := fieldsIndexIn.ReadVInt()
+			if err != nil {
+				return nil, err
+			}
+			if bitsPerStartPointer > 64 {
+				return nil, errors.New(fmt.Sprintf("Corrupted bitsPerStartPonter (resource=%v)", fieldsIndexIn))
+			}
+			pr, err := util.NewPackedReaderNoHeader(fieldsIndexIn, util.PACKED, packedIntsVersion, numChunks, uint32(bitsPerStartPointer))
+			if err != nil {
+				return nil, err
+			}
+			r.startPointersDeltas = append(r.startPointersDeltas, pr)
+		}
+	}
+
+	return r, nil
 }

@@ -84,7 +84,7 @@ type PackedIntsMutable interface {
 	PackedIntsReader
 }
 
-func newPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
+func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
 	CheckVersion(version)
 	switch format {
 	case PACKED_SINGLE_BLOCK:
@@ -125,7 +125,7 @@ func newPackedReader(in DataInput) (r PackedIntsReader, err error) {
 			if valueCount, err := in.ReadVInt(); err == nil {
 				if id, err := in.ReadVInt(); err == nil {
 					format := PackedFormat(id)
-					return newPackedReaderNoHeader(in, format, version, valueCount, bitsPerValue)
+					return NewPackedReaderNoHeader(in, format, version, valueCount, bitsPerValue)
 				}
 			}
 		}
