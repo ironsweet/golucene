@@ -41,7 +41,7 @@ func (si SegmentInfoPerCommit) String() string {
 }
 
 type SegmentReader struct {
-	*AtomicReader
+	*AtomicReaderImpl
 	si       SegmentInfoPerCommit
 	liveDocs *util.Bits
 	numDocs  int
@@ -52,7 +52,8 @@ func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, contex
 	log.Print("Initializing SegmentReader...")
 	r = &SegmentReader{}
 	log.Print("Obtaining AtomicReader...")
-	r.AtomicReader = newAtomicReader(r)
+	r.AtomicReaderImpl = newAtomicReader(r)
+	r.FieldsReader = r
 	r.si = si
 	log.Print("Obtaining SegmentCoreReaders...")
 	r.core, err = newSegmentCoreReaders(r, si.info.dir, si, context, termInfosIndexDivisor)

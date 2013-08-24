@@ -137,19 +137,25 @@ func newIndexReaderContext(parent *CompositeReaderContext, ordInParent, docBaseI
 		ordInParent:     ordInParent}
 }
 
-type AtomicReader interface {
-	IndexReader
+type FieldsReader interface {
+	Terms(field string) Terms
 	Fields() Fields
 	LiveDocs() util.Bits
 }
 
+type AtomicReader interface {
+	IndexReader
+	FieldsReader
+}
+
 type AtomicReaderImpl struct {
 	*IndexReaderImpl
+	FieldsReader  // need child class implementation
 	readerContext *AtomicReaderContext
 }
 
-func newAtomicReader(self IndexReader) *AtomicReader {
-	r := &AtomicReader{IndexReaderImpl: newIndexReader(self)}
+func newAtomicReader(self IndexReader) *AtomicReaderImpl {
+	r := &AtomicReaderImpl{IndexReaderImpl: newIndexReader(self)}
 	r.readerContext = newAtomicReaderContextFromReader(r)
 	return r
 }
@@ -172,7 +178,11 @@ func (r *AtomicReaderImpl) SumDocFreq(field string) (n int64, err error) {
 }
 
 func (r *AtomicReaderImpl) DocCount(field string) (n int, err error) {
-	panic("not ")
+	panic("not implemented yet")
+}
+
+func (r *AtomicReaderImpl) SumTotalTermFreq(field string) (n int64, err error) {
+	panic("not implemented yet")
 }
 
 func (r *AtomicReaderImpl) Terms(field string) Terms {
@@ -186,15 +196,15 @@ func (r *AtomicReaderImpl) Terms(field string) Terms {
 type AtomicReaderContext struct {
 	*IndexReaderContextImpl
 	Ord, DocBase int
-	reader       *AtomicReader
+	reader       AtomicReader
 	leaves       []AtomicReaderContext
 }
 
-func newAtomicReaderContextFromReader(r *AtomicReader) *AtomicReaderContext {
+func newAtomicReaderContextFromReader(r AtomicReader) *AtomicReaderContext {
 	return newAtomicReaderContext(nil, r, 0, 0, 0, 0)
 }
 
-func newAtomicReaderContext(parent *CompositeReaderContext, reader *AtomicReader, ord, docBase, leafOrd, leafDocBase int) *AtomicReaderContext {
+func newAtomicReaderContext(parent *CompositeReaderContext, reader AtomicReader, ord, docBase, leafOrd, leafDocBase int) *AtomicReaderContext {
 	ans := &AtomicReaderContext{}
 	ans.IndexReaderContextImpl = newIndexReaderContext(parent, ord, docBase)
 	ans.Ord = leafOrd
@@ -312,7 +322,7 @@ func (b CompositeReaderContextBuilder) build() *CompositeReaderContext {
 func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 	reader IndexReader, ord, docBase int) IndexReaderContext {
 	log.Print("Building CompositeReaderContext...")
-	if ar, ok := reader.(*AtomicReader); ok {
+	if ar, ok := reader.(AtomicReader); ok {
 		log.Print("AtomicReader is detected.")
 		atomic := newAtomicReaderContext(parent, ar, ord, docBase, len(b.leaves), b.leafDocBase)
 		b.leaves = append(b.leaves, *atomic)
@@ -395,11 +405,11 @@ type DirectoryReader struct {
 	directory store.Directory
 }
 
-func newDirectoryReader(directory store.Directory, segmentReaders []*AtomicReader) *DirectoryReader {
+func newDirectoryReader(directory store.Directory, segmentReaders []AtomicReader) *DirectoryReader {
 	log.Printf("Initializing DirectoryReader with %v segment readers...", len(segmentReaders))
 	readers := make([]IndexReader, len(segmentReaders))
 	for i, v := range segmentReaders {
-		readers[i] = v.IndexReader
+		readers[i] = v
 	}
 	ans := &DirectoryReader{directory: directory}
 	ans.BaseCompositeReader = newBaseCompositeReader(ans, readers)
@@ -415,7 +425,7 @@ type StandardDirectoryReader struct {
 }
 
 // TODO support IndexWriter
-func newStandardDirectoryReader(directory store.Directory, readers []*AtomicReader,
+func newStandardDirectoryReader(directory store.Directory, readers []AtomicReader,
 	sis SegmentInfos, termInfosIndexDivisor int, applyAllDeletes bool) *StandardDirectoryReader {
 	log.Printf("Initializing StandardDirectoryReader with %v sub readers...", len(readers))
 	return &StandardDirectoryReader{newDirectoryReader(directory, readers)}
@@ -432,10 +442,10 @@ func openStandardDirectoryReader(directory store.Directory,
 			return nil, err
 		}
 		log.Printf("Found %v segments...", len(sis.Segments))
-		readers := make([]*AtomicReader, len(sis.Segments))
+		readers := make([]AtomicReader, len(sis.Segments))
 		for i := len(sis.Segments) - 1; i >= 0; i-- {
 			sr, err := NewSegmentReader(sis.Segments[i], termInfosIndexDivisor, store.IO_CONTEXT_READ)
-			readers[i] = sr.AtomicReader
+			readers[i] = sr
 			if err != nil {
 				rs := make([]io.Closer, len(readers))
 				for i, v := range readers {

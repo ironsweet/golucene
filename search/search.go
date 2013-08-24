@@ -62,7 +62,7 @@ func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, 
 		c.SetNextReader(ctx)
 		// GOTO: CollectionTerminatedException
 		if scorer, ok := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true,
-			ctx.Reader().(*index.AtomicReader).LiveDocs()); ok {
+			ctx.Reader().(index.AtomicReader).LiveDocs()); ok {
 			scorer.ScoreAndCollect(c)
 			// GOTO: CollectionTerminatedException
 		}
