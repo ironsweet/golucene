@@ -112,8 +112,8 @@ func (r *IndexReaderImpl) Close() error {
 }
 
 func (r *IndexReaderImpl) Leaves() []AtomicReaderContext {
-	log.Printf("Debug %%v", r.IndexReader.Context())
-	return r.IndexReader.Context().Leaves()
+	log.Printf("Debug %%v", r.Context())
+	return r.Context().Leaves()
 }
 
 type IndexReaderContext interface {
