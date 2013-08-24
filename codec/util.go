@@ -9,6 +9,10 @@ const (
 	CODEC_MAGIC = 0x3fd76c17
 )
 
+func HeaderLength(codec string) int {
+	return 9 + len(codec)
+}
+
 type DataInput interface {
 	ReadInt() (n int32, err error)
 	ReadString() (s string, err error)

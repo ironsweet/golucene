@@ -170,23 +170,96 @@ func newLucene41StoredFieldsReader(d store.Directory, si SegmentInfo, fn FieldIn
 	formatName := "Lucene41StoredFields"
 	compressionMode := codec.COMPRESSION_MODE_FAST
 	// chunkSize := 1 << 14
-	p, err := newCompressingSortedFieldsReader(d, si, "", fn, ctx, formatName, compressionMode)
+	p, err := newCompressingStoredFieldsReader(d, si, "", fn, ctx, formatName, compressionMode)
 	if err == nil {
 		r = &Lucene41StoredFieldsReader{p}
 	}
 	return r, nil
 }
 
+const (
+	CODEC_SFX_IDX             = "Index"
+	CODEC_SFX_DAT             = "Data"
+	CODEC_SFX_VERSION_START   = 0
+	CODEC_SFX_VERSION_CURRENT = CODEC_SFX_VERSION_START
+)
+
 type CompressingStoredFieldsReader struct {
-	indexReader  *CompressingStoredFieldsIndexReader
-	fieldsStream store.IndexInput
-	closed       bool
+	fieldInfos        FieldInfos
+	indexReader       *CompressingStoredFieldsIndexReader
+	fieldsStream      store.IndexInput
+	packedIntsVersion int
+	compressionMode   codec.CompressionMode
+	decompressor      codec.Decompressor
+	bytes             []byte
+	numDocs           int
+	closed            bool
 }
 
-func newCompressingSortedFieldsReader(d store.Directory, si SegmentInfo, segmentSuffix string, fn FieldInfos,
+// CompressingStoredFieldsReader.java L90
+func newCompressingStoredFieldsReader(d store.Directory, si SegmentInfo, segmentSuffix string, fn FieldInfos,
 	ctx store.IOContext, formatName string, compressionMode codec.CompressionMode) (r *CompressingStoredFieldsReader, err error) {
-	panic("not implemented yet")
-	return nil, nil
+	r = &CompressingStoredFieldsReader{}
+	r.compressionMode = compressionMode
+	segment := si.name
+	r.fieldInfos = fn
+	r.numDocs = int(si.docCount)
+
+	var indexStream store.IndexInput
+	success := false
+	defer func() {
+		if !success {
+			log.Println("Failed to initialize CompressionSortedFieldsReader.")
+			if err != nil {
+				log.Print(err)
+			}
+			util.Close(r, indexStream)
+		}
+	}()
+
+	// Load the index into memory
+	indexStreamFN := util.SegmentFileName(segment, segmentSuffix, LUCENE40_SF_FIELDS_INDEX_EXTENSION)
+	indexStream, err = d.OpenInput(indexStreamFN, ctx)
+	if err != nil {
+		return nil, err
+	}
+	codecNameIdx := formatName + CODEC_SFX_IDX
+	codec.CheckHeader(indexStream, codecNameIdx, CODEC_SFX_VERSION_START, CODEC_SFX_VERSION_CURRENT)
+	if int64(codec.HeaderLength(codecNameIdx)) != indexStream.FilePointer() {
+		panic("assert fail")
+	}
+	r.indexReader, err = newCompressingSortedFieldsIndexReader(indexStream, si)
+	if err != nil {
+		return nil, err
+	}
+	err = indexStream.Close()
+	if err != nil {
+		return nil, err
+	}
+	indexStream = nil
+
+	// Open the data file and read metadata
+	fieldsStreamFN := util.SegmentFileName(segment, segmentSuffix, LUCENE40_SF_FIELDS_EXTENSION)
+	r.fieldsStream, err = d.OpenInput(fieldsStreamFN, ctx)
+	if err != nil {
+		return nil, err
+	}
+	codecNameDat := formatName + CODEC_SFX_DAT
+	codec.CheckHeader(r.fieldsStream, codecNameDat, CODEC_SFX_VERSION_START, CODEC_SFX_VERSION_CURRENT)
+	if int64(codec.HeaderLength(codecNameDat)) != r.fieldsStream.FilePointer() {
+		panic("assert fail")
+	}
+
+	n, err := r.fieldsStream.ReadVInt()
+	if err != nil {
+		return nil, err
+	}
+	r.packedIntsVersion = int(n)
+	r.decompressor = compressionMode.NewDecompressor()
+	r.bytes = make([]byte, 0)
+
+	success = true
+	return r, nil
 }
 
 func (r *CompressingStoredFieldsReader) ensureOpen() {
@@ -217,4 +290,8 @@ func (r *CompressingStoredFieldsReader) clone() StoredFieldsReader {
 }
 
 type CompressingStoredFieldsIndexReader struct {
+}
+
+func newCompressingSortedFieldsIndexReader(fieldsIndexIn store.IndexInput, si SegmentInfo) (r *CompressingStoredFieldsIndexReader, err error) {
+	panic("not implemented yet")
 }

@@ -82,3 +82,9 @@ var (
 		return si, nil
 	}
 )
+
+// Lucene40StoredFieldsWriter.java
+const (
+	LUCENE40_SF_FIELDS_EXTENSION       = "fdt"
+	LUCENE40_SF_FIELDS_INDEX_EXTENSION = "fdx"
+)

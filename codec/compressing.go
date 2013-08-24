@@ -6,8 +6,8 @@ import (
 )
 
 type CompressionMode interface {
-	newCompressor() Compressor
-	newDecompressor() Decompressor
+	NewCompressor() Compressor
+	NewDecompressor() Decompressor
 }
 
 const (
@@ -16,12 +16,12 @@ const (
 
 type CompressionModeDefaults int
 
-func (m CompressionModeDefaults) newCompressor() Compressor {
+func (m CompressionModeDefaults) NewCompressor() Compressor {
 	panic("not supported yet")
 	return nil
 }
 
-func (m CompressionModeDefaults) newDecompressor() Decompressor {
+func (m CompressionModeDefaults) NewDecompressor() Decompressor {
 	switch int(m) {
 	case 1:
 		return LZ4_DECOMPRESSOR
