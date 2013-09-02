@@ -35,7 +35,11 @@ type IndexReaderImpl struct {
 }
 
 func newIndexReader(self IndexReader) *IndexReaderImpl {
-	return &IndexReaderImpl{IndexReader: self, refCount: 1}
+	return &IndexReaderImpl{
+		IndexReader:   self,
+		refCount:      1,
+		parentReaders: make(map[IndexReader]bool),
+	}
 }
 
 func (r *IndexReaderImpl) decRef() error {
@@ -112,7 +116,7 @@ func (r *IndexReaderImpl) Close() error {
 }
 
 func (r *IndexReaderImpl) Leaves() []AtomicReaderContext {
-	log.Printf("Debug %%v", r.Context())
+	// log.Printf("Debug %%v", r.Context())
 	return r.Context().Leaves()
 }
 
@@ -380,10 +384,10 @@ func newBaseCompositeReader(self IndexReader, readers []IndexReader) *BaseCompos
 	ans.starts = make([]int, len(readers)+1) // build starts array
 	var maxDoc, numDocs int
 	for i, r := range readers {
-		log.Print("DEBUG ", r)
+		// log.Print("DEBUG ", r)
 		ans.starts[i] = maxDoc
 		maxDoc += r.MaxDoc() // compute maxDocs
-		log.Print("DEBUG2")
+		// log.Print("DEBUG2")
 		if maxDoc < 0 { // overflow
 			panic(fmt.Sprintf("Too many documents, composite IndexReaders cannot exceed %v", math.MaxInt32))
 		}

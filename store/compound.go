@@ -181,7 +181,7 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 		if err != nil {
 			return mapping, err
 		}
-		log.Printf("DEBUG: %v", entriesStream)
+		// log.Printf("DEBUG: %v", entriesStream)
 		_, err = codec.CheckHeader(entriesStream, CFD_ENTRY_CODEC, CFD_VERSION_START, CFD_VERSION_START)
 		if err != nil {
 			return mapping, err

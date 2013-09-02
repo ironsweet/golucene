@@ -52,7 +52,7 @@ func NewLucene41PostingsReader(dir store.Directory, fis FieldInfos, si SegmentIn
 	if err != nil {
 		return r, err
 	}
-	log.Print("DEBUG docIn: ", docIn)
+	// log.Print("DEBUG docIn: ", docIn)
 	_, err = codec.CheckHeader(docIn, LUCENE41_DOC_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
 	if err != nil {
 		return r, err
@@ -67,7 +67,7 @@ func NewLucene41PostingsReader(dir store.Directory, fis FieldInfos, si SegmentIn
 		if err != nil {
 			return r, err
 		}
-		log.Print("DEBUG posIn: ", posIn)
+		// log.Print("DEBUG posIn: ", posIn)
 		_, err = codec.CheckHeader(posIn, LUCENE41_POS_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
 		if err != nil {
 			return r, err
@@ -78,7 +78,7 @@ func NewLucene41PostingsReader(dir store.Directory, fis FieldInfos, si SegmentIn
 			if err != nil {
 				return r, err
 			}
-			log.Print("DEBUG payIn: ", payIn)
+			// log.Print("DEBUG payIn: ", payIn)
 			_, err = codec.CheckHeader(payIn, LUCENE41_PAY_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
 			if err != nil {
 				return r, err

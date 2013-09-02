@@ -84,6 +84,7 @@ func GetMultiFields(r IndexReader) Fields {
 }
 
 func GetMultiTerms(r IndexReader, field string) Terms {
+	log.Printf("Loading field '%v' from %v", field, r)
 	fields := GetMultiFields(r)
 	if fields.Terms == nil {
 		return nil

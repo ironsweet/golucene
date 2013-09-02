@@ -96,8 +96,8 @@ func LoadFST(in DataInput, outputs Outputs) (fst *FST, err error) {
 func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err error) {
 	log.Printf("Loading FST from %v and output to %v...", in, outputs)
 	defer func() {
-		log.Print("Failed to load FST.")
 		if err != nil {
+			log.Print("Failed to load FST.")
 			log.Printf("DEBUG ", err)
 		}
 	}()

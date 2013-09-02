@@ -109,7 +109,7 @@ var (
 			if err != nil {
 				return fi, err
 			}
-			log.Print("DEBUG ", normsType)
+			// log.Print("DEBUG ", normsType)
 			attributes, err := input.ReadStringStringMap()
 			if err != nil {
 				return fi, err
