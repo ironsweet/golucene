@@ -1,6 +1,7 @@
 package index
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/store"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"reflect"
 	"sync"
 	"sync/atomic"
 )
@@ -236,19 +238,44 @@ func (ctx *AtomicReaderContext) Reader() IndexReader {
 	return ctx.reader
 }
 
-type CompositeReader struct {
+type CompositeReader interface {
+	IndexReader
+	getSequentialSubReaders() []IndexReader
+}
+
+type CompositeReaderImpl struct {
 	*IndexReaderImpl
-	readerContext           *CompositeReaderContext // lazy load
-	getSequentialSubReaders func() []IndexReader
+	readerContext *CompositeReaderContext // lazy load
 }
 
-func newCompositeReader(self IndexReader) *CompositeReader {
-	ans := &CompositeReader{}
-	ans.IndexReaderImpl = newIndexReader(self)
-	return ans
+func newCompositeReader(self IndexReader) *CompositeReaderImpl {
+	return &CompositeReaderImpl{
+		IndexReaderImpl: newIndexReader(self),
+	}
 }
 
-func (r *CompositeReader) Context() IndexReaderContext {
+func (r *CompositeReaderImpl) String() string {
+	var buf bytes.Buffer
+	buf.WriteString(reflect.TypeOf(r.IndexReader).Name())
+	buf.WriteString("(")
+	subReaders := r.getSequentialSubReaders()
+	if len(subReaders) > 0 {
+		buf.WriteString(fmt.Sprintf("%v", subReaders[0]))
+		for i, v := range subReaders {
+			if i > 0 {
+				buf.WriteString(fmt.Sprintf(" %v", v))
+			}
+		}
+	}
+	buf.WriteString(")")
+	return buf.String()
+}
+
+func (r *CompositeReaderImpl) getSequentialSubReaders() []IndexReader {
+	panic("must be implemented by sub class")
+}
+
+func (r *CompositeReaderImpl) Context() IndexReaderContext {
 	log.Print("Obtaining context for CompositeReader...")
 	r.ensureOpen()
 	// lazy init without thread safety for perf reasons: Building the readerContext twice does not hurt!
@@ -263,25 +290,25 @@ type CompositeReaderContext struct {
 	*IndexReaderContextImpl
 	children []IndexReaderContext
 	leaves   []AtomicReaderContext
-	reader   *CompositeReader
+	reader   CompositeReader
 }
 
-func newCompositeReaderContext(r *CompositeReader) *CompositeReaderContext {
+func newCompositeReaderContext(r CompositeReader) *CompositeReaderContext {
 	return newCompositeReaderContextBuilder(r).build()
 }
 
-func newCompositeReaderContext3(reader *CompositeReader,
+func newCompositeReaderContext3(reader CompositeReader,
 	children []IndexReaderContext, leaves []AtomicReaderContext) *CompositeReaderContext {
 	return newCompositeReaderContext6(nil, reader, 0, 0, children, leaves)
 }
 
-func newCompositeReaderContext5(parent *CompositeReaderContext, reader *CompositeReader,
+func newCompositeReaderContext5(parent *CompositeReaderContext, reader CompositeReader,
 	ordInParent, docBaseInParent int, children []IndexReaderContext) *CompositeReaderContext {
 	return newCompositeReaderContext6(parent, reader, ordInParent, docBaseInParent, children, nil)
 }
 
 func newCompositeReaderContext6(parent *CompositeReaderContext,
-	reader *CompositeReader,
+	reader CompositeReader,
 	ordInParent, docBaseInParent int,
 	children []IndexReaderContext,
 	leaves []AtomicReaderContext) *CompositeReaderContext {
@@ -310,17 +337,17 @@ func (ctx *CompositeReaderContext) Reader() IndexReader {
 }
 
 type CompositeReaderContextBuilder struct {
-	reader      *CompositeReader
+	reader      CompositeReader
 	leaves      []AtomicReaderContext
 	leafDocBase int
 }
 
-func newCompositeReaderContextBuilder(r *CompositeReader) CompositeReaderContextBuilder {
+func newCompositeReaderContextBuilder(r CompositeReader) CompositeReaderContextBuilder {
 	return CompositeReaderContextBuilder{reader: r}
 }
 
 func (b CompositeReaderContextBuilder) build() *CompositeReaderContext {
-	return b.build4(nil, b.reader.IndexReader, 0, 0).(*CompositeReaderContext)
+	return b.build4(nil, b.reader, 0, 0).(*CompositeReaderContext)
 }
 
 func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
@@ -334,7 +361,7 @@ func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 		return atomic
 	}
 	log.Print("CompositeReader is detected.")
-	cr := reader.(*DirectoryReader).CompositeReader
+	cr := reader.(*DirectoryReaderImpl)
 	sequentialSubReaders := cr.getSequentialSubReaders()
 	children := make([]IndexReaderContext, len(sequentialSubReaders))
 	var newParent *CompositeReaderContext
@@ -365,22 +392,22 @@ func (rs ReaderSlice) String() string {
 }
 
 type BaseCompositeReader struct {
-	*CompositeReader
+	*CompositeReaderImpl
 	subReaders []IndexReader
 	starts     []int
 	maxDoc     int
 	numDocs    int
+
+	subReadersList []IndexReader
 }
 
 func newBaseCompositeReader(self IndexReader, readers []IndexReader) *BaseCompositeReader {
 	log.Printf("Initializing BaseCompositeReader with %v IndexReaders", len(readers))
 	ans := &BaseCompositeReader{}
-	ans.CompositeReader = newCompositeReader(self)
-	ans.CompositeReader.getSequentialSubReaders = func() []IndexReader {
-		log.Printf("Found %v sub readers.", len(ans.subReaders))
-		return ans.subReaders
-	}
+	ans.CompositeReaderImpl = newCompositeReader(self)
 	ans.subReaders = readers
+	ans.subReadersList = make([]IndexReader, len(readers))
+	copy(ans.subReadersList, readers)
 	ans.starts = make([]int, len(readers)+1) // build starts array
 	var maxDoc, numDocs int
 	for i, r := range readers {
@@ -393,7 +420,7 @@ func newBaseCompositeReader(self IndexReader, readers []IndexReader) *BaseCompos
 		}
 		numDocs += r.NumDocs() // compute numDocs
 		log.Printf("Obtained %v docs (max %v)", numDocs, maxDoc)
-		r.registerParentReader(ans.CompositeReader.IndexReader)
+		r.registerParentReader(ans)
 	}
 	ans.starts[len(readers)] = maxDoc
 	ans.maxDoc = maxDoc
@@ -402,42 +429,110 @@ func newBaseCompositeReader(self IndexReader, readers []IndexReader) *BaseCompos
 	return ans
 }
 
+func (r *BaseCompositeReader) TermVectors(docID int) error {
+	r.ensureOpen()
+	panic("not implemented yet")
+	// i := readerIndex(docID)
+	// return r.subReaders[i].TermVectors(docID - starts[i])
+}
+
+func (r *BaseCompositeReader) NumDocs() int {
+	return r.numDocs
+}
+
+func (r *BaseCompositeReader) MaxDoc() int {
+	return r.maxDoc
+}
+
+func (r *BaseCompositeReader) Document(docID int, visitor StoredFieldVisitor) error {
+	panic("not implemented yet")
+}
+
+func (r *BaseCompositeReader) DocFreq(term Term) int {
+	panic("not implemented yet")
+}
+
+func (r *BaseCompositeReader) TotalTermFreq(term Term) int64 {
+	panic("not implemented yet")
+}
+
+func (r *BaseCompositeReader) SumDocFreq(field string) int64 {
+	panic("not implemented yet")
+}
+
+func (r *BaseCompositeReader) DocCount(field string) int {
+	panic("not implemented yet")
+}
+
+func (r *BaseCompositeReader) SumTotalTermFreq(field string) int64 {
+	panic("not implemented yet")
+}
+
+func (r *BaseCompositeReader) readerIndex(docID int) int {
+	if docID < 0 || docID >= r.maxDoc {
+		panic(fmt.Sprintf("docID must be [0, %v] (got docID=%v)", r.maxDoc, docID))
+	}
+	return subIndex(docID, r.starts)
+}
+
+func (r *BaseCompositeReader) readerBase(readerIndex int) int {
+	panic("not implemented yet")
+}
+
+func (r *BaseCompositeReader) getSequentialSubReaders() []IndexReader {
+	log.Printf("Found %v sub readers.", len(r.subReadersList))
+	return r.subReadersList
+}
+
 const DEFAULT_TERMS_INDEX_DIVISOR = 1
 
-type DirectoryReader struct {
+type DirectoryReader interface {
+	IndexReader
+	// doOpenIfChanged() error
+	// doOpenIfChanged(c IndexCommit) error
+	// doOpenIfChanged(w IndexWriter, c IndexCommit) error
+	Version() int64
+	IsCurrent() bool
+}
+
+type DirectoryReaderImpl struct {
 	*BaseCompositeReader
 	directory store.Directory
 }
 
-func newDirectoryReader(directory store.Directory, segmentReaders []AtomicReader) *DirectoryReader {
+func newDirectoryReader(directory store.Directory, segmentReaders []AtomicReader) *DirectoryReaderImpl {
 	log.Printf("Initializing DirectoryReader with %v segment readers...", len(segmentReaders))
 	readers := make([]IndexReader, len(segmentReaders))
 	for i, v := range segmentReaders {
 		readers[i] = v
 	}
-	ans := &DirectoryReader{directory: directory}
+	ans := &DirectoryReaderImpl{directory: directory}
 	ans.BaseCompositeReader = newBaseCompositeReader(ans, readers)
 	return ans
 }
 
-func OpenDirectoryReader(directory store.Directory) (r *DirectoryReader, err error) {
+func OpenDirectoryReader(directory store.Directory) (r DirectoryReader, err error) {
 	return openStandardDirectoryReader(directory, DEFAULT_TERMS_INDEX_DIVISOR)
 }
 
 type StandardDirectoryReader struct {
-	*DirectoryReader
+	*DirectoryReaderImpl
+	segmentInfos SegmentInfos
 }
 
 // TODO support IndexWriter
 func newStandardDirectoryReader(directory store.Directory, readers []AtomicReader,
 	sis SegmentInfos, termInfosIndexDivisor int, applyAllDeletes bool) *StandardDirectoryReader {
 	log.Printf("Initializing StandardDirectoryReader with %v sub readers...", len(readers))
-	return &StandardDirectoryReader{newDirectoryReader(directory, readers)}
+	return &StandardDirectoryReader{
+		DirectoryReaderImpl: newDirectoryReader(directory, readers),
+		segmentInfos:        sis,
+	}
 }
 
 // TODO support IndexCommit
 func openStandardDirectoryReader(directory store.Directory,
-	termInfosIndexDivisor int) (r *DirectoryReader, err error) {
+	termInfosIndexDivisor int) (r DirectoryReader, err error) {
 	log.Print("Initializing SegmentsFile...")
 	obj, err := NewFindSegmentsFile(directory, func(segmentFileName string) (obj interface{}, err error) {
 		sis := &SegmentInfos{}
@@ -464,5 +559,49 @@ func openStandardDirectoryReader(directory store.Directory,
 	if err != nil {
 		return nil, err
 	}
-	return obj.(*StandardDirectoryReader).DirectoryReader, err
+	return obj.(*StandardDirectoryReader), err
+}
+
+func (r *StandardDirectoryReader) String() string {
+	var buf bytes.Buffer
+	buf.WriteString("StandardDirectoryReader(")
+	segmentsFile := r.segmentInfos.SegmentsFileName()
+	if segmentsFile != "" {
+		fmt.Fprintf(&buf, "%v:%v", segmentsFile, r.segmentInfos.version)
+	}
+	// if r.writer != nil {
+	// fmt.Fprintf(w, "%v", r.writer)
+	// }
+	for _, v := range r.getSequentialSubReaders() {
+		fmt.Fprintf(&buf, " %v", v)
+	}
+	buf.WriteString(")")
+	return buf.String()
+}
+
+func (r *StandardDirectoryReader) Version() int64 {
+	r.ensureOpen()
+	return r.segmentInfos.version
+}
+
+func (r *StandardDirectoryReader) IsCurrent() bool {
+	r.ensureOpen()
+	// if writer == nill || writer.IsClosed() {
+	// Fully read the segments file: this ensures that it's
+	// completely written so that if
+	// IndexWriter.prepareCommit has been called (but not
+	// yet commit), then the reader will still see itself as
+	// current:
+	sis := SegmentInfos{}
+	sis.ReadAll(r.directory)
+
+	// we loaded SegmentInfos from the directory
+	return sis.version == r.segmentInfos.version
+	// } else {
+	// return writer.nrtIsCurrent(r.segmentInfos)
+	// }
+}
+
+func (r *StandardDirectoryReader) doClose() error {
+	panic("not implemented yet")
 }

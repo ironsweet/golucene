@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+const (
+	SEGMENTS = "segments"
+)
+
 func FileNameFromGeneration(base, ext string, gen int64) string {
 	log.Printf("Filename from generation: %v, %v, %v", base, ext, gen)
 	switch {

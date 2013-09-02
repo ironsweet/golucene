@@ -313,6 +313,10 @@ func LastCommitGeneration(files []string) int64 {
 	return max
 }
 
+func (sis SegmentInfos) SegmentsFileName() string {
+	return util.FileNameFromGeneration(util.SEGMENTS, "", sis.lastGeneration)
+}
+
 func GenerationFromSegmentsFileName(fileName string) int64 {
 	switch {
 	case fileName == INDEX_FILENAME_SEGMENTS:
@@ -431,6 +435,15 @@ func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string)
 
 	success = true
 	return nil
+}
+
+func (sis *SegmentInfos) ReadAll(directory store.Directory) error {
+	sis.generation, sis.lastGeneration = -1, -1
+	_, err := NewFindSegmentsFile(directory, func(segmentFileName string) (obj interface{}, err error) {
+		err = sis.Read(directory, segmentFileName)
+		return nil, err
+	}).run()
+	return err
 }
 
 func (sis *SegmentInfos) Clear() {
