@@ -227,7 +227,6 @@ func (r *BytesStoreReverseReader) reversed() bool {
 
 func (bs *BytesStore) reverseReaderAllowSingle(allowSingle bool) BytesReader {
 	if allowSingle && len(bs.blocks) == 1 {
-		log.Print("DEBUG Single block.")
 		return newReverseBytesReader(bs.blocks[0])
 	}
 	var current []byte = nil

@@ -220,9 +220,7 @@ func (in *BufferedIndexInput) ReadVInt() (n int32, err error) {
 }
 
 func (in *BufferedIndexInput) ReadVLong() (n int64, err error) {
-	// log.Print("DEBUG ReadVLong() from buffer")
 	if 9 <= in.bufferLength-in.bufferPosition {
-		// log.Print("DEBUG read from buffer")
 		b := in.buffer[in.bufferPosition]
 		in.bufferPosition++
 		if b < 128 {
@@ -477,7 +475,6 @@ func (in *ByteArrayDataInput) ReadVInt() (n int32, err error) {
 }
 
 func (in *ByteArrayDataInput) ReadVLong() (n int64, err error) {
-	log.Print("DEBUG ReadVLong from bytes")
 	b := in.bytes[in.pos]
 	in.pos++
 	if b < 128 {

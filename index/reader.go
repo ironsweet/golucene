@@ -113,7 +113,6 @@ func (r *IndexReaderImpl) Close() error {
 }
 
 func (r *IndexReaderImpl) Leaves() []AtomicReaderContext {
-	// log.Printf("Debug %%v", r.Context())
 	return r.Context().Leaves()
 }
 

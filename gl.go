@@ -24,6 +24,9 @@ func main() {
 	if r == nil {
 		panic("DirectoryReader cannot be opened.")
 	}
+	if len(r.Leaves()) < 1 {
+		panic("Should have one leaf.")
+	}
 	log.Print("Initializing IndexSearcher...")
 	ss := search.NewIndexSearcher(r)
 	log.Print("Searching...")

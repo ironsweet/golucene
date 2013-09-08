@@ -81,14 +81,12 @@ func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info Se
 		if err != nil {
 			return fp, err
 		}
-		// log.Print("DEBUG ", indexIn)
 
 		indexVersion, err := fp.readIndexHeader(indexIn)
 		if err != nil {
 			return fp, err
 		}
 		log.Printf("Index version: %v", indexVersion)
-		// log.Print("DEBUG ", indexIn)
 		if int(indexVersion) != fp.version {
 			return fp, errors.New(fmt.Sprintf("mixmatched version files: %v=%v,%v=%v", fp.in, fp.version, indexIn, indexVersion))
 		}
@@ -101,7 +99,6 @@ func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info Se
 	fp.seekDir(fp.in, fp.dirOffset)
 	if indexDivisor != -1 {
 		fp.seekDir(indexIn, fp.indexDirOffset)
-		// log.Print("DEBUG ", indexIn)
 	}
 
 	numFields, err := fp.in.ReadVInt()
@@ -183,7 +180,6 @@ func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info Se
 			}
 		}
 		log.Printf("indexStartFP: %v", indexStartFP)
-		// log.Print("DEBUG ", indexIn)
 		if _, ok := fp.fields[fieldInfo.name]; ok {
 			return fp, errors.New(fmt.Sprintf(
 				"duplicate field: %v (resource=%v)", fieldInfo.name, fp.in))
@@ -298,13 +294,10 @@ func newFieldReader(fieldInfo FieldInfo, numTerms int64, rootCode []byte,
 	if err != nil {
 		return r, err
 	}
-	log.Print("DEBUG n=", n)
 	r.rootBlockFP = int64(uint64(n) >> BTT_OUTPUT_FLAGS_NUM_BITS)
 
 	if indexIn != nil {
 		clone := indexIn.Clone()
-		log.Print("DEBUG ", indexIn)
-		log.Print("DEBUG clone = ", clone)
 		clone.Seek(indexStartFP)
 		r.index, err = util.LoadFST(clone, util.ByteSequenceOutputsSingleton())
 	}
