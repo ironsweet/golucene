@@ -22,6 +22,8 @@ func NewIndexSearcher(r index.IndexReader) IndexSearcher {
 func NewIndexSearcherFromContext(context index.IndexReaderContext) IndexSearcher {
 	//assert context.isTopLevel: "IndexSearcher's ReaderContext must be topLevel for reader" + context.reader();
 	defaultSimilarity := NewDefaultSimilarity()
+	log.Print("DEBUG ", context)
+	log.Print("DEBUG ", context.Reader())
 	return IndexSearcher{context.Reader(), context, context.Leaves(), defaultSimilarity}
 }
 

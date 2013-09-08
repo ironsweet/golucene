@@ -50,7 +50,7 @@ func (mf MultiFields) Terms(field string) Terms {
 }
 
 func GetMultiFields(r IndexReader) Fields {
-	log.Print("Obtaining MultiFields from IndexReader...")
+	log.Print("Obtaining MultiFields from ", r)
 	leaves := r.Leaves()
 	switch len(leaves) {
 	case 0:
