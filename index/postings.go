@@ -336,11 +336,11 @@ func (e *SegmentTermsEnum) Comparator() sort.Interface {
 	panic("not implemented yet")
 }
 
-func (e *SegmentTermsEnum) SeekExactUsingCache(target []byte, useCache bool) bool {
+func (e *SegmentTermsEnum) SeekExact(target []byte) bool {
 	panic("not implemented yet")
 }
 
-func (e *SegmentTermsEnum) SeekCeilUsingCache(text []byte, useCache bool) SeekStatus {
+func (e *SegmentTermsEnum) SeekCeil(text []byte) SeekStatus {
 	panic("not implemented yet")
 }
 

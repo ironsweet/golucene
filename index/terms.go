@@ -22,11 +22,7 @@ type Terms interface {
 	SumDocFreq() int64
 }
 
-const (
-	SEEK_STATUS_END       = 1
-	SEEK_STATUS_FOUND     = 2
-	SEEK_STATUS_NOT_FOUND = 3
-)
+// TermsEnum.java
 
 var (
 	TERMS_ENUM_EMPTY = &TermsEnumEmpty{}
@@ -34,14 +30,19 @@ var (
 
 type SeekStatus int
 
+const (
+	SEEK_STATUS_END       = 1
+	SEEK_STATUS_FOUND     = 2
+	SEEK_STATUS_NOT_FOUND = 3
+)
+
 type TermsEnum interface {
 	// BytesRefIterator
 	Next() (buf []byte, err error)
 	Comparator() sort.Interface
 
 	Attributes() util.AttributeSource
-	SeekExactUsingCache(text []byte, useCache bool) bool
-	SeekCeilUsingCache(text []byte, useCache bool) SeekStatus
+	SeekExact(text []byte) bool
 	SeekCeil(text []byte) SeekStatus
 	SeekExactByPosition(ord int64) error
 	SeekExactFromLast(text []byte, state TermState) error
@@ -69,16 +70,12 @@ func (e *TermsEnumImpl) Attributes() util.AttributeSource {
 	return e.atts
 }
 
-func (e *TermsEnumImpl) SeekExactUsingCache(text []byte, useCache bool) bool {
-	return e.SeekCeilUsingCache(text, useCache) == SEEK_STATUS_FOUND
-}
-
-func (e *TermsEnumImpl) SeekCeil(text []byte) SeekStatus {
-	return e.SeekCeilUsingCache(text, true)
+func (e *TermsEnumImpl) SeekExact(text []byte) bool {
+	return e.SeekCeil(text) == SEEK_STATUS_FOUND
 }
 
 func (e *TermsEnumImpl) SeekExactFromLast(text []byte, state TermState) error {
-	if !e.SeekExactUsingCache(text, true) {
+	if !e.SeekExact(text) {
 		panic(fmt.Sprintf("term %v does not exist", text))
 	}
 	return nil
@@ -148,6 +145,8 @@ func (e *TermsEnumEmpty) SeekExactFromLast(term []byte, state TermState) error {
 	panic("this method should never be called")
 }
 
+// TermContext.java
+
 type TermContext struct {
 	TopReaderContext IndexReaderContext
 	states           []*TermState
@@ -155,6 +154,9 @@ type TermContext struct {
 	TotalTermFreq    int64
 }
 
+/**
+ * Creates an empty {@link TermContext} from a {@link IndexReaderContext}
+ */
 func NewTermContext(ctx IndexReaderContext) *TermContext {
 	// assert ctx != nil && ctx.IsTopLevel
 	var n int
@@ -166,18 +168,23 @@ func NewTermContext(ctx IndexReaderContext) *TermContext {
 	return &TermContext{TopReaderContext: ctx, states: make([]*TermState, n)}
 }
 
-func NewTermContextFromTerm(ctx IndexReaderContext, t Term, cache bool) *TermContext {
+/**
+ * Creates a {@link TermContext} from a top-level {@link IndexReaderContext} and the
+ * given {@link Term}. This method will lookup the given term in all context's leaf readers
+ * and register each of the readers containing the term in the returned {@link TermContext}
+ * using the leaf reader's ordinal.
+ * <p>
+ * Note: the given context must be a top-level context.
+ */
+func NewTermContextFromTerm(ctx IndexReaderContext, t Term) *TermContext {
 	// assert ctx != nil && ctx.IsTopLevel
 	perReaderTermState := NewTermContext(ctx)
-	for _, v := range ctx.Leaves() {
-		fields := v.reader.Fields()
-		if fields != nil {
-			terms := fields.Terms(t.Field)
-			if terms != nil {
-				termsEnum := terms.Iterator(nil)
-				if termsEnum.SeekExactUsingCache(t.Bytes, cache) {
+	for _, leaf := range ctx.Leaves() {
+		if fields := leaf.reader.Fields(); fields != nil {
+			if terms := fields.Terms(t.Field); terms != nil {
+				if termsEnum := terms.Iterator(nil); termsEnum.SeekExact(t.Bytes) {
 					termState := termsEnum.TermState()
-					perReaderTermState.register(termState, v.Ord, termsEnum.DocFreq(), termsEnum.TotalTermFreq())
+					perReaderTermState.register(termState, leaf.Ord, termsEnum.DocFreq(), termsEnum.TotalTermFreq())
 				}
 			}
 		}

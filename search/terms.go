@@ -30,7 +30,7 @@ func (q *TermQuery) CreateWeight(ss IndexSearcher) Weight {
 	var termState *index.TermContext
 	if q.perReaderTermState == nil || q.perReaderTermState.TopReaderContext != ctx {
 		// make TermQuery single-pass if we don't have a PRTS or if the context differs!
-		termState = index.NewTermContextFromTerm(ctx, q.term, true)
+		termState = index.NewTermContextFromTerm(ctx, q.term)
 	} else {
 		// PRTS was pre-build for this IS
 		termState = q.perReaderTermState
