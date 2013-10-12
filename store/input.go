@@ -7,7 +7,6 @@ import (
 	"hash"
 	"hash/crc32"
 	"io"
-	"log"
 )
 
 type IndexInput interface {

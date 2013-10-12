@@ -2,7 +2,6 @@ package util
 
 import (
 	"fmt"
-	"log"
 )
 
 type BytesStore struct {
