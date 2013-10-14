@@ -96,9 +96,9 @@ func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnu
 	if state == nil { // term is not present in that reader
 		// assert termNotInReader(ctx.Reader(), tw.Term)
 		// : "no termstate found but term exists in reader term=" + term;
-		return index.TERMS_ENUM_EMPTY, false
+		return index.EMPTY_TERMS_ENUM, false
 	}
-	te = ctx.Reader().(index.AtomicReader).Terms(tw.query.term.Field).Iterator(index.TERMS_ENUM_EMPTY)
+	te = ctx.Reader().(index.AtomicReader).Terms(tw.query.term.Field).Iterator(index.EMPTY_TERMS_ENUM)
 	te.SeekExactFromLast(tw.query.term.Bytes, *state)
 	return te, true
 }
