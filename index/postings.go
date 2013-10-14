@@ -386,12 +386,3 @@ func (e *SegmentTermsEnum) SeekExactByPosition(ord int64) error {
 func (e *SegmentTermsEnum) Ord() int64 {
 	panic("not supported!")
 }
-
-type PostingsReaderBase interface {
-	io.Closer
-	init(termsIn store.IndexInput) error
-	// newTermState() BlockTermState
-	// nextTerm(fieldInfo FieldInfo, state BlockTermState)
-	// docs(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int)
-	// docsAndPositions(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits)
-}
