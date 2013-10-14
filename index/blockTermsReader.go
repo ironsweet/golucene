@@ -13,6 +13,7 @@ terms dict.
 */
 type BlockTermState struct {
 	*OrdTermState
+	other TermState
 
 	// how many docs have this term
 	docFreq int
@@ -32,6 +33,9 @@ func NewBlockTermState() *BlockTermState {
 func (ts *BlockTermState) CopyFrom(other TermState) {
 	if ots, ok := other.(*BlockTermState); ok {
 		ts.OrdTermState.CopyFrom(ots.OrdTermState)
+		if ts.other != nil {
+			ts.other.CopyFrom(ots.other)
+		}
 		ts.docFreq = ots.docFreq
 		ts.totalTermFreq = ots.totalTermFreq
 		ts.termBlockOrd = ots.termBlockOrd
@@ -48,6 +52,6 @@ func (ts *BlockTermState) Clone() TermState {
 }
 
 func (ts *BlockTermState) String() string {
-	return fmt.Sprintf("%v docFreq=%v totalTermFreq=%v termBlockOrd=%v blockFP=%v",
-		ts.OrdTermState, ts.docFreq, ts.totalTermFreq, ts.termBlockOrd, ts.blockFilePointer)
+	return fmt.Sprintf("%v docFreq=%v totalTermFreq=%v termBlockOrd=%v blockFP=%v other=%v",
+		ts.OrdTermState, ts.docFreq, ts.totalTermFreq, ts.termBlockOrd, ts.blockFilePointer, ts.other)
 }

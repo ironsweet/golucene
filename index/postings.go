@@ -16,7 +16,7 @@ type FieldsProducer interface {
 	io.Closer
 }
 
-// TODO use for BTTR only
+// BlockTreeTermsReader.java
 
 const (
 	BTT_OUTPUT_FLAGS_NUM_BITS = 2
@@ -33,11 +33,40 @@ const (
 	BTT_INDEX_VERSION_CURRENT     = BTT_INDEX_VERSION_APPEND_ONLY
 )
 
+/* A block-based terms index and dictionary that assigns
+terms to variable length blocks according to how they
+share prefixes. The terms index is a prefix trie
+whose leaves are term blocks. The advantage of this
+approach is that seekExact is often able to
+determine a term cannot exist without doing any IO, and
+intersection with Automata is very fast. NOte that this
+terms dictionary has its own fixed terms index (ie, it
+does not support a pluggable terms index
+implementation).
+
+NOTE: this terms dictionary does not support
+index divisor when opening an IndexReader. Instead, you
+can change the min/maxItemsPerBlock during indexing.
+
+The data strucure used by this implementation is very
+similar to a [burst trie]
+(http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.18.3499),
+but with added logic to break up too-large blocks of all
+terms sharing a given prefix into smaller ones.
+
+Use CheckIndex with the -verbose
+option to see summary statistics on the blocks in the
+dictionary. */
 type BlockTreeTermsReader struct {
-	in             store.IndexInput
+	// Open input to the main terms dict file (_X.tib)
+	in store.IndexInput
+	// Reads the terms dict entries, to gather state to
+	// produce DocsEnum on demand
 	postingsReader PostingsReaderBase
 	fields         map[string]FieldReader
-	dirOffset      int64
+	// File offset where the directory starts in the terms file.
+	dirOffset int64
+	// File offset where the directory starts in the index file.
 	indexDirOffset int64
 	segment        string
 	version        int
@@ -264,6 +293,7 @@ func (r *BlockTreeTermsReader) Close() error {
 }
 
 type FieldReader struct {
+	owner            *BlockTreeTermsReader // inner class
 	numTerms         int64
 	fieldInfo        FieldInfo
 	sumTotalTermFreq int64
@@ -321,15 +351,41 @@ func (r *FieldReader) DocCount() int {
 	return int(r.docCount)
 }
 
+// BlockTreeTermsReader.java/SegmentTermsEnum
+// Iterates through terms in this field
 type SegmentTermsEnum struct {
 	*TermsEnumImpl
 	owner *FieldReader
-	eof   bool
-	term  []byte
+
+	in store.IndexInput
+
+	stack        []segmentTermsEnumFrame
+	staticFrame  segmentTermsEnumFrame
+	currentFrame segmentTermsEnumFrame
+	termExists   bool
+
+	targetBeforeCurrentLength int
+
+	// What prefix of the current term was present in the index:
+	scratchReader *store.ByteArrayDataInput
+
+	// assert only:
+	eof bool
+
+	term      []byte
+	fstReader util.BytesReader
+
+	arcs []util.Arc
 }
 
 func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
-	return &SegmentTermsEnum{owner: r}
+	ans := &SegmentTermsEnum{
+		owner:         r,
+		scratchReader: store.NewByteArrayDataInput(nil),
+		arcs:          make([]util.Arc, 1),
+	}
+	ans.TermsEnumImpl = newTermsEnumImpl(ans)
+	return ans
 }
 
 func (e *SegmentTermsEnum) Comparator() sort.Interface {
@@ -385,4 +441,76 @@ func (e *SegmentTermsEnum) SeekExactByPosition(ord int64) error {
 
 func (e *SegmentTermsEnum) Ord() int64 {
 	panic("not supported!")
+}
+
+type segmentTermsEnumFrame struct {
+	// internal data structure
+	owner *SegmentTermsEnum
+
+	// Our index in stack[]:
+	ord int
+
+	hasTerms     bool
+	hasTermsOrig bool
+	isFloor      bool
+
+	arc util.Arc
+
+	// File pointer where this block was loaded from
+	fp     int64
+	fpOrig int64
+	fpEnd  int64
+
+	suffixBytes    []byte
+	suffixesReader store.ByteArrayDataInput
+
+	statBytes   []byte
+	statsReader store.ByteArrayDataInput
+
+	floorData       []byte
+	floorDataReader store.ByteArrayDataInput
+
+	// Length of prefix shared by all terms in this block
+	prefix int
+
+	// Number of entries (term or sub-block) in this block
+	entCount int
+
+	// Which term we will next read, or -1 if the block
+	// isn't loaded yet
+	nextEnt int
+
+	// True if this block is either not a floor block,
+	// or, it's the last sub-block of a floor block
+	isLastInFloor bool
+
+	// True if all entries are terms
+	isLeafBlock bool
+
+	lastSubFP int64
+
+	nextFloorLabel       int
+	numFollowFloorBlocks int
+
+	// Next term to decode metaData; we decode metaData
+	// lazily so that scanning to find the matching term is
+	// fast and only if you find a match and app wants the
+	// stats or docs/positions enums, will we decode the
+	// metaData
+	metaDataUpto int
+
+	state *BlockTermState
+}
+
+func newFrame(owner *SegmentTermsEnum, ord int) *segmentTermsEnumFrame {
+	f := &segmentTermsEnumFrame{
+		owner:       owner,
+		suffixBytes: make([]byte, 128),
+		statBytes:   make([]byte, 64),
+		floorData:   make([]byte, 32),
+		ord:         ord,
+	}
+	f.state = owner.owner.owner.postingsReader.NewTermState()
+	f.state.totalTermFreq = -1
+	return f
 }

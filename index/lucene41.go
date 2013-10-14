@@ -111,8 +111,8 @@ func (r *Lucene41PostingsReader) Init(termsIn store.IndexInput) error {
 	return nil
 }
 
-func (r *Lucene41PostingsReader) NewTermState() TermState {
-	return newIntBlockTermState()
+func (r *Lucene41PostingsReader) NewTermState() *BlockTermState {
+	return newIntBlockTermState().BlockTermState
 }
 
 func (r *Lucene41PostingsReader) Close() error {
@@ -137,7 +137,10 @@ type intBlockTermState struct {
 }
 
 func newIntBlockTermState() *intBlockTermState {
-	return &intBlockTermState{BlockTermState: NewBlockTermState()}
+	holder := NewBlockTermState()
+	ts := &intBlockTermState{BlockTermState: holder}
+	holder.other = ts
+	return ts
 }
 
 func (ts *intBlockTermState) Clone() TermState {

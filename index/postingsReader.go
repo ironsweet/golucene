@@ -26,7 +26,7 @@ type PostingsReaderBase interface {
 	*/
 	Init(termsIn store.IndexInput) error
 	// Return a newly created empty BlockTermState
-	NewTermState() TermState
+	NewTermState() *BlockTermState
 	// nextTerm(fieldInfo FieldInfo, state BlockTermState)
 	// docs(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int)
 	// docsAndPositions(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits)
