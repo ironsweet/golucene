@@ -41,7 +41,13 @@ func (ts *BlockTermState) CopyFrom(other TermState) {
 	}
 }
 
+func (ts *BlockTermState) Clone() TermState {
+	clone := NewBlockTermState()
+	clone.CopyFrom(ts)
+	return clone
+}
+
 func (ts *BlockTermState) String() string {
-	return fmt.Sprintf("docFreq=%v totalTermFreq=%v termBlockOrd=%v blockFP=%v",
-		ts.docFreq, ts.totalTermFreq, ts.termBlockOrd, ts.blockFilePointer)
+	return fmt.Sprintf("%v docFreq=%v totalTermFreq=%v termBlockOrd=%v blockFP=%v",
+		ts.OrdTermState, ts.docFreq, ts.totalTermFreq, ts.termBlockOrd, ts.blockFilePointer)
 }

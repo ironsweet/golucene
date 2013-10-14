@@ -93,7 +93,7 @@ func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info Se
 	}
 
 	// Have PostingsReader init itself
-	postingsReader.init(fp.in)
+	postingsReader.Init(fp.in)
 
 	// Read per-field details
 	fp.seekDir(fp.in, fp.dirOffset)

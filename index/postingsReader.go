@@ -19,8 +19,14 @@ time.
 */
 type PostingsReaderBase interface {
 	io.Closer
-	init(termsIn store.IndexInput) error
-	// newTermState() BlockTermState
+	/*
+		Performs any initialization, such as reading and
+		verifying the header from the provided terms
+		dictionary IndexInput.
+	*/
+	Init(termsIn store.IndexInput) error
+	// Return a newly created empty BlockTermState
+	NewTermState() TermState
 	// nextTerm(fieldInfo FieldInfo, state BlockTermState)
 	// docs(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int)
 	// docsAndPositions(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits)

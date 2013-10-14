@@ -7,8 +7,10 @@ import (
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
 	"log"
-	"math"
+	"reflect"
 )
+
+// Lucene41PostingsReader.java
 
 const (
 	LUCENE41_DOC_EXTENSION = "doc"
@@ -26,6 +28,10 @@ const (
 	LUCENE41_VERSION_CURRENT = LUCENE41_VERSION_START
 )
 
+/*
+Concrete class that reads docId (maybe frq,pos,offset,payload) list
+with postings format.
+*/
 type Lucene41PostingsReader struct {
 	docIn   store.IndexInput
 	posIn   store.IndexInput
@@ -87,7 +93,7 @@ func NewLucene41PostingsReader(dir store.Directory, fis FieldInfos, si SegmentIn
 	return &Lucene41PostingsReader{docIn, posIn, payIn, forUtil}, nil
 }
 
-func (r *Lucene41PostingsReader) init(termsIn store.IndexInput) error {
+func (r *Lucene41PostingsReader) Init(termsIn store.IndexInput) error {
 	log.Printf("Initializing from: %v", termsIn)
 	// Make sure we are talking to the matching postings writer
 	_, err := codec.CheckHeader(termsIn, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_START, LUCENE41_VERSION_CURRENT)
@@ -105,59 +111,63 @@ func (r *Lucene41PostingsReader) init(termsIn store.IndexInput) error {
 	return nil
 }
 
+func (r *Lucene41PostingsReader) NewTermState() TermState {
+	return newIntBlockTermState()
+}
+
 func (r *Lucene41PostingsReader) Close() error {
 	return util.Close(r.docIn, r.posIn, r.payIn)
 }
 
-type ForUtil struct {
-	encodedSizes []int32
-	encoders     []util.PackedIntsEncoder
-	decoders     []util.PackedIntsDecoder
-	iterations   []int32
+type intBlockTermState struct {
+	*BlockTermState
+	docStartFP         int64
+	posStartFP         int64
+	payStartFP         int64
+	skipOffset         int64
+	lastPosBlockOffset int64
+	// docid when there is a single pulsed posting, otherwise -1
+	// freq is always implicitly totalTermFreq in this case.
+	singletonDocID int
+
+	// Only used by the "primary" TermState -- clones don't
+	// copy this (basically they are "transient"):
+	bytesReader store.ByteArrayDataInput
+	bytes       []byte
 }
 
-type DataInput interface {
-	ReadVInt() (n int32, err error)
+func newIntBlockTermState() *intBlockTermState {
+	return &intBlockTermState{BlockTermState: NewBlockTermState()}
 }
 
-func NewForUtil(in DataInput) (fu ForUtil, err error) {
-	self := ForUtil{}
-	packedIntsVersion, err := in.ReadVInt()
-	if err != nil {
-		return self, err
+func (ts *intBlockTermState) Clone() TermState {
+	clone := newIntBlockTermState()
+	clone.CopyFrom(ts)
+	return clone
+}
+
+func (ts *intBlockTermState) CopyFrom(other TermState) {
+	if ots, ok := other.(*intBlockTermState); ok {
+		ts.BlockTermState.CopyFrom(ots.BlockTermState)
+		ts.docStartFP = ots.docStartFP
+		ts.posStartFP = ots.posStartFP
+		ts.payStartFP = ots.payStartFP
+		ts.lastPosBlockOffset = ots.lastPosBlockOffset
+		ts.skipOffset = ots.skipOffset
+		ts.singletonDocID = ots.singletonDocID
+
+		// Do not copy bytes, bytesReader (else TermState is
+		// very heavy, ie drags around the entire block's
+		// byte[]).  On seek back, if next() is in fact used
+		// (rare!), they will be re-read from disk.
+	} else {
+		panic(fmt.Sprintf("Can not copy from %v", reflect.TypeOf(other).Name()))
 	}
-	util.CheckVersion(packedIntsVersion)
-	self.encodedSizes = make([]int32, 33)
-	self.encoders = make([]util.PackedIntsEncoder, 33)
-	self.decoders = make([]util.PackedIntsDecoder, 33)
-	self.iterations = make([]int32, 33)
-
-	for bpv := 1; bpv <= 32; bpv++ {
-		code, err := in.ReadVInt()
-		if err != nil {
-			return self, err
-		}
-		formatId := uint32(code) >> 5
-		bitsPerValue := (uint32(code) & 31) + 1
-
-		format := util.PackedFormat(formatId)
-		// assert format.isSupported(bitsPerValue)
-		self.encodedSizes[bpv] = encodedSize(format, packedIntsVersion, bitsPerValue)
-		self.encoders[bpv] = util.GetPackedIntsEncoder(format, packedIntsVersion, bitsPerValue)
-		self.decoders[bpv] = util.GetPackedIntsDecoder(format, packedIntsVersion, bitsPerValue)
-		self.iterations[bpv] = computeIterations(self.decoders[bpv])
-	}
-	return self, nil
 }
 
-func encodedSize(format util.PackedFormat, packedIntsVersion int32, bitsPerValue uint32) int32 {
-	byteCount := format.ByteCount(packedIntsVersion, LUCENE41_BLOCK_SIZE, bitsPerValue)
-	// assert byteCount >= 0 && byteCount <= math.MaxInt32()
-	return int32(byteCount)
-}
-
-func computeIterations(decoder util.PackedIntsDecoder) int32 {
-	return int32(math.Ceil(float64(LUCENE41_BLOCK_SIZE) / float64(decoder.ByteValueCount())))
+func (ts *intBlockTermState) String() string {
+	return fmt.Sprintf("%v docStartFP=%v posStartFP=%v payStartFP=%v lastPosBlockOffset=%v skipOffset=%v singletonDocID=%v",
+		ts.BlockTermState, ts.docStartFP, ts.posStartFP, ts.payStartFP, ts.lastPosBlockOffset, ts.skipOffset, ts.singletonDocID)
 }
 
 type Lucene41StoredFieldsReader struct {

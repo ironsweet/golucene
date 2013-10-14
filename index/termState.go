@@ -45,5 +45,5 @@ func (ts *OrdTermState) Clone() TermState {
 }
 
 func (ts *OrdTermState) String() string {
-	return fmt.Sprintf("OrdtermState ord=%v", ts.ord)
+	return fmt.Sprintf("TermState ord=%v", ts.ord)
 }
