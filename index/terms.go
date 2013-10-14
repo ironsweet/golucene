@@ -23,10 +23,101 @@ type Terms interface {
 }
 
 // TermsEnum.java
+/*
+Iterator to seek, or step through terms to obtain frequency information, or
+for the current term.
 
-var (
-	TERMS_ENUM_EMPTY = &TermsEnumEmpty{}
-)
+Term enumerations are always ordered by specified Comparator. Each term in the
+enumeration is greater than the one before it.
+
+The TermsEnum is unpositioned when you first obtain it and you must first
+succesfully call next() or one of the seek methods.
+*/
+type TermsEnum interface {
+	util.BytesRefIterator
+
+	Attributes() util.AttributeSource
+	/* Attempts to seek to the exact term, returning
+	true if the term is found. If this returns false, the
+	enum is unpositioned. For some codecs, seekExact may
+	be substantially faster than seekCeil. */
+	SeekExact(text []byte) bool
+	/* Seeks to the specified term, if it exists, or to the
+	next (ceiling) term. Returns SeekStatus to
+	indicate whether exact term was found, a different
+	term was found, or EOF was hit. The target term may
+	be before or after the current term. If this returns
+	SeekStatus.END, then enum is unpositioned. */
+	SeekCeil(text []byte) SeekStatus
+	/* Seeks to the specified term by ordinal (position) as
+	previously returned by ord. The target ord
+	may be before or after the current ord, and must be
+	within bounds. */
+	SeekExactByPosition(ord int64) error
+	/* Expert: Seeks a specific position by TermState previously obtained
+	from termState(). Callers shoudl maintain the TermState to
+	use this method. Low-level implementations may position the TermsEnum
+	without re-seeking the term dictionary.
+
+	Seeking by TermState should only be used iff the state was obtained
+	from the same instance.
+
+	NOTE: Using this method with an incompatible TermState might leave
+	this TermsEnum in undefiend state. On a segment level
+	TermState instances are compatible only iff the source and the
+	target TermsEnum operate on the same field. If operating on segment
+	level, TermState instances must not be used across segments.
+
+	NOTE: A seek by TermState might not restore the
+	AttributeSource's state. AttributeSource state must be
+	maintained separately if the method is used. */
+	SeekExactFromLast(text []byte, state TermState) error
+	/* Returns current term. Do not call this when enum
+	is unpositioned. */
+	Term() []byte
+	/* Returns ordinal position for current term. This is an
+	optional method (the codec may panic). Do not call this
+	when the enum is unpositioned. */
+	Ord() int64
+	/* Returns the number of documentsw containing the current
+	term. Do not call this when enum is unpositioned. */
+	DocFreq() int
+	/* Returns the total numnber of occurrences of this term
+	across all documents (the sum of the freq() for each
+	doc that has this term). This will be -1 if the
+	codec doesn't support this measure. Note that, like
+	other term measures, this measure does not take
+	deleted documents into account. */
+	TotalTermFreq() int64
+	/* Get DocsEnum for the current term. Do not
+	call this when the enum is unpositioned. This method
+	will not return nil. */
+	Docs(liveDocs util.Bits, reuse DocsEnum) DocsEnum
+	/* Get DocsEnum for the current term, with
+	control over whether freqs are required. Do not
+	call this when the enum is unpositioned. This method
+	will not return nil. */
+	DocsByFlags(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum
+	/* Get DocsAndPositionEnum for the current term.
+	Do not call this when the enum is unpositioned. This
+	method will return nil if positions were not
+	indexed. */
+	DocsAndPositions(liveDocs util.Bits, reuse DocsAndPositionsEnum) DocsAndPositionsEnum
+	/* Get DocsAndPositionEnum for the current term,
+	with control over whether offsets and payloads are
+	required. Some codecs may be able to optimize their
+	implementation when offsets and/or payloads are not required.
+	Do not call this when the enum is unpositioned. This
+	will return nil if positions were not indexed. */
+	DocsAndPositionsByFlags(liveDocs util.Bits, reuse DocsAndPositionsEnum, flags int) DocsAndPositionsEnum
+	/* Expert: Returns the TermsEnum internal state to position the TermsEnum
+	without re-seeking the term dictionary.
+
+	NOTE: A sek by TermState might not capture the
+	AttributeSource's state. Callers must maintain the
+	AttributeSource states separately. */
+	TermState() TermState
+}
 
 type SeekStatus int
 
@@ -35,27 +126,6 @@ const (
 	SEEK_STATUS_FOUND     = 2
 	SEEK_STATUS_NOT_FOUND = 3
 )
-
-type TermsEnum interface {
-	// BytesRefIterator
-	Next() (buf []byte, err error)
-	Comparator() sort.Interface
-
-	Attributes() util.AttributeSource
-	SeekExact(text []byte) bool
-	SeekCeil(text []byte) SeekStatus
-	SeekExactByPosition(ord int64) error
-	SeekExactFromLast(text []byte, state TermState) error
-	Term() []byte
-	Ord() int64
-	DocFreq() int
-	TotalTermFreq() int64
-	Docs(liveDocs util.Bits, reuse DocsEnum) DocsEnum
-	DocsByFlags(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum
-	DocsAndPositions(liveDocs util.Bits, reuse DocsAndPositionsEnum) DocsAndPositionsEnum
-	DocsAndPositionsByFlags(liveDocs util.Bits, reuse DocsAndPositionsEnum, flags int) DocsAndPositionsEnum
-	TermState() TermState
-}
 
 type TermsEnumImpl struct {
 	TermsEnum
@@ -90,9 +160,19 @@ func (e *TermsEnumImpl) DocsAndPositions(liveDocs util.Bits, reuse DocsAndPositi
 }
 
 func (e *TermsEnumImpl) TermState() TermState {
-	return TermState{copyFrom: func(other TermState) { panic("not supported!") }}
+	return EMPTY_TERM_STATE
 }
 
+var (
+	TERMS_ENUM_EMPTY = &TermsEnumEmpty{}
+)
+
+/* An empty TermsEnum for quickly returning an empty instance e.g.
+in MultiTermQuery
+Please note: This enum should be unmodifiable,
+but it is currently possible to add Attributes to it.
+This should not be a problem, as the enum is always empty and
+the existence of unused Attributes does not matter. */
 type TermsEnumEmpty struct {
 	*TermsEnumImpl
 }
@@ -207,10 +287,6 @@ func (tc TermContext) register(state TermState, ord, docFreq int, totalTermFreq 
 func (tc TermContext) State(ord int) *TermState {
 	// asert ord >= 0 && ord < len(states)
 	return tc.states[ord]
-}
-
-type TermState struct {
-	copyFrom func(other TermState)
 }
 
 type MultiTerms struct {
