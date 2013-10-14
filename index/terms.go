@@ -164,7 +164,7 @@ func (e *TermsEnumImpl) TermState() TermState {
 }
 
 var (
-	TERMS_ENUM_EMPTY = &TermsEnumEmpty{}
+	EMPTY_TERMS_ENUM = &EmptyTermsEnum{}
 )
 
 /* An empty TermsEnum for quickly returning an empty instance e.g.
@@ -173,55 +173,55 @@ Please note: This enum should be unmodifiable,
 but it is currently possible to add Attributes to it.
 This should not be a problem, as the enum is always empty and
 the existence of unused Attributes does not matter. */
-type TermsEnumEmpty struct {
+type EmptyTermsEnum struct {
 	*TermsEnumImpl
 }
 
-func (e *TermsEnumEmpty) SeekCeilUsingCache(term []byte, useCache bool) SeekStatus {
+func (e *EmptyTermsEnum) SeekCeilUsingCache(term []byte, useCache bool) SeekStatus {
 	return SEEK_STATUS_END
 }
 
-func (e *TermsEnumEmpty) SeekExactByPosition(ord int64) error {
+func (e *EmptyTermsEnum) SeekExactByPosition(ord int64) error {
 	return nil
 }
 
-func (e *TermsEnumEmpty) Term() []byte {
+func (e *EmptyTermsEnum) Term() []byte {
 	panic("this method should never be called")
 }
 
-func (e *TermsEnumEmpty) Comparator() sort.Interface {
+func (e *EmptyTermsEnum) Comparator() sort.Interface {
 	return nil
 }
 
-func (e *TermsEnumEmpty) DocFreq() int {
+func (e *EmptyTermsEnum) DocFreq() int {
 	panic("this method should never be called")
 }
 
-func (e *TermsEnumEmpty) TotalTermFreq() int64 {
+func (e *EmptyTermsEnum) TotalTermFreq() int64 {
 	panic("this method should never be called")
 }
 
-func (e *TermsEnumEmpty) Ord() int64 {
+func (e *EmptyTermsEnum) Ord() int64 {
 	panic("this method should never be called")
 }
 
-func (e *TermsEnumEmpty) DocsByFlags(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum {
+func (e *EmptyTermsEnum) DocsByFlags(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum {
 	panic("this method should never be called")
 }
 
-func (e *TermsEnumEmpty) DocsAndPositionsByFlags(liveDocs util.Bits, reuse DocsAndPositionsEnum, flags int) DocsAndPositionsEnum {
+func (e *EmptyTermsEnum) DocsAndPositionsByFlags(liveDocs util.Bits, reuse DocsAndPositionsEnum, flags int) DocsAndPositionsEnum {
 	panic("this method should never be called")
 }
 
-func (e *TermsEnumEmpty) Next() (term []byte, err error) {
+func (e *EmptyTermsEnum) Next() (term []byte, err error) {
 	return nil, nil
 }
 
-func (e *TermsEnumEmpty) TermState() TermState {
+func (e *EmptyTermsEnum) TermState() TermState {
 	panic("this method should never be called")
 }
 
-func (e *TermsEnumEmpty) SeekExactFromLast(term []byte, state TermState) error {
+func (e *EmptyTermsEnum) SeekExactFromLast(term []byte, state TermState) error {
 	panic("this method should never be called")
 }
 
