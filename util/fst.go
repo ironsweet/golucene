@@ -456,6 +456,7 @@ type BytesReader interface {
 }
 
 type Outputs interface {
+	Add(prefix interface{}, output interface{})
 	Read(in DataInput) (e interface{}, err error)
 	ReadFinalOutput(in DataInput) (e interface{}, err error)
 	NoOutput() interface{}
