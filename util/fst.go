@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/balzaczyy/golucene/codec"
 	"log"
@@ -31,16 +32,20 @@ const (
 	FST_FINAL_END_NODE     = -1
 	FST_NON_FINAL_END_NODE = 0
 
+	/** If arc has this label then that arc is final/accepted */
+	FST_END_LABEL = -1
+
 	FST_DEFAULT_MAX_BLOCK_BITS = 28 // 30 for 64 bit int
 )
 
+// Represents a single arc
 type Arc struct {
-	label           int
-	output          interface{}
+	Label           int
+	Output          interface{}
 	node            int64 // from node
 	target          int64 // to node
 	flags           byte
-	nextFinalOutput interface{}
+	NextFinalOutput interface{}
 	nextArc         int64
 	posArcsStart    int64
 	bytesPerArc     int
@@ -48,22 +53,57 @@ type Arc struct {
 	numArcs         int
 }
 
-func newArcFrom(other Arc) Arc {
-	arc := other
-	if arc.bytesPerArc == 0 {
-		arc.posArcsStart = 0
-		arc.arcIdx = 0
-		arc.numArcs = 0
+func (arc *Arc) copyFrom(other *Arc) *Arc {
+	arc.node = other.node
+	arc.Label = other.Label
+	arc.target = other.target
+	arc.flags = other.flags
+	arc.Output = other.Output
+	arc.NextFinalOutput = other.NextFinalOutput
+	arc.nextArc = other.nextArc
+	arc.bytesPerArc = other.bytesPerArc
+	if other.bytesPerArc != 0 {
+		arc.posArcsStart = other.posArcsStart
+		arc.arcIdx = other.arcIdx
+		arc.numArcs = other.numArcs
 	}
 	return arc
 }
 
-func (arc Arc) isLast() bool {
+func (arc *Arc) flag(flag byte) bool {
+	return hasFlag(arc.flags, flag)
+}
+
+func (arc *Arc) isLast() bool {
 	return arc.flag(FST_BIT_LAST_ARC)
 }
 
-func (arc Arc) flag(flag byte) bool {
-	return hasFlag(arc.flags, flag)
+func (arc *Arc) IsFinal() bool {
+	return arc.flag(FST_BIT_FINAL_ARC)
+}
+
+func (arc *Arc) String() string {
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "node=%v target=%v label=%v", arc.node, arc.target, arc.Label)
+	if arc.flag(FST_BIT_LAST_ARC) {
+		fmt.Fprintf(&b, " last")
+	}
+	if arc.flag(FST_BIT_FINAL_ARC) {
+		fmt.Fprintf(&b, " final")
+	}
+	if arc.flag(FST_BIT_TARGET_NEXT) {
+		fmt.Fprintf(&b, " targetNext")
+	}
+	if arc.flag(FST_BIT_ARC_HAS_OUTPUT) {
+		fmt.Fprintf(&b, " output=%v", arc.Output)
+	}
+	if arc.flag(FST_BIT_ARC_HAS_FINAL_OUTPUT) {
+		fmt.Fprintf(&b, " nextFinalOutput=%v", arc.NextFinalOutput)
+	}
+	if arc.bytesPerArc != 0 {
+		fmt.Fprintf(&b, "arcArray(idx=%v of %v)", arc.arcIdx, arc.numArcs)
+	}
+	return b.String()
 }
 
 func hasFlag(flags, bit byte) bool {
@@ -82,7 +122,7 @@ type FST struct {
 	packed             bool
 	nodeRefToAddress   PackedIntsReader
 	allowArrayArcs     bool
-	cachedRootArcs     []Arc
+	cachedRootArcs     []*Arc
 	version            int32
 	emptyOutput        interface{}
 
@@ -206,24 +246,30 @@ func (t *FST) getNodeAddress(node int64) int64 {
 }
 
 func (t *FST) cacheRootArcs() {
-	t.cachedRootArcs = make([]Arc, 0x80)
-	arc := Arc{}
-	t.getFirstArc(&arc)
+	t.cachedRootArcs = make([]*Arc, 0x80)
+	arc := &Arc{}
+	t.FirstArc(arc)
 	in := t.getBytesReader()
 	if targetHasArcs(arc) {
-		t.readFirstRealTargetArc(arc.target, &arc, in)
+		t.readFirstRealTargetArc(arc.target, arc, in)
 		for {
-			// assert arc.label != END_LABEL
-			if arc.label >= len(t.cachedRootArcs) {
+			if arc.Label == FST_END_LABEL {
+				panic("assert fail")
+			}
+			if arc.Label >= len(t.cachedRootArcs) {
 				break
 			}
-			t.cachedRootArcs[arc.label] = newArcFrom(arc)
+			t.cachedRootArcs[arc.Label] = (&Arc{}).copyFrom(arc)
 			if arc.isLast() {
 				break
 			}
-			t.readNextRealArc(&arc, in)
+			t.readNextRealArc(arc, in)
 		}
 	}
+}
+
+func (t *FST) assertRootArcs() bool {
+	panic("not implemented yet")
 }
 
 func (t *FST) readLabel(in DataInput) (v int, err error) {
@@ -242,19 +288,19 @@ func (t *FST) readLabel(in DataInput) (v int, err error) {
 	return v, err
 }
 
-func targetHasArcs(arc Arc) bool {
+func targetHasArcs(arc *Arc) bool {
 	return arc.target > 0
 }
 
-func (t *FST) getFirstArc(arc *Arc) *Arc {
+func (t *FST) FirstArc(arc *Arc) *Arc {
 	if t.emptyOutput != nil {
 		arc.flags = FST_BIT_FINAL_ARC | FST_BIT_LAST_ARC
-		arc.nextFinalOutput = t.emptyOutput
+		arc.NextFinalOutput = t.emptyOutput
 	} else {
 		arc.flags = FST_BIT_LAST_ARC
-		arc.nextFinalOutput = t.NO_OUTPUT
+		arc.NextFinalOutput = t.NO_OUTPUT
 	}
-	arc.output = t.NO_OUTPUT
+	arc.Output = t.NO_OUTPUT
 
 	// If there are no nodes, ie, the FST only accepts the
 	// empty string, then startNode is 0
@@ -312,6 +358,8 @@ func (t *FST) readFirstRealTargetArc(node int64, arc *Arc, in BytesReader) (ans 
 	return t.readNextRealArc(arc, in)
 }
 
+/** Never returns null, but you should never call this if
+ *  arc.isLast() is true. */
 func (t *FST) readNextRealArc(arc *Arc, in BytesReader) (ans *Arc, err error) {
 	// TODO: can't assert this because we call from readFirstArc
 	// assert !flag(arc.flags, BIT_LAST_ARC);
@@ -326,28 +374,28 @@ func (t *FST) readNextRealArc(arc *Arc, in BytesReader) (ans *Arc, err error) {
 		in.setPosition(arc.nextArc)
 	}
 	if arc.flags, err = in.ReadByte(); err == nil {
-		arc.label, err = t.readLabel(in)
+		arc.Label, err = t.readLabel(in)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if arc.flag(FST_BIT_ARC_HAS_OUTPUT) {
-		arc.output, err = t.outputs.Read(in)
+		arc.Output, err = t.outputs.Read(in)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		arc.output = t.outputs.NoOutput()
+		arc.Output = t.outputs.NoOutput()
 	}
 
 	if arc.flag(FST_BIT_ARC_HAS_FINAL_OUTPUT) {
-		arc.nextFinalOutput, err = t.outputs.ReadFinalOutput(in)
+		arc.NextFinalOutput, err = t.outputs.ReadFinalOutput(in)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		arc.nextFinalOutput = t.outputs.NoOutput()
+		arc.NextFinalOutput = t.outputs.NoOutput()
 	}
 
 	if arc.flag(FST_BIT_STOP_NODE) {
@@ -398,6 +446,121 @@ func (t *FST) readNextRealArc(arc *Arc, in BytesReader) (ans *Arc, err error) {
 		arc.nextArc = in.getPosition()
 	}
 	return arc, nil
+}
+
+// TODO: could we somehow [partially] tableize arc lookups
+// look automaton?
+
+/** Finds an arc leaving the incoming arc, replacing the arc in place.
+ *  This returns null if the arc was not found, else the incoming arc. */
+func (t *FST) FindTargetArc(labelToMatch int, follow *Arc, arc *Arc, in BytesReader) (target *Arc, err error) {
+	if labelToMatch == FST_END_LABEL {
+		if follow.IsFinal() {
+			if follow.target <= 0 {
+				arc.flags = FST_BIT_LAST_ARC
+			} else {
+				arc.flags = 0
+				// NOTE: nextArc is a node (not an address!) in this case:
+				arc.nextArc = follow.target
+				arc.node = follow.target
+			}
+			arc.Output = follow.NextFinalOutput
+			arc.Label = FST_END_LABEL
+			return arc, nil
+		} else {
+			return nil, nil
+		}
+	}
+
+	// Short-circuit if this arc is in the root arc cache:
+	if follow.target == t.startNode && labelToMatch < len(t.cachedRootArcs) {
+		// LUCENE-5152: detect tricky cases where caller
+		// modified previously returned cached root-arcs:
+		t.assertRootArcs()
+		if result := t.cachedRootArcs[labelToMatch]; result != nil {
+			arc.copyFrom(result)
+			return arc, nil
+		}
+		return nil, nil
+	}
+
+	if !targetHasArcs(follow) {
+		return nil, nil
+	}
+
+	in.setPosition(t.getNodeAddress(follow.target))
+
+	arc.node = follow.target
+
+	log.Printf("fta label=%v", labelToMatch)
+
+	b, err := in.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+	if b == FST_ARCS_AS_FIXED_ARRAY {
+		// Arcs are full array; do binary search:
+		arc.numArcs, err = AsInt(in.ReadVInt())
+		if err != nil {
+			return nil, err
+		}
+		if t.packed || t.version >= FST_VERSION_VINT_TARGET {
+			arc.bytesPerArc, err = AsInt(in.ReadVInt())
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			arc.bytesPerArc, err = AsInt(in.ReadInt())
+			if err != nil {
+				return nil, err
+			}
+		}
+		arc.posArcsStart = in.getPosition()
+		for low, high := 0, arc.numArcs-1; low < high; {
+			log.Println("    cycle")
+			mid := int(uint(low+high) / 2)
+			in.setPosition(arc.posArcsStart)
+			in.skipBytes(arc.bytesPerArc*mid + 1)
+			midLabel, err := t.readLabel(in)
+			if err != nil {
+				return nil, err
+			}
+			cmp := midLabel - labelToMatch
+			if cmp < 0 {
+				low = mid + 1
+			} else if cmp > 0 {
+				high = mid - 1
+			} else {
+				arc.arcIdx = mid - 1
+				log.Println("    found!")
+				return t.readNextRealArc(arc, in)
+			}
+		}
+
+		return nil, nil
+	}
+
+	panic("not implemented yet")
+
+	// Linear scan
+	// readFirstRealTargetArc(follow.target, arc, in);
+
+	// while(true) {
+	//   //System.out.println("  non-bs cycle");
+	//   // TODO: we should fix this code to not have to create
+	//   // object for the output of every arc we scan... only
+	//   // for the matching arc, if found
+	//   if (arc.label == labelToMatch) {
+	//     //System.out.println("    found!");
+	//     return arc;
+	//   } else if (arc.label > labelToMatch) {
+	//     return null;
+	//   } else if (arc.isLast()) {
+	//     return null;
+	//   } else {
+	//     readNextRealArc(arc, in);
+	//   }
+	// }
 }
 
 func (t *FST) seekToNextNode(in BytesReader) error {
@@ -456,7 +619,7 @@ type BytesReader interface {
 }
 
 type Outputs interface {
-	Add(prefix interface{}, output interface{})
+	Add(prefix interface{}, output interface{}) interface{}
 	Read(in DataInput) (e interface{}, err error)
 	ReadFinalOutput(in DataInput) (e interface{}, err error)
 	NoOutput() interface{}
@@ -508,4 +671,33 @@ func (out *ByteSequenceOutputs) NoOutput() interface{} {
 
 func (out *ByteSequenceOutputs) String() string {
 	return "ByteSequenceOutputs"
+}
+
+// util/fst/Util.java
+
+/** Looks up the output for this input, or null if the
+ *  input is not accepted */
+func GetFSTOutput(fst *FST, input []byte) (output interface{}, err error) {
+	if fst.inputType != INPUT_TYPE_BYTE1 {
+		panic("assert fail")
+	}
+	fstReader := fst.getBytesReader()
+	// TODO: would be nice not to alloc this on every lookup
+	arc := fst.FirstArc(&Arc{})
+
+	// Accumulate output as we go
+	output = fst.outputs.NoOutput()
+	for _, v := range input {
+		ret, err := fst.FindTargetArc(int(v), arc, arc, fstReader)
+		if ret == nil || err != nil {
+			return ret, err
+		}
+		output = fst.outputs.Add(output, arc.Output)
+	}
+
+	if arc.IsFinal() {
+		return fst.outputs.Add(output, arc.NextFinalOutput), nil
+	} else {
+		return nil, nil
+	}
 }

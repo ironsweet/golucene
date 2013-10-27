@@ -6,14 +6,13 @@ import (
 )
 
 // BlockTermState.java
-/*
-Holds all state required for PostingsReaderBase
+/* Holds all state required for PostingsReaderBase
 to produce a DocsEnum without re-seeking the
-terms dict.
-*/
+ terms dict. */
 type BlockTermState struct {
 	*OrdTermState
-	other TermState
+	// Allow sub-class to be converted
+	Self TermState
 
 	// how many docs have this term
 	docFreq int
@@ -33,8 +32,8 @@ func NewBlockTermState() *BlockTermState {
 func (ts *BlockTermState) CopyFrom(other TermState) {
 	if ots, ok := other.(*BlockTermState); ok {
 		ts.OrdTermState.CopyFrom(ots.OrdTermState)
-		if ts.other != nil {
-			ts.other.CopyFrom(ots.other)
+		if ts.Self != nil {
+			ts.Self.CopyFrom(ots.Self)
 		}
 		ts.docFreq = ots.docFreq
 		ts.totalTermFreq = ots.totalTermFreq
@@ -52,6 +51,6 @@ func (ts *BlockTermState) Clone() TermState {
 }
 
 func (ts *BlockTermState) String() string {
-	return fmt.Sprintf("%v docFreq=%v totalTermFreq=%v termBlockOrd=%v blockFP=%v other=%v",
-		ts.OrdTermState, ts.docFreq, ts.totalTermFreq, ts.termBlockOrd, ts.blockFilePointer, ts.other)
+	return fmt.Sprintf("%v docFreq=%v totalTermFreq=%v termBlockOrd=%v blockFP=%v",
+		ts.OrdTermState, ts.docFreq, ts.totalTermFreq, ts.termBlockOrd, ts.blockFilePointer)
 }

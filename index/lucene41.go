@@ -119,6 +119,32 @@ func (r *Lucene41PostingsReader) Close() error {
 	return util.Close(r.docIn, r.posIn, r.payIn)
 }
 
+/* Reads but does not decode the byte[] blob holding
+   metadata for the current terms block */
+func (r *Lucene41PostingsReader) ReadTermsBlock(termsIn store.IndexInput, fieldInfo FieldInfo, _termState *BlockTermState) (err error) {
+	termState := _termState.Self.(*intBlockTermState)
+	numBytes, err := asInt(termsIn.ReadVInt())
+	if err != nil {
+		return err
+	}
+
+	if termState.bytes == nil {
+		// TODO over-allocate
+		termState.bytes = make([]byte, numBytes)
+		termState.bytesReader = store.NewEmptyByteArrayDataInput()
+	} else if len(termState.bytes) < numBytes {
+		// TODO over-allocate
+		termState.bytes = make([]byte, numBytes)
+	}
+
+	err = termsIn.ReadBytes(termState.bytes)
+	if err != nil {
+		return err
+	}
+	termState.bytesReader.Reset(termState.bytes)
+	return nil
+}
+
 type intBlockTermState struct {
 	*BlockTermState
 	docStartFP         int64
@@ -132,14 +158,14 @@ type intBlockTermState struct {
 
 	// Only used by the "primary" TermState -- clones don't
 	// copy this (basically they are "transient"):
-	bytesReader store.ByteArrayDataInput
+	bytesReader *store.ByteArrayDataInput
 	bytes       []byte
 }
 
 func newIntBlockTermState() *intBlockTermState {
-	holder := NewBlockTermState()
-	ts := &intBlockTermState{BlockTermState: holder}
-	holder.other = ts
+	ts := &intBlockTermState{}
+	parent := NewBlockTermState()
+	ts.BlockTermState, parent.Self = parent, ts
 	return ts
 }
 

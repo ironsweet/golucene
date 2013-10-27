@@ -409,7 +409,7 @@ func (in *ChecksumIndexInput) Length() int64 {
 
 type ByteArrayDataInput struct {
 	bytes []byte
-	pos   int
+	Pos   int
 	limit int
 }
 
@@ -417,19 +417,39 @@ func NewByteArrayDataInput(bytes []byte) *ByteArrayDataInput {
 	return &ByteArrayDataInput{bytes, 0, len(bytes)}
 }
 
+func NewEmptyByteArrayDataInput() *ByteArrayDataInput {
+	return &ByteArrayDataInput{make([]byte, 0), 0, 0}
+}
+
+func (in *ByteArrayDataInput) Reset(bytes []byte) {
+	in.bytes = bytes
+	in.Pos = 0
+	in.limit = len(bytes)
+}
+
+// NOTE: sets pos to 0, which is not right if you had
+// called reset w/ non-zero offset!!
+func (in *ByteArrayDataInput) Rewind() {
+	in.Pos = 0
+}
+
 func (in *ByteArrayDataInput) Length() int {
 	return in.limit
 }
 
+func (in *ByteArrayDataInput) SkipBytes(count int) {
+	in.Pos += count
+}
+
 func (in *ByteArrayDataInput) ReadShort() (n int16, err error) {
-	in.pos += 2
-	return (int16(in.bytes[in.pos-2]) << 8) | int16(in.bytes[in.pos-1]), nil
+	in.Pos += 2
+	return (int16(in.bytes[in.Pos-2]) << 8) | int16(in.bytes[in.Pos-1]), nil
 }
 
 func (in *ByteArrayDataInput) ReadInt() (n int32, err error) {
-	in.pos += 4
-	return (int32(in.bytes[in.pos-4]) << 24) | (int32(in.bytes[in.pos-3]) << 16) |
-		(int32(in.bytes[in.pos-2]) << 8) | int32(in.bytes[in.pos-1]), nil
+	in.Pos += 4
+	return (int32(in.bytes[in.Pos-4]) << 24) | (int32(in.bytes[in.Pos-3]) << 16) |
+		(int32(in.bytes[in.Pos-2]) << 8) | int32(in.bytes[in.Pos-1]), nil
 }
 
 func (in *ByteArrayDataInput) ReadLong() (n int64, err error) {
@@ -439,32 +459,32 @@ func (in *ByteArrayDataInput) ReadLong() (n int64, err error) {
 }
 
 func (in *ByteArrayDataInput) ReadVInt() (n int32, err error) {
-	b := in.bytes[in.pos]
-	in.pos++
+	b := in.bytes[in.Pos]
+	in.Pos++
 	if b < 128 {
 		return int32(b), nil
 	}
 	n = int32(b) & 0x7F
-	b = in.bytes[in.pos]
-	in.pos++
+	b = in.bytes[in.Pos]
+	in.Pos++
 	n |= (int32(b) & 0x7F) << 7
 	if b < 128 {
 		return n, nil
 	}
-	b = in.bytes[in.pos]
-	in.pos++
+	b = in.bytes[in.Pos]
+	in.Pos++
 	n |= (int32(b) & 0x7F) << 14
 	if b < 128 {
 		return n, nil
 	}
-	b = in.bytes[in.pos]
-	in.pos++
+	b = in.bytes[in.Pos]
+	in.Pos++
 	n |= (int32(b) & 0x7F) << 21
 	if b < 128 {
 		return n, nil
 	}
-	b = in.bytes[in.pos]
-	in.pos++
+	b = in.bytes[in.Pos]
+	in.Pos++
 	// Warning: the next ands use 0x0F / 0xF0 - beware copy/paste errors:
 	n |= (int32(b) & 0x0F) << 28
 	if (b & 0xF0) == 0 {
@@ -474,56 +494,56 @@ func (in *ByteArrayDataInput) ReadVInt() (n int32, err error) {
 }
 
 func (in *ByteArrayDataInput) ReadVLong() (n int64, err error) {
-	b := in.bytes[in.pos]
-	in.pos++
+	b := in.bytes[in.Pos]
+	in.Pos++
 	if b < 128 {
 		return int64(b), nil
 	}
 	n = int64(b & 0x7F)
-	b = in.bytes[in.pos]
-	in.pos++
+	b = in.bytes[in.Pos]
+	in.Pos++
 	n |= (int64(b&0x7F) << 7)
 	if b < 128 {
 		return n, nil
 	}
-	b = in.bytes[in.pos]
-	in.pos++
+	b = in.bytes[in.Pos]
+	in.Pos++
 	n |= (int64(b&0x7F) << 14)
 	if b < 128 {
 		return n, nil
 	}
-	b = in.bytes[in.pos]
-	in.pos++
+	b = in.bytes[in.Pos]
+	in.Pos++
 	n |= (int64(b&0x7F) << 21)
 	if b < 128 {
 		return n, nil
 	}
-	b = in.bytes[in.pos]
-	in.pos++
+	b = in.bytes[in.Pos]
+	in.Pos++
 	n |= (int64(b&0x7F) << 28)
 	if b < 128 {
 		return n, nil
 	}
-	b = in.bytes[in.pos]
-	in.pos++
+	b = in.bytes[in.Pos]
+	in.Pos++
 	n |= (int64(b&0x7F) << 35)
 	if b < 128 {
 		return n, nil
 	}
-	b = in.bytes[in.pos]
-	in.pos++
+	b = in.bytes[in.Pos]
+	in.Pos++
 	n |= (int64(b&0x7F) << 42)
 	if b < 128 {
 		return n, nil
 	}
-	b = in.bytes[in.pos]
-	in.pos++
+	b = in.bytes[in.Pos]
+	in.Pos++
 	n |= (int64(b&0x7F) << 49)
 	if b < 128 {
 		return n, nil
 	}
-	b = in.bytes[in.pos]
-	in.pos++
+	b = in.bytes[in.Pos]
+	in.Pos++
 	n |= (int64(b&0x7F) << 56)
 	if b < 128 {
 		return n, nil
@@ -532,12 +552,12 @@ func (in *ByteArrayDataInput) ReadVLong() (n int64, err error) {
 }
 
 func (in *ByteArrayDataInput) ReadByte() (b byte, err error) {
-	in.pos++
-	return in.bytes[in.pos-1], nil
+	in.Pos++
+	return in.bytes[in.Pos-1], nil
 }
 
 func (in *ByteArrayDataInput) ReadBytes(buf []byte) error {
-	copy(buf, in.bytes[in.pos:in.pos+len(buf)])
-	in.pos += len(buf)
+	copy(buf, in.bytes[in.Pos:in.Pos+len(buf)])
+	in.Pos += len(buf)
 	return nil
 }

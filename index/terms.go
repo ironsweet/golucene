@@ -3,6 +3,7 @@ package index
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/util"
+	"log"
 	"sort"
 )
 
@@ -41,7 +42,7 @@ type TermsEnum interface {
 	true if the term is found. If this returns false, the
 	enum is unpositioned. For some codecs, seekExact may
 	be substantially faster than seekCeil. */
-	SeekExact(text []byte) bool
+	SeekExact(text []byte) (ok bool, err error)
 	/* Seeks to the specified term, if it exists, or to the
 	next (ceiling) term. Returns SeekStatus to
 	indicate whether exact term was found, a different
@@ -256,20 +257,26 @@ func NewTermContext(ctx IndexReaderContext) *TermContext {
  * <p>
  * Note: the given context must be a top-level context.
  */
-func NewTermContextFromTerm(ctx IndexReaderContext, t Term) *TermContext {
+func NewTermContextFromTerm(ctx IndexReaderContext, t Term) (tc *TermContext, err error) {
 	// assert ctx != nil && ctx.IsTopLevel
 	perReaderTermState := NewTermContext(ctx)
 	for _, leaf := range ctx.Leaves() {
 		if fields := leaf.reader.Fields(); fields != nil {
 			if terms := fields.Terms(t.Field); terms != nil {
-				if termsEnum := terms.Iterator(nil); termsEnum.SeekExact(t.Bytes) {
+				termsEnum := terms.Iterator(nil)
+				ok, err := termsEnum.SeekExact(t.Bytes)
+				if err != nil {
+					return nil, err
+				}
+				if ok {
 					termState := termsEnum.TermState()
+					log.Println("    found")
 					perReaderTermState.register(termState, leaf.Ord, termsEnum.DocFreq(), termsEnum.TotalTermFreq())
 				}
 			}
 		}
 	}
-	return perReaderTermState
+	return perReaderTermState, nil
 }
 
 func (tc TermContext) register(state TermState, ord, docFreq int, totalTermFreq int64) {
