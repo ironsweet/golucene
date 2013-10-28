@@ -6,7 +6,7 @@ import (
 )
 
 type Query interface {
-	CreateWeight(ss IndexSearcher) Weight
+	CreateWeight(ss IndexSearcher) (w Weight, err error)
 	Rewrite(r index.IndexReader) Query
 }
 
@@ -19,7 +19,7 @@ func NewAbstractQuery(self Query) *AbstractQuery {
 	return &AbstractQuery{self, 1.0}
 }
 
-func (q *AbstractQuery) CreateWeight(ss IndexSearcher) Weight {
+func (q *AbstractQuery) CreateWeight(ss IndexSearcher) (w Weight, err error) {
 	panic(fmt.Sprintf("Query %v does not implement createWeight", q))
 }
 

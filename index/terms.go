@@ -141,12 +141,16 @@ func (e *TermsEnumImpl) Attributes() util.AttributeSource {
 	return e.atts
 }
 
-func (e *TermsEnumImpl) SeekExact(text []byte) bool {
-	return e.SeekCeil(text) == SEEK_STATUS_FOUND
+func (e *TermsEnumImpl) SeekExact(text []byte) (ok bool, err error) {
+	return e.SeekCeil(text) == SEEK_STATUS_FOUND, nil
 }
 
 func (e *TermsEnumImpl) SeekExactFromLast(text []byte, state TermState) error {
-	if !e.SeekExact(text) {
+	ok, err := e.SeekExact(text)
+	if err != nil {
+		return err
+	}
+	if !ok {
 		panic(fmt.Sprintf("term %v does not exist", text))
 	}
 	return nil

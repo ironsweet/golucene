@@ -25,12 +25,16 @@ func NewIndexSearcherFromContext(context index.IndexReaderContext) IndexSearcher
 	return IndexSearcher{context.Reader(), context, context.Leaves(), defaultSimilarity}
 }
 
-func (ss IndexSearcher) SearchTop(q Query, n int) TopDocs {
+func (ss IndexSearcher) SearchTop(q Query, n int) (topDocs TopDocs, err error) {
 	return ss.Search(q, nil, n)
 }
 
-func (ss IndexSearcher) Search(q Query, f Filter, n int) TopDocs {
-	return ss.searchWSI(ss.createNormalizedWeight(wrapFilter(q, f)), ScoreDoc{}, n)
+func (ss IndexSearcher) Search(q Query, f Filter, n int) (topDocs TopDocs, err error) {
+	w, err := ss.createNormalizedWeight(wrapFilter(q, f))
+	if err != nil {
+		return TopDocs{}, err
+	}
+	return ss.searchWSI(w, ScoreDoc{}, n), nil
 }
 
 func (ss IndexSearcher) searchWSI(w Weight, after ScoreDoc, nDocs int) TopDocs {
@@ -80,17 +84,20 @@ func wrapFilter(q Query, f Filter) Query {
 	panic("FilteredQuery not supported yet")
 }
 
-func (ss IndexSearcher) createNormalizedWeight(q Query) Weight {
+func (ss IndexSearcher) createNormalizedWeight(q Query) (w Weight, err error) {
 	q = rewrite(q, ss.reader)
 	log.Printf("After rewrite: %v", q)
-	w := q.CreateWeight(ss)
+	w, err = q.CreateWeight(ss)
+	if err != nil {
+		return nil, err
+	}
 	v := w.ValueForNormalization()
 	norm := ss.similarity.queryNorm(v)
 	if math.IsInf(norm, 1) || math.IsNaN(norm) {
 		norm = 1.0
 	}
 	w.Normalize(norm, 1.0)
-	return w
+	return w, nil
 }
 
 func rewrite(q Query, r index.IndexReader) Query {

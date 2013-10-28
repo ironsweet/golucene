@@ -25,12 +25,15 @@ func NewTermQueryWithDocFreq(t index.Term, docFreq int) *TermQuery {
 	return ans
 }
 
-func (q *TermQuery) CreateWeight(ss IndexSearcher) Weight {
+func (q *TermQuery) CreateWeight(ss IndexSearcher) (w Weight, err error) {
 	ctx := ss.TopReaderContext()
 	var termState *index.TermContext
 	if q.perReaderTermState == nil || q.perReaderTermState.TopReaderContext != ctx {
 		// make TermQuery single-pass if we don't have a PRTS or if the context differs!
-		termState = index.NewTermContextFromTerm(ctx, q.term)
+		termState, err = index.NewTermContextFromTerm(ctx, q.term)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		// PRTS was pre-build for this IS
 		termState = q.perReaderTermState
@@ -41,7 +44,7 @@ func (q *TermQuery) CreateWeight(ss IndexSearcher) Weight {
 		termState.DocFreq = q.docFreq
 	}
 
-	return NewTermWeight(q, ss, *termState)
+	return NewTermWeight(q, ss, *termState), nil
 }
 
 func (q *TermQuery) String() string {
