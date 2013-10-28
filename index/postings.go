@@ -326,7 +326,10 @@ func newFieldReader(owner *BlockTreeTermsReader,
 		sumDocFreq:           sumDocFreq,
 		docCount:             docCount,
 		indexStartFP:         indexStartFP,
-		rootCode:             rootCode}
+		rootCode:             rootCode,
+	}
+	log.Printf("BTTR: seg=%v field=%v rootBlockCode=%v divisor=",
+		owner.segment, fieldInfo.name, rootCode)
 
 	in := store.NewByteArrayDataInput(rootCode)
 	n, err := in.ReadVLong()
@@ -337,6 +340,7 @@ func newFieldReader(owner *BlockTreeTermsReader,
 
 	if indexIn != nil {
 		clone := indexIn.Clone()
+		log.Printf("start=%v field=%v", indexStartFP, fieldInfo.name)
 		clone.Seek(indexStartFP)
 		r.index, err = util.LoadFST(clone, util.ByteSequenceOutputsSingleton())
 	}
@@ -540,7 +544,6 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 	e.eof = false
 	log.Printf("BTTR.seekExact seg=%v target=%v:%v current=%v (exists?=%v) validIndexPrefix=%v",
 		e.segment, e.fieldInfo.name, brToString(target), brToString(e.term), e.termExists, e.validIndexPrefix)
-	log.Println(brToString(e.term), " ", e.term)
 	e.printSeekState()
 
 	var arc *util.Arc
@@ -550,7 +553,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 	e.targetBeforeCurrentLength = e.currentFrame.ord
 
 	// if e.currentFrame != e.staticFrame {
-	if e.currentFrame.ord == -1 {
+	if e.currentFrame.ord != e.staticFrame.ord {
 		// We are already seek'd; find the common
 		// prefix of new seek term vs current term and
 		// re-use the corresponding seek state.  For
@@ -560,7 +563,8 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 		log.Printf("  re-use current seek state validIndexPrefix=%v", e.validIndexPrefix)
 
-		if arc = e.arcs[0]; !arc.IsFinal() {
+		arc = e.arcs[0]
+		if !arc.IsFinal() {
 			panic("assert fail")
 		}
 		output = arc.Output.([]byte)
@@ -665,6 +669,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		arc = e.index.FirstArc(e.arcs[0])
 
 		// Empty string prefix must have an output (block) in the index!
+		log.Println(arc)
 		if !arc.IsFinal() || arc.Output == nil {
 			panic("assert fail")
 		}

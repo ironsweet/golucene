@@ -133,6 +133,8 @@ func LoadFST(in DataInput, outputs Outputs) (fst *FST, err error) {
 	return loadFST3(in, outputs, FST_DEFAULT_MAX_BLOCK_BITS)
 }
 
+/** Load a previously saved FST; maxBlockBits allows you to
+ *  control the size of the byte[] pages used to hold the FST bytes. */
 func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err error) {
 	log.Printf("Loading FST from %v and output to %v...", in, outputs)
 	defer func() {
@@ -220,6 +222,7 @@ func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err
 				if fst.arcWithOutputCount, err = in.ReadVLong(); err == nil {
 					if numBytes, err := in.ReadVLong(); err == nil {
 						if fst.bytes, err = newBytesStoreFromInput(in, numBytes, 1<<maxBlockBits); err == nil {
+							log.Println("DEBUG ", outputs.NoOutput())
 							fst.NO_OUTPUT = outputs.NoOutput()
 
 							fst.cacheRootArcs()
@@ -300,6 +303,7 @@ func (t *FST) FirstArc(arc *Arc) *Arc {
 		arc.flags = FST_BIT_LAST_ARC
 		arc.NextFinalOutput = t.NO_OUTPUT
 	}
+	log.Println("DEBUG ", t.NO_OUTPUT)
 	arc.Output = t.NO_OUTPUT
 
 	// If there are no nodes, ie, the FST only accepts the
@@ -638,6 +642,7 @@ type ByteSequenceOutputs struct {
 	*abstractOutputs
 }
 
+var noOutputs = make([]byte, 0)
 var oneByteSequenceOutputs *ByteSequenceOutputs
 
 func ByteSequenceOutputsSingleton() *ByteSequenceOutputs {
@@ -666,7 +671,7 @@ func (out *ByteSequenceOutputs) Read(in DataInput) (e interface{}, err error) {
 }
 
 func (out *ByteSequenceOutputs) NoOutput() interface{} {
-	return nil
+	return noOutputs
 }
 
 func (out *ByteSequenceOutputs) String() string {
