@@ -395,11 +395,44 @@ type SegmentTermsEnum struct {
 func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 	ans := &SegmentTermsEnum{
 		FieldReader:   r,
+		stack:         make([]*segmentTermsEnumFrame, 0),
 		scratchReader: store.NewEmptyByteArrayDataInput(),
+		term:          make([]byte, 0),
 		arcs:          make([]*util.Arc, 1),
 		fstOutputs:    util.ByteSequenceOutputsSingleton(),
 	}
 	ans.TermsEnumImpl = newTermsEnumImpl(ans)
+	log.Println("BTTR.init seg=%v", r.segment)
+
+	// Used to hold seek by TermState, or cached seek
+	ans.staticFrame = newFrame(ans, -1)
+
+	if r.index != nil {
+		ans.fstReader = r.index.BytesReader()
+	}
+
+	// Init w/ root block; don't use index since it may
+	// not (and need not) have been loaded
+	for i, _ := range ans.arcs {
+		ans.arcs[i] = &util.Arc{}
+	}
+
+	ans.currentFrame = ans.staticFrame
+	var arc *util.Arc
+	if r.index != nil {
+		arc = r.index.FirstArc(ans.arcs[0])
+		// Empty string prefix must have an output in the index!
+		if !arc.IsFinal() {
+			panic("assert fail")
+		}
+	}
+	ans.currentFrame = ans.staticFrame
+	ans.validIndexPrefix = 0
+	log.Printf("init frame state %v", ans.currentFrame.ord)
+	ans.printSeekState()
+
+	// ans.computeBlockStats()
+
 	return ans
 }
 

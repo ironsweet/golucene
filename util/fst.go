@@ -249,7 +249,7 @@ func (t *FST) cacheRootArcs() {
 	t.cachedRootArcs = make([]*Arc, 0x80)
 	arc := &Arc{}
 	t.FirstArc(arc)
-	in := t.getBytesReader()
+	in := t.BytesReader()
 	if targetHasArcs(arc) {
 		t.readFirstRealTargetArc(arc.target, arc, in)
 		for {
@@ -598,7 +598,7 @@ func (t *FST) seekToNextNode(in BytesReader) error {
 	}
 }
 
-func (t *FST) getBytesReader() BytesReader {
+func (t *FST) BytesReader() BytesReader {
 	if t.packed {
 		return t.bytes.forwardReader()
 	}
@@ -681,7 +681,7 @@ func GetFSTOutput(fst *FST, input []byte) (output interface{}, err error) {
 	if fst.inputType != INPUT_TYPE_BYTE1 {
 		panic("assert fail")
 	}
-	fstReader := fst.getBytesReader()
+	fstReader := fst.BytesReader()
 	// TODO: would be nice not to alloc this on every lookup
 	arc := fst.FirstArc(&Arc{})
 
