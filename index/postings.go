@@ -498,13 +498,16 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		panic("terms index was not loaded")
 	}
 
-	if diff := len(target) - len(e.term); diff > 0 {
-		e.term = append(e.term, make([]byte, diff)...)
+	if cap(e.term) <= len(target) {
+		next := make([]byte, len(e.term), len(target))
+		copy(next, e.term)
+		e.term = next
 	}
 
 	e.eof = false
-	log.Printf("\nBTTR.seekExact seg=%v target=%v:%v current=%v (exists?=%v) validIndexPrefix=%v",
+	log.Printf("BTTR.seekExact seg=%v target=%v:%v current=%v (exists?=%v) validIndexPrefix=%v",
 		e.segment, e.fieldInfo.name, brToString(target), brToString(e.term), e.termExists, e.validIndexPrefix)
+	log.Println(brToString(e.term), " ", e.term)
 	e.printSeekState()
 
 	var arc *util.Arc
@@ -1312,7 +1315,7 @@ func brToString(b []byte) string {
 	if b == nil {
 		return "nil"
 	} else {
-		return utf8ToString(b) + " " + string(b)
+		return fmt.Sprintf("%v %v", utf8ToString(b), b)
 	}
 }
 
