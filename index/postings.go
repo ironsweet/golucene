@@ -485,6 +485,7 @@ func (e *SegmentTermsEnum) Comparator() sort.Interface {
 
 // Pushes a frame we seek'd to
 func (e *SegmentTermsEnum) pushFrame(arc *util.Arc, frameData []byte, length int) (f *segmentTermsEnumFrame, err error) {
+	log.Println("Pushing frame...")
 	e.scratchReader.Reset(frameData)
 	code, err := e.scratchReader.ReadVLong()
 	if err != nil {
@@ -669,10 +670,11 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		arc = e.index.FirstArc(e.arcs[0])
 
 		// Empty string prefix must have an output (block) in the index!
-		log.Println(arc)
 		if !arc.IsFinal() || arc.Output == nil {
 			panic("assert fail")
 		}
+
+		log.Println("    no seek state; push root frame")
 
 		output = arc.Output.([]byte)
 

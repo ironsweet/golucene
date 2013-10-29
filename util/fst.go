@@ -222,7 +222,6 @@ func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err
 				if fst.arcWithOutputCount, err = in.ReadVLong(); err == nil {
 					if numBytes, err := in.ReadVLong(); err == nil {
 						if fst.bytes, err = newBytesStoreFromInput(in, numBytes, 1<<maxBlockBits); err == nil {
-							log.Println("DEBUG ", outputs.NoOutput())
 							fst.NO_OUTPUT = outputs.NoOutput()
 
 							fst.cacheRootArcs()
@@ -303,7 +302,6 @@ func (t *FST) FirstArc(arc *Arc) *Arc {
 		arc.flags = FST_BIT_LAST_ARC
 		arc.NextFinalOutput = t.NO_OUTPUT
 	}
-	log.Println("DEBUG ", t.NO_OUTPUT)
 	arc.Output = t.NO_OUTPUT
 
 	// If there are no nodes, ie, the FST only accepts the
@@ -622,22 +620,51 @@ type BytesReader interface {
 	RandomAccess
 }
 
+// util/fst/Outputs.java
+
+/**
+ * Represents the outputs for an FST, providing the basic
+ * algebra required for building and traversing the FST.
+ *
+ * <p>Note that any operation that returns NO_OUTPUT must
+ * return the same singleton object from {@link
+ * #getNoOutput}.</p>
+ */
 type Outputs interface {
+	/** Eg add("foo", "bar") -> "foobar" */
 	Add(prefix interface{}, output interface{}) interface{}
+	/** Decode an output value previously written with {@link
+	 *  #write(Object, DataOutput)}. */
 	Read(in DataInput) (e interface{}, err error)
+	/** Decode an output value previously written with {@link
+	 *  #writeFinalOutput(Object, DataOutput)}.  By default this
+	 *  just calls {@link #read(DataInput)}. */
 	ReadFinalOutput(in DataInput) (e interface{}, err error)
+	/** NOTE: this output is compared with == so you must
+	 *  ensure that all methods return the single object if
+	 *  it's really no output */
 	NoOutput() interface{}
 }
 
+type iOutputsReader interface {
+	Read(in DataInput) (e interface{}, err error)
+}
+
 type abstractOutputs struct {
-	Outputs
+	iOutputsReader
 }
 
 func (out *abstractOutputs) ReadFinalOutput(in DataInput) (e interface{}, err error) {
 	log.Printf("Reading final output from %v...", in)
-	return out.Outputs.Read(in)
+	return out.iOutputsReader.Read(in)
 }
 
+//ByteSequenceOutputs.java
+
+/**
+ * An FST {@link Outputs} implementation where each output
+ * is a sequence of bytes.
+ */
 type ByteSequenceOutputs struct {
 	*abstractOutputs
 }
@@ -651,6 +678,28 @@ func ByteSequenceOutputsSingleton() *ByteSequenceOutputs {
 		oneByteSequenceOutputs.abstractOutputs = &abstractOutputs{oneByteSequenceOutputs}
 	}
 	return oneByteSequenceOutputs
+}
+
+func (out *ByteSequenceOutputs) Add(_prefix interface{}, _output interface{}) interface{} {
+	if _prefix == nil || _output == nil {
+		panic("assert fail")
+	}
+	prefix, output := _prefix.([]byte), _output.([]byte)
+	// if prefix == noOutputs {
+	if len(prefix) == 0 {
+		return output
+		// } else if output == noOutputs {
+	} else if len(output) == 0 {
+		return prefix
+	} else {
+		// if len(prefix) == 0 || len(output) == 0 {
+		// 	panic("assert fail")
+		// }
+		result := make([]byte, len(prefix)+len(output))
+		copy(result, prefix)
+		copy(result[len(prefix):], output)
+		return result
+	}
 }
 
 func (out *ByteSequenceOutputs) Read(in DataInput) (e interface{}, err error) {
