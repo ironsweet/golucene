@@ -101,7 +101,7 @@ func (arc *Arc) String() string {
 		fmt.Fprintf(&b, " nextFinalOutput=%v", arc.NextFinalOutput)
 	}
 	if arc.bytesPerArc != 0 {
-		fmt.Fprintf(&b, "arcArray(idx=%v of %v)", arc.arcIdx, arc.numArcs)
+		fmt.Fprintf(&b, " arcArray(idx=%v of %v)", arc.arcIdx, arc.numArcs)
 	}
 	return b.String()
 }
@@ -111,20 +111,30 @@ func hasFlag(flags, bit byte) bool {
 }
 
 type FST struct {
-	inputType          InputType
-	bytes              *BytesStore
-	startNode          int64
-	outputs            Outputs
-	NO_OUTPUT          interface{}
+	inputType InputType
+	// if non-null, this FST accepts the empty string and
+	// produces this output
+	emptyOutput interface{}
+
+	bytes *BytesStore
+
+	startNode int64
+
+	outputs Outputs
+
+	NO_OUTPUT interface{}
+
 	nodeCount          int64
 	arcCount           int64
 	arcWithOutputCount int64
-	packed             bool
-	nodeRefToAddress   PackedIntsReader
-	allowArrayArcs     bool
-	cachedRootArcs     []*Arc
-	version            int32
-	emptyOutput        interface{}
+
+	packed           bool
+	nodeRefToAddress PackedIntsReader
+
+	cachedRootArcs          []*Arc
+	assertingCachedRootArcs []*Arc // only set wit assert
+
+	version int32
 
 	nodeAddress *GrowableWriter
 }
@@ -224,12 +234,12 @@ func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err
 						if fst.bytes, err = newBytesStoreFromInput(in, numBytes, 1<<maxBlockBits); err == nil {
 							fst.NO_OUTPUT = outputs.NoOutput()
 
-							fst.cacheRootArcs()
+							err = fst.cacheRootArcs()
 
 							// NOTE: bogus because this is only used during
 							// building; we need to break out mutable FST from
 							// immutable
-							fst.allowArrayArcs = false
+							// fst.allowArrayArcs = false
 						}
 					}
 				}
@@ -247,31 +257,121 @@ func (t *FST) getNodeAddress(node int64) int64 {
 	}
 }
 
-func (t *FST) cacheRootArcs() {
+func (t *FST) cacheRootArcs() error {
 	t.cachedRootArcs = make([]*Arc, 0x80)
+	t.readRootArcs(t.cachedRootArcs)
+
+	if err := t.setAssertingRootArcs(t.cachedRootArcs); err != nil {
+		return err
+	}
+	t.assertRootArcs()
+	return nil
+}
+
+func (t *FST) readRootArcs(arcs []*Arc) (err error) {
 	arc := &Arc{}
 	t.FirstArc(arc)
 	in := t.BytesReader()
 	if targetHasArcs(arc) {
-		t.readFirstRealTargetArc(arc.target, arc, in)
-		for {
+		_, err = t.readFirstRealTargetArc(arc.target, arc, in)
+		for err == nil {
 			if arc.Label == FST_END_LABEL {
 				panic("assert fail")
 			}
 			if arc.Label >= len(t.cachedRootArcs) {
 				break
 			}
-			t.cachedRootArcs[arc.Label] = (&Arc{}).copyFrom(arc)
+			arcs[arc.Label] = (&Arc{}).copyFrom(arc)
 			if arc.isLast() {
 				break
 			}
-			t.readNextRealArc(arc, in)
+			_, err = t.readNextRealArc(arc, in)
+		}
+	}
+	return err
+}
+
+func (t *FST) setAssertingRootArcs(arcs []*Arc) error {
+	t.assertingCachedRootArcs = make([]*Arc, len(arcs))
+	return t.readRootArcs(t.assertingCachedRootArcs)
+}
+
+func (t *FST) assertRootArcs() {
+	if t.cachedRootArcs == nil || t.assertingCachedRootArcs == nil {
+		panic("assert fail")
+	}
+	for i, v := range t.assertingCachedRootArcs {
+		root := t.cachedRootArcs[i]
+		asserting := v
+		if root != nil {
+			log.Print("i = ", i, ": ", root, asserting)
+			if root.arcIdx != asserting.arcIdx {
+				panic("assert fail")
+			}
+			if root.bytesPerArc != asserting.bytesPerArc {
+				panic("assert fail")
+			}
+			if root.flags != asserting.flags {
+				panic("assert fail")
+			}
+			if root.Label != asserting.Label {
+				panic("assert fail")
+			}
+			if root.nextArc != asserting.nextArc {
+				panic("assert fail")
+			}
+			if !equals(root.NextFinalOutput, asserting.NextFinalOutput) {
+				log.Printf("%v != %v", root.NextFinalOutput, asserting.NextFinalOutput)
+				panic("assert fail")
+			}
+			if root.node != asserting.node {
+				panic("assert fail")
+			}
+			if root.numArcs != asserting.numArcs {
+				panic("assert fail")
+			}
+			if !equals(root.Output, asserting.Output) {
+				panic("assert fail")
+			}
+			if root.posArcsStart != asserting.posArcsStart {
+				panic("assert fail")
+			}
+			if root.target != asserting.target {
+				panic("assert fail")
+			}
+		} else if asserting != nil {
+			panic("assert fail")
 		}
 	}
 }
 
-func (t *FST) assertRootArcs() bool {
-	panic("not implemented yet")
+// Since Go doesn't has Java's Object.equals() method,
+// I have to implement my own.
+func equals(a, b interface{}) bool {
+	if _, ok := a.([]byte); ok {
+		if _, ok := b.([]byte); !ok {
+			panic(fmt.Sprintf("incomparable type: %v vs %v", a, b))
+		}
+		b1 := a.([]byte)
+		b2 := b.([]byte)
+		if len(b1) != len(b2) {
+			return false
+		}
+		for i := 0; i < len(b1) && i < len(b2); i++ {
+			if b1[i] != b2[i] {
+				return false
+			}
+		}
+		return true
+	} else if _, ok := a.(int64); ok {
+		if _, ok := b.(int64); !ok {
+			panic(fmt.Sprintf("incomparable type: %v vs %v", a, b))
+		}
+		return a.(int64) == b.(int64)
+	} else if a == nil && b == nil {
+		return true
+	}
+	return false
 }
 
 func (t *FST) readLabel(in DataInput) (v int, err error) {
