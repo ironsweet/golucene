@@ -304,7 +304,7 @@ func (t *FST) assertRootArcs() {
 		root := t.cachedRootArcs[i]
 		asserting := v
 		if root != nil {
-			log.Print("i = ", i, ": ", root, asserting)
+			log.Print("DEBUG i = ", i, ": ", root, asserting)
 			if root.arcIdx != asserting.arcIdx {
 				panic("assert fail")
 			}
@@ -372,6 +372,10 @@ func equals(a, b interface{}) bool {
 		return true
 	}
 	return false
+}
+
+func CompareFSTValue(a, b interface{}) bool {
+	return equals(a, b)
 }
 
 func (t *FST) readLabel(in DataInput) (v int, err error) {

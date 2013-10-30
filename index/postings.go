@@ -727,13 +727,22 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		} else {
 			// Follow this arc
 			arc = nextArc
-			e.term[targetUpto] = byte(targetLabel)
+			log.Println("DEBUG targetUpto = ", targetUpto)
+			log.Println("DEBUG term = ", e.term)
+			if len(e.term) > targetUpto {
+				e.term[targetUpto] = byte(targetLabel)
+			} else if len(e.term) == targetUpto {
+				e.term = append(e.term, byte(targetLabel))
+			} else {
+				// why Lucene over-commit its ByteRef?
+				panic("impossible")
+			}
 			// Aggregate output as we go:
 			if arc.Output == nil {
 				panic("assert fail")
 			}
 			noOutputs := e.fstOutputs.NoOutput()
-			if arc.Output != noOutputs {
+			if !util.CompareFSTValue(arc.Output, noOutputs) {
 				output = e.fstOutputs.Add(output, arc.Output).([]byte)
 			}
 			log.Printf("    index: follow label=%x arc.output=%v arc.nfo=%v",
