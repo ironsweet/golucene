@@ -1126,6 +1126,22 @@ func (f *segmentTermsEnumFrame) rewind() {
 	}
 }
 
+func (f *segmentTermsEnumFrame) next() bool {
+	if f.isLeafBlock {
+		return f.nextLeaf()
+	}
+	return f.nextNonLeaf()
+}
+
+// Decodes next entry; returns true if it's a sub-block
+func (f *segmentTermsEnumFrame) nextLeaf() bool {
+	panic("not implemented yet")
+}
+
+func (f *segmentTermsEnumFrame) nextNonLeaf() bool {
+	panic("not implemented yet")
+}
+
 // TODO: make this array'd so we can do bin search?
 // likely not worth it?  need to measure how many
 // floor blocks we "typically" get
@@ -1194,7 +1210,12 @@ func (f *segmentTermsEnumFrame) scanToFloorFrame(target []byte) {
 
 // Used only by assert
 func (f *segmentTermsEnumFrame) prefixMatches(target []byte) bool {
-	panic("not implemented yet")
+	for i := 0; i < f.prefix; i++ {
+		if target[i] != f.term[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // NOTE: sets startBytePos/suffix as a side effect
@@ -1236,8 +1257,9 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 			return 0, err
 		}
 
+		suffixReaderPos := f.suffixesReader.Pos
 		log.Printf("      cycle: term %v (of %v) suffix=%v",
-			f.nextEnt-1, f.entCount, brToString(f.suffixBytes[f.suffixesReader.Pos:]))
+			f.nextEnt-1, f.entCount, brToString(f.suffixBytes[suffixReaderPos:suffixReaderPos+f.suffix]))
 
 		termLen := f.prefix + f.suffix
 		f.startBytePos = f.suffixesReader.Pos
@@ -1270,6 +1292,7 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 			}
 
 			if cmp < 0 {
+				log.Println("DEBUG keep scanning")
 				// Current entry is still before the target;
 				// keep scanning
 
@@ -1282,24 +1305,30 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 				}
 				break
 			} else if cmp > 0 {
+				log.Println("DEBUG done")
 				// // Done!  Current entry is after target --
 				//     // return NOT_FOUND:
-				//     fillTerm();
+				f.fillTerm()
 
-				//     if (!exactOnly && !termExists) {
-				//       // We are on a sub-block, and caller wants
-				//       // us to position to the next term after
-				//       // the target, so we must recurse into the
-				//       // sub-frame(s):
-				//       currentFrame = pushFrame(null, currentFrame.lastSubFP, termLen);
-				//       currentFrame.loadBlock();
-				//       while (currentFrame.next()) {
-				//         currentFrame = pushFrame(null, currentFrame.lastSubFP, term.length);
-				//         currentFrame.loadBlock();
-				//       }
-				//     }
+				if !exactOnly && !f.termExists {
+					// We are on a sub-block, and caller wants
+					// us to position to the next term after
+					// the target, so we must recurse into the
+					// sub-frame(s):
+					if f.currentFrame, err = f.pushFrameAt(nil, f.currentFrame.lastSubFP, termLen); err == nil {
+						err = f.currentFrame.loadBlock()
+					}
+					for err == nil && f.currentFrame.next() {
+						if f.currentFrame, err = f.pushFrameAt(nil, f.currentFrame.lastSubFP, len(f.term)); err == nil {
+							err = f.currentFrame.loadBlock()
+						}
+					}
+					if err != nil {
+						return 0, err
+					}
+				}
 
-				//     //if (DEBUG) System.out.println("        not found");
+				log.Println("        not found")
 				return SEEK_STATUS_NOT_FOUND, nil
 			} else if stop {
 				// Exact match!
