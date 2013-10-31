@@ -1,6 +1,7 @@
 package index
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/codec"
@@ -718,7 +719,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 				return false, err
 			}
 			if status == SEEK_STATUS_FOUND {
-				log.Printf("  return FOUND term=%v %v", utf8ToString(e.term), e.term)
+				log.Printf("  return FOUND term=%v", brToString(e.term))
 				return true, nil
 			} else {
 				log.Printf("  got %v; return NOT_FOUND term=%v", status, brToString(e.term))
@@ -1262,7 +1263,6 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 		termLen := f.prefix + f.suffix
 		f.startBytePos = f.suffixesReader.Pos
 		f.suffixesReader.SkipBytes(f.suffix)
-		log.Println("DEBUG ", termLen, f.startBytePos, f.suffixesReader.Pos)
 
 		targetLimit := termLen
 		if len(target) < termLen {
@@ -1279,9 +1279,6 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 			var stop bool
 			if targetPos < targetLimit {
 				cmp = int(f.suffixBytes[bytePos]) - int(target[targetPos])
-				// log.Println("DEBUG suffixBytes=", f.suffixBytes)
-				log.Println("DEBUG bytePos=", bytePos, "targetPos=", targetPos)
-				log.Println("DEBUG ", f.suffixBytes[bytePos], "<=>", target[targetPos])
 				bytePos++
 				targetPos++
 				stop = false
@@ -1294,7 +1291,6 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 			}
 
 			if cmp < 0 {
-				log.Println("DEBUG keep scanning")
 				// Current entry is still before the target;
 				// keep scanning
 
@@ -1307,7 +1303,6 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 				}
 				break
 			} else if cmp > 0 {
-				log.Println("DEBUG done")
 				// // Done!  Current entry is after target --
 				//     // return NOT_FOUND:
 				f.fillTerm()
@@ -1345,8 +1340,6 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 				f.fillTerm()
 				log.Println("        found!")
 				return SEEK_STATUS_FOUND, nil
-			} else {
-				log.Println("DEBUG continue")
 			}
 		}
 		if isDone {
@@ -1397,7 +1390,16 @@ func brToString(b []byte) string {
 	if b == nil {
 		return "nil"
 	} else {
-		return fmt.Sprintf("%v %v", utf8ToString(b), b)
+		var buf bytes.Buffer
+		buf.WriteString("[")
+		for i, v := range b {
+			if i > 0 {
+				buf.WriteString(" ")
+			}
+			fmt.Fprintf(&buf, "%x", v)
+		}
+		buf.WriteString("]")
+		return fmt.Sprintf("%v %v", utf8ToString(b), buf.String())
 	}
 }
 
