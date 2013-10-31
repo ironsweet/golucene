@@ -485,7 +485,7 @@ func (e *SegmentTermsEnum) Comparator() sort.Interface {
 
 // Pushes a frame we seek'd to
 func (e *SegmentTermsEnum) pushFrame(arc *util.Arc, frameData []byte, length int) (f *segmentTermsEnumFrame, err error) {
-	log.Println("Pushing frame...")
+	// log.Println("Pushing frame...")
 	e.scratchReader.Reset(frameData)
 	code, err := e.scratchReader.ReadVLong()
 	if err != nil {
@@ -590,7 +590,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 		// First compare up to valid seek frames:
 		for targetUpto < targetLimit {
-			cmp = int(e.term[targetUpto] - target[targetUpto])
+			cmp = int(e.term[targetUpto]) - int(target[targetUpto])
 			log.Printf("    cycle targetUpto=%v (vs limit=%v) cmp=%v (targetLabel=%c vs termLabel=%c) arc.output=%v output=%v",
 				targetUpto, targetLimit, cmp, target[targetUpto], e.term[targetUpto], arc.Output, output)
 			if cmp != 0 {
@@ -623,7 +623,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 				targetLimit2 = len(e.term)
 			}
 			for targetUpto < targetLimit2 {
-				cmp = int(e.term[targetUpto] - target[targetUpto])
+				cmp = int(e.term[targetUpto]) - int(target[targetUpto])
 				log.Printf("    cycle2 targetUpto=%v (vs limit=%v) cmp=%v (targetLabel=%c vs termLabel=%c)",
 					targetUpto, targetLimit, cmp, target[targetUpto], e.term[targetUpto])
 				if cmp != 0 {
@@ -727,8 +727,6 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		} else {
 			// Follow this arc
 			arc = nextArc
-			log.Println("DEBUG targetUpto = ", targetUpto)
-			log.Println("DEBUG term = ", e.term)
 			if len(e.term) > targetUpto {
 				e.term[targetUpto] = byte(targetLabel)
 			} else if len(e.term) == targetUpto {
@@ -1264,6 +1262,7 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 		termLen := f.prefix + f.suffix
 		f.startBytePos = f.suffixesReader.Pos
 		f.suffixesReader.SkipBytes(f.suffix)
+		log.Println("DEBUG ", termLen, f.startBytePos, f.suffixesReader.Pos)
 
 		targetLimit := termLen
 		if len(target) < termLen {
@@ -1279,7 +1278,10 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 			var cmp int
 			var stop bool
 			if targetPos < targetLimit {
-				cmp = int(f.suffixBytes[bytePos] - target[targetPos])
+				cmp = int(f.suffixBytes[bytePos]) - int(target[targetPos])
+				// log.Println("DEBUG suffixBytes=", f.suffixBytes)
+				log.Println("DEBUG bytePos=", bytePos, "targetPos=", targetPos)
+				log.Println("DEBUG ", f.suffixBytes[bytePos], "<=>", target[targetPos])
 				bytePos++
 				targetPos++
 				stop = false
@@ -1343,6 +1345,8 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 				f.fillTerm()
 				log.Println("        found!")
 				return SEEK_STATUS_FOUND, nil
+			} else {
+				log.Println("DEBUG continue")
 			}
 		}
 		if isDone {

@@ -304,7 +304,7 @@ func (t *FST) assertRootArcs() {
 		root := t.cachedRootArcs[i]
 		asserting := v
 		if root != nil {
-			log.Print("DEBUG i = ", i, ": ", root, asserting)
+			// log.Print("DEBUG i = ", i, ": ", root, asserting)
 			if root.arcIdx != asserting.arcIdx {
 				panic("assert fail")
 			}
