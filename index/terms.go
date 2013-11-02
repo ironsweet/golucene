@@ -89,7 +89,7 @@ type TermsEnum interface {
 	codec doesn't support this measure. Note that, like
 	other term measures, this measure does not take
 	deleted documents into account. */
-	TotalTermFreq() int64
+	TotalTermFreq() (tf int64, err error)
 	/* Get DocsEnum for the current term. Do not
 	call this when the enum is unpositioned. This method
 	will not return nil. */
@@ -202,7 +202,7 @@ func (e *EmptyTermsEnum) DocFreq() (df int, err error) {
 	panic("this method should never be called")
 }
 
-func (e *EmptyTermsEnum) TotalTermFreq() int64 {
+func (e *EmptyTermsEnum) TotalTermFreq() (tf int64, err error) {
 	panic("this method should never be called")
 }
 
@@ -282,7 +282,11 @@ func NewTermContextFromTerm(ctx IndexReaderContext, t Term) (tc *TermContext, er
 					if err != nil {
 						return nil, err
 					}
-					perReaderTermState.register(termState, leaf.Ord, df, termsEnum.TotalTermFreq())
+					tf, err := termsEnum.TotalTermFreq()
+					if err != nil {
+						return nil, err
+					}
+					perReaderTermState.register(termState, leaf.Ord, df, tf)
 				}
 			}
 		}

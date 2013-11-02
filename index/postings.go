@@ -906,8 +906,11 @@ func (e *SegmentTermsEnum) DocFreq() (df int, err error) {
 	return
 }
 
-func (e *SegmentTermsEnum) TotalTermFreq() int64 {
-	panic("not implemented yet")
+func (e *SegmentTermsEnum) TotalTermFreq() (tf int64, err error) {
+	assert(!e.eof)
+	err = e.currentFrame.decodeMetaData()
+	tf = e.currentFrame.state.totalTermFreq
+	return
 }
 
 func (e *SegmentTermsEnum) DocsByFlags(skipDocs util.Bits, reuse DocsEnum, flags int) DocsEnum {
