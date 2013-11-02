@@ -1,6 +1,7 @@
 package search
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/index"
 	"log"
 	"math"
@@ -37,14 +38,29 @@ func (ss IndexSearcher) Search(q Query, f Filter, n int) (topDocs TopDocs, err e
 	return ss.searchWSI(w, ScoreDoc{}, n), nil
 }
 
+/** Expert: Low-level search implementation.  Finds the top <code>n</code>
+ * hits for <code>query</code>, applying <code>filter</code> if non-null.
+ *
+ * <p>Applications should usually call {@link IndexSearcher#search(Query,int)} or
+ * {@link IndexSearcher#search(Query,Filter,int)} instead.
+ * @throws BooleanQuery.TooManyClauses If a query would exceed
+ *         {@link BooleanQuery#getMaxClauseCount()} clauses.
+ */
 func (ss IndexSearcher) searchWSI(w Weight, after ScoreDoc, nDocs int) TopDocs {
 	// TODO support concurrent search
 	return ss.searchLWSI(ss.leafContexts, w, after, nDocs)
 }
 
-func (ss IndexSearcher) searchLWSI(leaves []index.AtomicReaderContext,
-	w Weight, after ScoreDoc, nDocs int) TopDocs {
-	// TODO support concurrent search
+/** Expert: Low-level search implementation.  Finds the top <code>n</code>
+ * hits for <code>query</code>.
+ *
+ * <p>Applications should usually call {@link IndexSearcher#search(Query,int)} or
+ * {@link IndexSearcher#search(Query,Filter,int)} instead.
+ * @throws BooleanQuery.TooManyClauses If a query would exceed
+ *         {@link BooleanQuery#getMaxClauseCount()} clauses.
+ */
+func (ss IndexSearcher) searchLWSI(leaves []index.AtomicReaderContext, w Weight, after ScoreDoc, nDocs int) TopDocs {
+	// single thread
 	limit := ss.reader.MaxDoc()
 	if limit == 0 {
 		limit = 1
@@ -93,7 +109,7 @@ func (ss IndexSearcher) createNormalizedWeight(q Query) (w Weight, err error) {
 	}
 	v := w.ValueForNormalization()
 	norm := ss.similarity.queryNorm(v)
-	if math.IsInf(norm, 1) || math.IsNaN(norm) {
+	if math.IsInf(float64(norm), 1) || math.IsNaN(float64(norm)) {
 		norm = 1.0
 	}
 	w.Normalize(norm, 1.0)
@@ -147,7 +163,7 @@ func NewCollectionStatistics(field string, maxDoc, docCount, sumTotalTermFreq, s
 }
 
 type Similarity interface {
-	queryNorm(valueForNormalization float32) float64
+	queryNorm(valueForNormalization float32) float32
 	computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight
 	exactSimScorer(w SimWeight, ctx index.AtomicReaderContext) ExactSimScorer
 }
@@ -158,28 +174,140 @@ type ExactSimScorer interface {
 
 type SimWeight interface {
 	ValueForNormalization() float32
-	Normalize(norm float64, topLevelBoost float32) float32
+	Normalize(norm float32, topLevelBoost float32)
+}
+
+// search/similarities/TFIDFSimilarity.java
+
+type ITFIDFSimilarity interface {
+	/** Computes a score factor based on a term's document frequency (the number
+	 * of documents which contain the term).  This value is multiplied by the
+	 * {@link #tf(float)} factor for each term in the query and these products are
+	 * then summed to form the initial score for a document.
+	 *
+	 * <p>Terms that occur in fewer documents are better indicators of topic, so
+	 * implementations of this method usually return larger values for rare terms,
+	 * and smaller values for common terms.
+	 *
+	 * @param docFreq the number of documents which contain the term
+	 * @param numDocs the total number of documents in the collection
+	 * @return a score factor based on the term's document frequency
+	 */
+	idf(docFreq int64, numDocs int64) float32
 }
 
 type TFIDFSimilarity struct {
+	ITFIDFSimilarity
+}
+
+func (ts *TFIDFSimilarity) idfExplainTerm(collectionStats CollectionStatistics, termStats TermStatistics) Explanation {
+	df, max := termStats.DocFreq, collectionStats.maxDoc
+	idf := ts.idf(df, max)
+	return newExplanation(idf, fmt.Sprintf("idf(docFreq=%v, maxDocs=%v)", df, max))
+}
+
+func (ts *TFIDFSimilarity) idfExplainPhrase(collectionStats CollectionStatistics, termStats []TermStatistics) Explanation {
+	details := make([]Explanation, len(termStats))
+	var idf float32 = 0
+	for i, stat := range termStats {
+		details[i] = ts.idfExplainTerm(collectionStats, stat)
+		idf += details[i].value
+	}
+	return newExplanation(idf, fmt.Sprintf("idf(), sum of:"))
 }
 
 func (ts *TFIDFSimilarity) computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight {
-	panic("not implemented yet")
+	var idf Explanation
+	if len(termStats) == 1 {
+		idf = ts.idfExplainTerm(collectionStats, termStats[0])
+	} else {
+		idf = ts.idfExplainPhrase(collectionStats, termStats)
+	}
+	return newIDFStats(collectionStats.field, idf, queryBoost)
 }
 
 func (ts *TFIDFSimilarity) exactSimScorer(w SimWeight, ctx index.AtomicReaderContext) ExactSimScorer {
 	panic("not implemented yet")
 }
 
-type DefaultSimilarity struct {
-	*TFIDFSimilarity
+/** Collection statistics for the TF-IDF model. The only statistic of interest
+ * to this model is idf. */
+type idfStats struct {
+	field string
+	/** The idf and its explanation */
+	idf         Explanation
+	queryNorm   float32
+	queryWeight float32
+	queryBoost  float32
+	value       float32
 }
 
-func (ds *DefaultSimilarity) queryNorm(sumOfSquaredWeights float32) float64 {
-	return 1.0 / math.Sqrt(float64(sumOfSquaredWeights))
+func newIDFStats(field string, idf Explanation, queryBoost float32) *idfStats {
+	// TODO: validate?
+	return &idfStats{
+		field:       field,
+		idf:         idf,
+		queryBoost:  queryBoost,
+		queryWeight: idf.value * queryBoost, // compute query weight
+	}
+}
+
+func (stats *idfStats) ValueForNormalization() float32 {
+	// TODO: (sorta LUCENE-1907) make non-static class and expose this squaring via a nice method to subclasses?
+	return stats.queryWeight * stats.queryWeight // sum of squared weights
+}
+
+func (stats *idfStats) Normalize(queryNorm float32, topLevelBoost float32) {
+	stats.queryNorm = queryNorm * topLevelBoost
+	stats.queryWeight *= stats.queryNorm              // normalize query weight
+	stats.value = stats.queryWeight * stats.idf.value // idf for document
+}
+
+// search/Explanation.java
+/** Expert: Describes the score computation for document and query. */
+type Explanation struct {
+	// the value of this node
+	value float32
+	// what it represents
+	description string
+}
+
+func newExplanation(value float32, description string) Explanation {
+	return Explanation{value: value, description: description}
+}
+
+// search/similarities/DefaultSimilarity.java
+
+type DefaultSimilarity struct {
+	*TFIDFSimilarity
+	discountOverlaps bool
 }
 
 func NewDefaultSimilarity() Similarity {
-	return &DefaultSimilarity{&TFIDFSimilarity{}}
+	ans := &DefaultSimilarity{
+		&TFIDFSimilarity{},
+		true,
+	}
+	ans.ITFIDFSimilarity = ans
+	return ans
+}
+
+func (ds *DefaultSimilarity) queryNorm(sumOfSquaredWeights float32) float32 {
+	return 1.0 / float32(math.Sqrt(float64(sumOfSquaredWeights)))
+}
+
+func (ds *DefaultSimilarity) decodeNormValue(norm int64) float32 {
+	panic("not implemented yet")
+}
+
+func (ds *DefaultSimilarity) tf(freq float32) float32 {
+	return float32(math.Sqrt(float64(freq)))
+}
+
+func (ds *DefaultSimilarity) idf(docFreq int64, numDocs int64) float32 {
+	return float32(math.Log(float64(numDocs)/float64(docFreq+1))) + 1.0
+}
+
+func (ds *DefaultSimilarity) String() string {
+	return "DefaultSImilarity"
 }

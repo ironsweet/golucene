@@ -74,8 +74,8 @@ func (tw TermWeight) ValueForNormalization() float32 {
 	return tw.stats.ValueForNormalization()
 }
 
-func (tw TermWeight) Normalize(norm float64, topLevelBoost float32) float32 {
-	return tw.stats.Normalize(norm, topLevelBoost)
+func (tw TermWeight) Normalize(norm float32, topLevelBoost float32) {
+	tw.stats.Normalize(norm, topLevelBoost)
 }
 
 func (tw TermWeight) IsScoresDocsOutOfOrder() bool {
