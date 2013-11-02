@@ -32,7 +32,7 @@ func NewBlockTermState() *BlockTermState {
 func (ts *BlockTermState) CopyFrom(other TermState) {
 	if ots, ok := other.(*BlockTermState); ok {
 		ts.OrdTermState.CopyFrom(ots.OrdTermState)
-		if ts.Self != nil {
+		if ts.Self != nil && ots.Self != nil {
 			ts.Self.CopyFrom(ots.Self)
 		}
 		ts.docFreq = ots.docFreq

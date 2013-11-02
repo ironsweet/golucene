@@ -274,6 +274,7 @@ func (ts *intBlockTermState) Clone() TermState {
 }
 
 func (ts *intBlockTermState) CopyFrom(other TermState) {
+	assert(other != nil)
 	if ots, ok := other.(*intBlockTermState); ok {
 		ts.BlockTermState.CopyFrom(ots.BlockTermState)
 		ts.docStartFP = ots.docStartFP

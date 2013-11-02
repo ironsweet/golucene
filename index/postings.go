@@ -931,6 +931,8 @@ func (e *SegmentTermsEnum) SeekExactFromLast(target []byte, otherState TermState
 		e.currentFrame = e.staticFrame
 		e.currentFrame.state.CopyFrom(otherState)
 		e.term = copyBytes(e.term, target)
+		// e.term = make([]byte, len(target))
+		// copy(e.term, target)
 		e.currentFrame.metaDataUpto = e.currentFrame.getTermBlockOrd()
 		assert(e.currentFrame.metaDataUpto > 0)
 		e.validIndexPrefix = 0
