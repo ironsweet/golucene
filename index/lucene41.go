@@ -145,6 +145,104 @@ func (r *Lucene41PostingsReader) ReadTermsBlock(termsIn store.IndexInput, fieldI
 	return nil
 }
 
+func (r *Lucene41PostingsReader) nextTerm(fieldInfo FieldInfo, _termState *BlockTermState) (err error) {
+	termState := _termState.Self.(*intBlockTermState)
+	isFirstTerm := termState.termBlockOrd == 0
+	fieldHasPositions := fieldInfo.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
+	fieldHasOffsets := fieldInfo.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
+	fieldHasPayloads := fieldInfo.storePayloads
+
+	in := termState.bytesReader
+	if isFirstTerm {
+		if termState.docFreq == 1 {
+			termState.singletonDocID, err = asInt(in.ReadVInt())
+			if err != nil {
+				return err
+			}
+			termState.docStartFP = 0
+		} else {
+			termState.singletonDocID = -1
+			termState.docStartFP, err = in.ReadVLong()
+			if err != nil {
+				return err
+			}
+		}
+		if fieldHasPositions {
+			termState.posStartFP, err = in.ReadVLong()
+			if err != nil {
+				return err
+			}
+			if termState.totalTermFreq > LUCENE41_BLOCK_SIZE {
+				termState.lastPosBlockOffset, err = in.ReadVLong()
+				if err != nil {
+					return err
+				}
+			} else {
+				termState.lastPosBlockOffset = -1
+			}
+			if (fieldHasPayloads || fieldHasOffsets) && termState.totalTermFreq >= LUCENE41_BLOCK_SIZE {
+				termState.payStartFP, err = in.ReadVLong()
+				if err != nil {
+					return err
+				}
+			} else {
+				termState.payStartFP = -1
+			}
+		}
+	} else {
+		if termState.docFreq == 1 {
+			termState.singletonDocID, err = asInt(in.ReadVInt())
+			if err != nil {
+				return err
+			}
+		} else {
+			termState.singletonDocID = -1
+			delta, err := in.ReadVLong()
+			if err != nil {
+				return err
+			}
+			termState.docStartFP += delta
+		}
+		if fieldHasPositions {
+			delta, err := in.ReadVLong()
+			if err != nil {
+				return err
+			}
+			termState.posStartFP += delta
+			if termState.totalTermFreq > LUCENE41_BLOCK_SIZE {
+				termState.lastPosBlockOffset, err = in.ReadVLong()
+				if err != nil {
+					return err
+				}
+			} else {
+				termState.lastPosBlockOffset = -1
+			}
+			if (fieldHasPayloads || fieldHasOffsets) && termState.totalTermFreq >= LUCENE41_BLOCK_SIZE {
+				delta, err = in.ReadVLong()
+				if err != nil {
+					return err
+				}
+				if termState.payStartFP == -1 {
+					termState.payStartFP = delta
+				} else {
+					termState.payStartFP += delta
+				}
+			}
+		}
+	}
+
+	if termState.docFreq > LUCENE41_BLOCK_SIZE {
+		termState.skipOffset, err = in.ReadVLong()
+		if err != nil {
+			return err
+		}
+	} else {
+		termState.skipOffset = -1
+	}
+
+	return nil
+}
+
 type intBlockTermState struct {
 	*BlockTermState
 	docStartFP         int64

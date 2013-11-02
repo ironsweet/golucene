@@ -19,13 +19,14 @@ time.
 */
 type PostingsReaderBase interface {
 	io.Closer
-	/**		Performs any initialization, such as reading and
-	* verifying the header from the provided terms
-	* dictionary IndexInput.	*/
+	/** Performs any initialization, such as reading and
+	 *  verifying the header from the provided terms
+	 *  dictionary {@link IndexInput}. */
 	Init(termsIn store.IndexInput) error
-	// Return a newly created empty BlockTermState
+	/** Return a newly created empty TermState */
 	NewTermState() *BlockTermState
-	// nextTerm(fieldInfo FieldInfo, state BlockTermState)
+	/** Actually decode metadata for next term */
+	nextTerm(fieldInfo FieldInfo, state *BlockTermState) error
 	// docs(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int)
 	// docsAndPositions(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits)
 	/** Returns approximate RAM bytes used */

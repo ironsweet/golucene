@@ -1393,8 +1393,49 @@ func (f *segmentTermsEnumFrame) fillTerm() {
 	copy(f.term[f.prefix:f.prefix+f.suffix], f.suffixBytes[f.startBytePos:])
 }
 
-func (f *segmentTermsEnumFrame) decodeMetaData() error {
-	panic("not implemented yet")
+func (f *segmentTermsEnumFrame) decodeMetaData() (err error) {
+	log.Printf("BTTR.decodeMetadata seg=%v mdUpto=%v vs termBlockOrd=%v",
+		f.segment, f.metaDataUpto, f.state.termBlockOrd)
+
+	// lazily catch up on metadata decode:
+	limit := f.getTermBlockOrd()
+	if limit <= 0 {
+		panic("assert fail")
+	}
+
+	// We must set/incr state.termCount because
+	// postings impl can look at this
+	f.state.termBlockOrd = f.metaDataUpto
+
+	// TODO: better API would be "jump straight to term=N"???
+	for f.metaDataUpto < limit {
+		// TODO: we could make "tiers" of metadata, ie,
+		// decode docFreq/totalTF but don't decode postings
+		// metadata; this way caller could get
+		// docFreq/totalTF w/o paying decode cost for
+		// postings
+
+		// TODO: if docFreq were bulk decoded we could
+		// just skipN here:
+		f.state.docFreq, err = asInt(f.statsReader.ReadVInt())
+		if err != nil {
+			return err
+		}
+		log.Printf("    dF=%v", f.state.docFreq)
+		if f.fieldInfo.indexOptions != INDEX_OPT_DOCS_ONLY {
+			n, err := f.statsReader.ReadVLong()
+			if err != nil {
+				return err
+			}
+			f.state.totalTermFreq = int64(f.state.docFreq) + n
+		}
+
+		f.postingsReader.nextTerm(f.fieldInfo, f.state)
+		f.metaDataUpto++
+		f.state.termBlockOrd++
+	}
+
+	return nil
 }
 
 // for debugging
