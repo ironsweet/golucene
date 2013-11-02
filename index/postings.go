@@ -891,8 +891,19 @@ func (e *SegmentTermsEnum) Term() []byte {
 	return e.term
 }
 
-func (e *SegmentTermsEnum) DocFreq() int {
-	panic("not implemented yet")
+func assert(ok bool) {
+	if !ok {
+		panic("assert fail")
+	}
+}
+
+func (e *SegmentTermsEnum) DocFreq() (df int, err error) {
+	assert(!e.eof)
+	log.Println("BTTR.docFreq")
+	err = e.currentFrame.decodeMetaData()
+	df = e.currentFrame.state.docFreq
+	log.Printf("  return %v", df)
+	return
 }
 
 func (e *SegmentTermsEnum) TotalTermFreq() int64 {

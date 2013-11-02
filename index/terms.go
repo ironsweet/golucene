@@ -82,7 +82,7 @@ type TermsEnum interface {
 	Ord() int64
 	/* Returns the number of documentsw containing the current
 	term. Do not call this when enum is unpositioned. */
-	DocFreq() int
+	DocFreq() (df int, err error)
 	/* Returns the total numnber of occurrences of this term
 	across all documents (the sum of the freq() for each
 	doc that has this term). This will be -1 if the
@@ -198,7 +198,7 @@ func (e *EmptyTermsEnum) Comparator() sort.Interface {
 	return nil
 }
 
-func (e *EmptyTermsEnum) DocFreq() int {
+func (e *EmptyTermsEnum) DocFreq() (df int, err error) {
 	panic("this method should never be called")
 }
 
@@ -278,7 +278,11 @@ func NewTermContextFromTerm(ctx IndexReaderContext, t Term) (tc *TermContext, er
 						return nil, err
 					}
 					log.Println("    found")
-					perReaderTermState.register(termState, leaf.Ord, termsEnum.DocFreq(), termsEnum.TotalTermFreq())
+					df, err := termsEnum.DocFreq()
+					if err != nil {
+						return nil, err
+					}
+					perReaderTermState.register(termState, leaf.Ord, df, termsEnum.TotalTermFreq())
 				}
 			}
 		}
