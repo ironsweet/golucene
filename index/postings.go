@@ -922,7 +922,30 @@ func (e *SegmentTermsEnum) DocsAndPositionsByFlags(skipDocs util.Bits, reuse Doc
 }
 
 func (e *SegmentTermsEnum) SeekExactFromLast(target []byte, otherState TermState) error {
-	panic("not implemented yet")
+	log.Printf("BTTR.seekExact termState seg=%v target=%v state=%v", e.segment, brToString(target), otherState)
+	e.eof = false
+	if !util.CompareFSTValue(target, e.term) || !e.termExists {
+		assert(otherState != nil)
+		_, ok := otherState.(*BlockTermState)
+		assert(ok)
+		e.currentFrame = e.staticFrame
+		e.currentFrame.state.CopyFrom(otherState)
+		e.term = copyBytes(e.term, target)
+		e.currentFrame.metaDataUpto = e.currentFrame.getTermBlockOrd()
+		assert(e.currentFrame.metaDataUpto > 0)
+		e.validIndexPrefix = 0
+	} else {
+		log.Printf("  skip seek: already on target state=%v", e.currentFrame.state)
+	}
+	return nil
+}
+
+func copyBytes(a, b []byte) []byte {
+	if len(a) < len(b) {
+		a = make([]byte, len(b))
+	}
+	copy(a, b)
+	return a[0:len(b)]
 }
 
 func (e *SegmentTermsEnum) TermState() (ts TermState, err error) {
