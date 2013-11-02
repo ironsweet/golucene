@@ -165,11 +165,25 @@ func NewCollectionStatistics(field string, maxDoc, docCount, sumTotalTermFreq, s
 type Similarity interface {
 	queryNorm(valueForNormalization float32) float32
 	computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight
-	exactSimScorer(w SimWeight, ctx index.AtomicReaderContext) ExactSimScorer
+	simScorer(w SimWeight, ctx index.AtomicReaderContext) SimScorer
 }
 
-type ExactSimScorer interface {
-	Score(doc, freq int) float64
+/**
+ * API for scoring "sloppy" queries such as {@link TermQuery},
+ * {@link SpanQuery}, and {@link PhraseQuery}.
+ * <p>
+ * Frequencies are floating-point values: an approximate
+ * within-document frequency adjusted for "sloppiness" by
+ * {@link SimScorer#computeSlopFactor(int)}.
+ */
+type SimScorer interface {
+	/**
+	 * Score a single document
+	 * @param doc document id within the inverted index segment
+	 * @param freq sloppy term frequency
+	 * @return document's score
+	 */
+	Score(doc, freq int) float32
 }
 
 type SimWeight interface {
@@ -226,7 +240,7 @@ func (ts *TFIDFSimilarity) computeWeight(queryBoost float32, collectionStats Col
 	return newIDFStats(collectionStats.field, idf, queryBoost)
 }
 
-func (ts *TFIDFSimilarity) exactSimScorer(w SimWeight, ctx index.AtomicReaderContext) ExactSimScorer {
+func (ts *TFIDFSimilarity) simScorer(w SimWeight, ctx index.AtomicReaderContext) SimScorer {
 	panic("not implemented yet")
 }
 

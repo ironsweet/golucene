@@ -91,7 +91,7 @@ func (tw TermWeight) Scorer(context index.AtomicReaderContext,
 	}
 	docs := termsEnum.Docs(acceptDocs, index.DOCS_ENUM_EMPTY)
 	// assert docs != null;
-	return *(newTermScorer(tw, docs, tw.similarity.exactSimScorer(tw.stats, context)).Scorer), true
+	return *(newTermScorer(tw, docs, tw.similarity.simScorer(tw.stats, context)).Scorer), true
 }
 
 func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnum, ok bool) {
@@ -106,20 +106,43 @@ func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnu
 	return te, true
 }
 
+// search/TermScorer.java
+/** Expert: A <code>Scorer</code> for documents matching a <code>Term</code>.
+ */
 type TermScorer struct {
 	*Scorer
-	docScorer ExactSimScorer
 	docsEnum  index.DocsEnum
+	docScorer SimScorer
 }
 
-func newTermScorer(w Weight, td index.DocsEnum, docScorer ExactSimScorer) TermScorer {
-	ans := &TermScorer{}
-	scorer := newScorer(ans, w, func() float64 {
-		// assert docID() != NO_MORE_DOCS
-		return ans.docScorer.Score(ans.docsEnum.DocId(), ans.docsEnum.Freq())
-	})
-	ans.Scorer = &scorer
-	ans.docScorer = docScorer
-	ans.docsEnum = td
+func newTermScorer(w Weight, td index.DocsEnum, docScorer SimScorer) TermScorer {
+	ans := &TermScorer{docsEnum: td, docScorer: docScorer}
+	ans.Scorer = newScorer(ans, w)
 	return *ans
+}
+
+func (ts *TermScorer) DocId() int {
+	return ts.docsEnum.DocId()
+}
+
+/**
+ * Advances to the next document matching the query. <br>
+ *
+ * @return the document matching the query or NO_MORE_DOCS if there are no more documents.
+ */
+func (ts *TermScorer) NextDoc() (d int, err error) {
+	return ts.docsEnum.NextDoc()
+}
+
+func (ts *TermScorer) Score() (s float32, err error) {
+	assert(ts.DocId() != index.NO_MORE_DOCS)
+	freq, err := ts.docsEnum.Freq()
+	if err != nil {
+		return 0, err
+	}
+	return ts.docScorer.Score(ts.docsEnum.DocId(), freq), nil
+}
+
+func (ts *TermScorer) String() string {
+	return fmt.Sprintf("scorer(%v)", ts.weight)
 }

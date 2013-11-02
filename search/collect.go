@@ -2,13 +2,32 @@ package search
 
 import (
 	"container/heap"
+	"fmt"
 	"github.com/balzaczyy/golucene/index"
 	"math"
 )
 
+/** Holds one hit in {@link TopDocs}. */
 type ScoreDoc struct {
-	score float64
-	doc   int
+	/** The score of this document for the query. */
+	score float32
+	/** A hit document's number.
+	 * @see IndexSearcher#doc(int) */
+	doc int
+	/** Only set by {@link TopDocs#merge} */
+	shardIndex int
+}
+
+func newScoreDoc(doc int, score float32) ScoreDoc {
+	return ScoreDoc{score: score, doc: doc}
+}
+
+func newShardedScoreDoc(doc int, score float32, shardIndex int) ScoreDoc {
+	return ScoreDoc{score, doc, shardIndex}
+}
+
+func (d ScoreDoc) String() string {
+	return fmt.Sprintf("doc=%v score=%v shardIndex=%v", d.doc, d.score, d.shardIndex)
 }
 
 type PriorityQueue struct {
@@ -34,7 +53,7 @@ type TopDocs struct {
 }
 
 type Collector interface {
-	SetScorer(s Scorer)
+	SetScorer(s *Scorer)
 	Collect(doc int)
 	SetNextReader(ctx index.AtomicReaderContext)
 	AcceptsDocsOutOfOrder() bool
@@ -62,10 +81,11 @@ func (c *TopDocsCollector) populateResults(results []ScoreDoc, howMany int) {
 }
 
 func (c *TopDocsCollector) newTopDocs(results []ScoreDoc, start int) TopDocs {
-	if results == nil {
-		return TopDocs{0, []ScoreDoc{}, math.NaN()}
-	}
-	return TopDocs{c.TotalHits, results, math.NaN()}
+	panic("not implemented yet")
+	// if results == nil {
+	// 	return TopDocs{0, []ScoreDoc{}, math.NaN()}
+	// }
+	// return TopDocs{c.TotalHits, results, math.NaN()}
 }
 
 func (c *TopDocsCollector) topDocsSize() int {
@@ -122,7 +142,7 @@ func (c *TopDocsCollector) TopDocsRange(start, howMany int) TopDocs {
 
 type TopScoreDocCollector struct {
 	*TopDocsCollector
-	pqTop   *ScoreDoc
+	pqTop   ScoreDoc
 	docBase int
 	scorer  Scorer
 }
@@ -130,12 +150,12 @@ type TopScoreDocCollector struct {
 func newTocScoreDocCollector(numHits int) *TopScoreDocCollector {
 	docs := make([]interface{}, numHits)
 	for i, _ := range docs {
-		docs[i] = ScoreDoc{-math.MaxFloat32, math.MaxInt32}
+		docs[i] = newScoreDoc(math.MaxInt32, -math.MaxFloat32)
 	}
 	pq := &PriorityQueue{items: docs}
 	pq.less = func(i, j int) bool {
-		hitA := pq.items[i].(*ScoreDoc)
-		hitB := pq.items[j].(*ScoreDoc)
+		hitA := pq.items[i].(ScoreDoc)
+		hitB := pq.items[j].(ScoreDoc)
 		if hitA.score == hitB.score {
 			return hitA.doc > hitB.doc
 		}
@@ -143,7 +163,7 @@ func newTocScoreDocCollector(numHits int) *TopScoreDocCollector {
 	}
 	heap.Init(pq)
 
-	pqTop := heap.Pop(pq).(*ScoreDoc)
+	pqTop := heap.Pop(pq).(ScoreDoc)
 	heap.Push(pq, pqTop)
 	c := &TopScoreDocCollector{pqTop: pqTop}
 	c.TopDocsCollector = newTopDocsCollector(c, pq)
@@ -161,13 +181,13 @@ func (c *TopScoreDocCollector) newTopDocs(results []ScoreDoc, start int) TopDocs
 	// extracted and use its score as maxScore.
 	maxScore := math.NaN()
 	if start == 0 {
-		maxScore = results[0].score
+		maxScore = float64(results[0].score)
 	} else {
 		pq := c.TopDocsCollector.pq
 		for i := pq.Len(); i > 1; i-- {
 			heap.Pop(pq)
 		}
-		maxScore = heap.Pop(pq).(*ScoreDoc).score
+		maxScore = float64(heap.Pop(pq).(ScoreDoc).score)
 	}
 
 	return TopDocs{c.TopDocsCollector.TotalHits, results, maxScore}
@@ -190,6 +210,7 @@ func NewTopScoreDocCollector(numHits int, after ScoreDoc, docsScoredInOrder bool
 	}
 }
 
+// Assumes docs are scored in order.
 type InOrderTopScoreDocCollector struct {
 	*TopScoreDocCollector
 }
