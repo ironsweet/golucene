@@ -117,7 +117,7 @@ type TermsEnum interface {
 	NOTE: A sek by TermState might not capture the
 	AttributeSource's state. Callers must maintain the
 	AttributeSource states separately. */
-	TermState() TermState
+	TermState() (ts TermState, err error)
 }
 
 type SeekStatus int
@@ -164,8 +164,8 @@ func (e *TermsEnumImpl) DocsAndPositions(liveDocs util.Bits, reuse DocsAndPositi
 	return e.DocsAndPositionsByFlags(liveDocs, reuse, DOCS_POSITIONS_ENUM_FLAG_OFF_SETS|DOCS_POSITIONS_ENUM_FLAG_PAYLOADS)
 }
 
-func (e *TermsEnumImpl) TermState() TermState {
-	return EMPTY_TERM_STATE
+func (e *TermsEnumImpl) TermState() (ts TermState, err error) {
+	return EMPTY_TERM_STATE, nil
 }
 
 var (
@@ -222,7 +222,7 @@ func (e *EmptyTermsEnum) Next() (term []byte, err error) {
 	return nil, nil
 }
 
-func (e *EmptyTermsEnum) TermState() TermState {
+func (e *EmptyTermsEnum) TermState() (ts TermState, err error) {
 	panic("this method should never be called")
 }
 
@@ -273,7 +273,10 @@ func NewTermContextFromTerm(ctx IndexReaderContext, t Term) (tc *TermContext, er
 					return nil, err
 				}
 				if ok {
-					termState := termsEnum.TermState()
+					termState, err := termsEnum.TermState()
+					if err != nil {
+						return nil, err
+					}
 					log.Println("    found")
 					perReaderTermState.register(termState, leaf.Ord, termsEnum.DocFreq(), termsEnum.TotalTermFreq())
 				}

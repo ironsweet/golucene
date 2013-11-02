@@ -911,8 +911,16 @@ func (e *SegmentTermsEnum) SeekExactFromLast(target []byte, otherState TermState
 	panic("not implemented yet")
 }
 
-func (e *SegmentTermsEnum) TermState() TermState {
-	panic("not implemented yet")
+func (e *SegmentTermsEnum) TermState() (ts TermState, err error) {
+	if e.eof {
+		panic("assert fail")
+	}
+	if err = e.currentFrame.decodeMetaData(); err != nil {
+		return nil, err
+	}
+	ts = e.currentFrame.state.Clone()
+	log.Printf("BTTR.termState seg=%v state=%v", e.segment, ts)
+	return
 }
 
 func (e *SegmentTermsEnum) SeekExactByPosition(ord int64) error {
@@ -1383,6 +1391,10 @@ func (f *segmentTermsEnumFrame) fillTerm() {
 		f.term = next
 	}
 	copy(f.term[f.prefix:f.prefix+f.suffix], f.suffixBytes[f.startBytePos:])
+}
+
+func (f *segmentTermsEnumFrame) decodeMetaData() error {
+	panic("not implemented yet")
 }
 
 // for debugging
