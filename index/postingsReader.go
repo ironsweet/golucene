@@ -2,6 +2,7 @@ package index
 
 import (
 	"github.com/balzaczyy/golucene/store"
+	"github.com/balzaczyy/golucene/util"
 	"io"
 )
 
@@ -27,7 +28,9 @@ type PostingsReaderBase interface {
 	NewTermState() *BlockTermState
 	/** Actually decode metadata for next term */
 	nextTerm(fieldInfo FieldInfo, state *BlockTermState) error
-	// docs(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int)
+	/** Must fully consume state, since after this call that
+	 *  TermState may be reused. */
+	docs(fieldInfo FieldInfo, state *BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int) (de DocsEnum, err error)
 	// docsAndPositions(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits)
 	/** Returns approximate RAM bytes used */
 	// RamBytesUsed() int64

@@ -16,7 +16,10 @@ type IndexInput interface {
 	ReadBytesBuffered(buf []byte, useBuffer bool) error
 	// IndexInput
 	FilePointer() int64
-	Seek(pos int64)
+	/** Sets current position in this file, where the next read will occur.
+	 * @see #getFilePointer()
+	 */
+	Seek(pos int64) error
 	Length() int64
 	// Clone
 	Clone() IndexInput
@@ -46,7 +49,7 @@ func (in *IndexInputImpl) String() string {
 }
 
 type SeekReader interface {
-	seekInternal(pos int64)
+	seekInternal(pos int64) error
 	readInternal(buf []byte) error
 }
 
@@ -306,14 +309,15 @@ func (in *BufferedIndexInput) FilePointer() int64 {
 	return in.bufferStart + int64(in.bufferPosition)
 }
 
-func (in *BufferedIndexInput) Seek(pos int64) {
+func (in *BufferedIndexInput) Seek(pos int64) error {
 	if pos >= in.bufferStart && pos < in.bufferStart+int64(in.bufferLength) {
 		in.bufferPosition = int(pos - in.bufferStart) // seek within buffer
+		return nil
 	} else {
 		in.bufferStart = pos
 		in.bufferPosition = 0
 		in.bufferLength = 0 // trigger refill() on read()
-		in.seekInternal(pos)
+		return in.seekInternal(pos)
 	}
 }
 
@@ -399,7 +403,7 @@ func (in *ChecksumIndexInput) FilePointer() int64 {
 	return in.main.FilePointer()
 }
 
-func (in *ChecksumIndexInput) Seek(pos int64) {
+func (in *ChecksumIndexInput) Seek(pos int64) error {
 	panic("unsupported")
 }
 

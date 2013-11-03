@@ -78,10 +78,10 @@ const (
 )
 
 var (
-	DOCS_ENUM_EMPTY = DocsEnum{}
+	DOCS_ENUM_EMPTY = AbstractDocsEnum{}
 )
 
-type IDocsEnum interface {
+type DocsEnum interface {
 	DocIdSetIterator
 	/**
 	 * Returns term frequency in the current document, or 1 if the field was
@@ -96,8 +96,8 @@ type IDocsEnum interface {
 	Freq() (n int, err error)
 }
 
-type DocsEnum struct {
-	IDocsEnum
+type AbstractDocsEnum struct {
+	DocsEnum
 }
 
 const (

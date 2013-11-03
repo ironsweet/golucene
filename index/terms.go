@@ -93,12 +93,12 @@ type TermsEnum interface {
 	/* Get DocsEnum for the current term. Do not
 	call this when the enum is unpositioned. This method
 	will not return nil. */
-	Docs(liveDocs util.Bits, reuse DocsEnum) DocsEnum
+	Docs(liveDocs util.Bits, reuse DocsEnum) (de DocsEnum, err error)
 	/* Get DocsEnum for the current term, with
 	control over whether freqs are required. Do not
 	call this when the enum is unpositioned. This method
 	will not return nil. */
-	DocsByFlags(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum
+	DocsByFlags(liveDocs util.Bits, reuse DocsEnum, flags int) (de DocsEnum, err error)
 	/* Get DocsAndPositionEnum for the current term.
 	Do not call this when the enum is unpositioned. This
 	method will return nil if positions were not
@@ -156,7 +156,7 @@ func (e *TermsEnumImpl) SeekExactFromLast(text []byte, state TermState) error {
 	return nil
 }
 
-func (e *TermsEnumImpl) Docs(liveDocs util.Bits, reuse DocsEnum) DocsEnum {
+func (e *TermsEnumImpl) Docs(liveDocs util.Bits, reuse DocsEnum) (de DocsEnum, err error) {
 	return e.DocsByFlags(liveDocs, reuse, DOCS_ENUM_FLAG_FREQS)
 }
 
@@ -210,7 +210,7 @@ func (e *EmptyTermsEnum) Ord() int64 {
 	panic("this method should never be called")
 }
 
-func (e *EmptyTermsEnum) DocsByFlags(liveDocs util.Bits, reuse DocsEnum, flags int) DocsEnum {
+func (e *EmptyTermsEnum) DocsByFlags(liveDocs util.Bits, reuse DocsEnum, flags int) (de DocsEnum, err error) {
 	panic("this method should never be called")
 }
 

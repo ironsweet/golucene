@@ -4,6 +4,11 @@ import (
 	"fmt"
 )
 
+func is64Supported(bitsPerValue uint32) bool {
+	// Lucene use binary-search which is unnecessary
+	return packedSingleBlockBulkOps[bitsPerValue-1] != nil
+}
+
 type Packed64SingleBlock struct {
 	PackedIntsReaderImpl
 	get    func(index int32) int64

@@ -913,8 +913,15 @@ func (e *SegmentTermsEnum) TotalTermFreq() (tf int64, err error) {
 	return
 }
 
-func (e *SegmentTermsEnum) DocsByFlags(skipDocs util.Bits, reuse DocsEnum, flags int) DocsEnum {
-	panic("not implemented yet")
+func (e *SegmentTermsEnum) DocsByFlags(skipDocs util.Bits, reuse DocsEnum, flags int) (de DocsEnum, err error) {
+	assert(e.eof)
+	log.Printf("BTTR.docs seg=%v", e.segment)
+	err = e.currentFrame.decodeMetaData()
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("  state=%v", e.currentFrame.state)
+	return e.postingsReader.docs(e.fieldInfo, e.currentFrame.state, skipDocs, reuse, flags)
 }
 
 func (e *SegmentTermsEnum) DocsAndPositionsByFlags(skipDocs util.Bits, reuse DocsAndPositionsEnum, flags int) DocsAndPositionsEnum {

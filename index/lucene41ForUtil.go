@@ -5,6 +5,54 @@ import (
 	"math"
 )
 
+// codecs/lucene41/ForUtil.java
+
+const (
+	/**
+	 * Special number of bits per value used whenever all values to encode are equal.
+	 */
+	ALL_VALUES_EQUAL = 0
+	/**
+	 * Upper limit of the number of bytes that might be required to stored
+	 * <code>BLOCK_SIZE</code> encoded values.
+	 */
+	MAX_ENCODED_SIZE = LUCENE41_BLOCK_SIZE * 4
+)
+
+/**
+ * Upper limit of the number of values that might be decoded in a single call to
+ * {@link #readBlock(IndexInput, byte[], int[])}. Although values after
+ * <code>BLOCK_SIZE</code> are garbage, it is necessary to allocate value buffers
+ * whose size is >= MAX_DATA_SIZE to avoid {@link ArrayIndexOutOfBoundsException}s.
+ */
+var MAX_DATA_SIZE int = computeMaxDataSize()
+
+func computeMaxDataSize() int {
+	maxDataSize := 0
+	// for each version
+	for version := util.PACKED_VERSION_START; version <= util.PACKED_VERSION_CURRENT; version++ {
+		// for each packed format
+		for format := util.PACKED; format <= util.PACKED_SINGLE_BLOCK; format++ {
+			// for each bit-per-value
+			for bpv := uint32(1); bpv <= 32; bpv++ {
+				if !util.PackedFormat(format).IsSupported(bpv) {
+					continue
+				}
+				decoder := util.GetPackedIntsDecoder(util.PackedFormat(format), int32(version), bpv)
+				iterations := int(computeIterations(decoder))
+				if n := iterations * decoder.ByteValueCount(); n > maxDataSize {
+					maxDataSize = n
+				}
+			}
+		}
+	}
+	return maxDataSize
+}
+
+/**
+ * Encode all values in normal area with fixed bit width,
+ * which is determined by the max value in this block.
+ */
 type ForUtil struct {
 	encodedSizes []int32
 	encoders     []util.PackedIntsEncoder

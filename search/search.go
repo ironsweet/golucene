@@ -73,7 +73,7 @@ func (ss IndexSearcher) searchLWSI(leaves []index.AtomicReaderContext, w Weight,
 	return collector.TopDocs()
 }
 
-func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, c Collector) {
+func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, c Collector) (err error) {
 	// TODO: should we make this
 	// threaded...?  the Collector could be sync'd?
 	// always use single thread:
@@ -81,12 +81,15 @@ func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, 
 		log.Print(ctx)
 		c.SetNextReader(ctx)
 		// GOTO: CollectionTerminatedException
-		if scorer, ok := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true,
-			ctx.Reader().(index.AtomicReader).LiveDocs()); ok {
-			scorer.ScoreAndCollect(c)
-			// GOTO: CollectionTerminatedException
+		scorer, err := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true,
+			ctx.Reader().(index.AtomicReader).LiveDocs())
+		if err != nil {
+			return err
 		}
+		scorer.ScoreAndCollect(c)
+		// GOTO: CollectionTerminatedException
 	}
+	return
 }
 
 func (ss IndexSearcher) TopReaderContext() index.IndexReaderContext {

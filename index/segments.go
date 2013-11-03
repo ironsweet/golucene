@@ -43,7 +43,7 @@ func (si SegmentInfoPerCommit) String() string {
 type SegmentReader struct {
 	*AtomicReaderImpl
 	si       SegmentInfoPerCommit
-	liveDocs *util.Bits
+	liveDocs util.Bits
 	numDocs  int
 	core     SegmentCoreReaders
 }

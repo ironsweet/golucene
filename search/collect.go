@@ -53,8 +53,8 @@ type TopDocs struct {
 }
 
 type Collector interface {
-	SetScorer(s *Scorer)
-	Collect(doc int)
+	SetScorer(s Scorer)
+	Collect(doc int) error
 	SetNextReader(ctx index.AtomicReaderContext)
 	AcceptsDocsOutOfOrder() bool
 }
@@ -265,24 +265,28 @@ func NewInOrderTopScoreDocCollector(numHits int) *InOrderTopScoreDocCollector {
 	return &InOrderTopScoreDocCollector{newTocScoreDocCollector(numHits)}
 }
 
-func (c *InOrderTopScoreDocCollector) Collect(doc int) {
-	score := c.scorer.Score()
+func (c *InOrderTopScoreDocCollector) Collect(doc int) (err error) {
+	score, err := c.scorer.Score()
+	if err != nil {
+		return err
+	}
 
 	// This collector cannot handle these scores:
-	// assert score != -math.MaxFloat64
-	// assert !math.IsNaN(score)
+	assert(score != -math.MaxFloat32)
+	assert(!math.IsNaN(score))
 
 	c.TotalHits++
-	if score <= c.pqTop.score {
+	if score <= float64(c.pqTop.score) {
 		// Since docs are returned in-order (i.e., increasing doc Id), a document
 		// with equal score to pqTop.score cannot compete since HitQueue favors
 		// documents with lower doc Ids. Therefore reject those docs too.
 		return
 	}
 	c.pqTop.doc = doc + c.docBase
-	c.pqTop.score = score
+	c.pqTop.score = float32(score)
 	heap.Pop(c.pq)
 	heap.Push(c.pq, c.pqTop)
+	return
 }
 
 func (c *InOrderTopScoreDocCollector) AcceptsDocsOutOfOrder() bool {

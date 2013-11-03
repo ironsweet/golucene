@@ -235,8 +235,9 @@ func (in *MyBufferedIndexInput) readInternal(buf []byte) error {
 	return nil
 }
 
-func (in *MyBufferedIndexInput) seekInternal(pos int64) {
+func (in *MyBufferedIndexInput) seekInternal(pos int64) error {
 	in.pos = pos
+	return nil
 }
 
 func (in *MyBufferedIndexInput) Close() error {

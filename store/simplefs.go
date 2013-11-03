@@ -153,8 +153,8 @@ func (in *SimpleFSIndexInput) readInternal(buf []byte) error {
 	return nil
 }
 
-func (in *SimpleFSIndexInput) seekInternal(pos int64) {
-
+func (in *SimpleFSIndexInput) seekInternal(pos int64) error {
+	return nil // nothing
 }
 
 func (in *SimpleFSIndexInput) Clone() IndexInput {

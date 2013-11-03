@@ -6,26 +6,32 @@ import (
 
 // search/Scorer.java
 
-type Scorer struct {
-	index.IDocsEnum
+type Scorer interface {
+	index.DocsEnum
+	IScorer
+	ScoreAndCollect(c Collector) error
+}
+
+type IScorer interface {
+	Score() (value float64, err error)
+}
+
+type abstractScorer struct {
+	index.DocsEnum
 	IScorer
 	/** the Scorer's parent Weight. in some cases this may be null */
 	// TODO can we clean this up?
 	weight Weight
 }
 
-type IScorer interface {
-	Score() float32
-}
-
-func newScorer(self interface{}, w Weight) *Scorer {
-	return &Scorer{self.(index.IDocsEnum), self.(IScorer), w}
+func newScorer(self interface{}, w Weight) *abstractScorer {
+	return &abstractScorer{self.(index.DocsEnum), self.(IScorer), w}
 }
 
 /** Scores and collects all matching documents.
  * @param collector The collector to which all matching documents are passed.
  */
-func (s *Scorer) ScoreAndCollect(c Collector) (err error) {
+func (s *abstractScorer) ScoreAndCollect(c Collector) (err error) {
 	assert(s.DocId() == -1) // not started
 	c.SetScorer(s)
 	doc := 0

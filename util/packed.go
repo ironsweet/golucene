@@ -7,6 +7,8 @@ import (
 	"math"
 )
 
+// util/packed/PackedInts.java
+
 const (
 	PACKED_CODEC_NAME           = "PackedInts"
 	PACKED_VERSION_START        = 0
@@ -22,6 +24,11 @@ func CheckVersion(version int32) {
 	}
 }
 
+/**
+ * A format to write packed ints.
+ *
+ * @lucene.internal
+ */
 type PackedFormat int
 
 const (
@@ -29,6 +36,10 @@ const (
 	PACKED_SINGLE_BLOCK = 1
 )
 
+/**
+ * Computes how many byte blocks are needed to store <code>values</code>
+ * values of size <code>bitsPerValue</code>.
+ */
 func (f PackedFormat) ByteCount(packedIntsVersion, valueCount int32, bitsPerValue uint32) int64 {
 	switch int(f) {
 	case PACKED:
@@ -42,6 +53,10 @@ func (f PackedFormat) ByteCount(packedIntsVersion, valueCount int32, bitsPerValu
 	return 8 * int64(f.longCount(packedIntsVersion, valueCount, bitsPerValue))
 }
 
+/**
+ * Computes how many long blocks are needed to store <code>values</code>
+ * values of size <code>bitsPerValue</code>.
+ */
 func (f PackedFormat) longCount(packedIntsVersion, valueCount int32, bitsPerValue uint32) int {
 	switch int(f) {
 	case PACKED_SINGLE_BLOCK:
@@ -55,6 +70,18 @@ func (f PackedFormat) longCount(packedIntsVersion, valueCount int32, bitsPerValu
 		return int(ans / 8)
 	}
 	return int(ans/8) + 1
+}
+
+/**
+ * Tests whether the provided number of bits per value is supported by the
+ * format.
+ */
+func (f PackedFormat) IsSupported(bitsPerValue uint32) bool {
+	switch int(f) {
+	case PACKED_SINGLE_BLOCK:
+		return is64Supported(bitsPerValue)
+	}
+	return bitsPerValue >= 1 && bitsPerValue <= 64
 }
 
 type PackedIntsEncoder interface {

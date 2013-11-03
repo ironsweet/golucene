@@ -56,18 +56,23 @@ func (q *TermQuery) String() string {
 }
 
 type TermWeight struct {
-	query      *TermQuery
+	*TermQuery
 	similarity Similarity
 	stats      SimWeight
 	termStates index.TermContext
 }
 
-func NewTermWeight(q *TermQuery, ss IndexSearcher, termStates index.TermContext) TermWeight {
+func NewTermWeight(owner *TermQuery, ss IndexSearcher, termStates index.TermContext) TermWeight {
+	// assert(termStates != nil)
 	sim := ss.similarity
-	return TermWeight{q, sim, sim.computeWeight(
-		q.AbstractQuery.boost,
-		ss.CollectionStatistics(q.term.Field),
-		ss.TermStatistics(q.term, termStates)), termStates}
+	return TermWeight{owner, sim, sim.computeWeight(
+		owner.boost,
+		ss.CollectionStatistics(owner.term.Field),
+		ss.TermStatistics(owner.term, termStates)), termStates}
+}
+
+func (tw TermWeight) String() string {
+	return fmt.Sprintf("weight(%v)", tw.TermQuery)
 }
 
 func (tw TermWeight) ValueForNormalization() float32 {
@@ -83,42 +88,45 @@ func (tw TermWeight) IsScoresDocsOutOfOrder() bool {
 }
 
 func (tw TermWeight) Scorer(context index.AtomicReaderContext,
-	inOrder bool, topScorer bool, acceptDocs util.Bits) (sc Scorer, ok bool) {
+	inOrder bool, topScorer bool, acceptDocs util.Bits) (sc Scorer, err error) {
 	// assert termStates.topReaderContext == ReaderUtil.getTopLevelContext(context) : "The top-reader used to create Weight (" + termStates.topReaderContext + ") is not the same as the current reader's top-reader (" + ReaderUtil.getTopLevelContext(context);
-	termsEnum, ok := tw.termsEnum(context)
-	if !ok {
-		return Scorer{}, false
+	termsEnum, err := tw.termsEnum(context)
+	if err != nil {
+		return nil, err
 	}
-	docs := termsEnum.Docs(acceptDocs, index.DOCS_ENUM_EMPTY)
-	// assert docs != null;
-	return *(newTermScorer(tw, docs, tw.similarity.simScorer(tw.stats, context)).Scorer), true
+	docs, err := termsEnum.Docs(acceptDocs, index.DOCS_ENUM_EMPTY)
+	if err != nil {
+		return nil, err
+	}
+	assert(docs != nil)
+	return newTermScorer(tw, docs, tw.similarity.simScorer(tw.stats, context)), nil
 }
 
-func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnum, ok bool) {
+func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnum, err error) {
 	state := tw.termStates.State(ctx.Ord)
 	if state == nil { // term is not present in that reader
 		// assert termNotInReader(ctx.Reader(), tw.Term)
 		// : "no termstate found but term exists in reader term=" + term;
-		return index.EMPTY_TERMS_ENUM, false
+		return index.EMPTY_TERMS_ENUM, nil
 	}
-	te = ctx.Reader().(index.AtomicReader).Terms(tw.query.term.Field).Iterator(index.EMPTY_TERMS_ENUM)
-	te.SeekExactFromLast(tw.query.term.Bytes, *state)
-	return te, true
+	te = ctx.Reader().(index.AtomicReader).Terms(tw.term.Field).Iterator(index.EMPTY_TERMS_ENUM)
+	err = te.SeekExactFromLast(tw.term.Bytes, *state)
+	return
 }
 
 // search/TermScorer.java
 /** Expert: A <code>Scorer</code> for documents matching a <code>Term</code>.
  */
 type TermScorer struct {
-	*Scorer
+	*abstractScorer
 	docsEnum  index.DocsEnum
 	docScorer SimScorer
 }
 
-func newTermScorer(w Weight, td index.DocsEnum, docScorer SimScorer) TermScorer {
+func newTermScorer(w Weight, td index.DocsEnum, docScorer SimScorer) *TermScorer {
 	ans := &TermScorer{docsEnum: td, docScorer: docScorer}
-	ans.Scorer = newScorer(ans, w)
-	return *ans
+	ans.abstractScorer = newScorer(ans, w)
+	return ans
 }
 
 func (ts *TermScorer) DocId() int {
@@ -134,13 +142,13 @@ func (ts *TermScorer) NextDoc() (d int, err error) {
 	return ts.docsEnum.NextDoc()
 }
 
-func (ts *TermScorer) Score() (s float32, err error) {
+func (ts *TermScorer) Score() (s float64, err error) {
 	assert(ts.DocId() != index.NO_MORE_DOCS)
 	freq, err := ts.docsEnum.Freq()
 	if err != nil {
 		return 0, err
 	}
-	return ts.docScorer.Score(ts.docsEnum.DocId(), freq), nil
+	return float64(ts.docScorer.Score(ts.docsEnum.DocId(), freq)), nil
 }
 
 func (ts *TermScorer) String() string {

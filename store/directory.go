@@ -244,7 +244,8 @@ func (in *SlicedIndexInput) readInternal(buf []byte) (err error) {
 	return in.base.ReadBytesBuffered(buf, false)
 }
 
-func (in *SlicedIndexInput) seekInternal(pos int64) {
+func (in *SlicedIndexInput) seekInternal(pos int64) error {
+	return nil // nothing
 }
 
 func (in *SlicedIndexInput) Close() error {

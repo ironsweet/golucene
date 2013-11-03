@@ -308,6 +308,7 @@ func newBulkOperation(format PackedFormat, bitsPerValue uint32) *BulkOperation {
 		return packedBulkOps[bitsPerValue-1]
 	case PACKED_SINGLE_BLOCK:
 		if packedSingleBlockBulkOps[bitsPerValue-1] == nil {
+			log.Println("DEBUG bpv=", bitsPerValue)
 			panic("assert fail")
 		}
 		// assert packedSingleBlockBulkOps[bitsPerValue - 1] != nil
