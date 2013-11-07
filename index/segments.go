@@ -190,7 +190,7 @@ func (r *SegmentReader) SortedSetDocValues(field string) (v SortedSetDocValues, 
 
 func (r *SegmentReader) NormValues(field string) (v NumericDocValues, err error) {
 	r.ensureOpen()
-	panic("not implemented yet")
+	return r.core.normValues(field)
 }
 
 type CoreClosedListener interface {
@@ -213,6 +213,11 @@ type SegmentCoreReaders struct {
 	fieldsReaderOrig      StoredFieldsReader
 	termVectorsReaderOrig TermVectorsReader
 	cfsReader             *store.CompoundFileDirectory
+
+	// Lucene Java use ThreadLocal to avoid expensive read actions.
+	// Since Go doesn't have ThreadLocal, a struct field is used.
+	// TODO redesign when ported to goroutines
+	normsLocal map[string]interface{}
 
 	addListener    chan CoreClosedListener
 	removeListener chan CoreClosedListener
@@ -357,9 +362,24 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	return self, nil
 }
 
+func (r *SegmentCoreReaders) normValues(field string) (ndv NumericDocValues, err error) {
+	if fi, ok := r.fieldInfos.byName[field]; ok {
+		if fi.normType != 0 {
+			assert(r.normsProducer != nil)
+
+			if norms, ok := r.normsLocal[field]; ok {
+				ndv = norms.(NumericDocValues)
+			} else if ndv, err = r.normsProducer.Numeric(fi); err == nil {
+				r.normsLocal[field] = norms
+			}
+		}
+	} // else Field does not exist
+	return
+}
+
 func (r *SegmentCoreReaders) decRef() {
 	if atomic.AddInt32(&r.refCount, -1) == 0 {
-		util.Close( /*self.termVectorsLocal, self.fieldsReaderLocal, docValuesLocal, normsLocal,*/
+		util.Close( /*self.termVectorsLocal, self.fieldsReaderLocal, docValuesLocal, r.normsLocal,*/
 			r.fields, r.dvProducer, r.termVectorsReaderOrig, r.fieldsReaderOrig,
 			r.cfsReader, r.normsProducer)
 		r.notifyListener <- r.owner
