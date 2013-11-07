@@ -168,7 +168,7 @@ func NewCollectionStatistics(field string, maxDoc, docCount, sumTotalTermFreq, s
 type Similarity interface {
 	queryNorm(valueForNormalization float32) float32
 	computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight
-	simScorer(w SimWeight, ctx index.AtomicReaderContext) SimScorer
+	simScorer(w SimWeight, ctx index.AtomicReaderContext) (ss SimScorer, err error)
 }
 
 /**
@@ -186,7 +186,7 @@ type SimScorer interface {
 	 * @param freq sloppy term frequency
 	 * @return document's score
 	 */
-	Score(doc, freq int) float32
+	Score(doc int, freq float32) float32
 }
 
 type SimWeight interface {
@@ -197,6 +197,20 @@ type SimWeight interface {
 // search/similarities/TFIDFSimilarity.java
 
 type ITFIDFSimilarity interface {
+	/** Computes a score factor based on a term or phrase's frequency in a
+	 * document.  This value is multiplied by the {@link #idf(long, long)}
+	 * factor for each term in the query and these products are then summed to
+	 * form the initial score for a document.
+	 *
+	 * <p>Terms and phrases repeated in a document indicate the topic of the
+	 * document, so implementations of this method usually return larger values
+	 * when <code>freq</code> is large, and smaller values when <code>freq</code>
+	 * is small.
+	 *
+	 * @param freq the frequency of a term within a document
+	 * @return a score factor based on a term's within-document frequency
+	 */
+	tf(freq float32) float32
 	/** Computes a score factor based on a term's document frequency (the number
 	 * of documents which contain the term).  This value is multiplied by the
 	 * {@link #tf(float)} factor for each term in the query and these products are
@@ -211,6 +225,12 @@ type ITFIDFSimilarity interface {
 	 * @return a score factor based on the term's document frequency
 	 */
 	idf(docFreq int64, numDocs int64) float32
+	/**
+	 * Decodes a normalization factor stored in an index.
+	 *
+	 * @see #encodeNormValue(float)
+	 */
+	decodeNormValue(norm int64) float32
 }
 
 type TFIDFSimilarity struct {
@@ -243,8 +263,32 @@ func (ts *TFIDFSimilarity) computeWeight(queryBoost float32, collectionStats Col
 	return newIDFStats(collectionStats.field, idf, queryBoost)
 }
 
-func (ts *TFIDFSimilarity) simScorer(w SimWeight, ctx index.AtomicReaderContext) SimScorer {
-	panic("not implemented yet")
+func (ts *TFIDFSimilarity) simScorer(stats SimWeight, ctx index.AtomicReaderContext) (ss SimScorer, err error) {
+	idfstats := stats.(*idfStats)
+	ndv, err := ctx.Reader().(index.AtomicReader).NormValues(idfstats.field)
+	if err != nil {
+		return nil, err
+	}
+	return newTFIDSimScorer(ts, idfstats, ndv), nil
+}
+
+type tfIDFSimScorer struct {
+	*TFIDFSimilarity
+	stats       *idfStats
+	weightValue float32
+	norms       index.NumericDocValues
+}
+
+func newTFIDSimScorer(owner *TFIDFSimilarity, stats *idfStats, norms index.NumericDocValues) *tfIDFSimScorer {
+	return &tfIDFSimScorer{owner, stats, stats.value, norms}
+}
+
+func (ss *tfIDFSimScorer) Score(doc int, freq float32) float32 {
+	raw := ss.tf(freq) * ss.weightValue // compute tf(f)*weight
+	if ss.norms == nil {
+		return raw
+	}
+	return raw * ss.decodeNormValue(ss.norms.Value(doc)) // normalize for field
 }
 
 /** Collection statistics for the TF-IDF model. The only statistic of interest

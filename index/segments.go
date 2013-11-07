@@ -389,7 +389,7 @@ type DocValuesProducer interface {
 }
 
 type NumericDocValues interface {
-	value(docID int) int64
+	Value(docID int) int64
 }
 type BinaryDocValues interface {
 	value(docID int, result []byte)

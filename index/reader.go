@@ -141,6 +141,11 @@ type ARFieldsReader interface {
 	Terms(field string) Terms
 	Fields() Fields
 	LiveDocs() util.Bits
+	/** Returns {@link NumericDocValues} representing norms
+	 *  for this field, or null if no {@link NumericDocValues}
+	 *  were indexed. The returned instance should only be
+	 *  used by a single thread. */
+	NormValues(field string) (ndv NumericDocValues, err error)
 }
 
 type AtomicReader interface {

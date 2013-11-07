@@ -914,7 +914,7 @@ func (e *SegmentTermsEnum) TotalTermFreq() (tf int64, err error) {
 }
 
 func (e *SegmentTermsEnum) DocsByFlags(skipDocs util.Bits, reuse DocsEnum, flags int) (de DocsEnum, err error) {
-	assert(e.eof)
+	assert(!e.eof)
 	log.Printf("BTTR.docs seg=%v", e.segment)
 	err = e.currentFrame.decodeMetaData()
 	if err != nil {

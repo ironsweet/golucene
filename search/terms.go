@@ -99,7 +99,11 @@ func (tw TermWeight) Scorer(context index.AtomicReaderContext,
 		return nil, err
 	}
 	assert(docs != nil)
-	return newTermScorer(tw, docs, tw.similarity.simScorer(tw.stats, context)), nil
+	simScorer, err := tw.similarity.simScorer(tw.stats, context)
+	if err != nil {
+		return nil, err
+	}
+	return newTermScorer(tw, docs, simScorer), nil
 }
 
 func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnum, err error) {
@@ -148,7 +152,7 @@ func (ts *TermScorer) Score() (s float64, err error) {
 	if err != nil {
 		return 0, err
 	}
-	return float64(ts.docScorer.Score(ts.docsEnum.DocId(), freq)), nil
+	return float64(ts.docScorer.Score(ts.docsEnum.DocId(), float32(freq))), nil
 }
 
 func (ts *TermScorer) String() string {
