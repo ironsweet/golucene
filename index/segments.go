@@ -238,36 +238,36 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	self.removeListener = make(chan CoreClosedListener)
 	self.notifyListener = make(chan *SegmentReader)
 	// TODO re-enable later
-	go func() { // ensure listners are synchronized
-		coreClosedListeners := make([]CoreClosedListener, 0)
-		isRunning := true
-		var listener CoreClosedListener
-		for isRunning {
-			log.Print("Listening for events...")
-			select {
-			case listener = <-self.addListener:
-				coreClosedListeners = append(coreClosedListeners, listener)
-			case listener = <-self.removeListener:
-				n := len(coreClosedListeners)
-				for i, v := range coreClosedListeners {
-					if v == listener {
-						newListeners := make([]CoreClosedListener, 0, n-1)
-						newListeners = append(newListeners, coreClosedListeners[0:i]...)
-						newListeners = append(newListeners, coreClosedListeners[i+1:]...)
-						coreClosedListeners = newListeners
-						break
-					}
-				}
-			case owner := <-self.notifyListener:
-				log.Print("Shutting down SegmentCoreReaders...")
-				isRunning = false
-				for _, v := range coreClosedListeners {
-					v.onClose(owner)
-				}
-			}
-		}
-		log.Print("Listeners are done.")
-	}()
+	// go func() { // ensure listners are synchronized
+	// 	coreClosedListeners := make([]CoreClosedListener, 0)
+	// 	isRunning := true
+	// 	var listener CoreClosedListener
+	// 	for isRunning {
+	// 		log.Print("Listening for events...")
+	// 		select {
+	// 		case listener = <-self.addListener:
+	// 			coreClosedListeners = append(coreClosedListeners, listener)
+	// 		case listener = <-self.removeListener:
+	// 			n := len(coreClosedListeners)
+	// 			for i, v := range coreClosedListeners {
+	// 				if v == listener {
+	// 					newListeners := make([]CoreClosedListener, 0, n-1)
+	// 					newListeners = append(newListeners, coreClosedListeners[0:i]...)
+	// 					newListeners = append(newListeners, coreClosedListeners[i+1:]...)
+	// 					coreClosedListeners = newListeners
+	// 					break
+	// 				}
+	// 			}
+	// 		case owner := <-self.notifyListener:
+	// 			log.Print("Shutting down SegmentCoreReaders...")
+	// 			isRunning = false
+	// 			for _, v := range coreClosedListeners {
+	// 				v.onClose(owner)
+	// 			}
+	// 		}
+	// 	}
+	// 	log.Print("Listeners are done.")
+	// }()
 
 	success := false
 	defer func() {
