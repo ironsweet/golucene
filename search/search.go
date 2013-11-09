@@ -78,16 +78,16 @@ func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, 
 	// threaded...?  the Collector could be sync'd?
 	// always use single thread:
 	for _, ctx := range leaves { // search each subreader
-		log.Print(ctx)
+		// TODO catch CollectionTerminatedException
 		c.SetNextReader(ctx)
-		// GOTO: CollectionTerminatedException
+
 		scorer, err := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true,
 			ctx.Reader().(index.AtomicReader).LiveDocs())
 		if err != nil {
 			return err
 		}
+		// TODO catch CollectionTerminatedException
 		scorer.ScoreAndCollect(c)
-		// GOTO: CollectionTerminatedException
 	}
 	return
 }

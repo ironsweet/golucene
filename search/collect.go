@@ -243,6 +243,10 @@ func (c *TopScoreDocCollector) SetNextReader(ctx index.AtomicReaderContext) {
 	c.docBase = ctx.DocBase
 }
 
+func (c *TopScoreDocCollector) SetScorer(scorer Scorer) {
+	c.scorer = scorer
+}
+
 func NewTopScoreDocCollector(numHits int, after ScoreDoc, docsScoredInOrder bool) TopDocsCollector {
 	if numHits < 0 {
 		panic("numHits must be > 0; please use TotalHitCountCollector if you just need the total hit count")

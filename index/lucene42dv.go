@@ -6,7 +6,6 @@ import (
 	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
-	"log"
 	"sync"
 )
 
@@ -151,7 +150,6 @@ func (dvp *Lucene42DocValuesProducer) Numeric(field FieldInfo) (v NumericDocValu
 	v, exists := dvp.numericInstances[int(field.number)]
 	if !exists {
 		if v, err = dvp.loadNumeric(field); err == nil {
-			log.Println("DEBUG", dvp.numericInstances, field, field.number)
 			dvp.numericInstances[int(field.number)] = v
 		}
 	}
