@@ -288,7 +288,7 @@ func (ss *tfIDFSimScorer) Score(doc int, freq float32) float32 {
 	if ss.norms == nil {
 		return raw
 	}
-	return raw * ss.decodeNormValue(ss.norms.Value(doc)) // normalize for field
+	return raw * ss.decodeNormValue(ss.norms(doc)) // normalize for field
 }
 
 /** Collection statistics for the TF-IDF model. The only statistic of interest

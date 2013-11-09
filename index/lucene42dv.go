@@ -6,6 +6,7 @@ import (
 	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
+	"log"
 	"sync"
 )
 
@@ -44,7 +45,9 @@ type Lucene42DocValuesProducer struct {
 
 func newLucene42DocValuesProducer(state SegmentReadState,
 	dataCodec, dataExtension, metaCodec, metaExtension string) (dvp *Lucene42DocValuesProducer, err error) {
-	dvp = &Lucene42DocValuesProducer{}
+	dvp = &Lucene42DocValuesProducer{
+		numericInstances: make(map[int]NumericDocValues),
+	}
 	dvp.maxDoc = int(state.segmentInfo.docCount)
 	metaName := util.SegmentFileName(state.segmentInfo.name, state.segmentSuffix, metaExtension)
 	// read in the entries from the metadata file.
@@ -68,7 +71,7 @@ func newLucene42DocValuesProducer(state SegmentReadState,
 	dvp.numerics = make(map[int]NumericEntry)
 	dvp.binaries = make(map[int]BinaryEntry)
 	dvp.fsts = make(map[int]FSTEntry)
-	err = dvp.readFields(in, state.fieldInfos)
+	err = dvp.readFields(in)
 	if err != nil {
 		return dvp, err
 	}
@@ -92,13 +95,14 @@ func newLucene42DocValuesProducer(state SegmentReadState,
 }
 
 /*
-Lucene42DocValuesProducer.java
-Line 126
+Lucene42DocValuesProducer.java/4.5.1/L138
 */
-func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput, infos FieldInfos) (err error) {
-	fieldNumber, err := meta.ReadVInt()
+func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput) (err error) {
+	var fieldNumber int
+	var fieldType byte
+	fieldNumber, err = asInt(meta.ReadVInt())
 	for fieldNumber != -1 && err == nil {
-		fieldType, err := meta.ReadByte()
+		fieldType, err = meta.ReadByte()
 		if err != nil {
 			break
 		}
@@ -122,12 +126,12 @@ func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput, infos Fi
 				return errors.New(fmt.Sprintf("Unknown format: %v, input=%v", entry.format, meta))
 			}
 			if entry.format != LUCENE42_DV_UNCOMPRESSED {
-				n, err := meta.ReadVInt()
+				entry.packedIntsVersion, err = asInt(meta.ReadVInt())
 				if err != nil {
 					return err
 				}
-				entry.packedIntsVersion = int(n)
 			}
+			dvp.numerics[fieldNumber] = entry
 		case LUCENE42_DV_BYTES:
 			panic("not implemented yet")
 		case LUCENE42_DV_FST:
@@ -135,27 +139,49 @@ func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput, infos Fi
 		default:
 			return errors.New(fmt.Sprintf("invalid entry type: %v, input=%v", fieldType, meta))
 		}
-		fieldNumber, err = meta.ReadVInt()
+		fieldNumber, err = asInt(meta.ReadVInt())
 	}
-	return err
+	return
 }
 
 func (dvp *Lucene42DocValuesProducer) Numeric(field FieldInfo) (v NumericDocValues, err error) {
 	dvp.lock.Lock()
 	defer dvp.lock.Unlock()
 
-	if v, ok := dvp.numericInstances[int(field.number)]; ok {
-		return v, nil
+	v, exists := dvp.numericInstances[int(field.number)]
+	if !exists {
+		if v, err = dvp.loadNumeric(field); err == nil {
+			log.Println("DEBUG", dvp.numericInstances, field, field.number)
+			dvp.numericInstances[int(field.number)] = v
+		}
 	}
-	if v, err = dvp.loadNumeric(field); err == nil {
-		dvp.numericInstances[int(field.number)] = v
-	}
-	return v, err
+	return
 }
 
 func (dvp *Lucene42DocValuesProducer) loadNumeric(field FieldInfo) (v NumericDocValues, err error) {
-	panic("not implemented yet")
-	return nil, nil
+	entry := dvp.numerics[int(field.number)]
+	if err = dvp.data.Seek(entry.offset); err != nil {
+		return
+	}
+
+	switch entry.format {
+	case LUCENE42_DV_TABLE_COMPRESSED:
+		panic("not implemented yet")
+	case LUCENE42_DV_DELTA_COMPRESSED:
+		panic("not implemented yet")
+	case LUCENE42_DV_UNCOMPRESSED:
+		bytes := make([]byte, dvp.maxDoc)
+		if err = dvp.data.ReadBytes(bytes); err == nil {
+			return func(docID int) int64 {
+				return int64(bytes[docID])
+			}, nil
+		}
+	case LUCENE42_DV_GCD_COMPRESSED:
+		panic("not implemented yet")
+	default:
+		err = errors.New("assert fail")
+	}
+	return
 }
 
 func (dvp *Lucene42DocValuesProducer) Binary(field FieldInfo) (v BinaryDocValues, err error) {

@@ -231,7 +231,10 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	}
 	log.Printf("Initializing SegmentCoreReaders from directory: %v", dir)
 
-	self = SegmentCoreReaders{refCount: 1}
+	self = SegmentCoreReaders{
+		refCount:   1,
+		normsLocal: make(map[string]interface{}),
+	}
 
 	log.Print("Initializing listeners...")
 	self.addListener = make(chan CoreClosedListener)
@@ -408,9 +411,11 @@ type DocValuesProducer interface {
 	SortedSet(field FieldInfo) (v SortedSetDocValues, err error)
 }
 
-type NumericDocValues interface {
-	Value(docID int) int64
-}
+// type NumericDocValues interface {
+// 	Value(docID int) int64
+// }
+type NumericDocValues func(docID int) int64
+
 type BinaryDocValues interface {
 	value(docID int, result []byte)
 }
