@@ -6,6 +6,7 @@ import (
 	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
+	"log"
 	"sync"
 )
 
@@ -171,6 +172,7 @@ func (dvp *Lucene42DocValuesProducer) loadNumeric(field FieldInfo) (v NumericDoc
 		bytes := make([]byte, dvp.maxDoc)
 		if err = dvp.data.ReadBytes(bytes); err == nil {
 			return func(docID int) int64 {
+				log.Println("DEBUG", bytes, docID)
 				return int64(bytes[docID])
 			}, nil
 		}

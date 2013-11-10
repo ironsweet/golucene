@@ -389,7 +389,7 @@ type SegmentTermsEnum struct {
 	// assert only:
 	eof bool
 
-	term      []byte
+	term      *bytesRef
 	fstReader util.BytesReader
 
 	arcs []*util.Arc
@@ -402,12 +402,12 @@ func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 		FieldReader:   r,
 		stack:         make([]*segmentTermsEnumFrame, 0),
 		scratchReader: store.NewEmptyByteArrayDataInput(),
-		term:          make([]byte, 0),
+		term:          newBytesRef(),
 		arcs:          make([]*util.Arc, 1),
 		fstOutputs:    util.ByteSequenceOutputsSingleton(),
 	}
 	ans.TermsEnumImpl = newTermsEnumImpl(ans)
-	log.Println("BTTR.init seg=%v", r.segment)
+	log.Printf("BTTR.init seg=%v", r.segment)
 
 	// Used to hold seek by TermState, or cached seek
 	ans.staticFrame = newFrame(ans, -1)
@@ -511,7 +511,7 @@ func (e *SegmentTermsEnum) pushFrameAt(arc *util.Arc, fp int64, length int) (f *
 	f.arc = arc
 	if f.fpOrig == fp && f.nextEnt != -1 {
 		log.Printf("      push reused frame ord=%v fp=%v isFloor?=%v hasTerms=%v pref=%v nextEnt=%v targetBeforeCurrentLength=%v term.length=%v vs prefix=%v",
-			f.ord, f.fp, f.isFloor, f.hasTerms, e.term, f.nextEnt, e.targetBeforeCurrentLength, len(e.term), f.prefix)
+			f.ord, f.fp, f.isFloor, f.hasTerms, e.term, f.nextEnt, e.targetBeforeCurrentLength, e.term.length, f.prefix)
 		if f.prefix > e.targetBeforeCurrentLength {
 			f.rewind()
 		} else {
@@ -527,7 +527,7 @@ func (e *SegmentTermsEnum) pushFrameAt(arc *util.Arc, fp int64, length int) (f *
 		f.fpOrig, f.fp = fp, fp
 		f.lastSubFP = -1
 		log.Printf("      push new frame ord=%v fp=%v hasTerms=%v isFloor=%v pref=%v",
-			f.ord, f.fp, f.hasTerms, f.isFloor, brToString(e.term))
+			f.ord, f.fp, f.hasTerms, f.isFloor, e.term)
 	}
 	return f, nil
 }
@@ -537,15 +537,14 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		panic("terms index was not loaded")
 	}
 
-	if cap(e.term) <= len(target) {
-		next := make([]byte, len(e.term), len(target))
-		copy(next, e.term)
-		e.term = next
+	if cap(e.term.bytes) <= len(target) {
+		e.term.ensureSize(1 + len(target))
+		log.Println("DEBUG len=", len(e.term.bytes), len(target))
 	}
 
 	e.eof = false
 	log.Printf("BTTR.seekExact seg=%v target=%v:%v current=%v (exists?=%v) validIndexPrefix=%v",
-		e.segment, e.fieldInfo.name, brToString(target), brToString(e.term), e.termExists, e.validIndexPrefix)
+		e.segment, e.fieldInfo.name, brToString(target), e.term, e.termExists, e.validIndexPrefix)
 	e.printSeekState()
 
 	var arc *util.Arc
@@ -573,7 +572,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		targetUpto = 0
 
 		lastFrame := e.stack[0]
-		if e.validIndexPrefix > len(e.term) {
+		if e.validIndexPrefix > e.term.length {
 			panic("assert fail")
 		}
 
@@ -591,9 +590,9 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 		// First compare up to valid seek frames:
 		for targetUpto < targetLimit {
-			cmp = int(e.term[targetUpto]) - int(target[targetUpto])
+			cmp = int(e.term.bytes[targetUpto]) - int(target[targetUpto])
 			log.Printf("    cycle targetUpto=%v (vs limit=%v) cmp=%v (targetLabel=%c vs termLabel=%c) arc.output=%v output=%v",
-				targetUpto, targetLimit, cmp, target[targetUpto], e.term[targetUpto], arc.Output, output)
+				targetUpto, targetLimit, cmp, target[targetUpto], e.term.bytes[targetUpto], arc.Output, output)
 			if cmp != 0 {
 				break
 			}
@@ -620,13 +619,13 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			// to find out if the target term is before,
 			// equal or after the current term
 			targetLimit2 := len(target)
-			if len(e.term) < targetLimit2 {
-				targetLimit2 = len(e.term)
+			if e.term.length < targetLimit2 {
+				targetLimit2 = e.term.length
 			}
 			for targetUpto < targetLimit2 {
-				cmp = int(e.term[targetUpto]) - int(target[targetUpto])
+				cmp = int(e.term.bytes[targetUpto]) - int(target[targetUpto])
 				log.Printf("    cycle2 targetUpto=%v (vs limit=%v) cmp=%v (targetLabel=%c vs termLabel=%c)",
-					targetUpto, targetLimit, cmp, target[targetUpto], e.term[targetUpto])
+					targetUpto, targetLimit, cmp, target[targetUpto], e.term.bytes[targetUpto])
 				if cmp != 0 {
 					break
 				}
@@ -634,7 +633,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			}
 
 			if cmp == 0 {
-				cmp = len(e.term) - len(target)
+				cmp = e.term.length - len(target)
 			}
 			targetUpto = targetUptoMid
 		}
@@ -656,7 +655,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			e.currentFrame.rewind()
 		} else {
 			// Target is exactly the same as current term
-			if len(e.term) != len(target) {
+			if e.term.length != len(target) {
 				panic("assert fail")
 			}
 			if e.termExists {
@@ -707,8 +706,8 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 			if !e.currentFrame.hasTerms {
 				e.termExists = false
-				e.term = append(e.term, byte(targetLabel))
-				log.Printf("  FAST NOT_FOUND term=%v", brToString(e.term))
+				e.term.bytes[targetUpto] = byte(targetLabel)
+				log.Printf("  FAST NOT_FOUND term=%v", e.term)
 				return false, nil
 			}
 
@@ -719,24 +718,17 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 				return false, err
 			}
 			if status == SEEK_STATUS_FOUND {
-				log.Printf("  return FOUND term=%v", brToString(e.term))
+				log.Printf("  return FOUND term=%v", e.term)
 				return true, nil
 			} else {
-				log.Printf("  got %v; return NOT_FOUND term=%v", status, brToString(e.term))
+				log.Printf("  got %v; return NOT_FOUND term=%v", status, e.term)
 				return false, nil
 			}
 		} else {
 			// Follow this arc
 			arc = nextArc
-			if len(e.term) > targetUpto {
-				e.term[targetUpto] = byte(targetLabel)
-			} else if len(e.term) == targetUpto {
-				e.term = append(e.term, byte(targetLabel))
-			} else {
-				// why Lucene over-commit its ByteRef?
-				panic("impossible")
-			}
-			// Aggregate output as we go:
+			log.Println("DEBUG", len(e.term.bytes))
+			e.term.bytes[targetUpto] = byte(targetLabel)
 			if arc.Output == nil {
 				panic("assert fail")
 			}
@@ -766,8 +758,8 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 	// Target term is entirely contained in the index:
 	if !e.currentFrame.hasTerms {
 		e.termExists = false
-		e.term = e.term[0:targetUpto]
-		log.Printf("  FAST NOT_FOUND term=%v", brToString(e.term))
+		e.term.length = targetUpto
+		log.Printf("  FAST NOT_FOUND term=%v", e.term)
 		return false, nil
 	}
 
@@ -778,10 +770,10 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		return false, err
 	}
 	if status == SEEK_STATUS_FOUND {
-		log.Printf("  return FOUND term=%v %v", utf8ToString(e.term), e.term)
+		log.Printf("  return FOUND term=%v", e.term)
 		return true, nil
 	} else {
-		log.Printf("  got result %v; return NOT_FOUND term=%v", status, utf8ToString(e.term))
+		log.Printf("  got result %v; return NOT_FOUND term=%v", status, e.term)
 		return false, nil
 	}
 }
@@ -799,10 +791,8 @@ func (e *SegmentTermsEnum) printSeekState() {
 		isSeekFrame := true
 		for {
 			f := e.frame(ord)
-			if f == nil {
-				panic("assert fail")
-			}
-			prefix := e.term[0:f.prefix]
+			assert(f != nil)
+			prefix := e.term.bytes[0:f.prefix]
 			if f.nextEnt == -1 {
 				action := "(next)"
 				if isSeekFrame {
@@ -885,10 +875,8 @@ func (e *SegmentTermsEnum) Next() (buf []byte, err error) {
 }
 
 func (e *SegmentTermsEnum) Term() []byte {
-	if e.eof {
-		panic("assert fail")
-	}
-	return e.term
+	assert(!e.eof)
+	return e.term.toBytes()
 }
 
 func assert(ok bool) {
@@ -931,15 +919,13 @@ func (e *SegmentTermsEnum) DocsAndPositionsByFlags(skipDocs util.Bits, reuse Doc
 func (e *SegmentTermsEnum) SeekExactFromLast(target []byte, otherState TermState) error {
 	log.Printf("BTTR.seekExact termState seg=%v target=%v state=%v", e.segment, brToString(target), otherState)
 	e.eof = false
-	if !util.CompareFSTValue(target, e.term) || !e.termExists {
+	if !util.CompareFSTValue(target, e.term.toBytes()) || !e.termExists {
 		assert(otherState != nil)
 		_, ok := otherState.(*BlockTermState)
 		assert(ok)
 		e.currentFrame = e.staticFrame
 		e.currentFrame.state.CopyFrom(otherState)
-		e.term = copyBytes(e.term, target)
-		// e.term = make([]byte, len(target))
-		// copy(e.term, target)
+		e.term.copyBytes(target)
 		e.currentFrame.metaDataUpto = e.currentFrame.getTermBlockOrd()
 		assert(e.currentFrame.metaDataUpto > 0)
 		e.validIndexPrefix = 0
@@ -1264,7 +1250,7 @@ func (f *segmentTermsEnumFrame) scanToFloorFrame(target []byte) {
 // Used only by assert
 func (f *segmentTermsEnumFrame) prefixMatches(target []byte) bool {
 	for i := 0; i < f.prefix; i++ {
-		if target[i] != f.term[i] {
+		if target[i] != f.term.bytes[i] {
 			return false
 		}
 	}
@@ -1283,7 +1269,7 @@ func (f *segmentTermsEnumFrame) scanToTerm(target []byte, exactOnly bool) (statu
 // scan the entries check if the suffix matches.
 func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (status SeekStatus, err error) {
 	log.Printf("    scanToTermLeaf: block fp=%v prefix=%v nextEnt=%v (of %v) target=%v term=%v",
-		f.fp, f.prefix, f.nextEnt, f.entCount, brToString(target), brToString(f.term))
+		f.fp, f.prefix, f.nextEnt, f.entCount, brToString(target), f.term)
 	if f.nextEnt == -1 {
 		panic("assert fail")
 	}
@@ -1370,7 +1356,7 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 						err = f.currentFrame.loadBlock()
 					}
 					for err == nil && f.currentFrame.next() {
-						if f.currentFrame, err = f.pushFrameAt(nil, f.currentFrame.lastSubFP, len(f.term)); err == nil {
+						if f.currentFrame, err = f.pushFrameAt(nil, f.currentFrame.lastSubFP, f.term.length); err == nil {
 							err = f.currentFrame.loadBlock()
 						}
 					}
@@ -1430,13 +1416,11 @@ func (f *segmentTermsEnumFrame) scanToTermNonLeaf(target []byte, exactOnly bool)
 
 func (f *segmentTermsEnumFrame) fillTerm() {
 	termLength := f.prefix + f.suffix
-	if len(f.term) < termLength {
-		// TODO over-allocate
-		next := make([]byte, termLength)
-		copy(next, f.term)
-		f.term = next
+	f.term.length = f.prefix + f.suffix
+	if len(f.term.bytes) < termLength {
+		f.term.ensureSize(termLength)
 	}
-	copy(f.term[f.prefix:f.prefix+f.suffix], f.suffixBytes[f.startBytePos:])
+	copy(f.term.bytes[f.prefix:], f.suffixBytes[f.startBytePos:f.startBytePos+f.suffix])
 }
 
 func (f *segmentTermsEnumFrame) decodeMetaData() (err error) {
@@ -1509,4 +1493,52 @@ func utf8ToString(iso8859_1_buf []byte) string {
 		buf[i] = rune(b)
 	}
 	return string(buf)
+}
+
+// Lucene's BytesRef is basically Slice in Go, except here
+// that it's used as a local buffer when data is filled with
+// length unchanged temporarily.
+type bytesRef struct {
+	/** The contents of the BytesRef. Should never be {@code null}. */
+	bytes []byte
+	/** Length of used bytes. */
+	length int
+}
+
+func newBytesRef() *bytesRef {
+	return &bytesRef{}
+}
+
+func (br *bytesRef) toBytes() []byte {
+	return br.bytes[0:br.length]
+}
+
+func (br *bytesRef) ensureSize(minSize int) {
+	assert(minSize >= 0)
+	if cap(br.bytes) < minSize {
+		next := make([]byte, util.Oversize(minSize, 1))
+		copy(next, br.bytes)
+		br.bytes = next
+	}
+}
+
+func (br *bytesRef) String() string {
+	return brToString(br.bytes[0:br.length])
+}
+
+/**
+ * Copies the bytes from the given {@link BytesRef}
+ * <p>
+ * NOTE: if this would exceed the array size, this method creates a
+ * new reference array.
+ */
+func (br *bytesRef) copyBytes(other []byte) {
+	if cap(br.bytes) < len(other) {
+		next := make([]byte, len(other))
+		br.bytes = next
+	} else if len(br.bytes) < len(other) {
+		br.bytes = br.bytes[0:len(other)]
+	}
+	copy(br.bytes, other)
+	br.length = len(other)
 }

@@ -365,7 +365,8 @@ func (de *blockDocsEnum) reset(liveDocs util.Bits, termState *intBlockTermState,
 	} else {
 		de.totalTermFreq = int64(de.docFreq)
 	}
-	de.docTermStartFP = termState.docStartFP
+	log.Println("DEBUG", termState)
+	de.docTermStartFP = termState.docStartFP // <---- docTermStartFP should be 178 instead of 0
 	de.skipOffset = termState.skipOffset
 	de.singletonDocID = termState.singletonDocID
 	if de.docFreq > 1 {
