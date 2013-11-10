@@ -29,22 +29,30 @@ func NewBlockTermState() *BlockTermState {
 	return &BlockTermState{OrdTermState: &OrdTermState{}}
 }
 
+func (ts *BlockTermState) internalCopyFrom(ots *BlockTermState) {
+	ts.OrdTermState.CopyFrom(ots.OrdTermState)
+	ts.docFreq = ots.docFreq
+	ts.totalTermFreq = ots.totalTermFreq
+	ts.termBlockOrd = ots.termBlockOrd
+	ts.blockFilePointer = ots.blockFilePointer
+}
+
 func (ts *BlockTermState) CopyFrom(other TermState) {
 	if ots, ok := other.(*BlockTermState); ok {
-		ts.OrdTermState.CopyFrom(ots.OrdTermState)
 		if ts.Self != nil && ots.Self != nil {
 			ts.Self.CopyFrom(ots.Self)
+		} else {
+			ts.internalCopyFrom(ots)
 		}
-		ts.docFreq = ots.docFreq
-		ts.totalTermFreq = ots.totalTermFreq
-		ts.termBlockOrd = ots.termBlockOrd
-		ts.blockFilePointer = ots.blockFilePointer
-	} else {
-		panic(fmt.Sprintf("Can not copy from %v", reflect.TypeOf(other).Name()))
+		return
 	}
+	panic(fmt.Sprintf("Can not copy from %v", reflect.TypeOf(other).Name()))
 }
 
 func (ts *BlockTermState) Clone() TermState {
+	if ts.Self != nil {
+		return ts.Self.Clone()
+	}
 	clone := NewBlockTermState()
 	clone.CopyFrom(ts)
 	return clone

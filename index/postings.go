@@ -944,13 +944,12 @@ func copyBytes(a, b []byte) []byte {
 }
 
 func (e *SegmentTermsEnum) TermState() (ts TermState, err error) {
-	if e.eof {
-		panic("assert fail")
-	}
+	assert(!e.eof)
 	if err = e.currentFrame.decodeMetaData(); err != nil {
 		return nil, err
 	}
-	ts = e.currentFrame.state.Clone()
+	log.Println("DEBUG ts=", e.currentFrame.state)
+	ts = e.currentFrame.state.Clone() // <-- clone doesn't work here
 	log.Printf("BTTR.termState seg=%v state=%v", e.segment, ts)
 	return
 }
