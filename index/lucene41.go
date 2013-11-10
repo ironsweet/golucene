@@ -500,6 +500,9 @@ func (ts *intBlockTermState) CopyFrom(other TermState) {
 		// very heavy, ie drags around the entire block's
 		// byte[]).  On seek back, if next() is in fact used
 		// (rare!), they will be re-read from disk.
+	} else if ots, ok := other.(*BlockTermState); ok && ots.Self != nil {
+		// try copy from other's sub class
+		ts.CopyFrom(ots.Self)
 	} else {
 		panic(fmt.Sprintf("Can not copy from %v", reflect.TypeOf(other).Name()))
 	}

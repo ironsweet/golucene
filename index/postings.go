@@ -921,8 +921,9 @@ func (e *SegmentTermsEnum) SeekExactFromLast(target []byte, otherState TermState
 	e.eof = false
 	if !util.CompareFSTValue(target, e.term.toBytes()) || !e.termExists {
 		assert(otherState != nil)
-		_, ok := otherState.(*BlockTermState)
-		assert(ok)
+		// TODO can not assert type conversion here
+		// _, ok := otherState.(*BlockTermState)
+		// assert(ok)
 		e.currentFrame = e.staticFrame
 		e.currentFrame.state.CopyFrom(otherState)
 		e.term.copyBytes(target)

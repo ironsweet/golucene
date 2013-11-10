@@ -44,9 +44,12 @@ func (ts *BlockTermState) CopyFrom(other TermState) {
 		} else {
 			ts.internalCopyFrom(ots)
 		}
-		return
+	} else if ts.Self != nil {
+		// try copy from sub class
+		ts.Self.CopyFrom(other)
+	} else {
+		panic(fmt.Sprintf("Can not copy from %v", reflect.TypeOf(other).Name()))
 	}
-	panic(fmt.Sprintf("Can not copy from %v", reflect.TypeOf(other).Name()))
 }
 
 func (ts *BlockTermState) Clone() TermState {
