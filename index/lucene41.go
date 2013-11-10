@@ -365,7 +365,6 @@ func (de *blockDocsEnum) reset(liveDocs util.Bits, termState *intBlockTermState,
 	} else {
 		de.totalTermFreq = int64(de.docFreq)
 	}
-	log.Println("DEBUG", termState)
 	de.docTermStartFP = termState.docStartFP // <---- docTermStartFP should be 178 instead of 0
 	de.skipOffset = termState.skipOffset
 	de.singletonDocID = termState.singletonDocID
@@ -508,7 +507,7 @@ func (ts *intBlockTermState) CopyFrom(other TermState) {
 
 func (ts *intBlockTermState) String() string {
 	return fmt.Sprintf("%v docStartFP=%v posStartFP=%v payStartFP=%v lastPosBlockOffset=%v skipOffset=%v singletonDocID=%v",
-		ts.BlockTermState, ts.docStartFP, ts.posStartFP, ts.payStartFP, ts.lastPosBlockOffset, ts.skipOffset, ts.singletonDocID)
+		ts.BlockTermState.toString(), ts.docStartFP, ts.posStartFP, ts.payStartFP, ts.lastPosBlockOffset, ts.skipOffset, ts.singletonDocID)
 }
 
 type Lucene41StoredFieldsReader struct {

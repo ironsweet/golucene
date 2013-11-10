@@ -50,7 +50,14 @@ func (ts *BlockTermState) Clone() TermState {
 	return clone
 }
 
+func (ts *BlockTermState) toString() string {
+	return fmt.Sprintf("docFreq=%v totalTermFreq=%v termBlockOrd=%v blockFP=%v",
+		ts.docFreq, ts.totalTermFreq, ts.termBlockOrd, ts.blockFilePointer)
+}
+
 func (ts *BlockTermState) String() string {
-	return fmt.Sprintf("%v docFreq=%v totalTermFreq=%v termBlockOrd=%v blockFP=%v",
-		ts.OrdTermState, ts.docFreq, ts.totalTermFreq, ts.termBlockOrd, ts.blockFilePointer)
+	if ts.Self != nil {
+		return fmt.Sprintf("%v", ts.Self) // sub-class's string conversion first
+	}
+	return ts.toString()
 }
