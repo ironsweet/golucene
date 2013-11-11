@@ -31,9 +31,11 @@ func main() {
 	log.Print("Initializing IndexSearcher...")
 	ss := search.NewIndexSearcher(r)
 	log.Print("Searching...")
-	n, err := ss.SearchTop(search.NewTermQuery(index.NewTerm("content", "bat")), 10)
+	docs, err := ss.SearchTop(search.NewTermQuery(index.NewTerm("content", "bat")), 10)
 	if err != nil {
 		panic(err)
 	}
-	log.Print(n)
+	log.Println("Hits:", docs.TotalHits)
+	doc := r.Document(docs.ScoreDocs[0].doc)
+	log.Println("Hit 1's title: ", doc.Get("title"))
 }

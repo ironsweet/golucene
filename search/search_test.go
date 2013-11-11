@@ -12,7 +12,6 @@ func TestLastCommitGeneration(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
 	files, err := d.ListAll()
 	if err != nil {
 		t.Error(err)
@@ -23,13 +22,32 @@ func TestLastCommitGeneration(t *testing.T) {
 			t.Error("Should be 1, but was %v", genA)
 		}
 	}
-	// r, err := index.OpenDirectoryReader(d)
-	// if err != nil {
-	// 	t.Error(err)
-	// }
+}
 
-	// ss := NewIndexSearcher(r)
-	// assertEquals(t, 8, ss.SearchTop(NewTermQuery(index.NewTerm("content", "bat")), 10))
+func TestKeywordSearch(t *testing.T) {
+	d, err := store.OpenFSDirectory("testdata/belfrysample")
+	if err != nil {
+		t.Error(err)
+	}
+	r, err := index.OpenDirectoryReader(d)
+	if err != nil {
+		t.Error(err)
+	}
+	if r == nil {
+		t.Error("DirectoryReader cannot be opened.")
+	}
+	if len(r.Leaves()) < 1 {
+		t.Error("Should have one leaf.")
+	}
+	ss := search.NewIndexSearcher(r)
+	docs, err := ss.SearchTop(search.NewTermQuery(index.NewTerm("content", "bat")), 10)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assertEquals(t, 8, docs.TotalHits)
+	doc := r.Document(docs.ScoreDocs[0].doc)
+	assertEquals(t, "Bat recyling", doc.Get("title"))
 }
 
 // func TestSingleSearch(t *testing.T) {

@@ -40,14 +40,32 @@ func (si SegmentInfoPerCommit) String() string {
 	return s
 }
 
+// index/SegmentReader.java
+
+/**
+ * IndexReader implementation over a single segment.
+ * <p>
+ * Instances pointing to the same segment (but with different deletes, etc)
+ * may share the same core data.
+ * @lucene.experimental
+ */
 type SegmentReader struct {
 	*AtomicReaderImpl
 	si       SegmentInfoPerCommit
 	liveDocs util.Bits
-	numDocs  int
-	core     SegmentCoreReaders
+	// Normally set to si.docCount - si.delDocCount, unless we
+	// were created as an NRT reader from IW, in which case IW
+	// tells us the docCount:
+	numDocs int
+	core    SegmentCoreReaders
 }
 
+/**
+ * Constructs a new SegmentReader with a new core.
+ * @throws CorruptIndexException if the index is corrupt
+ * @throws IOException if there is a low-level IO error
+ */
+// TODO: why is this public?
 func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, context store.IOContext) (r *SegmentReader, err error) {
 	log.Print("Initializing SegmentReader...")
 	r = &SegmentReader{}
@@ -102,13 +120,17 @@ func (r *SegmentReader) FieldInfos() FieldInfos {
 	return r.core.fieldInfos
 }
 
+/** Expert: retrieve thread-private {@link
+ *  StoredFieldsReader}
+ *  @lucene.internal */
 func (r *SegmentReader) FieldsReader() StoredFieldsReader {
 	r.ensureOpen()
 	panic("not implemented yet")
 }
 
-func (r *SegmentReader) Document(docId int, visitor StoredFieldVisitor) error {
-	panic("not implemented yet")
+func (r *SegmentReader) VisitDocument(docID int, visitor StoredFieldVisitor) error {
+	r.checkBounds(docID)
+	return r.FieldsReader().visitDocument(docID, visitor)
 }
 
 func (r *SegmentReader) Fields() Fields {
@@ -132,6 +154,12 @@ func (r *SegmentReader) TermVectorsReader() TermVectorsReader {
 
 func (r *SegmentReader) TermVectors(docID int) (fs Fields, err error) {
 	panic("not implemented yet")
+}
+
+func (r *SegmentReader) checkBounds(docID int) {
+	if docID < 0 || docID >= r.MaxDoc() {
+		panic(fmt.Sprintf("docID must be >= 0 and < maxDoc=%v (got docID=%v)", r.MaxDoc(), docID))
+	}
 }
 
 // SegmentReader.java L179

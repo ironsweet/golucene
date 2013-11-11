@@ -47,8 +47,8 @@ func (pq *PriorityQueue) Pop() interface{} {
 }
 
 type TopDocs struct {
-	totalHits int
-	scoreDocs []ScoreDoc
+	TotalHits int
+	ScoreDocs []ScoreDoc
 	maxScore  float64
 }
 

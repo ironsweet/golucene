@@ -200,7 +200,7 @@ func newBaseCompositeReader(self IndexReader, readers []IndexReader) *BaseCompos
 	for i, r := range readers {
 		ans.starts[i] = maxDoc
 		maxDoc += r.MaxDoc() // compute maxDocs
-		if maxDoc < 0 { // overflow
+		if maxDoc < 0 {      // overflow
 			panic(fmt.Sprintf("Too many documents, composite IndexReaders cannot exceed %v", math.MaxInt32))
 		}
 		numDocs += r.NumDocs() // compute numDocs
@@ -215,22 +215,26 @@ func newBaseCompositeReader(self IndexReader, readers []IndexReader) *BaseCompos
 }
 
 func (r *BaseCompositeReader) TermVectors(docID int) error {
-	r.ensureOpen()
 	panic("not implemented yet")
+	// r.ensureOpen()
 	// i := readerIndex(docID)
 	// return r.subReaders[i].TermVectors(docID - starts[i])
 }
 
 func (r *BaseCompositeReader) NumDocs() int {
+	// Don't call ensureOpen() here (it could affect performance)
 	return r.numDocs
 }
 
 func (r *BaseCompositeReader) MaxDoc() int {
+	// Don't call ensureOpen() here (it could affect performance)
 	return r.maxDoc
 }
 
-func (r *BaseCompositeReader) Document(docID int, visitor StoredFieldVisitor) error {
-	panic("not implemented yet")
+func (r *BaseCompositeReader) VisitDocument(docID int, visitor StoredFieldVisitor) error {
+	r.ensureOpen()
+	i := r.readerIndex(docID) // find subreader num
+	return r.subReaders[i].VisitDocument(docID-r.starts[i], visitor)
 }
 
 func (r *BaseCompositeReader) DocFreq(term Term) int {
