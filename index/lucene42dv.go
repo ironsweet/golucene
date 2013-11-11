@@ -6,7 +6,6 @@ import (
 	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
-	"log"
 	"sync"
 )
 

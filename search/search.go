@@ -3,6 +3,7 @@ package search
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/index"
+	"github.com/balzaczyy/golucene/util"
 	"log"
 	"math"
 )
@@ -339,6 +340,17 @@ func newExplanation(value float32, description string) Explanation {
 
 // search/similarities/DefaultSimilarity.java
 
+/** Cache of decoded bytes. */
+var NORM_TABLE []float32 = buildNormTable()
+
+func buildNormTable() []float32 {
+	table := make([]float32, 256)
+	for i, _ := range table {
+		table[i] = util.Byte315ToFloat(byte(i))
+	}
+	return table
+}
+
 type DefaultSimilarity struct {
 	*TFIDFSimilarity
 	discountOverlaps bool
@@ -358,7 +370,7 @@ func (ds *DefaultSimilarity) queryNorm(sumOfSquaredWeights float32) float32 {
 }
 
 func (ds *DefaultSimilarity) decodeNormValue(norm int64) float32 {
-	panic("not implemented yet")
+	return NORM_TABLE[int(norm&0xff)] // & 0xFF maps negative bytes to positive above 127
 }
 
 func (ds *DefaultSimilarity) tf(freq float32) float32 {
