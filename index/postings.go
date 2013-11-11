@@ -539,7 +539,6 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 	if cap(e.term.bytes) <= len(target) {
 		e.term.ensureSize(1 + len(target))
-		log.Println("DEBUG len=", len(e.term.bytes), len(target))
 	}
 
 	e.eof = false
@@ -727,7 +726,6 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		} else {
 			// Follow this arc
 			arc = nextArc
-			log.Println("DEBUG", len(e.term.bytes))
 			e.term.bytes[targetUpto] = byte(targetLabel)
 			if arc.Output == nil {
 				panic("assert fail")
@@ -949,7 +947,6 @@ func (e *SegmentTermsEnum) TermState() (ts TermState, err error) {
 	if err = e.currentFrame.decodeMetaData(); err != nil {
 		return nil, err
 	}
-	log.Println("DEBUG ts=", e.currentFrame.state)
 	ts = e.currentFrame.state.Clone() // <-- clone doesn't work here
 	log.Printf("BTTR.termState seg=%v state=%v", e.segment, ts)
 	return

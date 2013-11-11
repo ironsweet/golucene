@@ -172,7 +172,6 @@ func (dvp *Lucene42DocValuesProducer) loadNumeric(field FieldInfo) (v NumericDoc
 		bytes := make([]byte, dvp.maxDoc)
 		if err = dvp.data.ReadBytes(bytes); err == nil {
 			return func(docID int) int64 {
-				log.Println("DEBUG", bytes, docID)
 				return int64(bytes[docID])
 			}, nil
 		}
