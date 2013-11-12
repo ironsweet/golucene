@@ -13,13 +13,13 @@ type ScoreDoc struct {
 	score float32
 	/** A hit document's number.
 	 * @see IndexSearcher#doc(int) */
-	doc int
+	Doc int
 	/** Only set by {@link TopDocs#merge} */
 	shardIndex int
 }
 
 func newScoreDoc(doc int, score float32) ScoreDoc {
-	return ScoreDoc{score: score, doc: doc}
+	return ScoreDoc{score: score, Doc: doc}
 }
 
 func newShardedScoreDoc(doc int, score float32, shardIndex int) ScoreDoc {
@@ -27,7 +27,7 @@ func newShardedScoreDoc(doc int, score float32, shardIndex int) ScoreDoc {
 }
 
 func (d ScoreDoc) String() string {
-	return fmt.Sprintf("doc=%v score=%v shardIndex=%v", d.doc, d.score, d.shardIndex)
+	return fmt.Sprintf("doc=%v score=%v shardIndex=%v", d.Doc, d.score, d.shardIndex)
 }
 
 type PriorityQueue struct {
@@ -203,7 +203,7 @@ func newTocScoreDocCollector(numHits int) *TopScoreDocCollector {
 		hitA := pq.items[i].(ScoreDoc)
 		hitB := pq.items[j].(ScoreDoc)
 		if hitA.score == hitB.score {
-			return hitA.doc > hitB.doc
+			return hitA.Doc > hitB.Doc
 		}
 		return hitA.score < hitB.score
 	}
@@ -286,7 +286,7 @@ func (c *InOrderTopScoreDocCollector) Collect(doc int) (err error) {
 		// documents with lower doc Ids. Therefore reject those docs too.
 		return
 	}
-	c.pqTop.doc = doc + c.docBase
+	c.pqTop.Doc = doc + c.docBase
 	c.pqTop.score = float32(score)
 	heap.Pop(c.pq)
 	heap.Push(c.pq, c.pqTop)

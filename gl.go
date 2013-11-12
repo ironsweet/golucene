@@ -36,6 +36,9 @@ func main() {
 		panic(err)
 	}
 	log.Println("Hits:", docs.TotalHits)
-	doc := r.Document(docs.ScoreDocs[0].doc)
+	doc, err := r.Document(docs.ScoreDocs[0].Doc)
+	if err != nil {
+		panic(err)
+	}
 	log.Println("Hit 1's title: ", doc.Get("title"))
 }

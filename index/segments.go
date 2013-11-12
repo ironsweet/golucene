@@ -467,8 +467,17 @@ type StoredFieldVisitor interface {
 	longField(fi FieldInfo, value int64) error
 	floatField(fi FieldInfo, value float32) error
 	doubleField(fi FieldInfo, value float64) error
-	needsField(fi FieldInfo) StoredFieldVisitorStatus
+	needsField(fi FieldInfo) (status StoredFieldVisitorStatus, err error)
 }
+
+type StoredFieldVisitorAdapter struct{}
+
+func (va *StoredFieldVisitorAdapter) binaryField(fi FieldInfo, value []byte) error  { return nil }
+func (va *StoredFieldVisitorAdapter) stringField(fi FieldInfo, value string) error  { return nil }
+func (va *StoredFieldVisitorAdapter) intField(fi FieldInfo, value int) error        { return nil }
+func (va *StoredFieldVisitorAdapter) longField(fi FieldInfo, value int64) error     { return nil }
+func (va *StoredFieldVisitorAdapter) floatField(fi FieldInfo, value float32) error  { return nil }
+func (va *StoredFieldVisitorAdapter) doubleField(fi FieldInfo, value float64) error { return nil }
 
 type StoredFieldVisitorStatus int
 
