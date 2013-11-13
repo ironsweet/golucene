@@ -633,11 +633,10 @@ func (r *CompressingStoredFieldsReader) visitDocument(n int, visitor StoredField
 	return nil
 }
 
-func (r *CompressingStoredFieldsReader) clone() StoredFieldsReader {
+func (r *CompressingStoredFieldsReader) Clone() StoredFieldsReader {
 	r.ensureOpen()
 	// return CompressingStoredFieldsProducer()
 	panic("not implemented yet")
-	return nil
 }
 
 type CompressingStoredFieldsIndexReader struct {

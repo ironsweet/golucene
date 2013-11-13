@@ -7,7 +7,7 @@ import (
 type StoredFieldsReader interface {
 	io.Closer
 	visitDocument(n int, visitor StoredFieldVisitor) error
-	clone() StoredFieldsReader
+	Clone() StoredFieldsReader
 }
 
 type TermVectorsReader interface {

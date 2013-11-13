@@ -120,12 +120,10 @@ func (r *SegmentReader) FieldInfos() FieldInfos {
 	return r.core.fieldInfos
 }
 
-/** Expert: retrieve thread-private {@link
- *  StoredFieldsReader}
- *  @lucene.internal */
+// Expert: retrieve thread-private StoredFieldsReader
 func (r *SegmentReader) FieldsReader() StoredFieldsReader {
 	r.ensureOpen()
-	panic("not implemented yet")
+	return r.core.fieldsReaderLocal()
 }
 
 func (r *SegmentReader) VisitDocument(docID int, visitor StoredFieldVisitor) error {
@@ -242,10 +240,15 @@ type SegmentCoreReaders struct {
 	termVectorsReaderOrig TermVectorsReader
 	cfsReader             *store.CompoundFileDirectory
 
-	// Lucene Java use ThreadLocal to avoid expensive read actions.
-	// Since Go doesn't have ThreadLocal, a struct field is used.
-	// TODO redesign when ported to goroutines
-	normsLocal map[string]interface{}
+	/*
+	 Lucene Java use ThreadLocal to serve as thread-level cache, to avoid
+	 expensive read actions while limit memory consumption. Since Go doesn't
+	 have thread or routine Local, a new object is always returned.
+
+	 TODO redesign when ported to goroutines
+	*/
+	fieldsReaderLocal func() StoredFieldsReader
+	normsLocal        func() map[string]interface{}
 
 	addListener    chan CoreClosedListener
 	removeListener chan CoreClosedListener
@@ -260,8 +263,13 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si Segment
 	log.Printf("Initializing SegmentCoreReaders from directory: %v", dir)
 
 	self = SegmentCoreReaders{
-		refCount:   1,
-		normsLocal: make(map[string]interface{}),
+		refCount: 1,
+		normsLocal: func() map[string]interface{} {
+			return make(map[string]interface{})
+		},
+	}
+	self.fieldsReaderLocal = func() StoredFieldsReader {
+		return self.fieldsReaderOrig.Clone()
 	}
 
 	log.Print("Initializing listeners...")
@@ -398,10 +406,10 @@ func (r *SegmentCoreReaders) normValues(field string) (ndv NumericDocValues, err
 		if fi.normType != 0 {
 			assert(r.normsProducer != nil)
 
-			if norms, ok := r.normsLocal[field]; ok {
+			if norms, ok := r.normsLocal()[field]; ok {
 				ndv = norms.(NumericDocValues)
 			} else if ndv, err = r.normsProducer.Numeric(fi); err == nil {
-				r.normsLocal[field] = norms
+				r.normsLocal()[field] = norms
 			}
 		}
 	} // else Field does not exist
