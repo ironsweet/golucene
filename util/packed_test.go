@@ -31,3 +31,18 @@ func TestByteCount(t *testing.T) {
 		}
 	}
 }
+
+func TestMaxValue(t *testing.T) {
+	if MaxValue(0) != 0 {
+		t.Error("0 bit -> 0")
+	}
+	if MaxValue(1) != 1 {
+		t.Error("1 bit -> 1")
+	}
+	if MaxValue(2) != 3 {
+		t.Error("2 bits -> 3")
+	}
+	if MaxValue(64) != 0x7fffffffffffffff {
+		t.Error("64 bits -> 0x7fffffffffffffff")
+	}
+}

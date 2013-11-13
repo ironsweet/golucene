@@ -3,8 +3,8 @@ package util
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/codec"
-	// "log"
 	"math"
+	"strconv"
 )
 
 // util/packed/PackedInts.java
@@ -176,6 +176,29 @@ func (p PackedIntsReaderImpl) Size() int32 {
 
 type PackedIntsMutableImpl struct {
 }
+
+// Returns how many bits are required to hold values up to and including maxValue
+func BitsRequired(maxValue int64) int {
+	assert2(maxValue >= 0, fmt.Sprintf("maxValue must be non-negative (got: %v)", maxValue))
+	// TODO not efficient
+	return len(strconv.FormatInt(maxValue, 2))
+}
+
+func assert2(ok bool, msg string) {
+	if !ok {
+		panic(msg)
+	}
+}
+
+// Calculate the maximum unsigned long that can be expressed with the given number of bits
+func MaxValue(bitsPerValue int) int64 {
+	if bitsPerValue == 64 {
+		return math.MaxInt64
+	}
+	return (1 << uint64(bitsPerValue)) - 1
+}
+
+// util/packed/Direct8.java
 
 type Direct8 struct {
 	PackedIntsReaderImpl
