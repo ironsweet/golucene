@@ -4,6 +4,18 @@ import (
 	"errors"
 )
 
+// store/DataInput.java
+
+/*
+Abstract base class for performing read operations of Lucene's low-level
+data types.
+
+DataInput may only be used from one thread, because it is not thread safe
+(it keeps internal state like file position). To allow multithreaded use,
+every DataInput instance must be cloned before  used in another thread.
+Subclases must therefore implement Clone(), returning a new DataInput which
+operates on the same underlying resource, but positioned independently.
+*/
 type DataInput interface {
 	ReadByte() (b byte, err error)
 	ReadBytes(buf []byte) error
@@ -34,14 +46,6 @@ type DataReader interface {
 type DataInputImpl struct {
 	DataReader
 }
-
-// func (in *DataInputImpl) ReadByte() (b byte, err error) {
-// 	return in.DataReader.ReadByte()
-// }
-
-// func (in *DataInputImpl) ReadBytes(buf []byte) error {
-// 	return in.DataReader.ReadBytes(buf)
-// }
 
 func (in *DataInputImpl) ReadBytesBuffered(buf []byte, useBuffer bool) error {
 	return in.ReadBytes(buf)

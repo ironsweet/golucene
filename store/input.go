@@ -411,21 +411,32 @@ func (in *ChecksumIndexInput) Length() int64 {
 	return in.main.Length()
 }
 
+// store/ByteArrayDataInput.java
+
+// DataInput backed by a byte array.
+// Warning: this class omits all low-level checks.
 type ByteArrayDataInput struct {
+	*util.DataInputImpl
 	bytes []byte
 	Pos   int
 	limit int
 }
 
 func NewByteArrayDataInput(bytes []byte) *ByteArrayDataInput {
-	return &ByteArrayDataInput{bytes, 0, len(bytes)}
+	ans := &ByteArrayDataInput{}
+	ans.DataInputImpl = &util.DataInputImpl{ans}
+	ans.reset(bytes)
+	return ans
 }
 
 func NewEmptyByteArrayDataInput() *ByteArrayDataInput {
-	return &ByteArrayDataInput{make([]byte, 0), 0, 0}
+	ans := &ByteArrayDataInput{}
+	ans.DataInputImpl = &util.DataInputImpl{ans}
+	ans.reset(make([]byte, 0))
+	return ans
 }
 
-func (in *ByteArrayDataInput) Reset(bytes []byte) {
+func (in *ByteArrayDataInput) reset(bytes []byte) {
 	in.bytes = bytes
 	in.Pos = 0
 	in.limit = len(bytes)
