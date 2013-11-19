@@ -1,6 +1,7 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/codec"
 	"math"
@@ -16,6 +17,7 @@ const (
 	PACKED_VERSION_CURRENT      = PACKED_VERSION_BYTE_ALIGNED
 )
 
+// Ceck the validity of a version number
 func CheckVersion(version int32) {
 	if version < PACKED_VERSION_START {
 		panic(fmt.Sprintf("Version is too old, should be at least %v (got %v)", PACKED_VERSION_START, version))
@@ -88,7 +90,15 @@ type PackedIntsEncoder interface {
 }
 
 type PackedIntsDecoder interface {
+	// The minum numer of byte blocks to encode in a single iteration, when using byte encoding
+	ByteBlockCount() int
+	// The number of values that can be stored in byteBlockCount() byte blocks
 	ByteValueCount() int
+	/*
+		Read 8 * iterations * blockCount() blocks from blocks, decodethem and write
+		iterations * valueCount() values inot values.
+	*/
+	decode(blocks []byte, values []int64, iterations int)
 }
 
 func GetPackedIntsEncoder(format PackedFormat, version int32, bitsPerValue uint32) PackedIntsEncoder {
@@ -105,6 +115,56 @@ func GetPackedIntsDecoder(format PackedFormat, version int32, bitsPerValue uint3
 type PackedIntsReader interface {
 	Get(index int32) int64
 	Size() int32
+}
+
+// Run-once iterator interface, to decode previously saved PackedInts
+type ReaderIterator interface {
+	next() (v int64, err error)          // next value
+	nextN(n int) (vs []int64, err error) // at least 1 and at most n next values, the returned ref MUST NOT be modified
+	bitsPerValue() int                   // number of bits per value
+	size() int                           // number of values
+	ord() int                            // the current position
+}
+
+type nextNAction interface {
+	nextN(n int) (vs []int64, err error)
+}
+
+type ReaderIteratorImpl struct {
+	nextNAction
+	in            DataInput
+	_bitsPerValue int
+	valueCount    int
+}
+
+func newReaderIteratorImpl(sub nextNAction, valueCount, bitsPerValue int, in DataInput) *ReaderIteratorImpl {
+	return &ReaderIteratorImpl{sub, in, bitsPerValue, valueCount}
+}
+
+/*
+Lucene(Java) manipulates underlying LongsRef to advance the pointer, which
+can not be implemented using Go's slice. Here I have to assume nextN() method
+would automatically increment the pointer without next().
+*/
+func (it *ReaderIteratorImpl) next() (v int64, err error) {
+	nextValues, err := it.nextN(1)
+	if err != nil {
+		return 0, err
+	}
+	assert(len(nextValues) > 0)
+	return nextValues[0], nil
+}
+
+func (it *ReaderIteratorImpl) bitsPerValue() int {
+	return it._bitsPerValue
+}
+
+func (it *ReaderIteratorImpl) size() int {
+	return it.valueCount
+}
+
+func assert(ok bool) {
+	assert2(ok, "assert fail")
 }
 
 type PackedIntsMutable interface {
@@ -177,6 +237,17 @@ func (p PackedIntsReaderImpl) Size() int32 {
 type PackedIntsMutableImpl struct {
 }
 
+/*
+Expert: Restore a ReaderIterator from a stream without reading metadata at the
+beginning of the stream. This method is useful to restore data from streams
+which have been created using WriterNoHeader().
+*/
+func ReaderIteratorNoHeader(in DataInput, format PackedFormat, version,
+	valueCount, bitsPerValue, mem int) ReaderIterator {
+	CheckVersion(int32(version))
+	return newPackedReaderIterator(format, version, valueCount, bitsPerValue, in, mem)
+}
+
 // Returns how many bits are required to hold values up to and including maxValue
 func BitsRequired(maxValue int64) int {
 	assert2(maxValue >= 0, fmt.Sprintf("maxValue must be non-negative (got: %v)", maxValue))
@@ -196,6 +267,94 @@ func MaxValue(bitsPerValue int) int64 {
 		return math.MaxInt64
 	}
 	return (1 << uint64(bitsPerValue)) - 1
+}
+
+// util/packed/PackedReaderIterator.java
+
+type PackedReaderIterator struct {
+	*ReaderIteratorImpl
+	packedIntsVersion int
+	format            PackedFormat
+	bulkOperation     *BulkOperation
+	nextBlocks        []byte
+	nextValues        []int64
+	nextValuesOrig    []int64
+	_iterations       int
+	position          int
+}
+
+func newPackedReaderIterator(format PackedFormat, packedIntsVersion, valueCount, bitsPerValue int, in DataInput, mem int) *PackedReaderIterator {
+	it := &PackedReaderIterator{
+		format:            format,
+		packedIntsVersion: packedIntsVersion,
+		bulkOperation:     newBulkOperation(format, uint32(bitsPerValue)),
+		position:          -1,
+	}
+	it.ReaderIteratorImpl = newReaderIteratorImpl(it, valueCount, bitsPerValue, in)
+	it._iterations = it.iterations(mem)
+	assert(valueCount == 0 || it._iterations > 0)
+	it.nextBlocks = make([]byte, it._iterations*it.bulkOperation.ByteBlockCount())
+	it.nextValuesOrig = make([]int64, it._iterations*it.bulkOperation.ByteValueCount())
+	it.nextValues = nil
+	return it
+}
+
+func (it *PackedReaderIterator) iterations(mem int) int {
+	iterations := it.bulkOperation.computeIterations(it.valueCount, mem)
+	if it.packedIntsVersion < PACKED_VERSION_BYTE_ALIGNED {
+		// make sure iterations is a multiple of 8
+		iterations = (iterations + 7) & 0xFFFFFFF8
+	}
+	return iterations
+}
+
+/*
+Go slice is used to mimic Lucene(Java)'s LongsRef and I have to keep the
+original slice to avoid re-allocation.
+*/
+func (it *PackedReaderIterator) nextN(count int) (vs []int64, err error) {
+	assert(len(it.nextValues) >= 0)
+	assert(count > 0)
+
+	remaining := it.valueCount - it.position - 1
+	if remaining <= 0 {
+		return nil, errors.New("EOF")
+	}
+	if remaining < count {
+		count = remaining
+	}
+
+	if len(it.nextValues) == 0 {
+		remainingBlocks := it.format.ByteCount(int32(it.packedIntsVersion), int32(remaining), uint32(it._bitsPerValue))
+		blocksToRead := len(it.nextBlocks)
+		if remainingBlocks < int64(blocksToRead) {
+			blocksToRead = int(remainingBlocks)
+		}
+		err = it.in.ReadBytes(it.nextBlocks[0:blocksToRead])
+		if err != nil {
+			return nil, err
+		}
+		if blocksToRead < len(it.nextBlocks) {
+			for i := blocksToRead; i < len(it.nextBlocks); i++ {
+				it.nextBlocks[i] = 0
+			}
+		}
+
+		it.nextValues = it.nextValuesOrig // restore
+		it.bulkOperation.decode(it.nextBlocks, it.nextValues, it._iterations)
+	}
+
+	if len(it.nextValues) < count {
+		count = len(it.nextValues)
+	}
+	it.position += count
+	values := it.nextValues[0:count]
+	it.nextValues = it.nextValues[count:]
+	return values, nil
+}
+
+func (it *PackedReaderIterator) ord() int {
+	return it.position
 }
 
 // util/packed/Direct8.java

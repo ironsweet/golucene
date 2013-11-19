@@ -5,6 +5,9 @@ import (
 	"log"
 )
 
+// util/packed/BulkOperation.java
+
+// Efficient sequential read/write of packed integers.
 type BulkOperation struct {
 	// PackedIntsEncoder
 	PackedIntsDecoder
@@ -315,4 +318,34 @@ func newBulkOperation(format PackedFormat, bitsPerValue uint32) *BulkOperation {
 		return packedSingleBlockBulkOps[bitsPerValue-1]
 	}
 	panic(fmt.Sprintf("invalid packed format: %v", format))
+}
+
+/*
+For every number of bits per value, there is a minumum number of
+blocks (b) / values (v) you need to write an order to reach the next block
+boundary:
+- 16 bits per value -> b=2, v=1
+- 24 bits per value -> b=3, v=1
+- 50 bits per value -> b=25, v=4
+- 63 bits per value -> b=63, v=8
+- ...
+
+A bulk read consists in copying iterations*v vlaues that are contained in
+iterations*b blocks into a []int64 (higher values of iterations are likely to
+yield a better throughput) => this requires n * (b + 8v) bytes of memory.
+
+This method computes iterations as ramBudget / (b + 8v) (since an int64 is
+8 bytes).
+*/
+func (op *BulkOperation) computeIterations(valueCount, ramBudget int) int {
+	iterations := ramBudget / (op.ByteBlockCount() + 8*op.ByteValueCount())
+	if iterations == 0 {
+		// at least 1
+		return 1
+	} else if (iterations-1)*op.ByteValueCount() >= valueCount {
+		// don't allocate for more than the size of the reader
+		panic("not implemented yet")
+	} else {
+		return iterations
+	}
 }
