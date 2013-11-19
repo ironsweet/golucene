@@ -206,7 +206,7 @@ func asUint32(n int32, err error) (n2 uint32, err2 error) {
 	return uint32(n), err
 }
 
-func newPackedReader(in util.DataInput) (r PackedIntsReader, err error) {
+func NewPackedReader(in util.DataInput) (r PackedIntsReader, err error) {
 	if version, err := codec.CheckHeader(in, PACKED_CODEC_NAME, PACKED_VERSION_START, PACKED_VERSION_CURRENT); err == nil {
 		if bitsPerValue, err := asUint32(in.ReadVInt()); err == nil {
 			// assert bitsPerValue > 0 && bitsPerValue <= 64

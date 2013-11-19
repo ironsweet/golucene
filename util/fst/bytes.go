@@ -2,10 +2,11 @@ package fst
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/util"
 )
 
 type BytesStore struct {
-	*DataOutput
+	*util.DataOutput
 	blocks    [][]byte
 	blockSize uint32
 	blockBits uint32
@@ -16,7 +17,7 @@ type BytesStore struct {
 
 func newBytesStore() *BytesStore {
 	self := &BytesStore{}
-	self.DataOutput = &DataOutput{
+	self.DataOutput = &util.DataOutput{
 		WriteByte: func(b byte) error {
 			if self.nextWrite == self.blockSize {
 				self.current = make([]byte, self.blockSize)
@@ -62,7 +63,7 @@ func newBytesStoreFromBits(blockBits uint32) *BytesStore {
 	return self
 }
 
-func newBytesStoreFromInput(in DataInput, numBytes int64, maxBlockSize uint32) (bs *BytesStore, err error) {
+func newBytesStoreFromInput(in util.DataInput, numBytes int64, maxBlockSize uint32) (bs *BytesStore, err error) {
 	var blockSize uint32 = 2
 	var blockBits uint32 = 1
 	for int64(blockSize) < numBytes && blockSize < maxBlockSize {
@@ -97,7 +98,7 @@ func (s *BytesStore) String() string {
 }
 
 type BytesStoreForwardReader struct {
-	*DataInputImpl
+	*util.DataInputImpl
 	owner      *BytesStore
 	current    []byte
 	nextBuffer uint32
@@ -163,7 +164,7 @@ func (bs *BytesStore) forwardReader() BytesReader {
 		return newForwardBytesReader(bs.blocks[0])
 	}
 	ans := &BytesStoreForwardReader{owner: bs, nextRead: bs.blockSize}
-	ans.DataInputImpl = &DataInputImpl{ans}
+	ans.DataInputImpl = &util.DataInputImpl{ans}
 	return ans
 }
 
@@ -172,7 +173,7 @@ func (bs *BytesStore) reverseReader() BytesReader {
 }
 
 type BytesStoreReverseReader struct {
-	*DataInputImpl
+	*util.DataInputImpl
 	owner      *BytesStore
 	current    []byte
 	nextBuffer int32
@@ -233,12 +234,12 @@ func (bs *BytesStore) reverseReaderAllowSingle(allowSingle bool) BytesReader {
 		current = bs.blocks[0]
 	}
 	ans := &BytesStoreReverseReader{current: current, nextBuffer: -1, nextRead: 0}
-	ans.DataInputImpl = &DataInputImpl{ans}
+	ans.DataInputImpl = &util.DataInputImpl{ans}
 	return ans
 }
 
 type ForwardBytesReader struct {
-	*DataInputImpl
+	*util.DataInputImpl
 	bytes []byte
 	pos   int
 }
@@ -272,12 +273,12 @@ func (r *ForwardBytesReader) reversed() bool {
 
 func newForwardBytesReader(bytes []byte) BytesReader {
 	ans := &ForwardBytesReader{bytes: bytes}
-	ans.DataInputImpl = &DataInputImpl{ans}
+	ans.DataInputImpl = &util.DataInputImpl{ans}
 	return ans
 }
 
 type ReverseBytesReader struct {
-	*DataInputImpl
+	*util.DataInputImpl
 	bytes []byte
 	pos   int
 }
@@ -297,7 +298,7 @@ func (r *ReverseBytesReader) ReadBytes(buf []byte) error {
 
 func newReverseBytesReader(bytes []byte) BytesReader {
 	ans := &ReverseBytesReader{bytes: bytes}
-	ans.DataInputImpl = &DataInputImpl{ans}
+	ans.DataInputImpl = &util.DataInputImpl{ans}
 	return ans
 }
 

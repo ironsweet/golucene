@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/balzaczyy/golucene/codec"
+	"github.com/balzaczyy/golucene/util"
+	"github.com/balzaczyy/golucene/util/packed"
 	"log"
 )
 
@@ -129,23 +131,23 @@ type FST struct {
 	arcWithOutputCount int64
 
 	packed           bool
-	nodeRefToAddress PackedIntsReader
+	nodeRefToAddress packed.PackedIntsReader
 
 	cachedRootArcs          []*Arc
 	assertingCachedRootArcs []*Arc // only set wit assert
 
 	version int32
 
-	nodeAddress *GrowableWriter
+	nodeAddress *packed.GrowableWriter
 }
 
-func LoadFST(in DataInput, outputs Outputs) (fst *FST, err error) {
+func LoadFST(in util.DataInput, outputs Outputs) (fst *FST, err error) {
 	return loadFST3(in, outputs, FST_DEFAULT_MAX_BLOCK_BITS)
 }
 
 /** Load a previously saved FST; maxBlockBits allows you to
  *  control the size of the byte[] pages used to hold the FST bytes. */
-func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err error) {
+func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err error) {
 	log.Printf("Loading FST from %v and output to %v...", in, outputs)
 	defer func() {
 		if err != nil {
@@ -220,7 +222,7 @@ func loadFST3(in DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err
 	}
 
 	if fst.packed {
-		fst.nodeRefToAddress, err = newPackedReader(in)
+		fst.nodeRefToAddress, err = packed.NewPackedReader(in)
 		if err != nil {
 			return fst, err
 		}
@@ -377,7 +379,7 @@ func CompareFSTValue(a, b interface{}) bool {
 	return equals(a, b)
 }
 
-func (t *FST) readLabel(in DataInput) (v int, err error) {
+func (t *FST) readLabel(in util.DataInput) (v int, err error) {
 	switch t.inputType {
 	case INPUT_TYPE_BYTE1: // Unsigned byte
 		if b, err := in.ReadByte(); err == nil {
@@ -718,8 +720,8 @@ type RandomAccess interface {
 }
 
 type BytesReader interface {
-	// *DataInputImpl
-	DataInput
+	// *util.DataInputImpl
+	util.DataInput
 	RandomAccess
 }
 
@@ -738,11 +740,11 @@ type Outputs interface {
 	Add(prefix interface{}, output interface{}) interface{}
 	/** Decode an output value previously written with {@link
 	 *  #write(Object, DataOutput)}. */
-	Read(in DataInput) (e interface{}, err error)
+	Read(in util.DataInput) (e interface{}, err error)
 	/** Decode an output value previously written with {@link
 	 *  #writeFinalOutput(Object, DataOutput)}.  By default this
 	 *  just calls {@link #read(DataInput)}. */
-	ReadFinalOutput(in DataInput) (e interface{}, err error)
+	ReadFinalOutput(in util.DataInput) (e interface{}, err error)
 	/** NOTE: this output is compared with == so you must
 	 *  ensure that all methods return the single object if
 	 *  it's really no output */
@@ -750,14 +752,14 @@ type Outputs interface {
 }
 
 type iOutputsReader interface {
-	Read(in DataInput) (e interface{}, err error)
+	Read(in util.DataInput) (e interface{}, err error)
 }
 
 type abstractOutputs struct {
 	iOutputsReader
 }
 
-func (out *abstractOutputs) ReadFinalOutput(in DataInput) (e interface{}, err error) {
+func (out *abstractOutputs) ReadFinalOutput(in util.DataInput) (e interface{}, err error) {
 	log.Printf("Reading final output from %v...", in)
 	return out.iOutputsReader.Read(in)
 }
@@ -805,7 +807,7 @@ func (out *ByteSequenceOutputs) Add(_prefix interface{}, _output interface{}) in
 	}
 }
 
-func (out *ByteSequenceOutputs) Read(in DataInput) (e interface{}, err error) {
+func (out *ByteSequenceOutputs) Read(in util.DataInput) (e interface{}, err error) {
 	log.Printf("Reading from %v...", in)
 	if length, err := in.ReadVInt(); err == nil {
 		log.Printf("Length: %v", length)
