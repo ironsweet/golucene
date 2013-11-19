@@ -1,9 +1,10 @@
-package util
+package packed
 
 import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/codec"
+	"github.com/balzaczyy/golucene/util"
 	"math"
 	"strconv"
 )
@@ -119,7 +120,7 @@ type PackedIntsReader interface {
 
 // Run-once iterator interface, to decode previously saved PackedInts
 type ReaderIterator interface {
-	next() (v int64, err error)          // next value
+	Next() (v int64, err error)          // next value
 	nextN(n int) (vs []int64, err error) // at least 1 and at most n next values, the returned ref MUST NOT be modified
 	bitsPerValue() int                   // number of bits per value
 	size() int                           // number of values
@@ -132,12 +133,12 @@ type nextNAction interface {
 
 type ReaderIteratorImpl struct {
 	nextNAction
-	in            DataInput
+	in            util.DataInput
 	_bitsPerValue int
 	valueCount    int
 }
 
-func newReaderIteratorImpl(sub nextNAction, valueCount, bitsPerValue int, in DataInput) *ReaderIteratorImpl {
+func newReaderIteratorImpl(sub nextNAction, valueCount, bitsPerValue int, in util.DataInput) *ReaderIteratorImpl {
 	return &ReaderIteratorImpl{sub, in, bitsPerValue, valueCount}
 }
 
@@ -146,7 +147,7 @@ Lucene(Java) manipulates underlying LongsRef to advance the pointer, which
 can not be implemented using Go's slice. Here I have to assume nextN() method
 would automatically increment the pointer without next().
 */
-func (it *ReaderIteratorImpl) next() (v int64, err error) {
+func (it *ReaderIteratorImpl) Next() (v int64, err error) {
 	nextValues, err := it.nextN(1)
 	if err != nil {
 		return 0, err
@@ -171,7 +172,7 @@ type PackedIntsMutable interface {
 	PackedIntsReader
 }
 
-func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
+func NewPackedReaderNoHeader(in util.DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
 	CheckVersion(version)
 	switch format {
 	case PACKED_SINGLE_BLOCK:
@@ -205,7 +206,7 @@ func asUint32(n int32, err error) (n2 uint32, err2 error) {
 	return uint32(n), err
 }
 
-func newPackedReader(in DataInput) (r PackedIntsReader, err error) {
+func newPackedReader(in util.DataInput) (r PackedIntsReader, err error) {
 	if version, err := codec.CheckHeader(in, PACKED_CODEC_NAME, PACKED_VERSION_START, PACKED_VERSION_CURRENT); err == nil {
 		if bitsPerValue, err := asUint32(in.ReadVInt()); err == nil {
 			// assert bitsPerValue > 0 && bitsPerValue <= 64
@@ -242,7 +243,7 @@ Expert: Restore a ReaderIterator from a stream without reading metadata at the
 beginning of the stream. This method is useful to restore data from streams
 which have been created using WriterNoHeader().
 */
-func ReaderIteratorNoHeader(in DataInput, format PackedFormat, version,
+func ReaderIteratorNoHeader(in util.DataInput, format PackedFormat, version,
 	valueCount, bitsPerValue, mem int) ReaderIterator {
 	CheckVersion(int32(version))
 	return newPackedReaderIterator(format, version, valueCount, bitsPerValue, in, mem)
@@ -283,7 +284,7 @@ type PackedReaderIterator struct {
 	position          int
 }
 
-func newPackedReaderIterator(format PackedFormat, packedIntsVersion, valueCount, bitsPerValue int, in DataInput, mem int) *PackedReaderIterator {
+func newPackedReaderIterator(format PackedFormat, packedIntsVersion, valueCount, bitsPerValue int, in util.DataInput, mem int) *PackedReaderIterator {
 	it := &PackedReaderIterator{
 		format:            format,
 		packedIntsVersion: packedIntsVersion,
@@ -370,7 +371,7 @@ func newDirect8(valueCount int32) Direct8 {
 	return ans
 }
 
-func newDirect8FromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newDirect8FromInput(version int32, in util.DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newDirect8(valueCount)
 	if err = in.ReadBytes(ans.values[0:valueCount]); err == nil {
 		// because packed ints have not always been byte-aligned
@@ -399,7 +400,7 @@ func newDirect16(valueCount int32) Direct16 {
 	return ans
 }
 
-func newDirect16FromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newDirect16FromInput(version int32, in util.DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newDirect16(valueCount)
 	for i, _ := range ans.values {
 		if ans.values[i], err = in.ReadShort(); err != nil {
@@ -433,7 +434,7 @@ func newDirect32(valueCount int32) Direct32 {
 	return ans
 }
 
-func newDirect32FromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newDirect32FromInput(version int32, in util.DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newDirect32(valueCount)
 	for i, _ := range ans.values {
 		if ans.values[i], err = in.ReadInt(); err != nil {
@@ -467,7 +468,7 @@ func newDirect64(valueCount int32) Direct64 {
 	return ans
 }
 
-func newDirect64FromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newDirect64FromInput(version int32, in util.DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newDirect64(valueCount)
 	for i, _ := range ans.values {
 		if ans.values[i], err = in.ReadLong(); err != nil {
@@ -497,7 +498,7 @@ func newPacked8ThreeBlocks(valueCount int32) Packed8ThreeBlocks {
 	return ans
 }
 
-func newPacked8ThreeBlocksFromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newPacked8ThreeBlocksFromInput(version int32, in util.DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newPacked8ThreeBlocks(valueCount)
 	if err = in.ReadBytes(ans.blocks); err == nil {
 		// because packed ints have not always been byte-aligned
@@ -532,7 +533,7 @@ func newPacked16ThreeBlocks(valueCount int32) Packed16ThreeBlocks {
 	return ans
 }
 
-func newPacked16ThreeBlocksFromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newPacked16ThreeBlocksFromInput(version int32, in util.DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newPacked16ThreeBlocks(valueCount)
 	for i, _ := range ans.blocks {
 		if ans.blocks[i], err = in.ReadShort(); err != nil {
@@ -579,7 +580,7 @@ func newPacked64(valueCount int32, bitsPerValue uint32) Packed64 {
 	return ans
 }
 
-func newPacked64FromInput(version int32, in DataInput, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
+func newPacked64FromInput(version int32, in util.DataInput, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
 	ans := newPacked64(valueCount, bitsPerValue)
 	byteCount := PackedFormat(PACKED).ByteCount(version, valueCount, bitsPerValue)
 	longCount := PackedFormat(PACKED).longCount(PACKED_VERSION_CURRENT, valueCount, bitsPerValue)

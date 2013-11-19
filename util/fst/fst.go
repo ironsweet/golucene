@@ -1,4 +1,4 @@
-package util
+package fst
 
 import (
 	"bytes"
