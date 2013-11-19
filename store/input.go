@@ -425,18 +425,18 @@ type ByteArrayDataInput struct {
 func NewByteArrayDataInput(bytes []byte) *ByteArrayDataInput {
 	ans := &ByteArrayDataInput{}
 	ans.DataInputImpl = &util.DataInputImpl{ans}
-	ans.reset(bytes)
+	ans.Reset(bytes)
 	return ans
 }
 
 func NewEmptyByteArrayDataInput() *ByteArrayDataInput {
 	ans := &ByteArrayDataInput{}
 	ans.DataInputImpl = &util.DataInputImpl{ans}
-	ans.reset(make([]byte, 0))
+	ans.Reset(make([]byte, 0))
 	return ans
 }
 
-func (in *ByteArrayDataInput) reset(bytes []byte) {
+func (in *ByteArrayDataInput) Reset(bytes []byte) {
 	in.bytes = bytes
 	in.Pos = 0
 	in.limit = len(bytes)

@@ -139,6 +139,9 @@ func (p Int32Slice) Len() int           { return len(p) }
 func (p Int32Slice) Less(i, j int) bool { return p[i] < p[j] }
 func (p Int32Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
+// index/FieldInfos.java
+
+// Collection of FieldInfo(s) (accessible by number of by name)
 type FieldInfos struct {
 	hasFreq      bool
 	hasProx      bool

@@ -7,6 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
+	"github.com/balzaczyy/golucene/util/fst"
 	"io"
 	"log"
 	"sort"
@@ -307,7 +308,7 @@ type FieldReader struct {
 	indexStartFP     int64
 	rootBlockFP      int64
 	rootCode         []byte
-	index            *util.FST
+	index            *fst.FST
 }
 
 func newFieldReader(owner *BlockTreeTermsReader,
@@ -343,7 +344,7 @@ func newFieldReader(owner *BlockTreeTermsReader,
 		clone := indexIn.Clone()
 		log.Printf("start=%v field=%v", indexStartFP, fieldInfo.name)
 		clone.Seek(indexStartFP)
-		r.index, err = util.LoadFST(clone, util.ByteSequenceOutputsSingleton())
+		r.index, err = fst.LoadFST(clone, fst.ByteSequenceOutputsSingleton())
 	}
 
 	return r, err
@@ -390,11 +391,11 @@ type SegmentTermsEnum struct {
 	eof bool
 
 	term      *bytesRef
-	fstReader util.BytesReader
+	fstReader fst.BytesReader
 
-	arcs []*util.Arc
+	arcs []*fst.Arc
 
-	fstOutputs util.Outputs
+	fstOutputs fst.Outputs
 }
 
 func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
@@ -403,8 +404,8 @@ func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 		stack:         make([]*segmentTermsEnumFrame, 0),
 		scratchReader: store.NewEmptyByteArrayDataInput(),
 		term:          newBytesRef(),
-		arcs:          make([]*util.Arc, 1),
-		fstOutputs:    util.ByteSequenceOutputsSingleton(),
+		arcs:          make([]*fst.Arc, 1),
+		fstOutputs:    fst.ByteSequenceOutputsSingleton(),
 	}
 	ans.TermsEnumImpl = newTermsEnumImpl(ans)
 	log.Printf("BTTR.init seg=%v", r.segment)
@@ -419,11 +420,11 @@ func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 	// Init w/ root block; don't use index since it may
 	// not (and need not) have been loaded
 	for i, _ := range ans.arcs {
-		ans.arcs[i] = &util.Arc{}
+		ans.arcs[i] = &fst.Arc{}
 	}
 
 	ans.currentFrame = ans.staticFrame
-	var arc *util.Arc
+	var arc *fst.Arc
 	if r.index != nil {
 		arc = r.index.FirstArc(ans.arcs[0])
 		// Empty string prefix must have an output in the index!
@@ -465,15 +466,15 @@ func (e *SegmentTermsEnum) frame(ord int) *segmentTermsEnumFrame {
 	return e.stack[ord]
 }
 
-func (e *SegmentTermsEnum) getArc(ord int) *util.Arc {
+func (e *SegmentTermsEnum) getArc(ord int) *fst.Arc {
 	if ord == len(e.arcs) {
-		e.arcs = append(e.arcs, &util.Arc{})
+		e.arcs = append(e.arcs, &fst.Arc{})
 	} else if ord > len(e.arcs) {
 		// TODO over-allocate
-		next := make([]*util.Arc, 1+ord)
+		next := make([]*fst.Arc, 1+ord)
 		copy(next, e.arcs)
 		for i := len(e.arcs); i < len(next); i++ {
-			next[i] = &util.Arc{}
+			next[i] = &fst.Arc{}
 		}
 		e.arcs = next
 	}
@@ -485,7 +486,7 @@ func (e *SegmentTermsEnum) Comparator() sort.Interface {
 }
 
 // Pushes a frame we seek'd to
-func (e *SegmentTermsEnum) pushFrame(arc *util.Arc, frameData []byte, length int) (f *segmentTermsEnumFrame, err error) {
+func (e *SegmentTermsEnum) pushFrame(arc *fst.Arc, frameData []byte, length int) (f *segmentTermsEnumFrame, err error) {
 	// log.Println("Pushing frame...")
 	e.scratchReader.Reset(frameData)
 	code, err := e.scratchReader.ReadVLong()
@@ -506,7 +507,7 @@ func (e *SegmentTermsEnum) pushFrame(arc *util.Arc, frameData []byte, length int
 
 // Pushes next'd frame or seek'd frame; we later
 // lazy-load the frame only when needed
-func (e *SegmentTermsEnum) pushFrameAt(arc *util.Arc, fp int64, length int) (f *segmentTermsEnumFrame, err error) {
+func (e *SegmentTermsEnum) pushFrameAt(arc *fst.Arc, fp int64, length int) (f *segmentTermsEnumFrame, err error) {
 	f = e.frame(1 + e.currentFrame.ord)
 	f.arc = arc
 	if f.fpOrig == fp && f.nextEnt != -1 {
@@ -546,7 +547,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		e.segment, e.fieldInfo.name, brToString(target), e.term, e.termExists, e.validIndexPrefix)
 	e.printSeekState()
 
-	var arc *util.Arc
+	var arc *fst.Arc
 	var targetUpto int
 	var output []byte
 
@@ -731,7 +732,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 				panic("assert fail")
 			}
 			noOutputs := e.fstOutputs.NoOutput()
-			if !util.CompareFSTValue(arc.Output, noOutputs) {
+			if !fst.CompareFSTValue(arc.Output, noOutputs) {
 				output = e.fstOutputs.Add(output, arc.Output).([]byte)
 			}
 			log.Printf("    index: follow label=%x arc.output=%v arc.nfo=%v",
@@ -833,7 +834,7 @@ func (e *SegmentTermsEnum) printSeekState() {
 					log.Printf("isSeekFrame=%v f.arc=%v", isSeekFrame, f.arc)
 					panic("assert fail")
 				}
-				ret, err := util.GetFSTOutput(e.index, prefix)
+				ret, err := fst.GetFSTOutput(e.index, prefix)
 				if err != nil {
 					panic(err)
 				}
@@ -917,7 +918,7 @@ func (e *SegmentTermsEnum) DocsAndPositionsByFlags(skipDocs util.Bits, reuse Doc
 func (e *SegmentTermsEnum) SeekExactFromLast(target []byte, otherState TermState) error {
 	log.Printf("BTTR.seekExact termState seg=%v target=%v state=%v", e.segment, brToString(target), otherState)
 	e.eof = false
-	if !util.CompareFSTValue(target, e.term.toBytes()) || !e.termExists {
+	if !fst.CompareFSTValue(target, e.term.toBytes()) || !e.termExists {
 		assert(otherState != nil)
 		// TODO can not assert type conversion here
 		// _, ok := otherState.(*BlockTermState)
@@ -971,7 +972,7 @@ type segmentTermsEnumFrame struct {
 	hasTermsOrig bool
 	isFloor      bool
 
-	arc *util.Arc
+	arc *fst.Arc
 
 	// File pointer where this block was loaded from
 	fp     int64

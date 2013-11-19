@@ -1,7 +1,7 @@
 package index
 
 import (
-	"github.com/balzaczyy/golucene/util"
+	"github.com/balzaczyy/golucene/util/packed"
 	"math"
 )
 
@@ -30,15 +30,15 @@ var MAX_DATA_SIZE int = computeMaxDataSize()
 func computeMaxDataSize() int {
 	maxDataSize := 0
 	// for each version
-	for version := util.PACKED_VERSION_START; version <= util.PACKED_VERSION_CURRENT; version++ {
+	for version := packed.PACKED_VERSION_START; version <= packed.PACKED_VERSION_CURRENT; version++ {
 		// for each packed format
-		for format := util.PACKED; format <= util.PACKED_SINGLE_BLOCK; format++ {
+		for format := packed.PACKED; format <= packed.PACKED_SINGLE_BLOCK; format++ {
 			// for each bit-per-value
 			for bpv := uint32(1); bpv <= 32; bpv++ {
-				if !util.PackedFormat(format).IsSupported(bpv) {
+				if !packed.PackedFormat(format).IsSupported(bpv) {
 					continue
 				}
-				decoder := util.GetPackedIntsDecoder(util.PackedFormat(format), int32(version), bpv)
+				decoder := packed.GetPackedIntsDecoder(packed.PackedFormat(format), int32(version), bpv)
 				iterations := int(computeIterations(decoder))
 				if n := iterations * decoder.ByteValueCount(); n > maxDataSize {
 					maxDataSize = n
@@ -55,8 +55,8 @@ func computeMaxDataSize() int {
  */
 type ForUtil struct {
 	encodedSizes []int32
-	encoders     []util.PackedIntsEncoder
-	decoders     []util.PackedIntsDecoder
+	encoders     []packed.PackedIntsEncoder
+	decoders     []packed.PackedIntsDecoder
 	iterations   []int32
 }
 
@@ -70,10 +70,10 @@ func NewForUtil(in DataInput) (fu ForUtil, err error) {
 	if err != nil {
 		return self, err
 	}
-	util.CheckVersion(packedIntsVersion)
+	packed.CheckVersion(packedIntsVersion)
 	self.encodedSizes = make([]int32, 33)
-	self.encoders = make([]util.PackedIntsEncoder, 33)
-	self.decoders = make([]util.PackedIntsDecoder, 33)
+	self.encoders = make([]packed.PackedIntsEncoder, 33)
+	self.decoders = make([]packed.PackedIntsDecoder, 33)
 	self.iterations = make([]int32, 33)
 
 	for bpv := 1; bpv <= 32; bpv++ {
@@ -84,22 +84,22 @@ func NewForUtil(in DataInput) (fu ForUtil, err error) {
 		formatId := uint32(code) >> 5
 		bitsPerValue := (uint32(code) & 31) + 1
 
-		format := util.PackedFormat(formatId)
+		format := packed.PackedFormat(formatId)
 		// assert format.isSupported(bitsPerValue)
 		self.encodedSizes[bpv] = encodedSize(format, packedIntsVersion, bitsPerValue)
-		self.encoders[bpv] = util.GetPackedIntsEncoder(format, packedIntsVersion, bitsPerValue)
-		self.decoders[bpv] = util.GetPackedIntsDecoder(format, packedIntsVersion, bitsPerValue)
+		self.encoders[bpv] = packed.GetPackedIntsEncoder(format, packedIntsVersion, bitsPerValue)
+		self.decoders[bpv] = packed.GetPackedIntsDecoder(format, packedIntsVersion, bitsPerValue)
 		self.iterations[bpv] = computeIterations(self.decoders[bpv])
 	}
 	return self, nil
 }
 
-func encodedSize(format util.PackedFormat, packedIntsVersion int32, bitsPerValue uint32) int32 {
+func encodedSize(format packed.PackedFormat, packedIntsVersion int32, bitsPerValue uint32) int32 {
 	byteCount := format.ByteCount(packedIntsVersion, LUCENE41_BLOCK_SIZE, bitsPerValue)
 	// assert byteCount >= 0 && byteCount <= math.MaxInt32()
 	return int32(byteCount)
 }
 
-func computeIterations(decoder util.PackedIntsDecoder) int32 {
+func computeIterations(decoder packed.PackedIntsDecoder) int32 {
 	return int32(math.Ceil(float64(LUCENE41_BLOCK_SIZE) / float64(decoder.ByteValueCount())))
 }

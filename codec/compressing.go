@@ -3,6 +3,7 @@ package codec
 import (
 	"errors"
 	"fmt"
+	// "github.com/balzaczyy/golucene/util"
 )
 
 type CompressionMode interface {
@@ -32,8 +33,19 @@ func (m CompressionModeDefaults) NewDecompressor() Decompressor {
 
 type Compressor interface{}
 
+// codec/compressing/Decompressor.java
+
+// A decompressor
 type Decompressor interface {
-	decompress(in DataInput, originalLength int, buf []byte) (res []byte, err error)
+	/*
+		Decompress 'bytes' that were stored between [offset:offset+length]
+		in the original stream from the compressed stream 'in' to 'bytes'.
+		The length of the returned bytes (len(buf)) must be equal to 'length'.
+		Implementations of this method are free to resize 'bytes' depending
+		on their needs.
+	*/
+	Decompress(in DataInput, originalLength, offset, length int, bytes []byte) (buf []byte, err error)
+	Clone() Decompressor
 }
 
 var (
@@ -42,16 +54,31 @@ var (
 
 type LZ4Decompressor int
 
-func (d LZ4Decompressor) decompress(in DataInput, originalLength int, buf []byte) (res []byte, err error) {
-	// assert offset + length <= originalLength
+func (d LZ4Decompressor) Decompress(in DataInput, originalLength, offset, length int, bytes []byte) (res []byte, err error) {
+	assert(offset+length <= originalLength)
 	// add 7 padding bytes, this is not necessary but can help decompression run faster
-	res = buf
-	if len(buf) < originalLength+7 {
+	res = bytes
+	if len(res) < originalLength+7 {
+		// res = make([]byte, util.Oversize(originalLength+7, 1))
+		// FIXME util cause dep circle
 		res = make([]byte, originalLength+7)
 	}
-	decompressedLength, err := LZ4Decompress(in, len(res), res)
+	decompressedLength, err := LZ4Decompress(in, offset+length, res)
+	if err != nil {
+		return nil, err
+	}
 	if decompressedLength > originalLength {
 		return nil, errors.New(fmt.Sprintf("Corrupted: lengths mismatch: %v > %v (resource=%v)", decompressedLength, originalLength, in))
 	}
-	return res, nil
+	return res[offset : offset+length], nil
+}
+
+func assert(ok bool) {
+	if !ok {
+		panic("assert fail")
+	}
+}
+
+func (d LZ4Decompressor) Clone() Decompressor {
+	return d
 }

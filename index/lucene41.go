@@ -6,6 +6,7 @@ import (
 	"github.com/balzaczyy/golucene/codec"
 	"github.com/balzaczyy/golucene/store"
 	"github.com/balzaczyy/golucene/util"
+	"github.com/balzaczyy/golucene/util/packed"
 	"log"
 	"reflect"
 )
@@ -528,6 +529,29 @@ func newLucene41StoredFieldsReader(d store.Directory, si SegmentInfo, fn FieldIn
 	return r, nil
 }
 
+// codec/compressing/CompressingStoredFieldsReader.java
+
+const (
+	STRING         = 0
+	BYTE_ARR       = 1
+	NUMERIC_INT    = 2
+	NUMERIC_FLOAT  = 3
+	NUMERIC_LONG   = 4
+	NUMERIC_DOUBLE = 5
+)
+
+var (
+	TYPE_BITS = packed.BitsRequired(NUMERIC_DOUBLE)
+	TYPE_MASK = int(packed.MaxValue(TYPE_BITS))
+)
+
+const (
+	CSFR_VERSION_BIG_CHUNKS = 1
+
+	// Do not reuse the decompression buffer when there is more than 32kb to decompress
+	BUFFER_REUSE_THRESHOLD = 1 << 15
+)
+
 const (
 	CODEC_SFX_IDX             = "Index"
 	CODEC_SFX_DAT             = "Data"
@@ -535,10 +559,13 @@ const (
 	CODEC_SFX_VERSION_CURRENT = CODEC_SFX_VERSION_START
 )
 
+// StoredFieldsReader impl for CompressingStoredFieldsFormat
 type CompressingStoredFieldsReader struct {
+	version           int
 	fieldInfos        FieldInfos
 	indexReader       *CompressingStoredFieldsIndexReader
 	fieldsStream      store.IndexInput
+	chunkSize         int
 	packedIntsVersion int
 	compressionMode   codec.CompressionMode
 	decompressor      codec.Decompressor
@@ -547,7 +574,24 @@ type CompressingStoredFieldsReader struct {
 	closed            bool
 }
 
-// CompressingStoredFieldsReader.java L90
+// used by clone
+func newCompressingStoredFieldsReaderFrom(reader *CompressingStoredFieldsReader) *CompressingStoredFieldsReader {
+	return &CompressingStoredFieldsReader{
+		version:           reader.version,
+		fieldInfos:        reader.fieldInfos,
+		fieldsStream:      reader.fieldsStream.Clone(),
+		indexReader:       reader.indexReader.Clone(),
+		chunkSize:         reader.chunkSize,
+		packedIntsVersion: reader.packedIntsVersion,
+		compressionMode:   reader.compressionMode,
+		decompressor:      reader.decompressor.Clone(),
+		numDocs:           reader.numDocs,
+		bytes:             make([]byte, len(reader.bytes)),
+		closed:            false,
+	}
+}
+
+// Sole constructor
 func newCompressingStoredFieldsReader(d store.Directory, si SegmentInfo, segmentSuffix string, fn FieldInfos,
 	ctx store.IOContext, formatName string, compressionMode codec.CompressionMode) (r *CompressingStoredFieldsReader, err error) {
 	r = &CompressingStoredFieldsReader{}
@@ -614,39 +658,209 @@ func newCompressingStoredFieldsReader(d store.Directory, si SegmentInfo, segment
 }
 
 func (r *CompressingStoredFieldsReader) ensureOpen() {
-	if r.closed {
-		panic("this FieldsReader is closed")
-	}
+	assert2(!r.closed, "this FieldsReader is closed")
 }
 
+// Close the underlying IndexInputs
 func (r *CompressingStoredFieldsReader) Close() (err error) {
 	if !r.closed {
 		if err = util.Close(r.fieldsStream); err == nil {
 			r.closed = true
 		}
 	}
-	return err
+	return
 }
 
-func (r *CompressingStoredFieldsReader) visitDocument(n int, visitor StoredFieldVisitor) error {
-	panic("not implemented yet")
+func (r *CompressingStoredFieldsReader) readField(in util.DataInput, visitor StoredFieldVisitor, info FieldInfo, bits int) error {
+	switch bits & TYPE_MASK {
+	case BYTE_ARR:
+		panic("not implemented yet")
+	case STRING:
+		length, err := asInt(in.ReadVInt())
+		if err != nil {
+			return err
+		}
+		data := make([]byte, length)
+		err = in.ReadBytes(data)
+		if err != nil {
+			return err
+		}
+		visitor.stringField(info, string(data))
+	case NUMERIC_INT:
+		panic("not implemented yet")
+	case NUMERIC_FLOAT:
+		panic("not implemented yet")
+	case NUMERIC_LONG:
+		panic("not implemented yet")
+	case NUMERIC_DOUBLE:
+		panic("not implemented yet")
+	default:
+		panic(fmt.Sprintf("Unknown type flag: %x", bits))
+	}
 	return nil
+}
+
+func (r *CompressingStoredFieldsReader) visitDocument(docID int, visitor StoredFieldVisitor) error {
+	err := r.fieldsStream.Seek(r.indexReader.startPointer(docID))
+	if err != nil {
+		return err
+	}
+
+	docBase, err := asInt(r.fieldsStream.ReadVInt())
+	if err != nil {
+		return err
+	}
+	chunkDocs, err := asInt(r.fieldsStream.ReadVInt())
+	if err != nil {
+		return err
+	}
+	if docID < docBase ||
+		docID >= docBase+chunkDocs ||
+		docBase+chunkDocs > r.numDocs {
+		return errors.New(fmt.Sprintf(
+			"Corrupted: docID=%v, docBase=%v, chunkDocs=%v, numDocs=%v (resource=%v)",
+			docID, docBase, chunkDocs, r.numDocs, r.fieldsStream))
+	}
+
+	var numStoredFields, offset, length, totalLength int
+	if chunkDocs == 1 {
+		panic("not implemented yet")
+	} else {
+		bitsPerStoredFields, err := asInt(r.fieldsStream.ReadVInt())
+		if err != nil {
+			return err
+		}
+		if bitsPerStoredFields == 0 {
+			numStoredFields, err = asInt(r.fieldsStream.ReadVInt())
+			if err != nil {
+				return err
+			}
+		} else if bitsPerStoredFields > 31 {
+			return errors.New(fmt.Sprintf("bitsPerStoredFields=%v (resource=%v)",
+				bitsPerStoredFields, r.fieldsStream))
+		} else {
+			panic("not implemented yet")
+		}
+
+		bitsPerLength, err := asInt(r.fieldsStream.ReadVInt())
+		if err != nil {
+			return err
+		}
+		if bitsPerLength == 0 {
+			panic("not implemented yet")
+		} else if bitsPerLength > 31 {
+			return errors.New(fmt.Sprintf("bitsPerLength=%v (resource=%v)",
+				bitsPerLength, r.fieldsStream))
+		} else {
+			it := packed.ReaderIteratorNoHeader(
+				r.fieldsStream, packed.PackedFormat(packed.PACKED), r.packedIntsVersion,
+				chunkDocs, bitsPerLength, 1)
+			var n int64
+			off := 0
+			for i := 0; i < docID-docBase; i++ {
+				if n, err = it.Next(); err != nil {
+					return err
+				}
+				off += int(n)
+			}
+			offset = off
+			if n, err = it.Next(); err != nil {
+				return err
+			}
+			length = int(n)
+			off += length
+			for i := docID - docBase + 1; i < chunkDocs; i++ {
+				if n, err = it.Next(); err != nil {
+					return err
+				}
+				off += int(n)
+			}
+			totalLength = off
+		}
+	}
+
+	if (length == 0) != (numStoredFields == 0) {
+		return errors.New(fmt.Sprintf(
+			"length=%v, numStoredFields=%v (resource=%v)",
+			length, numStoredFields, r.fieldsStream))
+	}
+	if numStoredFields == 0 {
+		// nothing to do
+		return nil
+	}
+
+	var documentInput util.DataInput
+	if r.version >= CSFR_VERSION_BIG_CHUNKS && totalLength >= 2*r.chunkSize {
+		panic("not implemented yet")
+	} else {
+		var bytes []byte
+		if totalLength <= BUFFER_REUSE_THRESHOLD {
+			bytes = r.bytes
+		} else {
+			bytes = make([]byte, 0)
+		}
+		bytes, err = r.decompressor.Decompress(r.fieldsStream, totalLength, offset, length, bytes)
+		if err != nil {
+			return err
+		}
+		assert(len(bytes) == length)
+		documentInput = store.NewByteArrayDataInput(bytes)
+	}
+
+	for fieldIDX := 0; fieldIDX < numStoredFields; fieldIDX++ {
+		infoAndBits, err := documentInput.ReadVLong()
+		if err != nil {
+			return err
+		}
+		fieldNumber := int32(uint64(infoAndBits) >> uint64(TYPE_BITS))
+		fieldInfo := r.fieldInfos.byNumber[fieldNumber]
+
+		bits := int(infoAndBits & int64(TYPE_MASK))
+		assertWithMessage(bits <= NUMERIC_DOUBLE, fmt.Sprintf("bits=%x", bits))
+
+		status, err := visitor.needsField(fieldInfo)
+		if err != nil {
+			return err
+		}
+		switch status {
+		case SOTRED_FIELD_VISITOR_STATUS_YES:
+			r.readField(documentInput, visitor, fieldInfo, bits)
+		case SOTRED_FIELD_VISITOR_STATUS_NO:
+			panic("not implemented yet")
+		case SOTRED_FIELD_VISITOR_STATUS_STOP:
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func assertWithMessage(ok bool, msg string) {
+	if !ok {
+		panic(msg)
+	}
 }
 
 func (r *CompressingStoredFieldsReader) Clone() StoredFieldsReader {
 	r.ensureOpen()
-	// return CompressingStoredFieldsProducer()
-	panic("not implemented yet")
+	return newCompressingStoredFieldsReaderFrom(r)
 }
 
+// codec/compressing/CompressingStoredFieldsIndexReader.java
+
+func moveLowOrderBitsToSign(n int64) int64 {
+	return int64(uint64(n)>>1) ^ -(n & 1)
+}
+
+// Random-access reader for CompressingStoredFieldsIndexWriter
 type CompressingStoredFieldsIndexReader struct {
 	maxDoc              int
 	docBases            []int
 	startPointers       []int64
 	avgChunkDocs        []int
 	avgChunkSizes       []int64
-	docBasesDeltas      []util.PackedIntsReader
-	startPointersDeltas []util.PackedIntsReader
+	docBasesDeltas      []packed.PackedIntsReader
+	startPointersDeltas []packed.PackedIntsReader
 }
 
 func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput, si SegmentInfo) (r *CompressingStoredFieldsIndexReader, err error) {
@@ -656,8 +870,8 @@ func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput, si Se
 	r.startPointers = make([]int64, 0, 16)
 	r.avgChunkDocs = make([]int, 0, 16)
 	r.avgChunkSizes = make([]int64, 0, 16)
-	r.docBasesDeltas = make([]util.PackedIntsReader, 0, 16)
-	r.startPointersDeltas = make([]util.PackedIntsReader, 0, 16)
+	r.docBasesDeltas = make([]packed.PackedIntsReader, 0, 16)
+	r.startPointersDeltas = make([]packed.PackedIntsReader, 0, 16)
 
 	packedIntsVersion, err := fieldsIndexIn.ReadVInt()
 	if err != nil {
@@ -691,7 +905,7 @@ func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput, si Se
 			if bitsPerDocBase > 32 {
 				return nil, errors.New(fmt.Sprintf("Corrupted bitsPerDocBase (resource=%v)", fieldsIndexIn))
 			}
-			pr, err := util.NewPackedReaderNoHeader(fieldsIndexIn, util.PACKED, packedIntsVersion, numChunks, uint32(bitsPerDocBase))
+			pr, err := packed.NewPackedReaderNoHeader(fieldsIndexIn, packed.PACKED, packedIntsVersion, numChunks, uint32(bitsPerDocBase))
 			if err != nil {
 				return nil, err
 			}
@@ -716,7 +930,7 @@ func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput, si Se
 			if bitsPerStartPointer > 64 {
 				return nil, errors.New(fmt.Sprintf("Corrupted bitsPerStartPonter (resource=%v)", fieldsIndexIn))
 			}
-			pr, err := util.NewPackedReaderNoHeader(fieldsIndexIn, util.PACKED, packedIntsVersion, numChunks, uint32(bitsPerStartPointer))
+			pr, err := packed.NewPackedReaderNoHeader(fieldsIndexIn, packed.PACKED, packedIntsVersion, numChunks, uint32(bitsPerStartPointer))
 			if err != nil {
 				return nil, err
 			}
@@ -725,4 +939,61 @@ func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput, si Se
 	}
 
 	return r, nil
+}
+
+func (r *CompressingStoredFieldsIndexReader) block(docID int) int {
+	lo, hi := 0, len(r.docBases)-1
+	for lo <= hi {
+		mid := int(uint(lo+hi) >> 1)
+		midValue := r.docBases[mid]
+		if midValue == docID {
+			return mid
+		} else if midValue < docID {
+			lo = mid + 1
+		} else {
+			hi = mid - 1
+		}
+	}
+	return hi
+}
+
+func (r *CompressingStoredFieldsIndexReader) relativeDocBase(block, relativeChunk int) int {
+	expected := r.avgChunkDocs[block] * relativeChunk
+	delta := moveLowOrderBitsToSign(r.docBasesDeltas[block].Get(int32(relativeChunk)))
+	return expected + int(delta)
+}
+
+func (r *CompressingStoredFieldsIndexReader) relativeStartPointer(block, relativeChunk int) int64 {
+	expected := r.avgChunkSizes[block] * int64(relativeChunk)
+	delta := moveLowOrderBitsToSign(r.startPointersDeltas[block].Get(int32(relativeChunk)))
+	return expected + delta
+}
+
+func (r *CompressingStoredFieldsIndexReader) relativeChunk(block, relativeDoc int) int {
+	lo, hi := 0, int(r.docBasesDeltas[block].Size())-1
+	for lo <= hi {
+		mid := int(uint(lo+hi) >> 1)
+		midValue := r.relativeDocBase(block, mid)
+		if midValue == relativeDoc {
+			return mid
+		} else if midValue < relativeDoc {
+			lo = mid + 1
+		} else {
+			hi = mid - 1
+		}
+	}
+	return hi
+}
+
+func (r *CompressingStoredFieldsIndexReader) startPointer(docID int) int64 {
+	if docID < 0 || docID >= r.maxDoc {
+		panic(fmt.Sprintf("docID out of range [0-%v]: %v", r.maxDoc, docID))
+	}
+	block := r.block(docID)
+	relativeChunk := r.relativeChunk(block, docID-r.docBases[block])
+	return r.startPointers[block] + r.relativeStartPointer(block, relativeChunk)
+}
+
+func (r *CompressingStoredFieldsIndexReader) Clone() *CompressingStoredFieldsIndexReader {
+	return r
 }
