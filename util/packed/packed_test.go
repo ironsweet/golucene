@@ -46,3 +46,10 @@ func TestMaxValue(t *testing.T) {
 		t.Error("64 bits -> 0x7fffffffffffffff")
 	}
 }
+
+func TestGetPackedIntsDecoder(t *testing.T) {
+	decoder := GetPackedIntsDecoder(PackedFormat(PACKED), int32(PACKED_VERSION_START), 1)
+	if n := decoder.ByteValueCount(); n != 8 {
+		t.Errorf("ByteValueCount() should be 8, instead of %v", n)
+	}
+}

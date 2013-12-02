@@ -1,15 +1,10 @@
 package packed
 
-import (
-	"fmt"
-	"log"
-)
-
 // util/packed/BulkOperationPacked.java
 
 // Non-specialized BulkOperation for Packed format
 type BulkOperationPacked struct {
-	*BulkOperation
+	*BulkOperationImpl
 	bitsPerValue   uint32
 	longBlockCount int
 	longValueCount int
@@ -19,10 +14,10 @@ type BulkOperationPacked struct {
 	intMask        int
 }
 
-func newBulkOperationPacked(bitsPerValue uint32) *BulkOperation {
+func newBulkOperationPacked(bitsPerValue uint32) *BulkOperationPacked {
 	self := &BulkOperationPacked{}
 	self.bitsPerValue = bitsPerValue
-	// assert bitsPerValue > 0 && bitsPerValue <= 64
+	assert(bitsPerValue > 0 && bitsPerValue <= 64)
 	blocks := uint32(bitsPerValue)
 	for (blocks & 1) == 0 {
 		blocks = (blocks >> 1)
@@ -43,8 +38,13 @@ func newBulkOperationPacked(bitsPerValue uint32) *BulkOperation {
 		self.mask = (int64(1) << bitsPerValue) - 1
 	}
 	self.intMask = int(self.mask)
-	// assert self.longValueCount * bitsPerValue == 64 * self.longBlockCount
-	return &BulkOperation{self}
+	assert(self.longValueCount*int(bitsPerValue) == 64*self.longBlockCount)
+	self.BulkOperationImpl = newBulkOperationImpl(self)
+	return self
+}
+
+func (p *BulkOperationPacked) ByteBlockCount() int {
+	return p.byteBlockCount
 }
 
 func (p *BulkOperationPacked) ByteValueCount() int {
@@ -55,7 +55,7 @@ func (p *BulkOperationPacked) ByteValueCount() int {
 
 // Non-specialized BulkOperation for PACKED_SINGLE_BLOCK format
 type BulkOperationPackedSingleBlock struct {
-	*BulkOperation
+	*BulkOperationImpl
 	bitsPerValue uint32
 	valueCount   int
 	mask         int64
@@ -63,13 +63,15 @@ type BulkOperationPackedSingleBlock struct {
 
 const BLOCK_COUNT = 1
 
-func newBulkOperationPackedSingleBlock(bitsPerValue uint32) *BulkOperation {
+func newBulkOperationPackedSingleBlock(bitsPerValue uint32) BulkOperation {
 	// log.Printf("Initializing BulkOperationPackedSingleBlock(%v)", bitsPerValue)
 	self := &BulkOperationPackedSingleBlock{
 		bitsPerValue: bitsPerValue,
 		valueCount:   64 / int(bitsPerValue),
-		mask:         (int64(1) << bitsPerValue) - 1}
-	return &BulkOperation{self}
+		mask:         (int64(1) << bitsPerValue) - 1,
+	}
+	self.BulkOperationImpl = newBulkOperationImpl(self)
+	return self
 }
 
 func (p *BulkOperationPackedSingleBlock) ByteValueCount() int {

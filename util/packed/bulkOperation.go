@@ -2,140 +2,278 @@ package packed
 
 import (
 	"fmt"
-	"log"
 )
 
 // util/packed/BulkOperation.java
 
 // Efficient sequential read/write of packed integers.
-type BulkOperation struct {
+type BulkOperation interface {
 	// PackedIntsEncoder
 	PackedIntsDecoder
-}
+	/*
+		For every number of bits per value, there is a minumum number of
+		blocks (b) / values (v) you need to write an order to reach the next block
+		boundary:
+		- 16 bits per value -> b=2, v=1
+		- 24 bits per value -> b=3, v=1
+		- 50 bits per value -> b=25, v=4
+		- 63 bits per value -> b=63, v=8
+		- ...
 
-func newBulkOperationPacked1() *BulkOperation {
-	log.Print("Initializng BulkOperationPacked1...")
-	ans := newBulkOperationPacked(1)
-	return ans
-}
+		A bulk read consists in copying iterations*v vlaues that are contained in
+		iterations*b blocks into a []int64 (higher values of iterations are likely to
+		yield a better throughput) => this requires n * (b + 8v) bytes of memory.
 
-func newBulkOperationPacked2() *BulkOperation {
-	ans := newBulkOperationPacked(2)
-	return ans
-}
-
-func newBulkOperationPacked3() *BulkOperation {
-	ans := newBulkOperationPacked(3)
-	return ans
-}
-
-func newBulkOperationPacked4() *BulkOperation {
-	ans := newBulkOperationPacked(4)
-	return ans
-}
-
-func newBulkOperationPacked5() *BulkOperation {
-	ans := newBulkOperationPacked(4)
-	return ans
-}
-
-func newBulkOperationPacked6() *BulkOperation {
-	ans := newBulkOperationPacked(6)
-	return ans
-}
-
-func newBulkOperationPacked7() *BulkOperation {
-	ans := newBulkOperationPacked(7)
-	return ans
-}
-
-func newBulkOperationPacked8() *BulkOperation {
-	ans := newBulkOperationPacked(8)
-	return ans
-}
-
-func newBulkOperationPacked9() *BulkOperation {
-	ans := newBulkOperationPacked(9)
-	return ans
-}
-
-func newBulkOperationPacked10() *BulkOperation {
-	ans := newBulkOperationPacked(10)
-	return ans
-}
-
-func newBulkOperationPacked11() *BulkOperation {
-	ans := newBulkOperationPacked(11)
-	return ans
-}
-
-func newBulkOperationPacked12() *BulkOperation {
-	ans := newBulkOperationPacked(12)
-	return ans
-}
-
-func newBulkOperationPacked13() *BulkOperation {
-	ans := newBulkOperationPacked(13)
-	return ans
-}
-
-func newBulkOperationPacked14() *BulkOperation {
-	ans := newBulkOperationPacked(14)
-	return ans
-}
-
-func newBulkOperationPacked15() *BulkOperation {
-	ans := newBulkOperationPacked(15)
-	return ans
-}
-
-func newBulkOperationPacked16() *BulkOperation {
-	ans := newBulkOperationPacked(16)
-	return ans
-}
-
-func newBulkOperationPacked17() *BulkOperation {
-	ans := newBulkOperationPacked(17)
-	return ans
-}
-
-func newBulkOperationPacked18() *BulkOperation {
-	ans := newBulkOperationPacked(18)
-	return ans
-}
-
-func newBulkOperationPacked19() *BulkOperation {
-	ans := newBulkOperationPacked(19)
-	return ans
-}
-
-func newBulkOperationPacked20() *BulkOperation {
-	ans := newBulkOperationPacked(20)
-	return ans
-}
-
-func newBulkOperationPacked21() *BulkOperation {
-	ans := newBulkOperationPacked(21)
-	return ans
-}
-
-func newBulkOperationPacked22() *BulkOperation {
-	ans := newBulkOperationPacked(22)
-	return ans
-}
-
-func newBulkOperationPacked23() *BulkOperation {
-	ans := newBulkOperationPacked(23)
-	return ans
-}
-
-func newBulkOperationPacked24() *BulkOperation {
-	ans := newBulkOperationPacked(24)
-	return ans
+		This method computes iterations as ramBudget / (b + 8v) (since an int64 is
+		8 bytes).
+	*/
+	computeIterations(valueCount, ramBudget int) int
 }
 
 var (
-	packedBulkOps = []*BulkOperation{
+	packedBulkOps = []BulkOperation{
+		/*[[[gocog
+		package main
+
+		import (
+			"fmt"
+			"io"
+			"os"
+		)
+
+		const (
+			MAX_SPECIALIZED_BITS_PER_VALUE = 24
+			HEADER                         = `// This file has been automatically generated, DO NOT EDIT
+
+		package packed
+
+		// Efficient sequential read/write of packed integers.`
+		)
+
+		func isPowerOfTwo(n int) bool {
+			return n&(n-1) == 0
+		}
+
+		func casts(typ string) (castStart, castEnd string) {
+			if typ == "int64" {
+				return "", ""
+			}
+			return fmt.Sprintf("%s(", typ), ")"
+		}
+
+		func masks(bits int) (start, end string) {
+			if bits == 64 {
+				return "", ""
+			}
+			return "(", fmt.Sprintf(" & %x)", (1<<uint(bits))-1)
+		}
+
+		func getType(bits int) string {
+			switch bits {
+			case 8:
+				return "byte"
+			case 16:
+				return "int16"
+			case 32:
+				return "int"
+			case 64:
+				return "int64"
+			default:
+				panic("assert fail")
+			}
+		}
+
+		func blockValueCount(bpv, bits int) (blocks, values int) {
+			blocks = bpv
+			values = blocks * bits / bpv
+			for blocks%2 == 0 && values%2 == 0 {
+				blocks /= 2
+				values /= 2
+			}
+			assert2(values*bpv == bits*blocks, fmt.Sprintf("%d values, %d blocks, %d bits per value", values, blocks, bpv))
+			return blocks, values
+		}
+
+		func assert2(ok bool, msg string) {
+			if !ok {
+				panic(msg)
+			}
+		}
+
+		func packed64(bpv int, f io.Writer) {
+			if bpv == 64 {
+				panic("not implemented yet")
+			} else {
+				//p64Decode(bpv, f, 32)
+				p64Decode(bpv, f, 64)
+			}
+		}
+
+		func p64Decode(bpv int, f io.Writer, bits int) {
+			_, values := blockValueCount(bpv, 64)
+			typ := getType(bits)
+			castStart, castEnd := casts(typ)
+			var mask uint
+
+			fmt.Fprintf(f, "func (op *BulkOperationPacked%d) decode(blocks []int64, values []%s, iterations int) {\n", bpv, typ)
+			if bits < bpv {
+				fmt.Fprintln(f, "	panic(\"not supported yet\")")
+			} else {
+				fmt.Fprintln(f, "	blocksOffset, valuesOffset := 0, 0")
+				fmt.Fprintf(f, "	for i := 0; i < iterations; i ++ {\n")
+				mask = 1<<uint(bpv) - 1
+
+				if isPowerOfTwo(bpv) {
+					fmt.Fprintln(f, "		block := blocks[blocksOffset]; blocksOffset++")
+					fmt.Fprintf(f, "		for shift := uint(%d); shift >= 0; shift -= %d {\n", 64-bpv, bpv)
+					fmt.Fprintf(f, "			values[valuesOffset] = %s(int64(uint64(block) >> shift)) & %d%s; valuesOffset++\n", castStart, mask, castEnd)
+					fmt.Fprintln(f, "		}")
+				} else {
+					for i := 0; i < values; i++ {
+						blockOffset := i * bpv / 64
+						bitOffset := (i * bpv) % 64
+						if bitOffset == 0 {
+							// start of block
+							fmt.Fprintf(f, "		block%d := blocks[blocksOffset]; blocksOffset++\n", blockOffset)
+							fmt.Fprintf(f, "		values[valuesOffset] = %sint64(uint64(block%d >> %d%s)); valuesOffset++\n", castStart, blockOffset, 64-bpv, castEnd)
+						} else if bitOffset+bpv == 64 {
+							// end of block
+							fmt.Fprintf(f, "		values[valuesOffset] = %sblock%d & %d%s; valuesOffset++\n", castStart, blockOffset, mask, castEnd)
+						} else if bitOffset+bpv < 64 {
+							// middle of block
+							fmt.Fprintf(f, "		values[valuesOffset] = %sint64(uint64(block%d >> %d)) & %d%s; valuesOffset++\n", castStart, blockOffset, 64-bitOffset-bpv, mask, castEnd)
+						} else {
+							// value spans across 2 blocks
+							mask1 := int(1<<uint(64-bitOffset)) - 1
+							shift1 := bitOffset + bpv - 64
+							shift2 := 64 - shift1
+							fmt.Fprintf(f, "		block%d := blocks[blocksOffset]; blocksOffset++\n", blockOffset+1)
+							fmt.Fprintf(f, "		values[valuesOffset] = %s((block%d & %d) << %d) | (int64(uint64(block%d) >> %d))%s; valuesOffset++\n",
+								castStart, blockOffset, mask1, shift1, blockOffset+1, shift2, castEnd)
+						}
+					}
+				}
+				fmt.Fprintln(f, "	}")
+			}
+			fmt.Fprintln(f, "}\n")
+
+			_, byteValues := blockValueCount(bpv, 8)
+
+			fmt.Fprintf(f, "func (op *BulkOperationPacked%d) decodeByteTo%s(blocks []byte, values []%s, iterations int) {\n", bpv, typ, typ)
+			if bits < bpv {
+				fmt.Fprintln(f, "	panic(\"not supported yet\")")
+			} else {
+				fmt.Fprintln(f, "	blocksOffset, valuesOffset := 0, 0")
+				if isPowerOfTwo(bpv) && bpv < 8 {
+					fmt.Fprintf(f, "	for j := 0; j < iterations; j ++ {\n")
+					fmt.Fprintf(f, "		block := blocks[blocksOffset]\n")
+					fmt.Fprintln(f, "		blocksOffset++")
+					for shift := 8 - bpv; shift > 0; shift -= bpv {
+						fmt.Fprintf(f, "		values[valuesOffset] = %s(byte(uint8(block)) >> %d) & %d\n", typ, shift, mask)
+						fmt.Fprintln(f, "		valuesOffset++")
+					}
+					fmt.Fprintf(f, "		values[valuesOffset] = %s(block & %d)\n", typ, mask)
+					fmt.Fprintln(f, "		valuesOffset++")
+					fmt.Fprintln(f, "	}")
+				} else if bpv == 8 {
+					fmt.Fprintln(f, "	for j := 0; j < iterations; j ++ {")
+					fmt.Fprintf(f, "		values[valuesOffset] = %s(blocks[blocksOffset]); valuesOffset++; blocksOffset++\n", typ)
+					fmt.Fprintln(f, "	}")
+				} else if isPowerOfTwo(bpv) && bpv > 8 {
+					fmt.Fprintf(f, "	for j := 0; j < iterations; j ++ {\n")
+					m := "int32"
+					if bits > 32 {
+						m = "int64"
+					}
+					fmt.Fprintf(f, "		values[valuesOffset] =")
+					for i, until := 0, bpv/8-1; i < until; i++ {
+						fmt.Fprintf(f, " (%s(blocks[blocksOffset+%d]) << %d) |", m, i, bpv-8)
+					}
+					fmt.Fprintf(f, " %s(blocks[blocksOffset+%d])\n", m, bpv/8-1)
+					fmt.Fprintln(f, "		valuesOffset++")
+					fmt.Fprintf(f, "		blocksOffset += %d\n", bpv/8)
+					fmt.Fprintln(f, "	}")
+				} else {
+					fmt.Fprintf(f, "	for i := 0; i < iterations; i ++ {\n")
+					for i := 0; i < byteValues; i++ {
+						byteStart, byteEnd := i*bpv/8, ((i+1)*bpv-1)/8
+						bitStart, bitEnd := (i*bpv)%8, ((i+1)*bpv-1)%8
+						shift := func(b int) int { return 8*(byteEnd-b-1) + 1 + bitEnd }
+						if bitStart == 0 {
+							fmt.Fprintf(f, "		byte%d := blocks[blocksOffset]\n", byteStart)
+							fmt.Fprintln(f, "		blocksOffset++")
+						}
+						for b, until := byteStart+1, byteEnd+1; b < until; b++ {
+							fmt.Fprintf(f, "		byte%d := blocks[blocksOffset]\n", b)
+							fmt.Fprintln(f, "		blocksOffset++")
+						}
+						fmt.Fprintf(f, "		values[valuesOffset] = %s(", typ)
+						if byteStart == byteEnd {
+							if bitStart == 0 {
+								if bitEnd == 7 {
+									fmt.Fprintf(f, " byte%d", byteStart)
+								} else {
+									fmt.Fprintf(f, " byte(uint8(byte%d) >> %d)", byteStart, 7-bitEnd)
+								}
+							} else {
+								if bitEnd == 7 {
+									fmt.Fprintf(f, " byte%d & %d", byteStart, 1<<uint(8-bitStart)-1)
+								} else {
+									fmt.Fprintf(f, " byte(uint8(byte%d >> %d)) & %d", byteStart, 7-bitEnd, 1<<uint(bitEnd-bitStart+1)-1)
+								}
+							}
+						} else {
+							if bitStart == 0 {
+								fmt.Fprintf(f, "(byte%d << %d)", byteStart, shift(byteStart))
+							} else {
+								fmt.Fprintf(f, "((byte%d & %d) << %d)", byteStart, 1<<uint(8-bitStart)-1, shift(byteStart))
+							}
+							for b, until := byteStart+1, byteEnd; b < until; b++ {
+								fmt.Fprintf(f, " | (byte%d << %d)", b, shift(b))
+							}
+							if bitEnd == 7 {
+								fmt.Fprintf(f, " | byte%d", byteEnd)
+							} else {
+								fmt.Fprintf(f, " | byte(uint8(byte%d) >> %d)", byteEnd, 7-bitEnd)
+							}
+						}
+						fmt.Fprintf(f, ")")
+						fmt.Fprintln(f, "")
+						fmt.Fprintln(f, "		valuesOffset++")
+					}
+					fmt.Fprintln(f, "	}")
+				}
+			}
+			fmt.Fprintln(f, "}")
+		}
+
+		func main() {
+			for bpv := 1; bpv <= 64; bpv++ {
+				if bpv > MAX_SPECIALIZED_BITS_PER_VALUE {
+					fmt.Printf("		newBulkOperationPacked(%d),\n", bpv)
+					continue
+				}
+				f, err := os.Create(fmt.Sprintf("bulkOperation%d.go", bpv))
+				if err != nil {
+					panic(err)
+				}
+				defer f.Close()
+
+				fmt.Fprintf(f, "%v\n", HEADER)
+				fmt.Fprintf(f, "type BulkOperationPacked%d struct {\n", bpv)
+				fmt.Fprintln(f, "	*BulkOperationPacked")
+				fmt.Fprintln(f, "}\n")
+
+				fmt.Fprintf(f, "func newBulkOperationPacked%d() BulkOperation {\n", bpv)
+				fmt.Fprintf(f, "	return &BulkOperationPacked%d{newBulkOperationPacked(%d)}\n", bpv, bpv)
+				fmt.Fprintln(f, "}\n")
+
+				packed64(bpv, f)
+
+				fmt.Printf("		newBulkOperationPacked%d(),\n", bpv)
+			}
+		}
+				gocog]]]*/
 		newBulkOperationPacked1(),
 		newBulkOperationPacked2(),
 		newBulkOperationPacked3(),
@@ -200,9 +338,25 @@ var (
 		newBulkOperationPacked(62),
 		newBulkOperationPacked(63),
 		newBulkOperationPacked(64),
+		// [[[end]]]
 	}
 
-	packedSingleBlockBulkOps = []*BulkOperation{
+	packedSingleBlockBulkOps = []BulkOperation{
+		/*[[[gocog
+			package main
+			import "fmt"
+		  var PACKED_64_SINGLE_BLOCK_BPV = []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 21, 32}
+			func main() {
+				var bpv int = 1
+				for _, v := range PACKED_64_SINGLE_BLOCK_BPV {
+					for ;bpv < v; bpv++ {
+						fmt.Print("		nil,\n")
+					}
+					fmt.Printf("		newBulkOperationPackedSingleBlock(%v),\n", bpv)
+					bpv++
+				}
+			}
+			gocog]]]*/
 		newBulkOperationPackedSingleBlock(1),
 		newBulkOperationPackedSingleBlock(2),
 		newBulkOperationPackedSingleBlock(3),
@@ -235,10 +389,11 @@ var (
 		nil,
 		nil,
 		newBulkOperationPackedSingleBlock(32),
+		// [[[end]]]
 	}
 )
 
-func newBulkOperation(format PackedFormat, bitsPerValue uint32) *BulkOperation {
+func newBulkOperation(format PackedFormat, bitsPerValue uint32) BulkOperation {
 	// log.Printf("Initializing BulkOperation(%v,%v)", format, bitsPerValue)
 	switch int(format) {
 	case PACKED:
@@ -251,24 +406,15 @@ func newBulkOperation(format PackedFormat, bitsPerValue uint32) *BulkOperation {
 	panic(fmt.Sprintf("invalid packed format: %v", format))
 }
 
-/*
-For every number of bits per value, there is a minumum number of
-blocks (b) / values (v) you need to write an order to reach the next block
-boundary:
-- 16 bits per value -> b=2, v=1
-- 24 bits per value -> b=3, v=1
-- 50 bits per value -> b=25, v=4
-- 63 bits per value -> b=63, v=8
-- ...
+type BulkOperationImpl struct {
+	PackedIntsDecoder
+}
 
-A bulk read consists in copying iterations*v vlaues that are contained in
-iterations*b blocks into a []int64 (higher values of iterations are likely to
-yield a better throughput) => this requires n * (b + 8v) bytes of memory.
+func newBulkOperationImpl(decoder PackedIntsDecoder) *BulkOperationImpl {
+	return &BulkOperationImpl{decoder}
+}
 
-This method computes iterations as ramBudget / (b + 8v) (since an int64 is
-8 bytes).
-*/
-func (op *BulkOperation) computeIterations(valueCount, ramBudget int) int {
+func (op *BulkOperationImpl) computeIterations(valueCount, ramBudget int) int {
 	iterations := ramBudget / (op.ByteBlockCount() + 8*op.ByteValueCount())
 	if iterations == 0 {
 		// at least 1
