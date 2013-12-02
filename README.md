@@ -3,9 +3,14 @@ golucene
 
 Go port of Apache Lucene but focus on IndexSearcher
 
+Milestones
+----------
+2013/11/11 First test case that search for specific keyword has passed with number of hits.
+
+
 Progress
 --------
-6500/40000 LoC, 33 Weeks Left
+9845/40000 LoC, 30 Weeks Left
 
 License
 -------
