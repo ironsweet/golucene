@@ -2,7 +2,6 @@ package search
 
 import (
 	"github.com/balzaczyy/golucene/index"
-	"log"
 )
 
 // search/Scorer.java
@@ -37,7 +36,6 @@ func (s *abstractScorer) ScoreAndCollect(c Collector) (err error) {
 	c.SetScorer(s)
 	doc, err := s.NextDoc()
 	for doc != index.NO_MORE_DOCS && err == nil {
-		log.Println(doc)
 		c.Collect(doc)
 		doc, err = s.NextDoc()
 	}

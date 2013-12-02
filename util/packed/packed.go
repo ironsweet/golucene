@@ -99,7 +99,7 @@ type PackedIntsDecoder interface {
 		Read 8 * iterations * blockCount() blocks from blocks, decodethem and write
 		iterations * valueCount() values inot values.
 	*/
-	decodeBytesToLongs(blocks []byte, values []int64, iterations int)
+	decodeByteToint64(blocks []byte, values []int64, iterations int)
 }
 
 func GetPackedIntsEncoder(format PackedFormat, version int32, bitsPerValue uint32) PackedIntsEncoder {
@@ -343,7 +343,7 @@ func (it *PackedReaderIterator) nextN(count int) (vs []int64, err error) {
 		}
 
 		it.nextValues = it.nextValuesOrig // restore
-		it.bulkOperation.decodeBytesToLongs(it.nextBlocks, it.nextValues, it._iterations)
+		it.bulkOperation.decodeByteToint64(it.nextBlocks, it.nextValues, it._iterations)
 	}
 
 	if len(it.nextValues) < count {

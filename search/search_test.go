@@ -39,14 +39,17 @@ func TestKeywordSearch(t *testing.T) {
 	if len(r.Leaves()) < 1 {
 		t.Error("Should have one leaf.")
 	}
-	ss := search.NewIndexSearcher(r)
-	docs, err := ss.SearchTop(search.NewTermQuery(index.NewTerm("content", "bat")), 10)
+	ss := NewIndexSearcher(r)
+	docs, err := ss.SearchTop(NewTermQuery(index.NewTerm("content", "bat")), 10)
 	if err != nil {
 		t.Error(err)
 	}
 
 	assertEquals(t, 8, docs.TotalHits)
-	doc := r.Document(docs.ScoreDocs[0].doc)
+	doc, err := r.Document(docs.ScoreDocs[0].Doc)
+	if err != nil {
+		t.Error(err)
+	}
 	assertEquals(t, "Bat recyling", doc.Get("title"))
 }
 
