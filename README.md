@@ -5,17 +5,19 @@ Go port of Apache Lucene but focus on IndexSearcher
 
 Milestones
 ----------
-2013/11/11 First test case that search for specific keyword has passed with number of hits.
-
+2013/6/3    Initial code commited.
+2013/11/11  First test case that search for specific keyword has passed with number of hits.
+2013/12/3   Second test case that fetch string field has passed.
 
 Progress
 --------
-9845/40000 LoC, 30 Weeks Left
+13205/40000 LoC, 23 Weeks Left
+V1.0 ETA: 2014.5.13
 
 License
 -------
 
-Until further notice, all the code and document are licensed under APL 2.0.
+Until further notice, all the codes and documents are licensed under APL 2.0.
 
 Develop Guidelines
 ------------------
