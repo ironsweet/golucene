@@ -16,6 +16,8 @@ func HeaderLength(codec string) int {
 type DataInput interface {
 	ReadInt() (n int32, err error)
 	ReadString() (s string, err error)
+	ReadByte() (b byte, err error)
+	ReadBytes(buf []byte) error
 }
 
 func CheckHeader(in DataInput, codec string, minVersion, maxVersion int32) (v int32, err error) {

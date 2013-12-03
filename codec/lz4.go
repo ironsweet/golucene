@@ -1,6 +1,14 @@
 package codec
 
+import (
+	"log"
+)
+
 // codec/compressing/LZ4.java
+
+const (
+	MIN_MATCH = 4 // minimum length of a match
+)
 
 /*
 Decompress at least decompressedLen bytes into dest[]. Please
@@ -9,5 +17,84 @@ decompressed data (meaning that you need to know the total
 decompressed length)
 */
 func LZ4Decompress(compressed DataInput, decompressedLen int, dest []byte) (length int, err error) {
-	panic("not implemented yet")
+	dOff, destEnd := 0, len(dest)
+
+	for {
+		// literals
+		var token int
+		token, err = asInt(compressed.ReadByte())
+		if literalLen := int(uint(token) >> 4); literalLen != 0 {
+			if literalLen == 0x0F {
+				var b byte = 0xFF
+				for b == 0XFF {
+					b, err = compressed.ReadByte()
+					if err != nil {
+						return
+					}
+					literalLen += int(uint8(b))
+				}
+			}
+			err = compressed.ReadBytes(dest[dOff : dOff+literalLen])
+			if err != nil {
+				return
+			}
+			dOff += literalLen
+		}
+
+		if dOff >= decompressedLen {
+			break
+		}
+
+		// matches
+		var matchDec int
+		matchDec, err = asInt(compressed.ReadByte())
+		if err != nil {
+			return
+		}
+		if b, err := asInt(compressed.ReadByte()); err == nil {
+			matchDec = matchDec | (b << 8)
+		} else {
+			return 0, err
+		}
+		assert(matchDec > 0)
+
+		matchLen := token & 0x0F
+		if matchLen == 0x0F {
+			var b byte = 0xFF
+			for b == 0xFF {
+				b, err = compressed.ReadByte()
+				if err != nil {
+					return
+				}
+				matchLen += int(b)
+			}
+		}
+		matchLen += MIN_MATCH
+
+		// copying a multiple of 8 bytes can make decompression from 5% to 10% faster
+		fastLen := (matchLen + 7) & 0xFFFFFFF8
+		if matchDec < matchLen || dOff+fastLen > destEnd {
+			// overlap -> naive incremental copy
+			for ref, end := dOff-matchDec, dOff+matchLen; dOff < end; {
+				dest[dOff] = dest[ref]
+				ref++
+				dOff++
+			}
+		} else {
+			// no overlap -> arraycopy
+			log.Println("DEBUG", dOff, matchDec, fastLen, len(dest))
+			copy(dest[dOff-matchDec:], dest[dOff:dOff+fastLen])
+			dOff += matchLen
+		}
+
+		if dOff >= decompressedLen {
+			break
+		}
+	}
+
+	return dOff, nil
+}
+
+func asInt(b byte, err error) (n int, err2 error) {
+	return int(b), err
 }
