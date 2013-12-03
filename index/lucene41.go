@@ -823,11 +823,11 @@ func (r *CompressingStoredFieldsReader) visitDocument(docID int, visitor StoredF
 			return err
 		}
 		switch status {
-		case SOTRED_FIELD_VISITOR_STATUS_YES:
+		case STORED_FIELD_VISITOR_STATUS_YES:
 			r.readField(documentInput, visitor, fieldInfo, bits)
-		case SOTRED_FIELD_VISITOR_STATUS_NO:
+		case STORED_FIELD_VISITOR_STATUS_NO:
 			panic("not implemented yet")
-		case SOTRED_FIELD_VISITOR_STATUS_STOP:
+		case STORED_FIELD_VISITOR_STATUS_STOP:
 			return nil
 		}
 	}

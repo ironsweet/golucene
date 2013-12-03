@@ -50,7 +50,7 @@ func TestKeywordSearch(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	assertEquals(t, "Bat recyling", doc.Get("title"))
+	assertEquals(t, "Bat recycling", doc.Get("title"))
 }
 
 // func TestSingleSearch(t *testing.T) {

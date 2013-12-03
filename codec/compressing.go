@@ -3,7 +3,6 @@ package codec
 import (
 	"errors"
 	"fmt"
-	// "github.com/balzaczyy/golucene/util"
 )
 
 type CompressionMode interface {

@@ -490,7 +490,7 @@ func (va *StoredFieldVisitorAdapter) doubleField(fi FieldInfo, value float64) er
 type StoredFieldVisitorStatus int
 
 const (
-	SOTRED_FIELD_VISITOR_STATUS_YES  = StoredFieldVisitorStatus(1)
-	SOTRED_FIELD_VISITOR_STATUS_NO   = StoredFieldVisitorStatus(2)
-	SOTRED_FIELD_VISITOR_STATUS_STOP = StoredFieldVisitorStatus(3)
+	STORED_FIELD_VISITOR_STATUS_YES  = StoredFieldVisitorStatus(1)
+	STORED_FIELD_VISITOR_STATUS_NO   = StoredFieldVisitorStatus(2)
+	STORED_FIELD_VISITOR_STATUS_STOP = StoredFieldVisitorStatus(3)
 )

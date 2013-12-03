@@ -1,9 +1,5 @@
 package codec
 
-import (
-	"log"
-)
-
 // codec/compressing/LZ4.java
 
 const (
@@ -82,7 +78,7 @@ func LZ4Decompress(compressed DataInput, decompressedLen int, dest []byte) (leng
 			}
 		} else {
 			// no overlap -> arraycopy
-			copy(dest[dOff-matchDec:], dest[dOff:dOff+fastLen])
+			copy(dest[dOff:], dest[dOff-matchDec:dOff-matchDec+fastLen])
 			dOff += matchLen
 		}
 

@@ -23,11 +23,13 @@ import (
  * <i>not</i> available in documents retrieved from the index, e.g. with {@link
  * ScoreDoc#doc} or {@link IndexReader#document(int)}.
  */
-type Document []IndexableField
+type Document struct {
+	fields []IndexableField
+}
 
 /** Constructs a new document with no fields. */
-func newDocument() Document {
-	return Document(make([]IndexableField, 0))
+func newDocument() *Document {
+	return &Document{make([]IndexableField, 0)}
 }
 
 /**
@@ -40,8 +42,8 @@ func newDocument() Document {
  * a document has to be deleted from an index and a new changed version of that
  * document has to be added.</p>
  */
-func (doc Document) add(field IndexableField) {
-	doc = append(doc, field)
+func (doc *Document) add(field IndexableField) {
+	doc.fields = append(doc.fields, field)
 }
 
 /*
@@ -54,8 +56,8 @@ For IntField, LongField, FloatField, and DoubleField, it returns the string
 value of the number. If you want the actual numeric field instance back, use
 getField().
 */
-func (doc Document) Get(name string) string {
-	for _, field := range doc {
+func (doc *Document) Get(name string) string {
+	for _, field := range doc.fields {
 		if field.name() == name && field.stringValue() != "" {
 			return field.stringValue()
 		}
@@ -73,8 +75,8 @@ This is used by IndexReader.Document() to load a document.
 */
 type DocumentStoredFieldVisitor struct {
 	*StoredFieldVisitorAdapter
-	doc         Document
-	fieldsToAdd []string
+	doc         *Document
+	fieldsToAdd map[string]bool
 }
 
 /** Load all stored fields. */
@@ -91,7 +93,13 @@ func (visitor *DocumentStoredFieldVisitor) binaryField(fi FieldInfo, value []byt
 }
 
 func (visitor *DocumentStoredFieldVisitor) stringField(fi FieldInfo, value string) error {
-	panic("not implemented yet")
+	ft := newFieldTypeFrom(TEXT_FIELD_TYPE_STORED)
+	ft._storeTermVectors = fi.storeTermVector
+	ft._indexed = fi.indexed
+	ft._omitNorms = fi.omitNorms
+	ft._indexOptions = fi.indexOptions
+	visitor.doc.add(newStringField(fi.name, value, ft))
+	return nil
 }
 
 func (visitor *DocumentStoredFieldVisitor) intField(fi FieldInfo, value int) error {
@@ -111,10 +119,17 @@ func (visitor *DocumentStoredFieldVisitor) doubleField(fi FieldInfo, value float
 }
 
 func (visitor *DocumentStoredFieldVisitor) needsField(fi FieldInfo) (status StoredFieldVisitorStatus, err error) {
-	panic("not implemented yet")
+	if visitor.fieldsToAdd == nil {
+		status = STORED_FIELD_VISITOR_STATUS_YES
+	} else if _, ok := visitor.fieldsToAdd[fi.name]; ok {
+		status = STORED_FIELD_VISITOR_STATUS_YES
+	} else {
+		status = STORED_FIELD_VISITOR_STATUS_NO
+	}
+	return
 }
 
-func (visitor *DocumentStoredFieldVisitor) Document() Document {
+func (visitor *DocumentStoredFieldVisitor) Document() *Document {
 	return visitor.doc
 }
 
@@ -316,6 +331,32 @@ func (f *Field) fieldType() IndexableFieldType {
 
 func (f *Field) tokenStream(analyzer analysis.Analyzer) (ts analysis.TokenStream, err error) {
 	panic("not implemented yet")
+}
+
+// document/TextField.java
+
+var (
+	// Indexed, tokenized, not stored
+	TEXT_FIELD_TYPE_NOT_STORED = func() *FieldType {
+		ft := newFieldType()
+		ft._indexed = true
+		ft._tokenized = true
+		ft.frozen = true
+		return ft
+	}()
+	// Indexed, tokenized, stored
+	TEXT_FIELD_TYPE_STORED = func() *FieldType {
+		ft := newFieldType()
+		ft._indexed = true
+		ft._tokenized = true
+		ft._stored = true
+		ft.frozen = true
+		return ft
+	}()
+)
+
+type TextField struct {
+	*Field
 }
 
 // document/StoredField.java

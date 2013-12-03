@@ -43,7 +43,7 @@ type IndexReader interface {
 	// TODO: we need a separate StoredField, so that the
 	// Document returned here contains that class not
 	// IndexableField
-	Document(docID int) (doc Document, err error)
+	Document(docID int) (doc *Document, err error)
 	doClose() error
 	Context() IndexReaderContext
 	Leaves() []AtomicReaderContext
@@ -130,7 +130,7 @@ func (r *IndexReaderImpl) reportCloseToParentReaders() {
 	}
 }
 
-func (r *IndexReaderImpl) Document(docID int) (doc Document, err error) {
+func (r *IndexReaderImpl) Document(docID int) (doc *Document, err error) {
 	visitor := newDocumentStoredFieldVisitor()
 	if err = r.VisitDocument(docID, visitor); err != nil {
 		return nil, err
