@@ -82,7 +82,6 @@ func LZ4Decompress(compressed DataInput, decompressedLen int, dest []byte) (leng
 			}
 		} else {
 			// no overlap -> arraycopy
-			log.Println("DEBUG", dOff, matchDec, fastLen, len(dest))
 			copy(dest[dOff-matchDec:], dest[dOff:dOff+fastLen])
 			dOff += matchLen
 		}
