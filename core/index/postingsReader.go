@@ -1,8 +1,8 @@
 package index
 
 import (
-	"github.com/balzaczyy/golucene/store"
-	"github.com/balzaczyy/golucene/util"
+	"github.com/balzaczyy/golucene/core/store"
+	"github.com/balzaczyy/golucene/core/util"
 	"io"
 )
 

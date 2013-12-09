@@ -1,7 +1,7 @@
 package search
 
 import (
-	"github.com/balzaczyy/golucene/index"
+	"github.com/balzaczyy/golucene/core/index"
 )
 
 // search/Scorer.java

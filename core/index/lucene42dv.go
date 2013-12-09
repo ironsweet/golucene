@@ -3,9 +3,9 @@ package index
 import (
 	"errors"
 	"fmt"
-	"github.com/balzaczyy/golucene/codec"
-	"github.com/balzaczyy/golucene/store"
-	"github.com/balzaczyy/golucene/util"
+	"github.com/balzaczyy/golucene/core/codec"
+	"github.com/balzaczyy/golucene/core/store"
+	"github.com/balzaczyy/golucene/core/util"
 	"sync"
 )
 

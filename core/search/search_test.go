@@ -1,9 +1,8 @@
 package search
 
 import (
-	// "fmt"
-	"github.com/balzaczyy/golucene/index"
-	"github.com/balzaczyy/golucene/store"
+	"github.com/balzaczyy/golucene/core/index"
+	"github.com/balzaczyy/golucene/core/store"
 	"testing"
 )
 

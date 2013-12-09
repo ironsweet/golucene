@@ -1,7 +1,7 @@
 package index
 
 import (
-	"github.com/balzaczyy/golucene/analysis"
+	"github.com/balzaczyy/golucene/core/analysis"
 	"io"
 )
 

@@ -3,7 +3,7 @@ package index
 import (
 	"errors"
 	"fmt"
-	"github.com/balzaczyy/golucene/util"
+	"github.com/balzaczyy/golucene/core/util"
 	"io"
 	"sync"
 	"sync/atomic"

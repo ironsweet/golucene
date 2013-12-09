@@ -1,7 +1,7 @@
 package store
 
 import (
-	"github.com/balzaczyy/golucene/codec"
+	"github.com/balzaczyy/golucene/core/codec"
 	"testing"
 )
 

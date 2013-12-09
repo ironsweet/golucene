@@ -1,7 +1,7 @@
 package index
 
 import (
-	"github.com/balzaczyy/golucene/util/packed"
+	"github.com/balzaczyy/golucene/core/util/packed"
 	"math"
 )
 

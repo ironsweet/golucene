@@ -3,8 +3,8 @@ package index
 import (
 	"bytes"
 	"fmt"
-	"github.com/balzaczyy/golucene/analysis"
-	"github.com/balzaczyy/golucene/util"
+	"github.com/balzaczyy/golucene/core/analysis"
+	"github.com/balzaczyy/golucene/core/util"
 	"io"
 	"log"
 	"strconv"

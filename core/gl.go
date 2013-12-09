@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/balzaczyy/golucene/index"
-	"github.com/balzaczyy/golucene/search"
-	"github.com/balzaczyy/golucene/store"
+	"github.com/balzaczyy/golucene/core/index"
+	"github.com/balzaczyy/golucene/core/search"
+	"github.com/balzaczyy/golucene/core/store"
 	"log"
 )
 

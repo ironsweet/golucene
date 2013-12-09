@@ -2,7 +2,7 @@ package index
 
 import (
 	"fmt"
-	"github.com/balzaczyy/golucene/util"
+	"github.com/balzaczyy/golucene/core/util"
 	"log"
 	"sort"
 )

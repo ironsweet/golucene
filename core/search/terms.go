@@ -2,8 +2,8 @@ package search
 
 import (
 	"fmt"
-	"github.com/balzaczyy/golucene/index"
-	"github.com/balzaczyy/golucene/util"
+	"github.com/balzaczyy/golucene/core/index"
+	"github.com/balzaczyy/golucene/core/util"
 )
 
 type TermQuery struct {

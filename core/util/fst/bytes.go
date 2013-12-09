@@ -2,7 +2,7 @@ package fst
 
 import (
 	"fmt"
-	"github.com/balzaczyy/golucene/util"
+	"github.com/balzaczyy/golucene/core/util"
 )
 
 type BytesStore struct {
