@@ -28,8 +28,12 @@ type Document struct {
 }
 
 /** Constructs a new document with no fields. */
-func newDocument() *Document {
+func NewDocument() *Document {
 	return &Document{make([]IndexableField, 0)}
+}
+
+func (doc *Document) Fields() []IndexableField {
+	return doc.fields
 }
 
 /**
@@ -42,7 +46,7 @@ func newDocument() *Document {
  * a document has to be deleted from an index and a new changed version of that
  * document has to be added.</p>
  */
-func (doc *Document) add(field IndexableField) {
+func (doc *Document) Add(field IndexableField) {
 	doc.fields = append(doc.fields, field)
 }
 
@@ -82,7 +86,7 @@ type DocumentStoredFieldVisitor struct {
 /** Load all stored fields. */
 func newDocumentStoredFieldVisitor() *DocumentStoredFieldVisitor {
 	return &DocumentStoredFieldVisitor{
-		doc: newDocument(),
+		doc: NewDocument(),
 	}
 }
 
@@ -98,7 +102,7 @@ func (visitor *DocumentStoredFieldVisitor) stringField(fi FieldInfo, value strin
 	ft._indexed = fi.indexed
 	ft._omitNorms = fi.omitNorms
 	ft._indexOptions = fi.indexOptions
-	visitor.doc.add(newStringField(fi.name, value, ft))
+	visitor.doc.Add(newStringField(fi.name, value, ft))
 	return nil
 }
 

@@ -1,12 +1,23 @@
 package store
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"os"
 	"strconv"
 )
+
+type NoSuchDirectoryError struct {
+	msg string
+}
+
+func newNoSuchDirectoryError(msg string) *NoSuchDirectoryError {
+	return &NoSuchDirectoryError{msg}
+}
+
+func (err *NoSuchDirectoryError) Error() string {
+	return err.msg
+}
 
 type FSDirectory struct {
 	*DirectoryImpl
@@ -17,12 +28,12 @@ type FSDirectory struct {
 // TODO support lock factory
 func newFSDirectory(self Directory, path string) (d *FSDirectory, err error) {
 	d = &FSDirectory{}
-	d.DirectoryImpl = newDirectoryImpl(self)
+	d.DirectoryImpl = NewDirectoryImpl(self)
 	d.path = path
 	d.chunkSize = math.MaxInt32
 
 	if fi, err := os.Stat(path); err == nil && !fi.IsDir() {
-		return d, errors.New(fmt.Sprintf("file '%v' exists but is not a directory", path))
+		return d, newNoSuchDirectoryError(fmt.Sprintf("file '%v' exists but is not a directory", path))
 	}
 
 	// TODO default to native lock factory
@@ -58,14 +69,14 @@ func (d *FSDirectory) setLockFactory(lockFactory LockFactory) error {
 func FSDirectoryListAll(path string) (paths []string, err error) {
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
-		return nil, errors.New(fmt.Sprintf("directory '%v' does not exist", path))
+		return nil, newNoSuchDirectoryError(fmt.Sprintf("directory '%v' does not exist", path))
 	} else if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer f.Close()
 	fi, err := f.Stat()
 	if !fi.IsDir() {
-		return nil, errors.New(fmt.Sprintf("file '%v' exists but is not a directory", path))
+		return nil, newNoSuchDirectoryError(fmt.Sprintf("file '%v' exists but is not a directory", path))
 	}
 
 	// Exclude subdirs

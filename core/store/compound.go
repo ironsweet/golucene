@@ -44,7 +44,7 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 		fileName:       fileName,
 		readBufferSize: bufferSize(context),
 		openForWriter:  openForWrite}
-	self.DirectoryImpl = newDirectoryImpl(self)
+	self.DirectoryImpl = NewDirectoryImpl(self)
 
 	if !openForWrite {
 		log.Printf("Open for read.")
@@ -63,7 +63,7 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 			return self, err
 		}
 		success = true
-		self.DirectoryImpl.isOpen = true
+		self.DirectoryImpl.IsOpen = true
 		return self, err
 	} else {
 		panic("not supported yet")
@@ -78,12 +78,12 @@ func (d *CompoundFileDirectory) Close() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if d == nil || !d.isOpen {
+	if d == nil || !d.IsOpen {
 		log.Print("CompoundFileDirectory is already closed.")
 		// allow double close - usually to be consistent with other closeables
 		return nil // already closed
 	}
-	d.isOpen = false
+	d.IsOpen = false
 	/*
 		if d.writer != nil {
 			// assert d.openForWrite

@@ -136,12 +136,12 @@ type Directory interface {
 
 type DirectoryImpl struct {
 	Directory
-	isOpen      bool
+	IsOpen      bool
 	lockFactory LockFactory
 }
 
-func newDirectoryImpl(self Directory) *DirectoryImpl {
-	return &DirectoryImpl{Directory: self, isOpen: true}
+func NewDirectoryImpl(self Directory) *DirectoryImpl {
+	return &DirectoryImpl{Directory: self, IsOpen: true}
 }
 
 func (d *DirectoryImpl) makeLock(name string) Lock {
@@ -185,7 +185,7 @@ func (d *DirectoryImpl) createSlicer(name string, context IOContext) (is IndexIn
 }
 
 func (d *DirectoryImpl) ensureOpen() {
-	if !d.isOpen {
+	if !d.IsOpen {
 		log.Print("This Directory is closed.")
 		panic("this Directory is closed")
 	}

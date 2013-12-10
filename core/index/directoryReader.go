@@ -7,6 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
 	"log"
+	"strings"
 )
 
 const DEFAULT_TERMS_INDEX_DIVISOR = 1
@@ -38,6 +39,44 @@ func newDirectoryReader(self IndexReader, directory store.Directory, segmentRead
 
 func OpenDirectoryReader(directory store.Directory) (r DirectoryReader, err error) {
 	return openStandardDirectoryReader(directory, DEFAULT_TERMS_INDEX_DIVISOR)
+}
+
+/*
+Returns true if an index likely exists at the specified directory. Note that
+if a corrupt index exists, or if an index in the process of committing
+*/
+func IsIndexExists(directory store.Directory) (ok bool, err error) {
+	// LUCENE-2812, LUCENE-2727, LUCENE-4738: this logic will
+	// return true in cases that should arguably be false,
+	// such as only IW.prepareCommit has been called, or a
+	// corrupt first commit, but it's too deadly to make
+	// this logic "smarter" and risk accidentally returning
+	// false due to various cases like file description
+	// exhaustion, access denied, etc., because in that
+	// case IndexWriter may delete the entire index.  It's
+	// safer to err towards "index exists" than try to be
+	// smart about detecting not-yet-fully-committed or
+	// corrupt indices.  This means that IndexWriter will
+	// throw an exception on such indices and the app must
+	// resolve the situation manually:
+	var files []string
+	files, err = directory.ListAll()
+	if _, ok := err.(*store.NoSuchDirectoryError); ok {
+		// Directory does not exist --> no index exists
+		return false, nil
+	}
+
+	// Defensive: maybe a Directory impl returns null
+	// instead of throwing NoSuchDirectoryException:
+	if files != nil {
+		prefix := INDEX_FILENAME_SEGMENTS + "_"
+		for _, file := range files {
+			if strings.HasPrefix(file, prefix) || file == INDEX_FILENAME_SEGMENTS_GEN {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 type StandardDirectoryReader struct {

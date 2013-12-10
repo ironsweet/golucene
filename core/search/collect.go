@@ -10,7 +10,7 @@ import (
 /** Holds one hit in {@link TopDocs}. */
 type ScoreDoc struct {
 	/** The score of this document for the query. */
-	score float32
+	Score float32
 	/** A hit document's number.
 	 * @see IndexSearcher#doc(int) */
 	Doc int
@@ -19,7 +19,7 @@ type ScoreDoc struct {
 }
 
 func newScoreDoc(doc int, score float32) ScoreDoc {
-	return ScoreDoc{score: score, Doc: doc}
+	return ScoreDoc{Score: score, Doc: doc}
 }
 
 func newShardedScoreDoc(doc int, score float32, shardIndex int) ScoreDoc {
@@ -27,7 +27,7 @@ func newShardedScoreDoc(doc int, score float32, shardIndex int) ScoreDoc {
 }
 
 func (d ScoreDoc) String() string {
-	return fmt.Sprintf("doc=%v score=%v shardIndex=%v", d.Doc, d.score, d.shardIndex)
+	return fmt.Sprintf("doc=%v score=%v shardIndex=%v", d.Doc, d.Score, d.shardIndex)
 }
 
 type PriorityQueue struct {
@@ -202,10 +202,10 @@ func newTocScoreDocCollector(numHits int) *TopScoreDocCollector {
 	pq.less = func(i, j int) bool {
 		hitA := pq.items[i].(ScoreDoc)
 		hitB := pq.items[j].(ScoreDoc)
-		if hitA.score == hitB.score {
+		if hitA.Score == hitB.Score {
 			return hitA.Doc > hitB.Doc
 		}
-		return hitA.score < hitB.score
+		return hitA.Score < hitB.Score
 	}
 	heap.Init(pq)
 
@@ -227,13 +227,13 @@ func (c *TopScoreDocCollector) newTopDocs(results []ScoreDoc, start int) TopDocs
 	// extracted and use its score as maxScore.
 	maxScore := math.NaN()
 	if start == 0 {
-		maxScore = float64(results[0].score)
+		maxScore = float64(results[0].Score)
 	} else {
 		pq := c.pq
 		for i := pq.Len(); i > 1; i-- {
 			heap.Pop(pq)
 		}
-		maxScore = float64(heap.Pop(pq).(ScoreDoc).score)
+		maxScore = float64(heap.Pop(pq).(ScoreDoc).Score)
 	}
 
 	return TopDocs{c.TotalHits, results, maxScore}
@@ -280,14 +280,14 @@ func (c *InOrderTopScoreDocCollector) Collect(doc int) (err error) {
 	assert(!math.IsNaN(score))
 
 	c.TotalHits++
-	if score <= float64(c.pqTop.score) {
+	if score <= float64(c.pqTop.Score) {
 		// Since docs are returned in-order (i.e., increasing doc Id), a document
 		// with equal score to pqTop.score cannot compete since HitQueue favors
 		// documents with lower doc Ids. Therefore reject those docs too.
 		return
 	}
 	c.pqTop.Doc = doc + c.docBase
-	c.pqTop.score = float32(score)
+	c.pqTop.Score = float32(score)
 	heap.Pop(c.pq)
 	heap.Push(c.pq, c.pqTop)
 	return
