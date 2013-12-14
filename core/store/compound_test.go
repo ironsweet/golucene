@@ -12,7 +12,7 @@ func TestReadEntriesOSX(t *testing.T) {
 		t.Error(err)
 	}
 	ctx := NewIOContextBool(false)
-	handle, err := d.createSlicer("_0.cfs", ctx)
+	handle, err := d.CreateSlicer("_0.cfs", ctx)
 	if err != nil {
 		t.Error(err)
 	}

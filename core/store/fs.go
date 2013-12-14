@@ -37,7 +37,7 @@ func newFSDirectory(self Directory, path string) (d *FSDirectory, err error) {
 	}
 
 	// TODO default to native lock factory
-	d.setLockFactory(NewSimpleFSLockFactory(path))
+	d.SetLockFactory(NewSimpleFSLockFactory(path))
 	return d, nil
 }
 
@@ -50,8 +50,8 @@ func OpenFSDirectory(path string) (d Directory, err error) {
 	return super, nil
 }
 
-func (d *FSDirectory) setLockFactory(lockFactory LockFactory) error {
-	d.DirectoryImpl.setLockFactory(lockFactory)
+func (d *FSDirectory) SetLockFactory(lockFactory LockFactory) error {
+	d.DirectoryImpl.SetLockFactory(lockFactory)
 
 	// for filesystem based LockFactory, delete the lockPrefix, if the locks are placed
 	// in index dir. If no index dir is given, set ourselves
@@ -94,7 +94,7 @@ func (d *FSDirectory) FileExists(name string) bool {
 	return err != nil
 }
 
-func (d *FSDirectory) getLockID() string {
+func (d *FSDirectory) LockID() string {
 	d.ensureOpen()
 	var digest int
 	for _, ch := range d.path {

@@ -121,17 +121,15 @@ type Directory interface {
 	// Sync(names []string) error
 	OpenInput(name string, context IOContext) (in IndexInput, err error)
 	// Locks related methods
-	makeLock(name string) Lock
-	clearLock(name string) error
-	setLockFactory(lockFactory LockFactory) error
-	getLockFactory() LockFactory
-	getLockID() string
+	MakeLock(name string) Lock
+	ClearLock(name string) error
+	SetLockFactory(lockFactory LockFactory) error
+	LockFactory() LockFactory
+	LockID() string
 	// Utilities
 	// Copy(to Directory, src, dest string, ctx IOContext) error
 	// Experimental methods
-	createSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error)
-	// Private methods
-	ensureOpen()
+	CreateSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error)
 }
 
 type DirectoryImpl struct {
@@ -144,29 +142,29 @@ func NewDirectoryImpl(self Directory) *DirectoryImpl {
 	return &DirectoryImpl{Directory: self, IsOpen: true}
 }
 
-func (d *DirectoryImpl) makeLock(name string) Lock {
+func (d *DirectoryImpl) MakeLock(name string) Lock {
 	return d.lockFactory.make(name)
 }
 
-func (d *DirectoryImpl) clearLock(name string) error {
+func (d *DirectoryImpl) ClearLock(name string) error {
 	if d.lockFactory != nil {
 		return d.lockFactory.clear(name)
 	}
 	return nil
 }
 
-func (d *DirectoryImpl) setLockFactory(lockFactory LockFactory) error {
+func (d *DirectoryImpl) SetLockFactory(lockFactory LockFactory) error {
 	// assert lockFactory != nil
 	d.lockFactory = lockFactory
-	d.lockFactory.setLockPrefix(d.getLockID())
+	d.lockFactory.setLockPrefix(d.LockID())
 	return nil
 }
 
-func (d *DirectoryImpl) getLockFactory() LockFactory {
+func (d *DirectoryImpl) LockFactory() LockFactory {
 	return d.lockFactory
 }
 
-func (d *DirectoryImpl) getLockID() string {
+func (d *DirectoryImpl) LockID() string {
 	return d.String()
 }
 
@@ -174,7 +172,7 @@ func (d *DirectoryImpl) String() string {
 	return fmt.Sprintf("Directory lockFactory=%v", d.lockFactory)
 }
 
-func (d *DirectoryImpl) createSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {
+func (d *DirectoryImpl) CreateSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {
 	panic("Should be overrided, I guess")
 	d.ensureOpen()
 	base, err := d.Directory.OpenInput(name, context)

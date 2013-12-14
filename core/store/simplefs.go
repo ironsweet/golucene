@@ -63,7 +63,7 @@ func (d *SimpleFSDirectory) OpenInput(name string, context IOContext) (in IndexI
 	return sin, err
 }
 
-func (d *SimpleFSDirectory) createSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error) {
+func (d *SimpleFSDirectory) CreateSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error) {
 	d.ensureOpen()
 	f, err := os.Open(filepath.Join(d.path, name))
 	if err != nil {

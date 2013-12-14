@@ -28,8 +28,12 @@ func NewBaseDirectoryWrapper(delegate store.Directory) *BaseDirectoryWrapper {
 	return ans
 }
 
+func (dw *BaseDirectoryWrapper) IsOpen() bool {
+	return dw.DirectoryImpl.IsOpen
+}
+
 func (dw *BaseDirectoryWrapper) Close() error {
-	dw.IsOpen = false
+	dw.DirectoryImpl.IsOpen = false
 	if dw.checkIndexOnClose {
 		ok, err := index.IsIndexExists(dw)
 		if err == nil && ok {
@@ -40,4 +44,8 @@ func (dw *BaseDirectoryWrapper) Close() error {
 		}
 	}
 	return dw.delegate.Close()
+}
+
+func (dw *BaseDirectoryWrapper) ClearLock(name string) error {
+	return dw.delegate.ClearLock(name)
 }

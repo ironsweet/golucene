@@ -54,7 +54,7 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 				util.CloseWhileSuppressingError(self.handle)
 			}
 		}()
-		self.handle, err = directory.createSlicer(fileName, context)
+		self.handle, err = directory.CreateSlicer(fileName, context)
 		if err != nil {
 			return self, err
 		}
