@@ -6,7 +6,6 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"io/ioutil"
 	"os"
-	"testing"
 )
 
 // util/_TestUtil.java
@@ -50,18 +49,6 @@ func (tr *TestRuleMarkFailure) hadFailures() bool {
 // Check if this object was sucessful
 func (tr *TestRuleMarkFailure) WasSuccessful() bool {
 	return tr.hadFailures()
-}
-
-type T struct {
-	delegate *testing.T
-}
-
-func WrapT(t *testing.T) *T {
-	return &T{t}
-}
-
-func (c *T) Error(args ...interface{}) {
-	c.delegate.Error(args)
 }
 
 // util/CloseableDirectory.java

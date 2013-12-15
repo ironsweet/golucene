@@ -7,7 +7,6 @@ import (
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"io"
 	"math"
 	"math/rand"
 	"os"
@@ -69,9 +68,29 @@ var suiteFailureMarker = &TestRuleMarkFailure{}
 // Ian: I have to extend Go's testing framework to simulate JUnit's
 // TestRule
 func wrapTesting(t *testing.T) *T {
-	ans := WrapT(t)
+	ans := wrapT(t)
 	suiteFailureMarker.T = ans
 	return ans
+}
+
+var suiteClosers []func() error
+
+type T struct {
+	delegate *testing.T
+}
+
+func wrapT(t *testing.T) *T {
+	return &T{t}
+}
+
+func (c *T) Error(args ...interface{}) {
+	c.delegate.Error(args)
+}
+
+func (c *T) afterSuite() {
+	for _, closer := range suiteClosers {
+		closer() // ignore error
+	}
 }
 
 // -----------------------------------------------------------------
@@ -95,8 +114,8 @@ func Random() *rand.Rand {
 }
 
 // Registers a Closeable resource that shold be closed after the suite completes.
-func closeAfterSuite(closer func() error) io.Closer {
-	panic("not implemented yet")
+func closeAfterSuite(closer func() error) {
+	suiteClosers = append(suiteClosers, closer)
 }
 
 // Create a new index writer config with random defaults
@@ -194,7 +213,7 @@ func newDirectoryImpl(random *rand.Rand, clazzName string) store.Directory {
 		}
 	}
 	if clazzName == "RAMDirectory" {
-		panic("not implemented yet")
+		return store.NewRAMDirectory()
 	} else {
 		path := TempDir("index")
 		if err := os.MkdirAll(path, os.ModeTemporary); err != nil {
