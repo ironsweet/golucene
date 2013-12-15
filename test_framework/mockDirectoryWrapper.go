@@ -1,13 +1,13 @@
-package store
+package test_framework
 
 import (
-	cs "github.com/balzaczyy/golucene/core/store"
+	"github.com/balzaczyy/golucene/core/store"
 	"math/rand"
 	"sync"
 )
 
 type MockDirectoryWrapper struct {
-	*BaseDirectoryWrapper
+	*BaseDirectoryWrapperImpl
 	sync.Locker // simulate Java's synchronized keyword
 
 	randomState        *rand.Rand
@@ -58,7 +58,7 @@ func (mdw *MockDirectoryWrapper) init() {
 	}
 }
 
-func NewMockDirectoryWrapper(random *rand.Rand, delegate cs.Directory) *MockDirectoryWrapper {
+func NewMockDirectoryWrapper(random *rand.Rand, delegate store.Directory) *MockDirectoryWrapper {
 	ans := MockDirectoryWrapper{
 		noDeleteOpenFile:   true,
 		preventDoubleWrite: true,
@@ -70,7 +70,7 @@ func NewMockDirectoryWrapper(random *rand.Rand, delegate cs.Directory) *MockDire
 		inputCloneCount: 0,
 		// openFileHandles: make(map[io.Closer]error),
 	}
-	ans.BaseDirectoryWrapper = NewBaseDirectoryWrapper(delegate)
+	ans.BaseDirectoryWrapperImpl = NewBaseDirectoryWrapper(delegate)
 	ans.Locker = &sync.Mutex{}
 	// must make a private random since our methods are called from different
 	// methods; else test failures may not be reproducible from the original

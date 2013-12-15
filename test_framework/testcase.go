@@ -7,8 +7,6 @@ import (
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	ts "github.com/balzaczyy/golucene/test_framework/store"
-	tu "github.com/balzaczyy/golucene/test_framework/util"
 	"io"
 	"math"
 	"math/rand"
@@ -36,7 +34,13 @@ const TEST_VERSION_CURRENT = util.VERSION_45
 
 // A random multiplier which you should use when writing random tests:
 // multiply it by the number of iterations to scale your tests (for nightly builds).
-var RANDOM_MULTIPLIER, _ = strconv.Atoi(or(os.Getenv("tests.multiplier"), "1"))
+var RANDOM_MULTIPLIER = func() int {
+	n, err := strconv.Atoi(or(os.Getenv("tests.multiplier"), "1"))
+	if err != nil {
+		panic(err)
+	}
+	return n
+}()
 
 // Gets the directory to run tests with
 var TEST_DIRECTORY = or(os.Getenv("tests.directory"), "random")
@@ -45,7 +49,7 @@ var TEST_DIRECTORY = or(os.Getenv("tests.directory"), "random")
 var TEST_NIGHTLY = ("true" == or(os.Getenv(SYSPROP_NIGHTLY), "false"))
 
 // Throttling
-var TEST_THROTTLING = either(TEST_NIGHTLY, ts.THROTTLING_SOMETIMES, ts.THROTTLING_NEVER).(ts.Throttling)
+var TEST_THROTTLING = either(TEST_NIGHTLY, THROTTLING_SOMETIMES, THROTTLING_NEVER).(Throttling)
 
 func or(a, b string) string {
 	if len(a) > 0 {
@@ -60,12 +64,12 @@ func or(a, b string) string {
 // Class level (suite) rules.
 // -----------------------------------------------------------------
 
-var suiteFailureMarker = &tu.TestRuleMarkFailure{}
+var suiteFailureMarker = &TestRuleMarkFailure{}
 
 // Ian: I have to extend Go's testing framework to simulate JUnit's
 // TestRule
-func wrapTesting(t *testing.T) *tu.T {
-	ans := tu.WrapT(t)
+func wrapTesting(t *testing.T) *T {
+	ans := WrapT(t)
 	suiteFailureMarker.T = ans
 	return ans
 }
@@ -91,7 +95,7 @@ func Random() *rand.Rand {
 }
 
 // Registers a Closeable resource that shold be closed after the suite completes.
-func closeAfterSuite(resource io.Closer) io.Closer {
+func closeAfterSuite(closer func() error) io.Closer {
 	panic("not implemented yet")
 }
 
@@ -113,11 +117,6 @@ func NewDirectory() BaseDirectoryWrapper {
 	return newDirectoryWithSeed(Random())
 }
 
-type BaseDirectoryWrapper interface {
-	store.Directory
-	IsOpen() bool
-}
-
 // Returns a new Directory instance, using the specified random.
 // See NewDirecotry() for more information
 func newDirectoryWithSeed(r *rand.Rand) BaseDirectoryWrapper {
@@ -136,20 +135,12 @@ func wrapDirectory(random *rand.Rand, directory store.Directory, bare bool) Base
 	if bare {
 		panic("not implemented yet")
 	} else {
-		mock := ts.NewMockDirectoryWrapper(random, directory)
+		mock := NewMockDirectoryWrapper(random, directory)
 
 		mock.SetThrottling(TEST_THROTTLING)
-		closeAfterSuite(tu.NewCloseableDirectory(&MockDirectoryWrapper{mock}, suiteFailureMarker))
+		closeAfterSuite(NewCloseableDirectory(mock, suiteFailureMarker))
 		return mock
 	}
-}
-
-type MockDirectoryWrapper struct {
-	*ts.MockDirectoryWrapper
-}
-
-func (mdw *MockDirectoryWrapper) IsOpen() bool {
-	return mdw.MockDirectoryWrapper.DirectoryImpl.IsOpen
 }
 
 // L659
@@ -205,7 +196,7 @@ func newDirectoryImpl(random *rand.Rand, clazzName string) store.Directory {
 	if clazzName == "RAMDirectory" {
 		panic("not implemented yet")
 	} else {
-		path := tu.TempDir("index")
+		path := TempDir("index")
 		if err := os.MkdirAll(path, os.ModeTemporary); err != nil {
 			panic(err)
 		}

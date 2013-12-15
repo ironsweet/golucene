@@ -1,10 +1,11 @@
-package util
+package test_framework
 
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/store"
-	"io"
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -15,7 +16,14 @@ func TempDir(desc string) string {
 	if len(desc) < 3 {
 		panic("description must be at least 3 characters")
 	}
-	panic("not implemented yet")
+	// Ian: I prefer Go's own way to obtain temp folder instead of Lucene's method
+	f, err := ioutil.TempDir("", desc)
+	if err != nil {
+		panic(err)
+	}
+	f += ".tmp" // add suffix
+	closeAfterSuite(NewCloseableFile(f, suiteFailureMarker))
+	return f
 }
 
 func CheckIndex(dir store.Directory, crossCheckTermVectors bool) (status index.CheckIndexStatus, err error) {
@@ -59,28 +67,29 @@ func (c *T) Error(args ...interface{}) {
 // util/CloseableDirectory.java
 
 // Attempts to close a BaseDirectoryWrapper
-type CloseableDirectory struct {
-	dir           BaseDirectoryWrapper
-	failureMarker *TestRuleMarkFailure
-}
-
-type BaseDirectoryWrapper interface {
-	io.Closer
-	IsOpen() bool
-}
-
-func NewCloseableDirectory(dir BaseDirectoryWrapper,
-	failureMarker *TestRuleMarkFailure) *CloseableDirectory {
-	return &CloseableDirectory{dir, failureMarker}
-}
-
-func (cd *CloseableDirectory) Close() error {
-	// We only attempt to check open/closed state if there were no other test
-	// failures.
-	// TODO: perform real close of the delegate: LUCENE-4058
-	// defer cd.dir.Close()
-	if cd.failureMarker.WasSuccessful() && cd.dir.IsOpen() {
-		panic(fmt.Sprintf("Directory not closed: %v", cd.dir))
+func NewCloseableDirectory(dir BaseDirectoryWrapper, failureMarker *TestRuleMarkFailure) func() error {
+	return func() error {
+		// We only attempt to check open/closed state if there were no other test
+		// failures.
+		// TODO: perform real close of the delegate: LUCENE-4058
+		// defer dir.Close()
+		if failureMarker.WasSuccessful() && dir.IsOpen() {
+			panic(fmt.Sprintf("Directory not closed: %v", dir))
+		}
+		return nil
 	}
-	return nil
+}
+
+// util/CloseableFile.java
+
+// A Closeable that attempts to remove a given file/folder
+func NewCloseableFile(file string, failureMarker *TestRuleMarkFailure) func() error {
+	return func() error {
+		// only if there were no other test failures.
+		if failureMarker.WasSuccessful() {
+			os.RemoveAll(file) // ignore any error
+			// no re-check
+		}
+		return nil
+	}
 }

@@ -1,4 +1,4 @@
-package core
+package core_test
 
 import (
 	"fmt"
