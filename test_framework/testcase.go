@@ -161,7 +161,9 @@ func wrapDirectory(random *rand.Rand, directory store.Directory, bare bool) Base
 	}
 
 	if bare {
-		panic("not implemented yet")
+		base := NewBaseDirectoryWrapper(directory)
+		closeAfterSuite(NewCloseableDirectory(base, suiteFailureMarker))
+		return base
 	} else {
 		mock := NewMockDirectoryWrapper(random, directory)
 

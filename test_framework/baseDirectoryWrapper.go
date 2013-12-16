@@ -1,6 +1,7 @@
 package test_framework
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/store"
 )
@@ -19,25 +20,22 @@ type BaseDirectoryWrapper interface {
 }
 
 type BaseDirectoryWrapperImpl struct {
-	*store.DirectoryImpl
-	// our in directory
-	delegate                     store.Directory
+	isOpen                       bool
+	store.Directory              // our delegate in directory
 	checkIndexOnClose            bool
 	crossCheckTermVectorsOnClose bool
 }
 
 func NewBaseDirectoryWrapper(delegate store.Directory) *BaseDirectoryWrapperImpl {
-	ans := &BaseDirectoryWrapperImpl{nil, delegate, true, true}
-	ans.Directory = store.NewDirectoryImpl(ans)
-	return ans
-}
-
-func (dw *BaseDirectoryWrapperImpl) IsOpen() bool {
-	return dw.DirectoryImpl.IsOpen
+	return &BaseDirectoryWrapperImpl{
+		Directory:                    delegate,
+		checkIndexOnClose:            true,
+		crossCheckTermVectorsOnClose: true,
+	}
 }
 
 func (dw *BaseDirectoryWrapperImpl) Close() error {
-	dw.DirectoryImpl.IsOpen = false
+	dw.isOpen = false
 	if dw.checkIndexOnClose {
 		ok, err := index.IsIndexExists(dw)
 		if err == nil && ok {
@@ -47,5 +45,13 @@ func (dw *BaseDirectoryWrapperImpl) Close() error {
 			return err
 		}
 	}
-	return dw.delegate.Close()
+	return dw.Directory.Close()
+}
+
+func (dw *BaseDirectoryWrapperImpl) IsOpen() bool {
+	return dw.isOpen
+}
+
+func (dw *BaseDirectoryWrapperImpl) String() string {
+	return fmt.Sprintf("BaseDirectoryWrapper(%v)", dw.Directory)
 }
