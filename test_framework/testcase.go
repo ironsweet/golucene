@@ -157,7 +157,17 @@ func wrapDirectory(random *rand.Rand, directory store.Directory, bare bool) Base
 		if VERBOSE {
 			log.Printf("LuceneTestCase: will rate limit output IndexOutput to %v MB/sec", maxMBPerSec)
 		}
-		panic("not implemented yet")
+		rateLimitedDirectoryWrapper := store.NewRateLimitedDirectoryWrapper(directory)
+		switch random.Intn(10) {
+		case 3: // sometimes rate limit on flush
+			rateLimitedDirectoryWrapper.SetMaxWriteMBPerSec(maxMBPerSec, store.IO_CONTEXT_TYPE_FLUSH)
+		case 2: // sometimes rate limit flush & merge
+			rateLimitedDirectoryWrapper.SetMaxWriteMBPerSec(maxMBPerSec, store.IO_CONTEXT_TYPE_FLUSH)
+			rateLimitedDirectoryWrapper.SetMaxWriteMBPerSec(maxMBPerSec, store.IO_CONTEXT_TYPE_MERGE)
+		default:
+			rateLimitedDirectoryWrapper.SetMaxWriteMBPerSec(maxMBPerSec, store.IO_CONTEXT_TYPE_MERGE)
+		}
+		directory = rateLimitedDirectoryWrapper
 	}
 
 	if bare {
