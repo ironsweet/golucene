@@ -28,3 +28,4 @@ Develop Guidelines
 - Prefer value internally unless (a) optional field; or (b) obvious readonly fields.
 - "not implemented yet" means in scope but not yet translated from Java.
 - "not supported yet" means not in scope.
+- Wrapper can be implemented by composition instead of an explicit delegate field.

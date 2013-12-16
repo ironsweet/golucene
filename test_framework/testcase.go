@@ -7,6 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"log"
 	"math"
 	"math/rand"
 	"os"
@@ -30,6 +31,10 @@ const (
 // Use this constant then creating Analyzers and any other version-dependent
 // stuff. NOTE: Change this when developmenet starts for new Lucene version:
 const TEST_VERSION_CURRENT = util.VERSION_45
+
+// True if and only if tests are run in verbose mode. If this flag is false
+// tests are not expected toprint and messages.
+var VERBOSE = ("false" == or(os.Getenv("tests.verbose"), "false"))
 
 // A random multiplier which you should use when writing random tests:
 // multiply it by the number of iterations to scale your tests (for nightly builds).
@@ -144,10 +149,14 @@ func newDirectoryWithSeed(r *rand.Rand) BaseDirectoryWrapper {
 
 func wrapDirectory(random *rand.Rand, directory store.Directory, bare bool) BaseDirectoryWrapper {
 	if rarely(random) {
-		panic("not implemented yet")
+		directory = store.NewNRTCachingDirectory(directory, random.Float64(), random.Float64())
 	}
 
 	if rarely(random) {
+		maxMBPerSec := 10 + 5*(random.Float64()-0.5)
+		if VERBOSE {
+			log.Printf("LuceneTestCase: will rate limit output IndexOutput to %v MB/sec", maxMBPerSec)
+		}
 		panic("not implemented yet")
 	}
 
