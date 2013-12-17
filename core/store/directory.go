@@ -57,26 +57,76 @@ type MergeInfo struct {
 	mergeMaxNumSegments int
 }
 
-type Lock struct {
-	self interface{}
+// store/Lock.java
+
+// How long obtain() waits, in milliseconds,
+// in between attempts to acquire the lock.
+const LOCK_POOL_INTERVAL = 1000
+
+// Pass this value to obtain() to try
+// forever to obtain the lock
+const LOCK_OBTAIN_WAIT_FOREVER = -1
+
+/*
+An interprocess mutex lock.
+
+Typical use might look like:
+
+	WithLock(directory.MakeLock("my.lock"), func() interface{} {
+		// code to execute while locked
+	})
+*/
+type Lock interface {
+	// Attempts to obtain exclusive access and immediately return
+	// upon success or failure
+	Obtain() (ok bool, err error)
+	// Attempts to obtain an exclusive lock within amount of time
+	// given. Pools once per LOCK_POLL_INTERVAL (currently 1000)
+	// milliseconds until lockWaitTimeout is passed.
+	ObtainWithin(lockWaitTimeout int64) (ok bool, err error)
+	// Releases exclusive access.
+	Release()
+	// Returns true if the resource is currently locked. Note that one
+	// must still call obtain() before using the resource.
+	IsLocked() bool
+}
+
+type LockImpl struct {
+	self Lock
+	// If a lock obtain called, this failureReason may be set with the
+	// "root cause" error as to why the lock was not obtained
+	failureReason error
+}
+
+func NewLockImpl(self Lock) *LockImpl {
+	return &LockImpl{self: self}
+}
+
+func (lock *LockImpl) ObtainWithin(lockWaitTimeout int64) (ok bool, err error) {
+	panic("not implemented yet")
+}
+
+// Utility to execute code with exclusive access.
+func WithLock(lock Lock, lockWaitTimeout int64, body func() interface{}) interface{} {
+	panic("not implemeted yet")
 }
 
 type LockFactory interface {
-	make(name string) Lock
-	clear(name string) error
-	setLockPrefix(prefix string)
-	getLockPrefix() string
+	Make(name string) Lock
+	Clear(name string) error
+	SetLockPrefix(prefix string)
+	LockPrefix() string
 }
 
 type LockFactoryImpl struct {
 	lockPrefix string
 }
 
-func (f *LockFactoryImpl) setLockPrefix(prefix string) {
+func (f *LockFactoryImpl) SetLockPrefix(prefix string) {
 	f.lockPrefix = prefix
 }
 
-func (f *LockFactoryImpl) getLockPrefix() string {
+func (f *LockFactoryImpl) LockPrefix() string {
 	return f.lockPrefix
 }
 
@@ -102,11 +152,11 @@ func (f *FSLockFactory) getLockDir() string {
 	return f.lockDir
 }
 
-func (f *FSLockFactory) clear(name string) error {
+func (f *FSLockFactory) Clear(name string) error {
 	panic("invalid")
 }
 
-func (f *FSLockFactory) make(name string) Lock {
+func (f *FSLockFactory) Make(name string) Lock {
 	panic("invalid")
 }
 
@@ -123,7 +173,7 @@ type Directory interface {
 	// Locks related methods
 	MakeLock(name string) Lock
 	ClearLock(name string) error
-	SetLockFactory(lockFactory LockFactory) error
+	SetLockFactory(lockFactory LockFactory)
 	LockFactory() LockFactory
 	LockID() string
 	// Utilities
@@ -132,32 +182,41 @@ type Directory interface {
 	CreateSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error)
 }
 
+type directoryService interface {
+	OpenInput(name string, context IOContext) (in IndexInput, err error)
+}
+
 type DirectoryImpl struct {
-	Directory
+	directoryService
 	IsOpen      bool
 	lockFactory LockFactory
 }
 
 func NewDirectoryImpl(self Directory) *DirectoryImpl {
-	return &DirectoryImpl{Directory: self, IsOpen: true}
+	return &DirectoryImpl{ /*Directory: self,*/ IsOpen: true}
 }
 
 func (d *DirectoryImpl) MakeLock(name string) Lock {
-	return d.lockFactory.make(name)
+	return d.lockFactory.Make(name)
 }
 
 func (d *DirectoryImpl) ClearLock(name string) error {
 	if d.lockFactory != nil {
-		return d.lockFactory.clear(name)
+		return d.lockFactory.Clear(name)
 	}
 	return nil
 }
 
-func (d *DirectoryImpl) SetLockFactory(lockFactory LockFactory) error {
-	// assert lockFactory != nil
+func (d *DirectoryImpl) SetLockFactory(lockFactory LockFactory) {
+	assert(lockFactory != nil)
 	d.lockFactory = lockFactory
-	d.lockFactory.setLockPrefix(d.LockID())
-	return nil
+	d.lockFactory.SetLockPrefix(d.LockID())
+}
+
+func assert(ok bool) {
+	if !ok {
+		panic("assert fail")
+	}
 }
 
 func (d *DirectoryImpl) LockFactory() LockFactory {
@@ -175,7 +234,7 @@ func (d *DirectoryImpl) String() string {
 func (d *DirectoryImpl) CreateSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {
 	panic("Should be overrided, I guess")
 	d.ensureOpen()
-	base, err := d.Directory.OpenInput(name, context)
+	base, err := d.OpenInput(name, context)
 	if err != nil {
 		return nil, err
 	}

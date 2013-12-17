@@ -10,8 +10,37 @@ import (
 )
 
 type SimpleFSLock struct {
-	*Lock
+	*LockImpl
 	file, dir string
+}
+
+func newSimpleFSLock(lockDir, lockFileName string) *SimpleFSLock {
+	ans := &SimpleFSLock{
+		dir:  lockDir,
+		file: filepath.Join(lockDir, lockFileName),
+	}
+	ans.LockImpl = NewLockImpl(ans)
+	return ans
+}
+
+func (lock *SimpleFSLock) Obtain() (ok bool, err error) {
+	panic("not implemented yet")
+}
+
+func (lock *SimpleFSLock) Release() {
+	panic("not implemented yet")
+}
+
+func (lock *SimpleFSLock) IsLocked() bool {
+	f, err := os.Open(lock.file)
+	if err == nil {
+		defer f.Close()
+	}
+	return os.IsExist(err)
+}
+
+func (lock *SimpleFSLock) String() string {
+	return fmt.Sprintf("SimpleFSLock@%v", lock.file)
 }
 
 type SimpleFSLockFactory struct {
@@ -25,16 +54,14 @@ func NewSimpleFSLockFactory(path string) *SimpleFSLockFactory {
 	return ans
 }
 
-func (f *SimpleFSLockFactory) make(name string) Lock {
+func (f *SimpleFSLockFactory) Make(name string) Lock {
 	if f.lockPrefix != "" {
 		name = fmt.Sprintf("%v-%v", f.lockPrefix, name)
 	}
-	ans := SimpleFSLock{nil, filepath.Join(f.lockDir, name), name}
-	ans.Lock = &Lock{ans}
-	return *(ans.Lock)
+	return newSimpleFSLock(f.lockDir, name)
 }
 
-func (f *SimpleFSLockFactory) clear(name string) error {
+func (f *SimpleFSLockFactory) Clear(name string) error {
 	if f.lockPrefix != "" {
 		name = fmt.Sprintf("%v-%v", f.lockPrefix, name)
 	}

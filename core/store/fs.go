@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"sync"
 )
 
 type NoSuchDirectoryError struct {
@@ -20,6 +21,7 @@ func (err *NoSuchDirectoryError) Error() string {
 }
 
 type FSDirectory struct {
+	sync.Locker
 	*DirectoryImpl
 	path      string
 	chunkSize int
@@ -27,10 +29,12 @@ type FSDirectory struct {
 
 // TODO support lock factory
 func newFSDirectory(self Directory, path string) (d *FSDirectory, err error) {
-	d = &FSDirectory{}
-	d.DirectoryImpl = NewDirectoryImpl(self)
-	d.path = path
-	d.chunkSize = math.MaxInt32
+	d = &FSDirectory{
+		Locker:        &sync.Mutex{},
+		DirectoryImpl: NewDirectoryImpl(self),
+		path:          path,
+		chunkSize:     math.MaxInt32,
+	}
 
 	if fi, err := os.Stat(path); err == nil && !fi.IsDir() {
 		return d, newNoSuchDirectoryError(fmt.Sprintf("file '%v' exists but is not a directory", path))
@@ -50,7 +54,7 @@ func OpenFSDirectory(path string) (d Directory, err error) {
 	return super, nil
 }
 
-func (d *FSDirectory) SetLockFactory(lockFactory LockFactory) error {
+func (d *FSDirectory) SetLockFactory(lockFactory LockFactory) {
 	d.DirectoryImpl.SetLockFactory(lockFactory)
 
 	// for filesystem based LockFactory, delete the lockPrefix, if the locks are placed
@@ -63,7 +67,6 @@ func (d *FSDirectory) SetLockFactory(lockFactory LockFactory) error {
 			lf.lockPrefix = ""
 		}
 	}
-	return nil
 }
 
 func FSDirectoryListAll(path string) (paths []string, err error) {
@@ -101,6 +104,13 @@ func (d *FSDirectory) LockID() string {
 		digest = 31*digest + int(ch)
 	}
 	return fmt.Sprintf("lucene-%v", strconv.FormatUint(uint64(digest), 10))
+}
+
+func (d *FSDirectory) Close() error {
+	d.Lock() // synchronized
+	defer d.Unlock()
+	d.IsOpen = false
+	return nil
 }
 
 type FSIndexInput struct {

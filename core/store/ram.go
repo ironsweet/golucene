@@ -33,7 +33,7 @@ type RAMDirectory struct {
 func NewRAMDirectory() *RAMDirectory {
 	ans := &RAMDirectory{}
 	ans.DirectoryImpl = NewDirectoryImpl(ans)
-	ans.SetLockFactory(newSingleInstanceLockFactory()) // ignore error
+	ans.SetLockFactory(newSingleInstanceLockFactory())
 	return ans
 }
 
@@ -154,10 +154,10 @@ func newSingleInstanceLockFactory() *SingleInstanceLockFactory {
 	return &SingleInstanceLockFactory{LockFactoryImpl: &LockFactoryImpl{}}
 }
 
-func (fac *SingleInstanceLockFactory) make(name string) Lock {
+func (fac *SingleInstanceLockFactory) Make(name string) Lock {
 	panic("not implemented yet")
 }
 
-func (fac *SingleInstanceLockFactory) clear(name string) error {
+func (fac *SingleInstanceLockFactory) Clear(name string) error {
 	panic("not implemented yet")
 }
