@@ -26,19 +26,30 @@ copying dat to Java heap space is not useful.
 type RAMDirectory struct {
 	*DirectoryImpl
 
-	fileMap     map[string]RAMFile // synchronized
-	sizeInBytes int64              // synchronized
+	fileMap     map[string]*RAMFile // synchronized
+	fileMapLock *sync.RWMutex
+	sizeInBytes int64 // synchronized
 }
 
 func NewRAMDirectory() *RAMDirectory {
-	ans := &RAMDirectory{}
+	ans := &RAMDirectory{
+		fileMap:     make(map[string]*RAMFile),
+		fileMapLock: &sync.RWMutex{},
+	}
 	ans.DirectoryImpl = NewDirectoryImpl(ans)
 	ans.SetLockFactory(newSingleInstanceLockFactory())
 	return ans
 }
 
 func (rd *RAMDirectory) ListAll() (names []string, err error) {
-	panic("not implemented yet")
+	rd.ensureOpen()
+	rd.fileMapLock.RLock()
+	defer rd.fileMapLock.RUnlock()
+	names = make([]string, 0, len(rd.fileMap))
+	for name, _ := range rd.fileMap {
+		names = append(names, name)
+	}
+	return names, nil
 }
 
 // Returns true iff the named file exists in this directory

@@ -14,7 +14,7 @@ type Fields interface {
 type MultiFields struct {
 	subs      []Fields
 	subSlices []ReaderSlice
-	termsMap  map[string]Terms
+	termsMap  map[string]Terms // synchronized
 }
 
 func NewMultiFields(subs []Fields, subSlices []ReaderSlice) MultiFields {
