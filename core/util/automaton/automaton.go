@@ -56,6 +56,12 @@ var next_id int
 
 // Automaton state
 type State struct {
+	accept           bool
+	transitionsArray []*Transition
+	numTransitions   int
+
+	number int
+
 	id int
 }
 
@@ -70,7 +76,19 @@ func newState() *State {
 
 // Resets transition set.
 func (s *State) resetTransitions() {
-	panic("not implemented yet")
+	s.transitionsArray = make([]*Transition, 0)
+	s.numTransitions = 0
+}
+
+// util/automaton/Transition.java
+
+/*
+Automaton transition.
+
+A transition, which belongs to a source state, consists of a Unicode
+codepoint interval and a destination state.
+*/
+type Transition struct {
 }
 
 // util/automaton/BasicAutomata.java
