@@ -39,8 +39,15 @@ type Automaton struct {
 	deterministic bool
 }
 
+// Constructs a new automaton that accepts the empty language. Using
+// this constructor, automata can be constructed manually from State
+// and Transition objects.
+func newAutomatonWithState(initial *State) *Automaton {
+	return &Automaton{initial: initial, deterministic: true}
+}
+
 func newEmptyAutomaton() *Automaton {
-	panic("not implemented yet")
+	return newAutomatonWithState(newState())
 }
 
 // util/automaton/State.java
