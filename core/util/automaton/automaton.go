@@ -32,10 +32,46 @@ for multithreaded matching: it is immutable, thread safe, and much
 faster.
 */
 type Automaton struct {
+	// Initial state of this automation.
+	initial *State
+	// If true, then this automaton is definitely deterministic (i.e.,
+	// there are no choices for any run, but a run may crash).
+	deterministic bool
+}
+
+func newEmptyAutomaton() *Automaton {
+	panic("not implemented yet")
+}
+
+// util/automaton/State.java
+
+var next_id int
+
+// Automaton state
+type State struct {
+	id int
+}
+
+// Constructs a new state. Initially, the new state is a reject state.
+func newState() *State {
+	s := &State{}
+	s.resetTransitions()
+	s.id = next_id
+	next_id++
+	return s
+}
+
+// Resets transition set.
+func (s *State) resetTransitions() {
+	panic("not implemented yet")
 }
 
 // util/automaton/BasicAutomata.java
 
+// Returns a new (deterministic) automaton with the empty language.
 func MakeEmpty() *Automaton {
-	panic("not implemented yet")
+	a := newEmptyAutomaton()
+	a.initial = newState()
+	a.deterministic = true
+	return a
 }
