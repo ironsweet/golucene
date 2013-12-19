@@ -2,6 +2,7 @@ package analysis
 
 import (
 	ca "github.com/balzaczyy/golucene/core/analysis"
+	auto "github.com/balzaczyy/golucene/core/util/automaton"
 	"math/rand"
 )
 
@@ -27,6 +28,41 @@ type MockAnalyzer struct {
 }
 
 // Creates a new MockAnalyzer.
-func NewMockAnalyzerWithRandom(r *rand.Rand) *MockAnalyzer {
+func NewMockAnalyzer(r *rand.Rand, runAutomation *auto.CharacterRunAutomaton, lowerCase bool, filter *auto.CharacterRunAutomaton) *MockAnalyzer {
+	// ans := &MockAnalyzer{}
+	// ans.AnalyzerImpl = ca.NewAnalyzerWithStrategy()
 	panic("not implemented yet")
 }
+
+func NewMockAnalyzer3(r *rand.Rand, runAutomation *auto.CharacterRunAutomaton, lowerCase bool) *MockAnalyzer {
+	return NewMockAnalyzer(r, runAutomation, lowerCase, EMPTY_STOPSET)
+}
+
+// Creates a Whitespace-lowercasing analyzer with no stopwords removal.
+func NewMockAnalyzerWithRandom(r *rand.Rand) *MockAnalyzer {
+	return NewMockAnalyzer3(r, WHITESPACE, true)
+}
+
+// analysis/MockTokenFilter.java
+
+var EMPTY_STOPSET = auto.NewCharacterRunAutomaton(auto.MakeEmpty())
+
+// analysis/MockTokenizer.java
+
+/*
+Tokenizer for testing.
+
+This tokenizer is a replacement for WHITESPACE, SIMPLE, and KEYWORD
+tokenizers. If you are writing a component such as a TokenFilter,
+it's a great idea to test it wrapping this tokenizer instead for
+extra checks. This tokenizer has the following behavior:
+
+1. An internal state-machine is used for checking consumer
+consistency. These checks can be disabled with DisableChecks(bool).
+2. For convenience, optionally lowercases terms that it outputs.
+*/
+type MockTokenizer struct {
+}
+
+// Acts Similar to WhitespaceTokenizer
+var WHITESPACE = auto.NewCharacterRunAutomaton(auto.NewRegExp("[^ \t\r\n]+").ToAutomaton())

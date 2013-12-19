@@ -16,6 +16,15 @@ type Analyzer interface {
 }
 
 type AnalyzerImpl struct {
+	reuseStrategy ReuseStrategy
+}
+
+func NewAnalyzer() *AnalyzerImpl {
+	return &AnalyzerImpl{}
+}
+
+func NewAnalyzerWithStrategy(reuseStrategy ReuseStrategy) *AnalyzerImpl {
+	return &AnalyzerImpl{reuseStrategy: reuseStrategy}
 }
 
 // L329
