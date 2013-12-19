@@ -17,3 +17,16 @@ type Analyzer interface {
 
 type AnalyzerImpl struct {
 }
+
+// L329
+
+// Strategy defining how TokenStreamComponents are reused per call to
+// TokenStream(string, io.Reader)
+type ReuseStrategy interface {
+	// Gets the reusable TokenStreamComponents for the field with the
+	// given name.
+	// ReusableComponents(analyzer Analyzer, fieldName string)
+	// Stores the given TokenStreamComponents as the reusable
+	// components for the field with the given name.
+	// SetReusableComponents(analyzer Analyzer, fieldName string, components TokenStreamComponents)
+}
