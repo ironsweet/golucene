@@ -228,26 +228,34 @@ func (w *MockDirectoryWrapper) OpenInput(name string, context store.IOContext) (
 }
 
 func (w *MockDirectoryWrapper) Close() error {
-	w.Lock() // synchronized
-	defer w.Unlock()
-
 	// files that we tried to delete, but couldn't because reader were open
 	// all that matters is that we tried! (they will eventually go away)
+	w.Lock()
 	pendingDeletions := make(map[string]bool)
 	for k, v := range w.openFilesDeleted {
 		pendingDeletions[k] = v
 	}
+	w.Unlock()
+
 	w.maybeYield()
+
+	w.Lock()
 	if w.openFiles == nil {
 		w.openFiles = make(map[string]int)
 		w.openFilesDeleted = make(map[string]bool)
 	}
-	if w.noDeleteOpenFile && len(w.openFiles) > 0 {
+	nOpenFiles := len(w.openFiles)
+	w.Unlock()
+
+	if w.noDeleteOpenFile && nOpenFiles > 0 {
 		panic("not implemented yet")
 	}
+
 	w.openLocksLock.Lock()
-	defer w.openLocksLock.Unlock()
-	if w.noDeleteOpenFile && len(w.openLocks) > 0 {
+	nOpenLocks := len(w.openLocks)
+	w.openLocksLock.Unlock()
+
+	if w.noDeleteOpenFile && nOpenLocks > 0 {
 		panic(fmt.Sprintf("MockDirectoryWrapper: cannot close: there are still open locks: %v", w.openLocks))
 	}
 
