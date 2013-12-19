@@ -3,10 +3,14 @@ package test_framework
 import (
 	"errors"
 	"fmt"
+	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/store"
 	"io"
+	"log"
 	"math/rand"
+	"reflect"
 	"runtime"
+	"sort"
 	"sync"
 )
 
@@ -32,19 +36,21 @@ type MockDirectoryWrapper struct {
 	*BaseDirectoryWrapperImpl
 	sync.Locker // simulate Java's synchronized keyword
 
-	randomState        *rand.Rand
-	noDeleteOpenFile   bool
-	preventDoubleWrite bool
-	trackDiskUsage     bool
-	wrapLockFactory    bool
-	unSyncedFiles      map[string]bool
-	createdFiles       map[string]bool
-	openFilesForWrite  map[string]bool
-	openLocks          map[string]bool // synchronized
-	openLocksLock      sync.Locker
-	crashed            bool // volatile
-	throttledOutput    *ThrottledIndexOutput
-	throttling         Throttling
+	randomErrorRate       float64
+	randomErrorRateOnOpen float64
+	randomState           *rand.Rand
+	noDeleteOpenFile      bool
+	preventDoubleWrite    bool
+	trackDiskUsage        bool
+	wrapLockFactory       bool
+	unSyncedFiles         map[string]bool
+	createdFiles          map[string]bool
+	openFilesForWrite     map[string]bool
+	openLocks             map[string]bool // synchronized
+	openLocksLock         sync.Locker
+	crashed               bool // volatile
+	throttledOutput       *ThrottledIndexOutput
+	throttling            Throttling
 
 	inputCloneCount int // atomic
 
@@ -62,6 +68,8 @@ type MockDirectoryWrapper struct {
 	// Only tracked if noDeleteOpenFile is true: if an attempt is made to delete
 	// an open file, we entroll it here.
 	openFilesDeleted map[string]bool
+
+	assertNoUnreferencedFilesOnClose bool
 }
 
 func (mdw *MockDirectoryWrapper) init() {
@@ -93,6 +101,7 @@ func NewMockDirectoryWrapper(random *rand.Rand, delegate store.Directory) *MockD
 		throttling:         THROTTLING_SOMETIMES,
 		inputCloneCount:    0,
 		// openFileHandles: make(map[io.Closer]error),
+		assertNoUnreferencedFilesOnClose: true,
 	}
 	ans.self = store.NewDirectoryImpl(ans)
 	ans.BaseDirectoryWrapperImpl = NewBaseDirectoryWrapper(delegate)
@@ -222,7 +231,146 @@ func (w *MockDirectoryWrapper) Close() error {
 	w.Lock() // synchronized
 	defer w.Unlock()
 
-	panic("not implemented yet")
+	// files that we tried to delete, but couldn't because reader were open
+	// all that matters is that we tried! (they will eventually go away)
+	pendingDeletions := make(map[string]bool)
+	for k, v := range w.openFilesDeleted {
+		pendingDeletions[k] = v
+	}
+	w.maybeYield()
+	if w.openFiles == nil {
+		w.openFiles = make(map[string]int)
+		w.openFilesDeleted = make(map[string]bool)
+	}
+	if w.noDeleteOpenFile && len(w.openFiles) > 0 {
+		panic("not implemented yet")
+	}
+	w.openLocksLock.Lock()
+	defer w.openLocksLock.Unlock()
+	if w.noDeleteOpenFile && len(w.openLocks) > 0 {
+		panic(fmt.Sprintf("MockDirectoryWrapper: cannot close: there are still open locks: %v", w.openLocks))
+	}
+
+	w.isOpen = false
+	if w.checkIndexOnClose {
+		w.randomErrorRate = 0
+		w.randomErrorRateOnOpen = 0
+		if ok, err := index.IsIndexExists(w); err != nil {
+			return err
+		} else if ok {
+			log.Println("\nNOTE: MockDirectoryWrapper: now crash")
+			err = w.Crash() // corrupt any unsynced-files
+			if err != nil {
+				return err
+			}
+			log.Println("\nNOTE: MockDirectoryWrapper: now run CheckIndex")
+			_, err = CheckIndex(w, w.crossCheckTermVectorsOnClose)
+			if err != nil {
+				return err
+			}
+
+			// TODO: factor this out / share w/ TestIW.assertNoUnreferencedFiles
+			if w.assertNoUnreferencedFilesOnClose {
+				// now look for unreferenced files: discount ones that we tried to delete but could not
+				all, err := w.ListAll()
+				if err != nil {
+					return err
+				}
+				allFiles := make(map[string]bool)
+				for _, name := range all {
+					allFiles[name] = true
+				}
+				for name, _ := range pendingDeletions {
+					delete(allFiles, name)
+				}
+				startFiles := make([]string, 0, len(allFiles))
+				for k, _ := range allFiles {
+					startFiles = append(startFiles, k)
+				}
+				iwc := index.NewIndexWriterConfig(TEST_VERSION_CURRENT, nil)
+				iwc.SetIndexDeletionPolicy(index.NO_DELETION_POLICY)
+				iw, err := index.NewIndexWriter(w.Directory, iwc)
+				if err != nil {
+					return err
+				}
+				err = iw.Rollback()
+				if err != nil {
+					return err
+				}
+				endFiles, err := w.Directory.ListAll()
+				if err != nil {
+					return err
+				}
+
+				hasSegmentsGenFile := sort.SearchStrings(endFiles, index.INDEX_FILENAME_SEGMENTS_GEN) >= 0
+				if pendingDeletions["segments.gen"] && hasSegmentsGenFile {
+					panic("not implemented yet")
+				}
+
+				// its possible we cannot delete the segments_N on windows if someone has it open and
+				// maybe other files too, depending on timing. normally someone on windows wouldnt have
+				// an issue (IFD would nuke this stuff eventually), but we pass NoDeletionPolicy...
+				for _, file := range pendingDeletions {
+					log.Println(file)
+					panic("not implemented yet")
+				}
+
+				sort.Strings(startFiles)
+				startFiles = uniqueStrings(startFiles)
+				sort.Strings(endFiles)
+				endFiles = uniqueStrings(endFiles)
+
+				if !reflect.DeepEqual(startFiles, endFiles) {
+					panic("not implemented")
+				}
+
+				ir1, err := index.OpenDirectoryReader(w)
+				if err != nil {
+					return err
+				}
+				numDocs1 := ir1.NumDocs()
+				err = ir1.Close()
+				if err != nil {
+					return err
+				}
+				iw, err = index.NewIndexWriter(w, index.NewIndexWriterConfig(TEST_VERSION_CURRENT, nil))
+				if err != nil {
+					return err
+				}
+				err = iw.Close()
+				if err != nil {
+					return err
+				}
+				ir2, err := index.OpenDirectoryReader(w)
+				if err != nil {
+					return err
+				}
+				numDocs2 := ir2.NumDocs()
+				err = ir2.Close()
+				if err != nil {
+					return err
+				}
+				assert2(numDocs1 == numDocs2, fmt.Sprintf("numDocs changed after opening/closing IW: before=%v after=%v", numDocs1, numDocs2))
+			}
+		}
+	}
+	return w.Directory.Close()
+}
+
+func assert2(ok bool, msg string) {
+	if !ok {
+		panic(msg)
+	}
+}
+
+func uniqueStrings(a []string) []string {
+	ans := make([]string, 0, len(a)) // inefficient for fewer unique items
+	for _, v := range a {
+		if n := len(ans); n == 0 || ans[n-1] != v {
+			ans = append(ans, v)
+		}
+	}
+	return ans
 }
 
 func (w *MockDirectoryWrapper) removeOpenFile(c io.Closer, name string) {
