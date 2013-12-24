@@ -5,6 +5,7 @@ import (
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/store"
 	"io/ioutil"
+	"math/rand"
 	"os"
 )
 
@@ -27,6 +28,52 @@ func TempDir(desc string) string {
 
 func CheckIndex(dir store.Directory, crossCheckTermVectors bool) (status index.CheckIndexStatus, err error) {
 	panic("not implemented yet")
+}
+
+// L264
+func NextInt(r *rand.Rand, start, end int) int {
+	return r.Intn(end-start) + start
+}
+
+// L314
+// Returns random string, including full unicode range.
+func RandomUnicodeString(r *rand.Rand) string {
+	return randomUnicodeStringLength(r, 20)
+}
+
+// Returns a random string up to a certain length.
+func randomUnicodeStringLength(r *rand.Rand, maxLength int) string {
+	end := NextInt(r, 0, maxLength)
+	if end == 0 {
+		// allow 0 length
+		return ""
+	}
+	buffer := make([]rune, end)
+	randomFixedLengthUnicodeString(r, buffer)
+	return string(buffer)
+}
+
+// Fills provided []rune with valid random unicode code unit sequence.
+func randomFixedLengthUnicodeString(random *rand.Rand, chars []rune) {
+	for i, length := 0, len(chars); i < length; i++ {
+		t := random.Intn(5)
+		if t == 0 && i < length-1 {
+			// Make a surrogate pair
+			// High surrogate
+			chars[i] = rune(NextInt(random, 0xd800, 0xdbff))
+			// Low surrogate
+			i++
+			chars[i] = rune(NextInt(random, 0xdc00, 0xdfff))
+		} else if t <= 1 {
+			chars[i] = rune(random.Intn(0x80))
+		} else if t == 2 {
+			chars[i] = rune(NextInt(random, 0x80, 0x7ff))
+		} else if t == 3 {
+			chars[i] = rune(NextInt(random, 0x800, 0xd7ff))
+		} else if t == 4 {
+			chars[i] = rune(NextInt(random, 0xe000, 0xffff))
+		}
+	}
 }
 
 // util/TestRuleMarkFailure.java

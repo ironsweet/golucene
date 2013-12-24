@@ -3,8 +3,12 @@ package util
 import (
 	"fmt"
 	"math"
+	"sort"
 )
 
+// util/ArrayUtil.java
+
+// L152
 /** Returns an array size >= minTargetSize, generally
  *  over-allocating exponentially to achieve amortized
  *  linear-time cost as the array grows.
@@ -73,4 +77,13 @@ func Oversize(minTargetSize int, bytesPerElement int) int {
 		return newSize
 	}
 	// }
+}
+
+// L699
+/*
+Sorts the given array slice in natural order. This method uses the
+Tim sort algorithm, but falls back to binary sort for small arrays.
+*/
+func TimSort(data sort.Interface) {
+	panic("not implemented yet")
 }

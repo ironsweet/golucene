@@ -183,7 +183,27 @@ func wrapDirectory(random *rand.Rand, directory store.Directory, bare bool) Base
 	}
 }
 
-// L659
+// L643
+
+/*
+Returns a number of at least i
+
+The actual number returned will be influenced by whether TEST_NIGHTLY
+is active and RANDOM_MULTIPLIER, but also with some random fudge.
+*/
+func atLeastBy(random *rand.Rand, i int) int {
+	min := i * RANDOM_MULTIPLIER
+	if TEST_NIGHTLY {
+		min = 2 * min
+	}
+	max := min + min/2
+	return NextInt(random, min, max)
+}
+
+func AtLeast(i int) int {
+	return atLeastBy(Random(), i)
+}
+
 /*
 Returns true if something should happen rarely,
 
