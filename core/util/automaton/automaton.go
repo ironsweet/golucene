@@ -5,6 +5,7 @@ import (
 	"container/list"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
+	"log"
 	"sort"
 	"strconv"
 	"unicode"
@@ -171,6 +172,22 @@ func (a *Automaton) ExpandSingleton() {
 	}
 }
 
+// L566
+// Returns a string representation of this automaton.
+func (a *Automaton) String() string {
+	var b bytes.Buffer
+	if a.isSingleton() {
+		panic("not implemented yet")
+	} else {
+		states := a.NumberedStates()
+		fmt.Fprintf(&b, "initial state: %v\n", a.initial.number)
+		for _, s := range states {
+			b.WriteString(s.String())
+		}
+	}
+	return b.String()
+}
+
 // L614
 // Returns a clone of this automaton, expands if singleton.
 func (a *Automaton) cloneExpanded() *Automaton {
@@ -282,6 +299,22 @@ func (s *State) addEpsilon(to *State) {
 	}
 }
 
+// Returns string describing this state. Normally invoked via Automaton.
+func (s *State) String() string {
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "state %v", s.number)
+	if s.accept {
+		b.WriteString(" [accept]")
+	} else {
+		b.WriteString(" [reject]")
+	}
+	b.WriteString("\n")
+	for _, t := range s.transitionsArray {
+		fmt.Fprintf(&b, "  %v\n", t.String())
+	}
+	return b.String()
+}
+
 // util/automaton/Transition.java
 
 /*
@@ -310,6 +343,44 @@ func newTransitionRange(min, max int, to *State) *Transition {
 		max, min = min, max
 	}
 	return &Transition{min, max, to}
+}
+
+func appendCharString(c int, b *bytes.Buffer) {
+	if c >= 0x21 && c <= 0x7e && c != '\\' && c != '"' {
+		b.WriteRune(rune(c))
+	} else {
+		b.WriteString("\\\\U")
+		s := fmt.Sprintf("%x", c)
+		if c < 0x10 {
+			fmt.Fprintf(b, "0000000%v", s)
+		} else if c < 0x100 {
+			fmt.Fprintf(b, "000000%v", s)
+		} else if c < 0x1000 {
+			fmt.Fprintf(b, "00000%v", s)
+		} else if c < 0x10000 {
+			fmt.Fprintf(b, "0000%v", s)
+		} else if c < 0x100000 {
+			fmt.Fprintf(b, "000%v", s)
+		} else if c < 0x1000000 {
+			fmt.Fprintf(b, "00%v", s)
+		} else if c < 0x10000000 {
+			fmt.Fprintf(b, "0%v", s)
+		} else {
+			b.WriteString(s)
+		}
+	}
+}
+
+// Returns a string describing this transition. Normally invoked via State.
+func (t *Transition) String() string {
+	var b bytes.Buffer
+	appendCharString(t.min, &b)
+	if t.min != t.max {
+		b.WriteString("-")
+		appendCharString(t.max, &b)
+	}
+	fmt.Fprintf(&b, " -> %v", t.to.number)
+	return b.String()
 }
 
 // util/automaton/BasicAutomata.java
@@ -564,6 +635,7 @@ Split the code points in ranges, and merge overlapping states.
 Worst case complexity: exponential in number of states.
 */
 func determinize(a *Automaton) {
+	log.Println("DEBUG", a)
 	if a.deterministic || a.isSingleton() {
 		return
 	}
@@ -865,6 +937,7 @@ func minimize(a *Automaton) {
 
 // Minimizes the given automaton using Hopcroft's alforithm.
 func minimizeHopcroft(a *Automaton) {
+	log.Println("Minimizing using Hopcraft...")
 	a.determinize()
 	if len(a.initial.transitionsArray) == 1 {
 		t := a.initial.transitionsArray[0]

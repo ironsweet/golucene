@@ -1,6 +1,7 @@
 package automaton
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -214,7 +215,69 @@ func (re *RegExp) findLeaves(exp *RegExp, kind Kind, list []*Automaton,
 
 // Constructs string from parsed regular expression
 func (re *RegExp) String() string {
-	panic("not implemented yet")
+	var b bytes.Buffer
+	return re.toStringBuilder(&b).String()
+}
+
+func (re *RegExp) toStringBuilder(b *bytes.Buffer) *bytes.Buffer {
+	switch re.kind {
+	case REGEXP_UNION:
+		b.WriteString("(")
+		re.exp1.toStringBuilder(b)
+		b.WriteString("|")
+		re.exp2.toStringBuilder(b)
+		b.WriteString(")")
+	case REGEXP_CONCATENATION:
+		panic("not implemented yet")
+	case REGEXP_INTERSECTION:
+		b.WriteString("(")
+		re.exp1.toStringBuilder(b)
+		b.WriteString("&")
+		re.exp2.toStringBuilder(b)
+		b.WriteString(")")
+	case REGEXP_OPTIONAL:
+		panic("not implemented yet")
+	case REGEXP_REPEAT:
+		panic("not implemented yet")
+	case REGEXP_REPEAT_MIN:
+		b.WriteString("(")
+		re.exp1.toStringBuilder(b)
+		fmt.Fprintf(b, "){%v,}", re.min)
+	case REGEXP_REPEAT_MINMAX:
+		panic("not implemented yet")
+	case REGEXP_COMPLEMENT:
+		b.WriteString("~(")
+		re.exp1.toStringBuilder(b)
+		b.WriteString(")")
+	case REGEXP_CHAR:
+		b.WriteString("\\")
+		if rune(re.c) == '\r' { // edge case
+			b.WriteRune('r')
+		} else if rune(re.c) == '\t' { // edge case
+			b.WriteRune('t')
+		} else if rune(re.c) == '\n' { // edge case
+			b.WriteRune('n')
+		} else {
+			b.WriteRune(rune(re.c))
+		}
+	case REGEXP_CHAR_RANGE:
+		panic("not implemented yet")
+	case REGEXP_ANYCHAR:
+		b.WriteString(".")
+	case REGEXP_EMPTY:
+		panic("not implemented yet")
+	case REGEXP_STRING:
+		panic("not implemented yet")
+	case REGEXP_ANYSTRING:
+		panic("not implemented yet")
+	case REGEXP_AUTOMATON:
+		panic("not implemented yet")
+	case REGEXP_INTERVAL:
+		panic("not implemented yet")
+	default:
+		panic("not supported yet")
+	}
+	return b
 }
 
 func makeUnion(exp1, exp2 *RegExp) *RegExp {
