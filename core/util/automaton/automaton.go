@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
+	"math/big"
 	"sort"
 	"strconv"
 	"unicode"
@@ -126,7 +127,24 @@ func (a *Automaton) clearNumberedStates() {
 // Adds transitions to explicit crash state to ensure that transition
 // function is total
 func (a *Automaton) totalize() {
-	panic("not implemented yet")
+	s := newState()
+	s.addTransition(newTransitionRange(MIN_CODE_POINT, unicode.MaxRune, s))
+	for _, p := range a.NumberedStates() {
+		maxi := MIN_CODE_POINT
+		p.sortTransitions(compareByDestThenMinMax)
+		for _, t := range p.transitionsArray {
+			if t.min > maxi {
+				p.addTransition(newTransitionRange(maxi, t.min-1, s))
+			}
+			if t.max+1 > maxi {
+				maxi = t.max + 1
+			}
+		}
+		if maxi <= unicode.MaxRune {
+			p.addTransition(newTransitionRange(maxi, unicode.MaxRune, s))
+		}
+	}
+	a.clearNumberedStates()
 }
 
 // Go doesn't have unicode.MinRune which should be 0
@@ -154,6 +172,13 @@ func (a *Automaton) startPoints() []int {
 	return points
 }
 
+// L459
+// Removes transitions to dead states and calls reduce().
+// (A state is "dead" if no accept state is reachable from it.)
+func (a *Automaton) removeDeadTransitions() {
+	panic("not implemented yet")
+}
+
 // L512
 // Expands singleton representation to normal representation. Does
 // nothing if not in singleton representation.
@@ -177,7 +202,11 @@ func (a *Automaton) ExpandSingleton() {
 func (a *Automaton) String() string {
 	var b bytes.Buffer
 	if a.isSingleton() {
-		panic("not implemented yet")
+		b.WriteString("singleton: ")
+		for _, c := range a.singleton {
+			appendCharString(int(c), &b)
+		}
+		b.WriteRune('\n')
 	} else {
 		states := a.NumberedStates()
 		fmt.Fprintf(&b, "initial state: %v\n", a.initial.number)
@@ -299,6 +328,24 @@ func (s *State) addEpsilon(to *State) {
 	}
 }
 
+type TransitionArraySorter struct {
+	arr []*Transition
+	by  func(t1, t2 *Transition) bool
+}
+
+func (s TransitionArraySorter) Len() int           { return len(s.arr) }
+func (s TransitionArraySorter) Less(i, j int) bool { return s.by(s.arr[i], s.arr[j]) }
+func (s TransitionArraySorter) Swap(i, j int)      { s.arr[i], s.arr[j] = s.arr[j], s.arr[i] }
+
+// Returns sorted list of outgoing transitions.
+// Sorts transitions array in-place
+func (s *State) sortTransitions(f func(t1, t2 *Transition) bool) {
+	// merge-sort seems to perform better on already sorted arrays
+	if len(s.transitionsArray) > 1 {
+		util.TimSort(TransitionArraySorter{s.transitionsArray, f})
+	}
+}
+
 // Returns string describing this state. Normally invoked via Automaton.
 func (s *State) String() string {
 	var b bytes.Buffer
@@ -383,6 +430,17 @@ func (t *Transition) String() string {
 	return b.String()
 }
 
+var compareByDestThenMinMax = func(t1, t2 *Transition) bool {
+	if t1.to != t2.to {
+		return t1.to.number < t2.to.number
+	}
+	return t1.min < t2.min || t1.min == t2.min && t1.max > t2.max
+}
+
+var compareByMinMaxThenDest = func(t1, t2 *Transition) bool {
+	panic("not implemented yet")
+}
+
 // util/automaton/BasicAutomata.java
 
 // Returns a new (deterministic) automaton with the empty language.
@@ -400,8 +458,10 @@ func makeAnyChar() *Automaton {
 
 // Returns a new (deterministic) automaton that accepts a single codepoint of the given value.
 func makeChar(c int) *Automaton {
+	var b bytes.Buffer
+	b.WriteRune(rune(c))
 	return &Automaton{
-		singleton:     strconv.QuoteRune(rune(c)),
+		singleton:     b.String(),
 		deterministic: true,
 	}
 }
@@ -635,7 +695,6 @@ Split the code points in ranges, and merge overlapping states.
 Worst case complexity: exponential in number of states.
 */
 func determinize(a *Automaton) {
-	log.Println("DEBUG", a)
 	if a.deterministic || a.isSingleton() {
 		return
 	}
@@ -947,5 +1006,212 @@ func minimizeHopcroft(a *Automaton) {
 	}
 	a.totalize()
 
-	panic("not implemented yet")
+	// initialize data structure
+	sigma := a.startPoints()
+	states := a.NumberedStates()
+	sigmaLen, statesLen := len(sigma), len(states)
+	reverse := make([][][]*State, statesLen)
+	for i, _ := range reverse {
+		reverse[i] = make([][]*State, sigmaLen)
+	}
+	partition := make([]map[int]*State, statesLen)
+	splitblock := make([][]*State, statesLen)
+	block := make([]int, statesLen)
+	active := make([][]*StateList, statesLen)
+	for i, _ := range active {
+		active[i] = make([]*StateList, sigmaLen)
+	}
+	active2 := make([][]*StateListNode, statesLen)
+	for i, _ := range active2 {
+		active2[i] = make([]*StateListNode, sigmaLen)
+	}
+	pending := list.New()
+	pending2 := big.NewInt(0) // sigmaLen * statesLen bits
+	split := big.NewInt(0)    // statesLen bits
+	refine := big.NewInt(0)   // statesLen bits
+	refine2 := big.NewInt(0)  // statesLen bits
+	for q, _ := range splitblock {
+		splitblock[q] = make([]*State, 0)
+		partition[q] = make(map[int]*State)
+		for x, _ := range active[q] {
+			active[q][x] = &StateList{}
+		}
+	}
+	// find initial partition and reverse edges
+	for q, qq := range states {
+		j := or(qq.accept, 0, 1).(int)
+		partition[j][qq.id] = qq
+		block[q] = j
+		for x, v := range sigma {
+			r := reverse[qq.step(v).number]
+			if r[x] == nil {
+				r[x] = make([]*State, 0)
+			}
+			r[x] = append(r[x], qq)
+		}
+	}
+	// initialze active sets
+	for j := 0; j <= 1; j++ {
+		for x := 0; x < sigmaLen; x++ {
+			for _, qq := range partition[j] {
+				if reverse[qq.number][x] != nil {
+					active2[qq.number][x] = active[j][x].add(qq)
+				}
+			}
+		}
+	}
+	// initialze pending
+	for x := 0; x < sigmaLen; x++ {
+		j := or(active[0][x].size <= active[1][x].size, 0, 1).(int)
+		pending.PushBack(&IntPair{j, x})
+		setBit(pending2, x*statesLen+j)
+	}
+	// process pending until fixed point
+	k := 2
+	for pending.Len() > 0 {
+		ip := pending.Front().Value.(*IntPair)
+		pending.Remove(pending.Front())
+		p, x := ip.n1, ip.n2
+		clearBit(pending2, x*statesLen+p)
+		// find states that need to be split off their blocks
+		for m := active[p][x].first; m != nil; m = m.next {
+			if r := reverse[m.q.number][x]; r != nil {
+				for _, s := range r {
+					if i := s.number; split.Bit(i) == 0 {
+						setBit(split, i)
+						j := block[i]
+						splitblock[j] = append(splitblock[j], s)
+						if refine2.Bit(j) == 0 {
+							setBit(refine2, j)
+							setBit(refine, j)
+						}
+					}
+				}
+			}
+		}
+		// refine blocks
+		// TODO Go's Big int may not be efficient here.
+		for j, bitsLen := 0, refine.BitLen(); j < bitsLen; j++ {
+			if refine.Bit(j) == 0 {
+				continue
+			}
+			sb := splitblock[j]
+			if len(sb) < len(partition[j]) {
+				b1, b2 := partition[j], partition[k]
+				for _, s := range sb {
+					delete(b1, s.id)
+					b2[s.id] = s
+					block[s.number] = k
+					for c, sn := range active2[s.number] {
+						if sn != nil && sn.sl == active[j][c] {
+							sn.remove()
+							active2[s.number][c] = active[k][c].add(s)
+						}
+					}
+				}
+				// update pending
+				for c, _ := range active[j] {
+					aj := active[j][c].size
+					ak := active[k][c].size
+					ofs := c * statesLen
+					if pending2.Bit(ofs+j) == 0 && 0 < aj && aj <= ak {
+						setBit(pending2, ofs+j)
+						pending.PushBack(&IntPair{j, c})
+					} else {
+						setBit(pending2, ofs+k)
+						pending.PushBack(&IntPair{k, c})
+					}
+				}
+				k++
+			}
+			clearBit(refine2, j)
+			for _, s := range sb {
+				clearBit(split, s.number)
+			}
+			sb = sb[:0] // unnecessary as sb is to be out of scope soon
+		}
+		refine = big.NewInt(0) // not quite efficient
+	}
+	// make a new state for each equivalence class, set initial state
+	newstates := make([]*State, k)
+	for n, _ := range newstates {
+		s := newState()
+		newstates[n] = s
+		for _, q := range partition[n] {
+			if q == a.initial {
+				a.initial = s
+			}
+			s.accept = q.accept
+			s.number = q.number // select representtive
+			q.number = n
+		}
+	}
+	// build transitions and set acceptance
+	for _, s := range newstates {
+		s.accept = states[s.number].accept
+		for _, t := range states[s.number].transitionsArray {
+			s.addTransition(newTransitionRange(t.min, t.max, newstates[t.to.number]))
+		}
+	}
+	a.clearNumberedStates()
+	a.removeDeadTransitions()
+}
+
+func setBit(n *big.Int, bitIndex int) {
+	n.SetBit(n, bitIndex, 1)
+}
+
+func clearBit(n *big.Int, bitIndex int) {
+	n.SetBit(n, bitIndex, 0)
+}
+
+func or(cond bool, v1, v2 interface{}) interface{} {
+	if cond {
+		return v1
+	}
+	return v2
+}
+
+type IntPair struct{ n1, n2 int }
+
+type StateList struct {
+	size        int
+	first, last *StateListNode
+}
+
+func (sl *StateList) add(q *State) *StateListNode {
+	return newStateListNode(q, sl)
+}
+
+type StateListNode struct {
+	q          *State
+	next, prev *StateListNode
+	sl         *StateList
+}
+
+func newStateListNode(q *State, sl *StateList) *StateListNode {
+	ans := &StateListNode{q: q, sl: sl}
+	sl.size++
+	if sl.size == 1 {
+		sl.first, sl.last = ans, ans
+	} else {
+		sl.last.next = ans
+		ans.prev = sl.last
+		sl.last = ans
+	}
+	return ans
+}
+
+func (node *StateListNode) remove() {
+	node.sl.size--
+	if node.sl.first == node {
+		node.sl.first = node.next
+	} else {
+		node.prev.next = node.next
+	}
+	if node.sl.last == node {
+		node.sl.last = node.prev
+	} else {
+		node.next.prev = node.prev
+	}
 }

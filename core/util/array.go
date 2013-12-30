@@ -81,9 +81,30 @@ func Oversize(minTargetSize int, bytesPerElement int) int {
 
 // L699
 /*
-Sorts the given array slice in natural order. This method uses the
+Sorts the given array slice in its own order. This method uses the
 Tim sort algorithm, but falls back to binary sort for small arrays.
 */
 func TimSort(data sort.Interface) {
-	panic("not implemented yet")
+	newArrayTimSorter(data, data.Len()/64).sort(0, data.Len())
+}
+
+// util/ArrayTimSorter.java
+
+// A TimSorter for object arrays
+type ArrayTimSorter struct {
+	*TimSorter
+	arr sort.Interface
+	tmp []interface{}
+}
+
+// Create a new ArrayTimSorter
+func newArrayTimSorter(arr sort.Interface, maxTempSlots int) *ArrayTimSorter {
+	ans := &ArrayTimSorter{
+		TimSorter: newTimSorter(arr, maxTempSlots),
+		arr:       arr,
+	}
+	if maxTempSlots > 0 {
+		ans.tmp = make([]interface{}, maxTempSlots)
+	}
+	return ans
 }

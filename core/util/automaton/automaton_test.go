@@ -1,18 +1,18 @@
 package automaton
 
 import (
-	// "fmt"
+	"fmt"
 	// . "github.com/balzaczyy/golucene/test_framework"
 	// "sort"
 	"testing"
 )
 
 func TestRegExpToAutomaton(t *testing.T) {
-	// a := NewRegExp("[^ \t\r\n]+").ToAutomaton()
-	// fmt.Println(a)
-	// assert(a.deterministic)
-	// assert(1 == a.initial.number)
-	// assert(2 == len(a.numberedStates))
+	a := NewRegExp("[^ \t\r\n]+").ToAutomaton()
+	fmt.Println(a)
+	assert(a.deterministic)
+	assert(1 == a.initial.number)
+	assert(2 == len(a.numberedStates))
 }
 
 // func TestStringUnion(t testing.T) {

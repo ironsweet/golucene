@@ -7,8 +7,8 @@ import (
 
 func TestRegExpSimple(t *testing.T) {
 	r := NewRegExp("[^ \t\r\n]+")
-	fmt.Println(r.String())
-	assert("((.&~((((\\ |\\t)|\\r)|\\n)))){1,}" == r.String())
+	rr := r.String()
+	assert2("((.&~((((\\ |\\t)|\\r)|\\n)))){1,}" == rr, rr)
 	assert(REGEXP_REPEAT_MIN == r.kind)
 	assert(1 == r.min)
 	assert(8 == r.pos)
