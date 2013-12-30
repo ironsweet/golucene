@@ -150,7 +150,19 @@ func (a *Automaton) totalize() {
 // Go doesn't have unicode.MinRune which should be 0
 const MIN_CODE_POINT = 0
 
-// L400
+// L390
+// Reduces this automaton. An automaton is "reduced" by combining
+// overlapping and adjacent edge intervals with the same destination.
+func (a *Automaton) reduce() {
+	states := a.NumberedStates()
+	if a.isSingleton() {
+		return
+	}
+	for _, s := range states {
+		s.reduce()
+	}
+}
+
 // Returns sorted array of all interval start points.
 func (a *Automaton) startPoints() []int {
 	states := a.NumberedStates()
@@ -172,11 +184,87 @@ func (a *Automaton) startPoints() []int {
 	return points
 }
 
-// L459
+// Returns the set of live states. A state is "live" if an accept
+// state is reachable from it.
+func (a *Automaton) liveStates() []*State {
+	states := a.NumberedStates()
+	live := make(map[int]*State)
+	for _, q := range states {
+		if q.accept {
+			live[q.id] = q
+		}
+	}
+	// map[int]map[int]*state
+	stateMap := make([]map[int]*State, len(states))
+	for i, _ := range stateMap {
+		stateMap[i] = make(map[int]*State)
+	}
+	for _, s := range states {
+		for _, t := range s.transitionsArray {
+			stateMap[t.to.number][s.id] = s
+		}
+	}
+	worklist := list.New()
+	for _, s := range states {
+		worklist.PushBack(s)
+	}
+	for worklist.Len() > 0 {
+		s := worklist.Front().Value.(*State)
+		worklist.Remove(worklist.Front())
+		for _, p := range stateMap[s.number] {
+			if _, ok := live[p.id]; !ok {
+				live[p.id] = p
+				worklist.PushBack(p)
+			}
+		}
+	}
+
+	ans := make([]*State, 0, len(live))
+	for _, s := range live {
+		ans = append(ans, s)
+	}
+	return ans
+}
+
 // Removes transitions to dead states and calls reduce().
 // (A state is "dead" if no accept state is reachable from it.)
 func (a *Automaton) removeDeadTransitions() {
-	panic("not implemented yet")
+	states := a.NumberedStates()
+	if a.isSingleton() {
+		return
+	}
+	live := a.liveStates()
+
+	liveSet := big.NewInt(0)
+	for _, s := range live {
+		setBit(liveSet, s.number)
+	}
+
+	for _, s := range states {
+		// filter out transitions to dead states:
+		upto := 0
+		for _, t := range s.transitionsArray {
+			if liveSet.Bit(t.to.number) == 1 {
+				s.transitionsArray[upto] = t
+				upto++
+			}
+		}
+		// release remaining references for GC
+		for i, limit := upto, len(s.transitionsArray); i < limit; i++ {
+			s.transitionsArray[i] = nil
+		}
+		s.transitionsArray = s.transitionsArray[:upto]
+	}
+	for i, s := range live {
+		s.number = i
+	}
+	if len(live) > 0 {
+		a.setNumberedStates(live)
+	} else {
+		// sneaky corner case -- if machine accepts no strings
+		a.clearNumberedStates()
+	}
+	a.reduce()
 }
 
 // L512
@@ -326,6 +414,47 @@ func (s *State) addEpsilon(to *State) {
 	for _, t := range to.transitionsArray {
 		s.transitionsArray = append(s.transitionsArray, t)
 	}
+}
+
+// Reduce this state. A state is "reduced" by combining overlapping
+// and adjacent edge intervals with same destination
+func (s *State) reduce() {
+	if len(s.transitionsArray) <= 1 {
+		return
+	}
+	s.sortTransitions(compareByDestThenMinMax)
+	var p *State
+	min, max, upto := -1, -1, 0
+	for _, t := range s.transitionsArray {
+		if p == t.to {
+			if t.min <= max+1 {
+				if t.max > max {
+					max = t.max
+				}
+			} else {
+				if p != nil {
+					s.transitionsArray[upto] = newTransitionRange(min, max, p)
+					upto++
+				}
+				min, max = t.min, t.max
+			}
+		} else {
+			if p != nil {
+				s.transitionsArray[upto] = newTransitionRange(min, max, p)
+				upto++
+			}
+			p, min, max = t.to, t.min, t.max
+		}
+	}
+
+	if p != nil {
+		s.transitionsArray[upto] = newTransitionRange(min, max, p)
+		upto++
+	}
+	for i, limit := upto, len(s.transitionsArray); i < limit; i++ {
+		s.transitionsArray[i] = nil
+	}
+	s.transitionsArray = s.transitionsArray[:upto]
 }
 
 type TransitionArraySorter struct {
