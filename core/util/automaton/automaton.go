@@ -267,7 +267,12 @@ func (a *Automaton) removeDeadTransitions() {
 	a.reduce()
 }
 
-// L512
+// Returns a sorted array of transitions for each state (and sets
+// state numbers).
+func (a *Automaton) sortedTransitions() [][]*Transition {
+	panic("not implemented yet")
+}
+
 // Expands singleton representation to normal representation. Does
 // nothing if not in singleton representation.
 func (a *Automaton) ExpandSingleton() {
@@ -326,8 +331,22 @@ func (a *Automaton) cloneExpandedIfRequired() *Automaton {
 // Returns a clone of this automaton.
 func (a *Automaton) Clone() *Automaton {
 	clone := *a
-	if !clone.isSingleton() {
-		panic("not implemented yet")
+	if !a.isSingleton() {
+		m := make(map[int]*State)
+		states := a.NumberedStates()
+		for _, s := range states {
+			m[s.id] = newState()
+		}
+		for _, s := range states {
+			p := m[s.id]
+			p.accept = s.accept
+			if s == a.initial {
+				clone.initial = p
+			}
+			for _, t := range s.transitionsArray {
+				p.addTransition(newTransitionRange(t.min, t.max, m[t.to.id]))
+			}
+		}
 	}
 	clone.clearNumberedStates()
 	return &clone
@@ -665,8 +684,18 @@ the language of the given automaton.
 Complexity: linear in number of states (if already deterministic).
 */
 func complement(a *Automaton) *Automaton {
-	panic("not implemented yet")
+	a = a.cloneExpandedIfRequired()
+	a.determinize()
+	a.totalize()
+	for _, p := range a.NumberedStates() {
+		p.accept = !p.accept
+	}
+	a.removeDeadTransitions()
+	return a
 }
+
+// Pair of states.
+type StatePair struct{ s, s1, s2 *State }
 
 /*
 Returns an automaton that accepts the intersection of the languages
@@ -675,7 +704,58 @@ of the given automata. Never modifies the input automata languages.
 Complexity: quadratic in number of states.
 */
 func intersection(a1, a2 *Automaton) *Automaton {
-	panic("not implemented yet")
+	if a1.isSingleton() {
+		panic("not implemented yet")
+	}
+	if a2.isSingleton() {
+		panic("not implemented yet")
+	}
+	if a1 == a2 {
+		return a1.cloneExpandedIfRequired()
+	}
+	transitions1 := a1.sortedTransitions()
+	transitions2 := a2.sortedTransitions()
+	c := newEmptyAutomaton()
+	worklist := list.New()
+	newstates := make(map[string]*StatePair)
+	hash := func(p *StatePair) string {
+		return fmt.Sprintf("%v/%v", p.s1.id, p.s2.id)
+	}
+	p := &StatePair{c.initial, a1.initial, a2.initial}
+	worklist.PushBack(p)
+	newstates[hash(p)] = p
+	for worklist.Len() > 0 {
+		p = worklist.Front().Value.(*StatePair)
+		worklist.Remove(worklist.Front())
+		p.s.accept = (p.s1.accept && p.s2.accept)
+		t1 := transitions1[p.s1.number]
+		t2 := transitions2[p.s2.number]
+		for n1, b2, t1Len := 0, 0, len(t1); n1 < t1Len; n1++ {
+			t2Len := len(t2)
+			for b2 < t2Len && t2[b2].max < t1[n1].min {
+				b2++
+			}
+			for n2 := b2; n2 < t2Len && t1[n1].max >= t2[n2].min; n2++ {
+				if t2[n2].max >= t1[n1].min {
+					q := &StatePair{nil, t1[n1].to, t2[n2].to}
+					r, ok := newstates[hash(q)]
+					if !ok {
+						q.s = newState()
+						worklist.PushBack(q)
+						newstates[hash(q)] = q
+						r = q
+					}
+					min := or(t1[n1].min > t2[n2].min, t1[n1].min, t2[n2].min).(int)
+					max := or(t1[n1].max < t2[n2].max, t1[n1].max, t2[n2].max).(int)
+					p.s.addTransition(newTransitionRange(min, max, r.s))
+				}
+			}
+		}
+	}
+	c.deterministic = (a1.deterministic && a2.deterministic)
+	c.removeDeadTransitions()
+	c.checkMinimizeAlways()
+	return c
 }
 
 /*
