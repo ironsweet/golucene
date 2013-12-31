@@ -228,7 +228,7 @@ func (a *Automaton) liveStates() []*State {
 		}
 	}
 	worklist := list.New()
-	for _, s := range states {
+	for _, s := range live {
 		worklist.PushBack(s)
 	}
 	for worklist.Len() > 0 {
@@ -1293,7 +1293,16 @@ func (sis *SortedIntSet) freeze(state *State) *FrozenIntSet {
 }
 
 func (sis *SortedIntSet) String() string {
-	panic("not implemented yet")
+	var b bytes.Buffer
+	b.WriteRune('[')
+	for i, limit := 0, len(sis.values); i < limit; i++ {
+		if i > 0 {
+			b.WriteRune(' ')
+		}
+		fmt.Fprintf(&b, "%v:%v", sis.values[i], sis.counts[i])
+	}
+	b.WriteRune(']')
+	return b.String()
 }
 
 type FrozenIntSet struct {
