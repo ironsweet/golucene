@@ -270,7 +270,14 @@ func (a *Automaton) removeDeadTransitions() {
 // Returns a sorted array of transitions for each state (and sets
 // state numbers).
 func (a *Automaton) sortedTransitions() [][]*Transition {
-	panic("not implemented yet")
+	states := a.NumberedStates()
+	transitions := make([][]*Transition, len(states))
+	for _, s := range states {
+		s.sortTransitions(compareByMinMaxThenDest)
+		transitions[s.number] = s.transitionsArray
+		assert(s.transitionsArray != nil)
+	}
+	return transitions
 }
 
 // Expands singleton representation to normal representation. Does
@@ -586,7 +593,19 @@ var compareByDestThenMinMax = func(t1, t2 *Transition) bool {
 }
 
 var compareByMinMaxThenDest = func(t1, t2 *Transition) bool {
-	panic("not implemented yet")
+	if t1.min < t2.min {
+		return true
+	}
+	if t1.min > t2.min {
+		return false
+	}
+	if t1.max > t2.max {
+		return true
+	}
+	if t1.max < t2.max {
+		return false
+	}
+	return t1.to != t2.to && t1.to.number < t2.to.number
 }
 
 // util/automaton/BasicAutomata.java
@@ -674,7 +693,16 @@ repetitions of the language of the given automaton.
 Complexity: linear in number of states and in min.
 */
 func repeatMin(a *Automaton, min int) *Automaton {
-	panic("not implemented yet")
+	if min == 0 {
+		return repeat(a)
+	}
+	as := make([]*Automaton, 0, min+1)
+	for min > 0 {
+		as = append(as, a)
+		min--
+	}
+	as = append(as, repeat(a))
+	return concatenate(as)
 }
 
 /*
