@@ -123,7 +123,30 @@ func (a *Automaton) clearNumberedStates() {
 	a.numberedStates = nil
 }
 
-// 357
+// Returns the set of reachable accept states.
+func (a *Automaton) acceptStates() map[int]*State {
+	a.ExpandSingleton()
+	accepts := make(map[int]*State)
+	visited := make(map[int]*State)
+	worklist := list.New()
+	worklist.PushBack(a.initial)
+	visited[a.initial.id] = a.initial
+	for worklist.Len() > 0 {
+		s := worklist.Front().Value.(*State)
+		worklist.Remove(worklist.Front())
+		if s.accept {
+			accepts[s.id] = s
+		}
+		for _, t := range s.transitionsArray {
+			if _, ok := visited[t.to.id]; !ok {
+				visited[t.to.id] = t.to
+				worklist.PushBack(t.to)
+			}
+		}
+	}
+	return accepts
+}
+
 // Adds transitions to explicit crash state to ensure that transition
 // function is total
 func (a *Automaton) totalize() {
@@ -379,6 +402,10 @@ func (a *Automaton) determinize() {
 	determinize(a)
 }
 
+func (a *Automaton) isEmptyString() bool {
+	return isEmptyString(a)
+}
+
 // util/automaton/State.java
 
 var next_id int
@@ -618,6 +645,11 @@ func MakeEmpty() *Automaton {
 	return a
 }
 
+// Returns a new (deterministic) automaton that accepts only the empty string.
+func makeEmptyString() *Automaton {
+	panic("not implemented yet")
+}
+
 // Returns a new (deterministic) automaton that accepts any single codepoint.
 func makeAnyChar() *Automaton {
 	return makeCharRange(MIN_CODE_POINT, unicode.MaxRune)
@@ -671,8 +703,72 @@ func makeStringUnion(utf8Strings [][]byte) *Automaton {
 
 // Returns an automaton that accepts the concatenation of the
 // languages of the given automata.
-func concatenate(l []*Automaton) *Automaton {
-	panic("not implemented yet")
+func concatenateN(l []*Automaton) *Automaton {
+	if len(l) == 0 {
+		return makeEmptyString()
+	}
+	allSingleton := true
+	for _, a := range l {
+		if !a.isSingleton() {
+			allSingleton = false
+			break
+		}
+	}
+	if allSingleton {
+		panic("not implemented yet")
+	}
+	for _, a := range l {
+		if isEmpty(a) {
+			return MakeEmpty()
+		}
+	}
+	all := make(map[*Automaton]bool)
+	hasAliases := false
+	for _, a := range l {
+		if _, ok := all[a]; ok {
+			hasAliases = true
+			break
+		} else {
+			all[a] = true
+		}
+	}
+	b := l[0]
+	if hasAliases {
+		panic("not implemented yet")
+		// b = b.cloneExpanded()
+	} else {
+		b = b.cloneExpandedIfRequired()
+	}
+	ac := b.acceptStates()
+	first := true
+	for _, a := range l {
+		if first {
+			first = false
+		} else {
+			if a.isEmptyString() {
+				continue
+			}
+			aa := a
+			if hasAliases {
+				aa = aa.cloneExpanded()
+			} else {
+				aa = aa.cloneExpandedIfRequired()
+			}
+			ns := aa.acceptStates()
+			for _, s := range ac {
+				s.accept = false
+				s.addEpsilon(aa.initial)
+				if s.accept {
+					ns[s.id] = s
+				}
+			}
+			ac = ns
+		}
+	}
+	b.deterministic = false
+	b.clearNumberedStates()
+	b.checkMinimizeAlways()
+	return b
 }
 
 /*
@@ -683,7 +779,18 @@ Never modifies the input automaton language.
 Complexity: linear in number of states.
 */
 func repeat(a *Automaton) *Automaton {
-	panic("not implemented yet")
+	a = a.cloneExpandedIfRequired()
+	s := newState()
+	s.accept = true
+	s.addEpsilon(a.initial)
+	for _, p := range a.acceptStates() {
+		p.addEpsilon(s)
+	}
+	a.initial = s
+	a.deterministic = false
+	a.clearNumberedStates()
+	a.checkMinimizeAlways()
+	return a
 }
 
 /*
@@ -702,7 +809,7 @@ func repeatMin(a *Automaton, min int) *Automaton {
 		min--
 	}
 	as = append(as, repeat(a))
-	return concatenate(as)
+	return concatenateN(as)
 }
 
 /*
@@ -1041,8 +1148,17 @@ func determinize(a *Automaton) {
 	a.setNumberedStates(newStatesArray)
 }
 
-// L780
-// Returns true if the given automaton accepts no strings
+// L775
+// Returns true if the given automaton accepts the empty string and
+// nothing else.
+func isEmptyString(a *Automaton) bool {
+	if a.isSingleton() {
+		return len(a.singleton) == 0
+	}
+	return a.initial.accept && len(a.initial.transitionsArray) == 0
+}
+
+// Returns true if the given automaton accepts no strings.
 func isEmpty(a *Automaton) bool {
 	return !a.isSingleton() && !a.initial.accept && len(a.initial.transitionsArray) == 0
 }
