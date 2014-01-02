@@ -44,12 +44,12 @@ func buildDaciukMihovAutomaton(input [][]byte) *Automaton {
 	// 	builder.add(scratch)
 	// }
 
-	return &Automaton{
-		initial: convert(
-			builder.complete(),
-			make(map[*dfsaState]*State)),
-		deterministic: true,
-	}
+	a := newEmptyAutomaton()
+	a.initial = convert(
+		builder.complete(),
+		make(map[*dfsaState]*State))
+	a.deterministic = true
+	return a
 }
 
 // utils/CharsRef.java

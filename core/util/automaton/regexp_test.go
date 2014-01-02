@@ -26,3 +26,11 @@ func TestRegExpSimple(t *testing.T) {
 	assert2(32 == r.c, fmt.Sprintf("r.c=%v", r.c))
 	assert(REGEXP_CHAR == r.kind)
 }
+
+func TestRegExpSimple2(t *testing.T) {
+	r := NewRegExpWithFlag("*.?-", NONE)
+	assert(REGEXP_CONCATENATION == r.kind)
+	r = r.exp1
+	assert(REGEXP_CHAR == r.kind)
+	assert(42 == r.c)
+}

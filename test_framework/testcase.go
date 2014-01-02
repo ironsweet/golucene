@@ -7,21 +7,15 @@ import (
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	. "github.com/balzaczyy/golucene/test_framework/util"
 	"log"
-	"math"
 	"math/rand"
 	"os"
-	"strconv"
-	"testing"
-	"time"
 )
 
 // --------------------------------------------------------------------
 // Test groups, system properties and other annotations modifying tests
 // --------------------------------------------------------------------
-const (
-	SYSPROP_NIGHTLY = "tests.nightly"
-)
 
 // -----------------------------------------------------------------
 // Truly immutable fields and constants, initialized once and valid
@@ -32,34 +26,14 @@ const (
 // stuff. NOTE: Change this when developmenet starts for new Lucene version:
 const TEST_VERSION_CURRENT = util.VERSION_45
 
-// True if and only if tests are run in verbose mode. If this flag is false
-// tests are not expected toprint and messages.
-var VERBOSE = ("false" == or(os.Getenv("tests.verbose"), "false"))
-
-// A random multiplier which you should use when writing random tests:
-// multiply it by the number of iterations to scale your tests (for nightly builds).
-var RANDOM_MULTIPLIER = func() int {
-	n, err := strconv.Atoi(or(os.Getenv("tests.multiplier"), "1"))
-	if err != nil {
-		panic(err)
-	}
-	return n
-}()
-
-// Gets the directory to run tests with
-var TEST_DIRECTORY = or(os.Getenv("tests.directory"), "random")
-
-// Whether or not Nightly tests should run
-var TEST_NIGHTLY = ("true" == or(os.Getenv(SYSPROP_NIGHTLY), "false"))
-
 // Throttling
 var TEST_THROTTLING = either(TEST_NIGHTLY, THROTTLING_SOMETIMES, THROTTLING_NEVER).(Throttling)
 
-func or(a, b string) string {
-	if len(a) > 0 {
-		return a
+func either(flag bool, value, orValue interface{}) interface{} {
+	if flag {
+		return value
 	}
-	return b
+	return orValue
 }
 
 // L300
@@ -68,60 +42,9 @@ func or(a, b string) string {
 // Class level (suite) rules.
 // -----------------------------------------------------------------
 
-var suiteFailureMarker = &TestRuleMarkFailure{}
-
-// Ian: I have to extend Go's testing framework to simulate JUnit's
-// TestRule
-func wrapTesting(t *testing.T) *T {
-	ans := wrapT(t)
-	suiteFailureMarker.T = ans
-	return ans
-}
-
-var suiteClosers []func() error
-
-type T struct {
-	delegate *testing.T
-}
-
-func wrapT(t *testing.T) *T {
-	return &T{t}
-}
-
-func (c *T) Error(args ...interface{}) {
-	c.delegate.Error(args)
-}
-
-func (c *T) afterSuite() {
-	for _, closer := range suiteClosers {
-		closer() // ignore error
-	}
-}
-
 // -----------------------------------------------------------------
 // Test facilities and facades for subclasses.
 // -----------------------------------------------------------------
-
-/*
-Note it's different from Lucene's Randomized Test Runner.
-
-There is an overhead connected with getting the Random for a particular
-context and thread. It is better to cache this Random locally if tight loops
-with multiple invocations are present or create a derivative local Random for
-millions of calls like this:
-
-		r := rand.New(rand.NewSource(99))
-		// tight loop with many invocations.
-
-*/
-func Random() *rand.Rand {
-	return rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
-}
-
-// Registers a Closeable resource that shold be closed after the suite completes.
-func closeAfterSuite(closer func() error) {
-	suiteClosers = append(suiteClosers, closer)
-}
 
 // Create a new index writer config with random defaults
 func NewIndexWriterConfig(v util.Version, a analysis.Analyzer) *index.IndexWriterConfig {
@@ -144,15 +67,15 @@ func NewDirectory() BaseDirectoryWrapper {
 // Returns a new Directory instance, using the specified random.
 // See NewDirecotry() for more information
 func newDirectoryWithSeed(r *rand.Rand) BaseDirectoryWrapper {
-	return wrapDirectory(r, newDirectoryImpl(r, TEST_DIRECTORY), rarely(r))
+	return wrapDirectory(r, newDirectoryImpl(r, TEST_DIRECTORY), Rarely(r))
 }
 
 func wrapDirectory(random *rand.Rand, directory store.Directory, bare bool) BaseDirectoryWrapper {
-	if rarely(random) {
+	if Rarely(random) {
 		directory = store.NewNRTCachingDirectory(directory, random.Float64(), random.Float64())
 	}
 
-	if rarely(random) {
+	if Rarely(random) {
 		maxMBPerSec := 10 + 5*(random.Float64()-0.5)
 		if VERBOSE {
 			log.Printf("LuceneTestCase: will rate limit output IndexOutput to %v MB/sec", maxMBPerSec)
@@ -172,59 +95,15 @@ func wrapDirectory(random *rand.Rand, directory store.Directory, bare bool) Base
 
 	if bare {
 		base := NewBaseDirectoryWrapper(directory)
-		closeAfterSuite(NewCloseableDirectory(base, suiteFailureMarker))
+		CloseAfterSuite(NewCloseableDirectory(base, SuiteFailureMarker))
 		return base
 	} else {
 		mock := NewMockDirectoryWrapper(random, directory)
 
 		mock.SetThrottling(TEST_THROTTLING)
-		closeAfterSuite(NewCloseableDirectory(mock, suiteFailureMarker))
+		CloseAfterSuite(NewCloseableDirectory(mock, SuiteFailureMarker))
 		return mock
 	}
-}
-
-// L643
-
-/*
-Returns a number of at least i
-
-The actual number returned will be influenced by whether TEST_NIGHTLY
-is active and RANDOM_MULTIPLIER, but also with some random fudge.
-*/
-func atLeastBy(random *rand.Rand, i int) int {
-	min := i * RANDOM_MULTIPLIER
-	if TEST_NIGHTLY {
-		min = 2 * min
-	}
-	max := min + min/2
-	return NextInt(random, min, max)
-}
-
-func AtLeast(i int) int {
-	return atLeastBy(Random(), i)
-}
-
-/*
-Returns true if something should happen rarely,
-
-The actual number returned will be influenced by whether TEST_NIGHTLY
-is active and RANDOM_MULTIPLIER
-*/
-func rarely(random *rand.Rand) bool {
-	p := either(TEST_NIGHTLY, 10, 1).(int)
-	p += int(float64(p) * math.Log(float64(RANDOM_MULTIPLIER)))
-	if p < 50 {
-		p = 50
-	}
-	min := 100 - p // never more than 50
-	return random.Intn(100) >= min
-}
-
-func either(flag bool, value, orValue interface{}) interface{} {
-	if flag {
-		return value
-	}
-	return orValue
 }
 
 // L1064
@@ -244,7 +123,7 @@ func NewField(r *rand.Rand, name, value string, typ *index.FieldType) *index.Fie
 // explicitly initialize different directory randomly.
 func newDirectoryImpl(random *rand.Rand, clazzName string) store.Directory {
 	if clazzName == "random" {
-		if rarely(random) {
+		if Rarely(random) {
 			switch random.Intn(1) {
 			case 0:
 				clazzName = "SimpleFSDirectory"

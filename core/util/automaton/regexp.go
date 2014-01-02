@@ -32,12 +32,15 @@ const (
 
 // Syntax flags
 const (
-	INTERSECTION = 1 // &
-	COMPLEMENT   = 2 // ~
+	INTERSECTION = 0x0001 // &
+	COMPLEMENT   = 0x0002 // ~
+	EMPTY        = 0x0004 // #
+	ANYSTRING    = 0x0008 // @
+	AUTOMATON    = 0x0010 // <identifier>
+	INTERVAL     = 0x0020 // <n-m>
+	ALL          = 0xffff // enables all optional regexp syntax.
+	NONE         = 0x0000 // enables no optional regexp syntax.
 )
-
-// Syntax flag, enables all optional regex syntax.
-const ALL = 0xffff
 
 /*
 Regular Expression extension to Automaton.
@@ -117,7 +120,7 @@ func NewRegExpWithFlag(s string, flags int) *RegExp {
 	}
 	var e *RegExp
 	if len(s) == 0 {
-		e = makeString("")
+		e = makeStringRE("")
 	} else {
 		e = ans.parseUnionExp()
 		if ans.pos < len(ans.b) {
@@ -127,6 +130,7 @@ func NewRegExpWithFlag(s string, flags int) *RegExp {
 	ans.kind = e.kind
 	ans.exp1, ans.exp2 = e.exp1, e.exp2
 	ans.s = e.s
+	ans.c = e.c
 	ans.min, ans.max, ans.digits = e.min, e.max, e.digits
 	ans.from, ans.to = e.from, e.to
 	ans.b = nil
@@ -161,16 +165,21 @@ func (re *RegExp) toAutomaton(automata map[string]*Automaton,
 		list = make([]*Automaton, 0)
 		list = re.findLeaves(re.exp1, REGEXP_UNION, list, automata, provider)
 		list = re.findLeaves(re.exp2, REGEXP_UNION, list, automata, provider)
-		a = union(list)
+		a = unionN(list)
 		minimize(a)
 	case REGEXP_CONCATENATION:
-		panic("not implemented yet")
+		list = make([]*Automaton, 0)
+		list = re.findLeaves(re.exp1, REGEXP_CONCATENATION, list, automata, provider)
+		list = re.findLeaves(re.exp2, REGEXP_CONCATENATION, list, automata, provider)
+		a = concatenateN(list)
+		minimize(a)
 	case REGEXP_INTERSECTION:
 		a = re.exp1.toAutomaton(automata, provider).intersection(
 			re.exp2.toAutomaton(automata, provider))
 		minimize(a)
 	case REGEXP_OPTIONAL:
-		panic("not implemented yet")
+		a = re.exp1.toAutomaton(automata, provider).optional()
+		minimize(a)
 	case REGEXP_REPEAT:
 		a = re.exp1.toAutomaton(automata, provider).repeat()
 		minimize(a)
@@ -191,7 +200,7 @@ func (re *RegExp) toAutomaton(automata map[string]*Automaton,
 	case REGEXP_EMPTY:
 		panic("not implemented yet")
 	case REGEXP_STRING:
-		panic("not implemented yet")
+		a = makeString(re.s)
 	case REGEXP_ANYSTRING:
 		panic("not implemented yet")
 	case REGEXP_AUTOMATON:
@@ -222,33 +231,38 @@ func (re *RegExp) String() string {
 func (re *RegExp) toStringBuilder(b *bytes.Buffer) *bytes.Buffer {
 	switch re.kind {
 	case REGEXP_UNION:
-		b.WriteString("(")
+		b.WriteRune('(')
 		re.exp1.toStringBuilder(b)
-		b.WriteString("|")
+		b.WriteRune('|')
 		re.exp2.toStringBuilder(b)
-		b.WriteString(")")
+		b.WriteRune(')')
 	case REGEXP_CONCATENATION:
-		panic("not implemented yet")
-	case REGEXP_INTERSECTION:
-		b.WriteString("(")
 		re.exp1.toStringBuilder(b)
-		b.WriteString("&")
 		re.exp2.toStringBuilder(b)
-		b.WriteString(")")
+	case REGEXP_INTERSECTION:
+		b.WriteRune('(')
+		re.exp1.toStringBuilder(b)
+		b.WriteRune('&')
+		re.exp2.toStringBuilder(b)
+		b.WriteRune(')')
 	case REGEXP_OPTIONAL:
-		panic("not implemented yet")
+		b.WriteRune('(')
+		re.exp1.toStringBuilder(b)
+		b.WriteString(")?")
 	case REGEXP_REPEAT:
-		panic("not implemented yet")
+		b.WriteRune('(')
+		re.exp1.toStringBuilder(b)
+		b.WriteString(")*")
 	case REGEXP_REPEAT_MIN:
-		b.WriteString("(")
+		b.WriteRune('(')
 		re.exp1.toStringBuilder(b)
 		fmt.Fprintf(b, "){%v,}", re.min)
 	case REGEXP_REPEAT_MINMAX:
-		panic("not implemented yet")
+		panic("not implemented yet3")
 	case REGEXP_COMPLEMENT:
 		b.WriteString("~(")
 		re.exp1.toStringBuilder(b)
-		b.WriteString(")")
+		b.WriteRune(')')
 	case REGEXP_CHAR:
 		b.WriteString("\\")
 		if rune(re.c) == '\r' { // edge case
@@ -261,21 +275,21 @@ func (re *RegExp) toStringBuilder(b *bytes.Buffer) *bytes.Buffer {
 			b.WriteRune(rune(re.c))
 		}
 	case REGEXP_CHAR_RANGE:
-		panic("not implemented yet")
+		panic("not implemented yet4")
 	case REGEXP_ANYCHAR:
-		b.WriteString(".")
+		b.WriteRune('.')
 	case REGEXP_EMPTY:
-		panic("not implemented yet")
+		panic("not implemented yet5")
 	case REGEXP_STRING:
-		panic("not implemented yet")
+		fmt.Fprintf(b, "\"%v\"", re.s)
 	case REGEXP_ANYSTRING:
-		panic("not implemented yet")
+		panic("not implemented yet7")
 	case REGEXP_AUTOMATON:
-		panic("not implemented yet")
+		panic("not implemented yet8")
 	case REGEXP_INTERVAL:
-		panic("not implemented yet")
+		panic("not implemented yet9")
 	default:
-		panic("not supported yet")
+		panic("not supported yet10")
 	}
 	return b
 }
@@ -289,7 +303,43 @@ func makeUnion(exp1, exp2 *RegExp) *RegExp {
 }
 
 func makeConcatenation(exp1, exp2 *RegExp) *RegExp {
-	panic("not implemented yet")
+	if (exp1.kind == REGEXP_CHAR || exp1.kind == REGEXP_STRING) &&
+		(exp2.kind == REGEXP_CHAR || exp2.kind == REGEXP_STRING) {
+		return makeString2RE(exp1, exp2)
+	}
+	r := &RegExp{kind: REGEXP_CONCATENATION}
+	if exp1.kind == REGEXP_CONCATENATION &&
+		(exp1.exp2.kind == REGEXP_CHAR || exp1.exp2.kind == REGEXP_STRING) &&
+		(exp2.kind == REGEXP_CHAR || exp2.kind == REGEXP_STRING) {
+		r.exp1 = exp1.exp1
+		r.exp2 = makeString2RE(exp1.exp2, exp2)
+	} else if (exp1.kind == REGEXP_CHAR || exp1.kind == REGEXP_STRING) &&
+		exp2.kind == REGEXP_CONCATENATION &&
+		(exp2.exp1.kind == REGEXP_CHAR || exp2.exp1.kind == REGEXP_STRING) {
+		r.exp1 = makeString2RE(exp1, exp2.exp1)
+		r.exp2 = exp2.exp2
+	} else {
+		r.exp1 = exp1
+		r.exp2 = exp2
+	}
+	return r
+}
+
+func makeString2RE(exp1, exp2 *RegExp) *RegExp {
+	var b bytes.Buffer
+	if exp1.kind == REGEXP_STRING {
+		b.WriteString(exp1.s)
+	} else {
+		assert(REGEXP_CHAR == exp1.kind)
+		b.WriteRune(rune(exp1.c))
+	}
+	if exp2.kind == REGEXP_STRING {
+		b.WriteString(exp1.s)
+	} else {
+		assert(REGEXP_CHAR == exp2.kind)
+		b.WriteRune(rune(exp2.c))
+	}
+	return makeStringRE(b.String())
 }
 
 func makeIntersection(exp1, exp2 *RegExp) *RegExp {
@@ -301,7 +351,10 @@ func makeIntersection(exp1, exp2 *RegExp) *RegExp {
 }
 
 func makeOptional(exp *RegExp) *RegExp {
-	panic("not implemented yet")
+	return &RegExp{
+		kind: REGEXP_OPTIONAL,
+		exp1: exp,
+	}
 }
 
 func makeRepeat(exp *RegExp) *RegExp {
@@ -356,8 +409,16 @@ func makeAnyCharRE() *RegExp {
 	return &RegExp{kind: REGEXP_ANYCHAR}
 }
 
-func makeString(s string) *RegExp {
-	panic("not implemented yet")
+func makeEmptyRE() *RegExp {
+	return &RegExp{kind: REGEXP_EMPTY}
+}
+
+func makeStringRE(s string) *RegExp {
+	return &RegExp{kind: REGEXP_STRING, s: s}
+}
+
+func makeAnyStringRE() *RegExp {
+	return &RegExp{kind: REGEXP_STRING}
 }
 
 func (re *RegExp) peek(s string) bool {
@@ -501,7 +562,36 @@ func (re *RegExp) parseSimpleExp() *RegExp {
 	if re.match('.') {
 		return makeAnyCharRE()
 	}
-	panic("not implemented yet")
+	if re.check(EMPTY) && re.match('#') {
+		return makeEmptyRE()
+	}
+	if re.check(ANYSTRING) && re.match('@') {
+		return makeAnyStringRE()
+	}
+	if re.match('"') {
+		start := re.pos
+		for re.more() && !re.peek("\"") {
+			re.next()
+		}
+		if !re.match('"') {
+			panic(fmt.Sprintf("expected '\"' at position %v", re.pos))
+		}
+		return makeStringRE(string(re.b[start : re.pos-1]))
+	}
+	if re.match('(') {
+		if re.match(')') {
+			return makeStringRE("")
+		}
+		e := re.parseUnionExp()
+		if !re.match(')') {
+			panic(fmt.Sprintf("expected ')' at position %v", re.pos))
+		}
+		return e
+	}
+	if (re.check(AUTOMATON) || re.check(INTERVAL)) && re.match('<') {
+		panic("not implemented yet")
+	}
+	return makeCharRE(re.parseCharExp())
 }
 
 func (re *RegExp) parseCharExp() int {

@@ -5,7 +5,6 @@ import (
 	"container/list"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
 	"math/big"
 	"sort"
 	"strconv"
@@ -154,7 +153,7 @@ func (a *Automaton) totalize() {
 	s.addTransition(newTransitionRange(MIN_CODE_POINT, unicode.MaxRune, s))
 	for _, p := range a.NumberedStates() {
 		maxi := MIN_CODE_POINT
-		p.sortTransitions(compareByDestThenMinMax)
+		p.sortTransitions(compareByMinMaxThenDest)
 		for _, t := range p.transitionsArray {
 			if t.min > maxi {
 				p.addTransition(newTransitionRange(maxi, t.min-1, s))
@@ -380,6 +379,19 @@ func (a *Automaton) Clone() *Automaton {
 	}
 	clone.clearNumberedStates()
 	return &clone
+}
+
+// Returns a clone of this automaton, or this automaton itself if
+// ALLOW_MUTATION flag is set.
+func (a *Automaton) cloneIfRequired() *Automaton {
+	if ALLOW_MUTATION {
+		return a
+	}
+	return a.Clone()
+}
+
+func (a *Automaton) optional() *Automaton {
+	return optional(a)
 }
 
 func (a *Automaton) repeat() *Automaton {
@@ -659,10 +671,10 @@ func makeAnyChar() *Automaton {
 func makeChar(c int) *Automaton {
 	var b bytes.Buffer
 	b.WriteRune(rune(c))
-	return &Automaton{
-		singleton:     b.String(),
-		deterministic: true,
-	}
+	a := newEmptyAutomaton()
+	a.singleton = b.String()
+	a.deterministic = true
+	return a
 }
 
 /*
@@ -674,15 +686,23 @@ func makeCharRange(min, max int) *Automaton {
 	if min == max {
 		return makeChar(min)
 	}
-	a := &Automaton{
-		initial:       newState(),
-		deterministic: true,
-	}
+	a := newEmptyAutomaton()
+	a.initial = newState()
+	a.deterministic = true
 	s := newState()
 	s.accept = true
 	if min <= max {
 		a.initial.addTransition(newTransitionRange(min, max, s))
 	}
+	return a
+}
+
+// L237
+// Returns a new (deterministic) automaton that accepts the single given string
+func makeString(s string) *Automaton {
+	a := newEmptyAutomaton()
+	a.singleton = s
+	a.deterministic = true
 	return a
 }
 
@@ -700,9 +720,48 @@ func makeStringUnion(utf8Strings [][]byte) *Automaton {
 }
 
 // util/automaton/BasicOperation.java
+// Basic automata operations.
 
-// Returns an automaton that accepts the concatenation of the
-// languages of the given automata.
+/*
+Returns an automaton that accepts the concatenation of the
+languages of the given automata.
+
+Complexity: linear in number of states.
+*/
+func concatenate(a1, a2 *Automaton) *Automaton {
+	if a1.isSingleton() && a2.isSingleton() {
+		return makeString(a1.singleton + a2.singleton)
+	}
+	if isEmpty(a1) || isEmpty(a2) {
+		return MakeEmpty()
+	}
+	// adding epsilon transitions with the NFA concatenation algorithm
+	// in this case always produces a rsulting DFA, preventing expensive
+	// redundant determinize() calls for this common case.
+	deterministic := a1.isSingleton() && a2.deterministic
+	if a1 == a2 {
+		a1 = a1.cloneExpanded()
+		a2 = a2.cloneExpanded()
+	} else {
+		a1 = a1.cloneExpandedIfRequired()
+		a2 = a2.cloneExpandedIfRequired()
+	}
+	for _, s := range a1.acceptStates() {
+		s.accept = false
+		s.addEpsilon(a2.initial)
+	}
+	a1.deterministic = deterministic
+	a1.clearNumberedStates()
+	a1.checkMinimizeAlways()
+	return a1
+}
+
+/*
+Returns an automaton that accepts the concatenation of the
+languages of the given automata.
+
+Complexity: linear in total number of states.
+*/
 func concatenateN(l []*Automaton) *Automaton {
 	if len(l) == 0 {
 		return makeEmptyString()
@@ -715,7 +774,11 @@ func concatenateN(l []*Automaton) *Automaton {
 		}
 	}
 	if allSingleton {
-		panic("not implemented yet")
+		var b bytes.Buffer
+		for _, a := range l {
+			b.WriteString(a.singleton)
+		}
+		return makeString(b.String())
 	}
 	for _, a := range l {
 		if isEmpty(a) {
@@ -734,8 +797,7 @@ func concatenateN(l []*Automaton) *Automaton {
 	}
 	b := l[0]
 	if hasAliases {
-		panic("not implemented yet")
-		// b = b.cloneExpanded()
+		b = b.cloneExpanded()
 	} else {
 		b = b.cloneExpandedIfRequired()
 	}
@@ -769,6 +831,24 @@ func concatenateN(l []*Automaton) *Automaton {
 	b.clearNumberedStates()
 	b.checkMinimizeAlways()
 	return b
+}
+
+/*
+Returns an automaton that accepts the union of the empty string and
+the language of the given automaton.
+
+Complexity: linear in number of states.
+*/
+func optional(a *Automaton) *Automaton {
+	s := newState()
+	s.addEpsilon(a.initial)
+	s.accept = true
+	a = a.cloneExpandedIfRequired()
+	a.initial = s
+	a.deterministic = false
+	a.clearNumberedStates()
+	a.checkMinimizeAlways()
+	return a
 }
 
 /*
@@ -829,6 +909,31 @@ func complement(a *Automaton) *Automaton {
 	return a
 }
 
+/*
+Returns a (deterministic) automaton that accepts the intersection of
+the language of a1 and the complement of the language of a2. As a
+side-effect, the automata may be determinized, if not already
+deterministic.
+
+Complexity: quadratic in number of states (if already deterministic).
+*/
+func minus(a1, a2 *Automaton) *Automaton {
+	if isEmpty(a1) || a1 == a2 {
+		return MakeEmpty()
+	}
+	if isEmpty(a2) {
+		return a1.cloneIfRequired()
+	}
+	if a1.isSingleton() {
+		if run(a2, a1.singleton) {
+			return MakeEmpty()
+		} else {
+			return a1.cloneIfRequired()
+		}
+	}
+	return intersection(a1, a2.complement())
+}
+
 // Pair of states.
 type StatePair struct{ s, s1, s2 *State }
 
@@ -840,13 +945,19 @@ Complexity: quadratic in number of states.
 */
 func intersection(a1, a2 *Automaton) *Automaton {
 	if a1.isSingleton() {
-		panic("not implemented yet")
+		if run(a2, a1.singleton) {
+			return a1.cloneIfRequired()
+		}
+		return MakeEmpty()
 	}
 	if a2.isSingleton() {
-		panic("not implemented yet")
+		if run(a1, a2.singleton) {
+			return a2.cloneIfRequired()
+		}
+		return MakeEmpty()
 	}
 	if a1 == a2 {
-		return a1.cloneExpandedIfRequired()
+		return a1.cloneIfRequired()
 	}
 	transitions1 := a1.sortedTransitions()
 	transitions2 := a2.sortedTransitions()
@@ -894,12 +1005,123 @@ func intersection(a1, a2 *Automaton) *Automaton {
 }
 
 /*
+Returns true if these two automata accept exactly the same language.
+This is a costly computation! Note also that a1 and a2 will be
+determinized as a side effect.
+*/
+func sameLanguage(a1, a2 *Automaton) bool {
+	if a1 == a2 {
+		return true
+	}
+	if a1.isSingleton() && a2.isSingleton() {
+		return a1.singleton == a2.singleton
+	}
+	if a1.isSingleton() {
+		// subsetOf is faster if the first automaton is a singleton
+		return subsetOf(a1, a2) && subsetOf(a2, a1)
+	}
+	return subsetOf(a2, a1) && subsetOf(a1, a2)
+}
+
+/*
+Returns true if the language of a1 is a subset of the language of a2.
+As a side-effect, a2 is determinized if not already marked as
+deterministic.
+*/
+func subsetOf(a1, a2 *Automaton) bool {
+	if a1 == a2 {
+		return true
+	}
+	if a1.isSingleton() {
+		if a2.isSingleton() {
+			return a1.singleton == a2.singleton
+		}
+		return run(a2, a1.singleton)
+	}
+	a2.determinize()
+	transitions1 := a1.sortedTransitions()
+	transitions2 := a2.sortedTransitions()
+	worklist := list.New()
+	visited := make(map[string]*StatePair)
+	hash := func(p *StatePair) string {
+		return fmt.Sprintf("%v/%v", p.s1.id, p.s2.id)
+	}
+	p := &StatePair{nil, a1.initial, a2.initial}
+	worklist.PushBack(p)
+	visited[hash(p)] = p
+	for worklist.Len() > 0 {
+		p = worklist.Front().Value.(*StatePair)
+		worklist.Remove(worklist.Front())
+		if p.s1.accept && !p.s2.accept {
+			return false
+		}
+		t1 := transitions1[p.s1.number]
+		t2 := transitions2[p.s2.number]
+		for n1, b2, t1Len := 0, 0, len(t1); n1 < t1Len; n1++ {
+			t2Len := len(t2)
+			for b2 < t2Len && t2[b2].max < t1[n1].min {
+				b2++
+			}
+			min1, max1 := t1[n1].min, t1[n1].max
+
+			for n2 := b2; n2 < t2Len && t1[n1].max >= t2[n2].min; n2++ {
+				if t2[n2].min > min1 {
+					return false
+				}
+				if t2[n2].max < unicode.MaxRune {
+					min1 = t2[n2].max + 1
+				} else {
+					min1, max1 = unicode.MaxRune, MIN_CODE_POINT
+				}
+				q := &StatePair{nil, t1[n1].to, t2[n2].to}
+				if _, ok := visited[hash(q)]; !ok {
+					worklist.PushBack(q)
+					visited[hash(q)] = q
+				}
+			}
+			if min1 <= max1 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+/*
+Returns an automaton that accepts the union of the languages of the
+given automta.
+
+Complexity: linear in number of states.
+*/
+func union(a1, a2 *Automaton) *Automaton {
+	if a1 == a2 ||
+		(a1.isSingleton() && a2.isSingleton() && a1.singleton == a2.singleton) {
+		a1.cloneIfRequired()
+	}
+	if a1 == a2 {
+		a1 = a1.cloneExpanded()
+		a2 = a2.cloneExpanded()
+	} else {
+		a1 = a1.cloneExpandedIfRequired()
+		a2 = a2.cloneExpandedIfRequired()
+	}
+	s := newState()
+	s.addEpsilon(a1.initial)
+	s.addEpsilon(a2.initial)
+	a1.initial = s
+	a1.deterministic = false
+	a1.clearNumberedStates()
+	a1.checkMinimizeAlways()
+	return a1
+}
+
+/*
 Returns an automaton that accepts the union of the languages of the
 given automata.
 
 Complexity: linear in number of states.
 */
-func union(l []*Automaton) *Automaton {
+func unionN(l []*Automaton) *Automaton {
 	// ids := make(map[int]bool)
 	hasAliases := false
 	s := newState()
@@ -916,10 +1138,9 @@ func union(l []*Automaton) *Automaton {
 		}
 		s.addEpsilon(bb.initial)
 	}
-	a := &Automaton{
-		initial:       s,
-		deterministic: false,
-	}
+	a := newEmptyAutomaton()
+	a.initial = s
+	a.deterministic = false
 	a.clearNumberedStates()
 	a.checkMinimizeAlways()
 	return a
@@ -1163,6 +1384,32 @@ func isEmpty(a *Automaton) bool {
 	return !a.isSingleton() && !a.initial.accept && len(a.initial.transitionsArray) == 0
 }
 
+/*
+Returns true if the given string is accepted by the autmaton.
+
+Complexity: linear in the length of the string.
+
+Note: for fll performance, use the RunAutomation class.
+*/
+func run(a *Automaton, s string) bool {
+	if a.isSingleton() {
+		return s == a.singleton
+	}
+	if a.deterministic {
+		p := a.initial
+		for _, ch := range s {
+			q := p.step(int(ch))
+			if q == nil {
+				return false
+			}
+			p = q
+		}
+		return p.accept
+	}
+	// states := a.NumberedStates()
+	panic("not implemented yet")
+}
+
 // util/automaton/SortedIntSet.java
 
 // If we hold more than this many states, we swtich from O(N*2)
@@ -1194,6 +1441,7 @@ func newSortedIntSet(capacity int) *SortedIntSet {
 
 // Adds this state ot the set
 func (sis *SortedIntSet) incr(num int) {
+	// log.Println("DEBUG incr", sis, num)
 	if sis.useTreeMap {
 		val, ok := sis.dict[num]
 		if !ok {
@@ -1210,10 +1458,8 @@ func (sis *SortedIntSet) incr(num int) {
 			return
 		} else if num < v {
 			// insert here
-			t := append(sis.values[:i], num)
-			sis.values = append(t, sis.values[i:]...)
-			t = append(sis.counts[:i], 1)
-			sis.counts = append(t, sis.counts[i:]...)
+			sis.values = append(sis.values[:i], append([]int{num}, sis.values[i:]...)...)
+			sis.counts = append(sis.counts[:i], append([]int{1}, sis.counts[i:]...)...)
 			return
 		}
 	}
@@ -1232,6 +1478,7 @@ func (sis *SortedIntSet) incr(num int) {
 
 // Removes the state from the set, if count decrs to 0
 func (sis *SortedIntSet) decr(num int) {
+	// log.Println("DEBUG decr", sis, num)
 	if sis.useTreeMap {
 		count, ok := sis.dict[num]
 		assert(ok)
@@ -1358,7 +1605,7 @@ func minimize(a *Automaton) {
 
 // Minimizes the given automaton using Hopcroft's alforithm.
 func minimizeHopcroft(a *Automaton) {
-	log.Println("Minimizing using Hopcraft...")
+	// log.Println("Minimizing using Hopcraft...")
 	a.determinize()
 	if len(a.initial.transitionsArray) == 1 {
 		t := a.initial.transitionsArray[0]
@@ -1412,7 +1659,7 @@ func minimizeHopcroft(a *Automaton) {
 			r[x] = append(r[x], qq)
 		}
 	}
-	// initialze active sets
+	// initialize active sets
 	for j := 0; j <= 1; j++ {
 		for x := 0; x < sigmaLen; x++ {
 			for _, qq := range partition[j] {
@@ -1422,7 +1669,7 @@ func minimizeHopcroft(a *Automaton) {
 			}
 		}
 	}
-	// initialze pending
+	// initialize pending
 	for x := 0; x < sigmaLen; x++ {
 		j := or(active[0][x].size <= active[1][x].size, 0, 1).(int)
 		pending.PushBack(&IntPair{j, x})
@@ -1457,6 +1704,7 @@ func minimizeHopcroft(a *Automaton) {
 			if refine.Bit(j) == 0 {
 				continue
 			}
+
 			sb := splitblock[j]
 			if len(sb) < len(partition[j]) {
 				b1, b2 := partition[j], partition[k]
@@ -1490,7 +1738,7 @@ func minimizeHopcroft(a *Automaton) {
 			for _, s := range sb {
 				clearBit(split, s.number)
 			}
-			sb = sb[:0] // unnecessary as sb is to be out of scope soon
+			splitblock[j] = splitblock[j][:0] // clear sb
 		}
 		refine = big.NewInt(0) // not quite efficient
 	}
@@ -1504,7 +1752,7 @@ func minimizeHopcroft(a *Automaton) {
 				a.initial = s
 			}
 			s.accept = q.accept
-			s.number = q.number // select representtive
+			s.number = q.number // select representative
 			q.number = n
 		}
 	}
@@ -1525,6 +1773,19 @@ func setBit(n *big.Int, bitIndex int) {
 
 func clearBit(n *big.Int, bitIndex int) {
 	n.SetBit(n, bitIndex, 0)
+}
+
+func bitSetToString(n *big.Int) string {
+	var b bytes.Buffer
+	b.WriteRune('{')
+	for i, bitsLen := 0, n.BitLen(); i < bitsLen; i++ {
+		if n.Bit(i) == 0 {
+			continue
+		}
+		fmt.Fprintf(&b, "%v, ", i)
+	}
+	b.WriteRune('}')
+	return b.String()
 }
 
 func or(cond bool, v1, v2 interface{}) interface{} {

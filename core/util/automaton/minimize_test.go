@@ -1,0 +1,60 @@
+package automaton
+
+import (
+	. "github.com/balzaczyy/golucene/test_framework/util"
+	"log"
+	"testing"
+)
+
+func TestMinimizeCase1(t *testing.T) {
+	// for i := 0; i < 20; i++ {
+	s1 := string([]rune{46, 93, 42, 9794, 64126})
+	s2 := string([]rune{46, 453, 46, 91, 64417, 65, 65533, 65533, 93, 46, 42, 93, 124, 124})
+	a1 := NewRegExpWithFlag(s1, NONE).ToAutomaton().complement()
+	a2 := NewRegExpWithFlag(s2, NONE).ToAutomaton().complement()
+	a := minus(a1, a2)
+	b := a.Clone()
+	minimize(b)
+	assert(sameLanguage(a, b))
+	// }
+}
+
+func TestMinimizeCase2(t *testing.T) {
+	// for i := 0; i < 20; i++ {
+	s1 := ")]"
+	s2 := "]"
+	a1 := NewRegExpWithFlag(s1, NONE).ToAutomaton().complement()
+	a2 := NewRegExpWithFlag(s2, NONE).ToAutomaton().complement()
+	a := minus(a1, a2)
+	b := a.Clone()
+	minimize(b)
+	assert(sameLanguage(a, b))
+	// }
+}
+
+func TestMinimizeCase3(t *testing.T) {
+	s := "*.?-"
+	r := NewRegExpWithFlag(s, NONE)
+	log.Println(r)
+	a := r.ToAutomaton()
+	log.Println("DEBUG after minimize", a)
+	b := a.Clone()
+	log.Println(b)
+	minimize(b)
+	log.Println(b)
+	assert(sameLanguage(a, b))
+}
+
+// This test builds some randomish NFA/DFA and minimizes them.
+
+// The minimal and non-minimal are compared to ensure they are the same.
+func TestMinimize(t *testing.T) {
+	num := AtLeast(200)
+	for i := 0; i < num; i++ {
+		log.Println("DEBUG next test", i)
+		a := randomAutomaton(Random())
+		b := a.Clone()
+		minimize(b)
+		assert(sameLanguage(a, b))
+	}
+}

@@ -2,13 +2,12 @@ package util
 
 import (
 	"fmt"
-	"log"
 	"sort"
 )
 
 // util/Sorter.java
 
-const THRESHOLD = 20
+const SORTER_THRESHOLD = 20
 
 // Base class for sorting algorithms implementations.
 type Sorter struct {
@@ -30,11 +29,13 @@ func assert2(ok bool, msg string) {
 }
 
 func (sorter *Sorter) reverse(from, to int) {
-	panic("not implemented yet")
+	for to--; from < to; from, to = from+1, to-1 {
+		sorter.Swap(from, to)
+	}
 }
 
 func (sorter *Sorter) binarySort(from, to, i int) {
-	log.Printf("Binary sort [%v,%v] at %v", from, to, i)
+	// log.Printf("Binary sort [%v,%v] at %v", from, to, i)
 	for ; i < to; i++ {
 		l, h := from, i-1
 		for l <= h {
@@ -63,8 +64,10 @@ func (sorter *Sorter) binarySort(from, to, i int) {
 // util/TimSorter.java
 
 const (
-	STACKSIZE  = 40 // depends on MINRUN
-	MIN_GALLOP = 7
+	MINRUN        = 32
+	RUN_THRESHOLD = 64
+	STACKSIZE     = 40 // depends on MINRUN
+	MIN_GALLOP    = 7
 )
 
 /*
@@ -100,6 +103,20 @@ func newTimSorter(arr sort.Interface, maxTempSlots int) *TimSorter {
 		runEnds:      make([]int, 1+STACKSIZE),
 		maxTempSlots: maxTempSlots,
 	}
+}
+
+// Minimum run length for an array of given length.
+func minRun(length int) int {
+	assert2(length >= MINRUN, fmt.Sprintf("length=%v", length))
+	n := length
+	r := 0
+	for n >= 64 {
+		r = (r | (n & 1))
+		n = int(uint(n) >> 1)
+	}
+	minRun := n + r
+	assert(minRun >= MINRUN && minRun <= RUN_THRESHOLD)
+	return minRun
 }
 
 func (sorter *TimSorter) runEnd(i int) int {
@@ -170,10 +187,10 @@ func (sorter *TimSorter) reset(from, to int) {
 	}
 	sorter.runEnds[0] = from
 	sorter.to = to
-	if length := to - from; length <= THRESHOLD {
+	if length := to - from; length <= RUN_THRESHOLD {
 		sorter.minRun = length
 	} else {
-		panic("not implemented yet")
+		sorter.minRun = minRun(length)
 	}
 }
 
