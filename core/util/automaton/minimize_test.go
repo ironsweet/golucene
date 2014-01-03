@@ -35,26 +35,41 @@ func TestMinimizeCase2(t *testing.T) {
 func TestMinimizeCase3(t *testing.T) {
 	s := "*.?-"
 	r := NewRegExpWithFlag(s, NONE)
-	log.Println(r)
 	a := r.ToAutomaton()
-	log.Println("DEBUG after minimize", a)
 	b := a.Clone()
-	log.Println(b)
 	minimize(b)
-	log.Println(b)
 	assert(sameLanguage(a, b))
 }
 
+// util/automaton/TestMinimize.java
 // This test builds some randomish NFA/DFA and minimizes them.
 
 // The minimal and non-minimal are compared to ensure they are the same.
 func TestMinimize(t *testing.T) {
 	num := AtLeast(200)
 	for i := 0; i < num; i++ {
-		log.Println("DEBUG next test", i)
 		a := randomAutomaton(Random())
 		b := a.Clone()
 		minimize(b)
 		assert(sameLanguage(a, b))
+	}
+}
+
+/*
+Compare minimized against minimized with a slower, simple impl. We
+check not only that they are the same, but that transitions are the
+same.
+*/
+func TestAgainstBrzozowski(t *testing.T) {
+	num := AtLeast(200)
+	for i := 0; i < num; i++ {
+		log.Println("DEBUG next test", i)
+		a := randomAutomaton(Random())
+		minimizeSimple(a)
+		b := a.Clone()
+		minimize(b)
+		assert(sameLanguage(a, b))
+		assert(a.NumberOfStates() == b.NumberOfStates())
+		assert(a.NumberOfTransitions() == b.NumberOfTransitions())
 	}
 }

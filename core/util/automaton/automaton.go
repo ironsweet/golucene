@@ -319,7 +319,28 @@ func (a *Automaton) ExpandSingleton() {
 	}
 }
 
-// L566
+// Returns the number of states in this automaton.
+func (a *Automaton) NumberOfStates() int {
+	if a.isSingleton() {
+		return len([]rune(a.singleton))
+	}
+	return len(a.NumberedStates())
+}
+
+// Returns the number of transitions in this automaton. This number
+// is counted as the total number of edges, where one edge may be a
+// character interval.
+func (a *Automaton) NumberOfTransitions() int {
+	if a.isSingleton() {
+		return len([]rune(a.singleton))
+	}
+	c := 0
+	for _, s := range a.NumberedStates() {
+		c += len(s.transitionsArray)
+	}
+	return c
+}
+
 // Returns a string representation of this automaton.
 func (a *Automaton) String() string {
 	var b bytes.Buffer
@@ -1591,6 +1612,51 @@ func findIndex(c int, points []int) int {
 		}
 	}
 	return a
+}
+
+// Reverses the language of the given (non-singleton) automaton while
+// returning the set of new initial states.
+func reverse(a *Automaton) map[int]*State {
+	a.ExpandSingleton()
+	// reverse all edges
+	m := make(map[int]map[string]*Transition)
+	hash := func(t *Transition) string {
+		return fmt.Sprintf("%v/%v/%v", t.min, t.max, t.to.id)
+	}
+	states := a.NumberedStates()
+	accept := make(map[int]*State)
+	for _, s := range states {
+		if s.accept {
+			accept[s.id] = s
+		}
+	}
+	for _, r := range states {
+		m[r.id] = make(map[string]*Transition)
+		r.accept = false
+	}
+	for _, r := range states {
+		for _, t := range r.transitionsArray {
+			tt := newTransitionRange(t.min, t.max, r)
+			m[t.to.id][hash(tt)] = tt
+		}
+	}
+	for _, r := range states {
+		tr := m[r.id]
+		arr := make([]*Transition, 0, len(tr))
+		for _, t := range tr {
+			arr = append(arr, t)
+		}
+		r.transitionsArray = arr
+	}
+	// make new initial + final states
+	a.initial.accept = true
+	a.initial = newState()
+	for _, r := range accept {
+		a.initial.addEpsilon(r) // ensures that all initial states are reachable
+	}
+	a.deterministic = false
+	a.clearNumberedStates()
+	return accept
 }
 
 // util/automaton/MinimizationOperations.java

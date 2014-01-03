@@ -1,11 +1,14 @@
 package automaton
 
 import (
+	"container/list"
 	"github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/test_framework/util"
 	"log"
+	"math/big"
 	"math/rand"
 	"testing"
+	"unicode"
 )
 
 func TestRegExpToAutomaton(t *testing.T) {
@@ -160,4 +163,110 @@ func randomAutomaton(r *rand.Rand) *Automaton {
 		// log.Println("DEBUG way 3")
 		return minus(a1, a2)
 	}
+}
+
+/**
+ * below are original, unoptimized implementations of DFA operations for testing.
+ * These are from brics automaton, full license (BSD) below:
+ */
+
+/*
+ * dk.brics.automaton
+ *
+ * Copyright (c) 2001-2009 Anders Moeller
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/**
+ * Simple, original brics implementation of Brzozowski minimize()
+ */
+func minimizeSimple(a *Automaton) {
+	if a.isSingleton() {
+		return
+	}
+	determinizeSimple(a, reverse(a))
+	determinizeSimple(a, reverse(a))
+}
+
+// Simple original brics implementation of determinize()
+// Determinizes the given automaton using the given set of initial
+// states
+func determinizeSimple(a *Automaton, initialset map[int]*State) {
+	points := a.startPoints()
+	// subset construction
+	sets := make(map[string]bool)
+	hash := func(sets map[int]*State) string {
+		n := big.NewInt(0)
+		for k, _ := range sets {
+			n.SetBit(n, k, 1)
+		}
+		return n.String()
+	}
+	worklist := list.New()
+	newstate := make(map[string]*State)
+	sets[hash(initialset)] = true
+	worklist.PushBack(initialset)
+	a.initial = newState()
+	newstate[hash(initialset)] = a.initial
+	for worklist.Len() > 0 {
+		s := worklist.Front().Value.(map[int]*State)
+		worklist.Remove(worklist.Front())
+		r := newstate[hash(s)]
+		for _, q := range s {
+			if q.accept {
+				r.accept = true
+				break
+			}
+		}
+		for n, point := range points {
+			p := make(map[int]*State)
+			for _, q := range s {
+				for _, t := range q.transitionsArray {
+					if t.min <= point && point <= t.max {
+						p[t.to.id] = t.to
+					}
+				}
+			}
+			hashKey := hash(p)
+			if _, ok := sets[hashKey]; !ok {
+				sets[hashKey] = true
+				worklist.PushBack(p)
+				newstate[hashKey] = newState()
+			}
+			q := newstate[hashKey]
+			min := point
+			var max int
+			if n+1 < len(points) {
+				max = points[n+1] - 1
+			} else {
+				max = unicode.MaxRune
+			}
+			r.addTransition(newTransitionRange(min, max, q))
+		}
+	}
+	a.deterministic = true
+	a.clearNumberedStates()
+	a.removeDeadTransitions()
 }
