@@ -4,7 +4,6 @@ import (
 	"container/list"
 	"github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/test_framework/util"
-	"log"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -62,7 +61,7 @@ func randomRegexp(r *rand.Rand) string {
 			ok = true
 			defer func() {
 				if r := recover(); r != nil {
-					log.Println("DEBUG", r)
+					// log.Println("Recovered:", r)
 					ok = false
 				}
 			}()
@@ -70,12 +69,11 @@ func randomRegexp(r *rand.Rand) string {
 			for _, ch := range regexp {
 				l = append(l, ch)
 			}
-			log.Println("DEBUG", l)
 			// log.Println("Trying", regexp)
 			NewRegExpWithFlag(regexp, NONE)
 			return
 		}(regexp); ok {
-			log.Println("Valid regexp found:", regexp)
+			// log.Println("Valid regexp found:", regexp)
 			return regexp
 		}
 	}

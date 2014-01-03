@@ -2,7 +2,6 @@ package automaton
 
 import (
 	. "github.com/balzaczyy/golucene/test_framework/util"
-	"log"
 	"testing"
 )
 
@@ -63,7 +62,6 @@ same.
 func TestAgainstBrzozowski(t *testing.T) {
 	num := AtLeast(200)
 	for i := 0; i < num; i++ {
-		log.Println("DEBUG next test", i)
 		a := randomAutomaton(Random())
 		minimizeSimple(a)
 		b := a.Clone()
@@ -72,4 +70,9 @@ func TestAgainstBrzozowski(t *testing.T) {
 		assert(a.NumberOfStates() == b.NumberOfStates())
 		assert(a.NumberOfTransitions() == b.NumberOfTransitions())
 	}
+}
+
+// n^2 space usage in Hopcroft minimization?
+func TestMinimizeHuge(t *testing.T) {
+	NewRegExpWithFlag("+-*(A|.....|BC)*", NONE).ToAutomaton()
 }
