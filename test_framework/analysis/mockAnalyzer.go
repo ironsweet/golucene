@@ -25,13 +25,29 @@ thorough testing of payloads.
 */
 type MockAnalyzer struct {
 	*ca.AnalyzerImpl
+	runAutomaton         *auto.CharacterRunAutomaton
+	lowerCase            bool
+	filter               *auto.CharacterRunAutomaton
+	positionIncrementgap int
+	random               *rand.Rand
+	previousMappings     map[string]int
+	enableChecks         bool
+	maxTokenLength       int
 }
 
 // Creates a new MockAnalyzer.
-func NewMockAnalyzer(r *rand.Rand, runAutomation *auto.CharacterRunAutomaton, lowerCase bool, filter *auto.CharacterRunAutomaton) *MockAnalyzer {
-	// ans := &MockAnalyzer{}
-	// ans.AnalyzerImpl = ca.NewAnalyzerWithStrategy()
-	panic("not implemented yet")
+func NewMockAnalyzer(r *rand.Rand, runAutomaton *auto.CharacterRunAutomaton, lowerCase bool, filter *auto.CharacterRunAutomaton) *MockAnalyzer {
+	return &MockAnalyzer{
+		AnalyzerImpl: ca.NewAnalyzerWithStrategy(ca.PER_FIELD_REUSE_STRATEGY),
+		// TODO: this should be solved in a different way; Random should not be shared (!)
+		random:           rand.New(rand.NewSource(r.Int63())),
+		runAutomaton:     runAutomaton,
+		lowerCase:        lowerCase,
+		filter:           filter,
+		previousMappings: make(map[string]int),
+		enableChecks:     true,
+		maxTokenLength:   DEFAULT_MAX_TOKEN_LENGTH,
+	}
 }
 
 func NewMockAnalyzer3(r *rand.Rand, runAutomation *auto.CharacterRunAutomaton, lowerCase bool) *MockAnalyzer {

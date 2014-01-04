@@ -80,6 +80,10 @@ func (rd *RAMDirectory) newRAMFile() *RAMFile {
 	return newRAMFile(rd)
 }
 
+func (rd *RAMDirectory) Sync(names []string) error {
+	return nil
+}
+
 // Returns a stream reading an existing file.
 func (rd *RAMDirectory) OpenInput(name string, context IOContext) (in IndexInput, err error) {
 	panic("not implemented yet")
@@ -88,7 +92,10 @@ func (rd *RAMDirectory) OpenInput(name string, context IOContext) (in IndexInput
 // Closes the store to future operations, releasing associated memroy.
 func (rd *RAMDirectory) Close() error {
 	rd.IsOpen = false
-	panic("not implemented yet")
+	rd.fileMapLock.Lock()
+	defer rd.fileMapLock.Unlock()
+	rd.fileMap = make(map[string]*RAMFile)
+	return nil
 }
 
 // store/RAMFile.java

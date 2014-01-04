@@ -54,31 +54,36 @@ func or(a, b string) string {
 // Class level (suite) rules.
 // -----------------------------------------------------------------
 
+// Class environment setup rule.
+var classEnvRule = &TestRuleSetupAndRestoreClassEnv{}
+
+// Suite failure marker (any error in the test or suite scope)
 var SuiteFailureMarker = &TestRuleMarkFailure{}
 
 // Ian: I have to extend Go's testing framework to simulate JUnit's
 // TestRule
-func wrapTesting(t *testing.T) *T {
-	ans := wrapT(t)
-	SuiteFailureMarker.T = ans
-	return ans
+var myT *testing.T
+
+func BeforeSuite(t *testing.T) {
+	myT = t
+	SuiteFailureMarker.T = t
 }
 
 var suiteClosers []func() error
 
-type T struct {
-	delegate *testing.T
-}
+// type T struct {
+// 	delegate *testing.T
+// }
 
-func wrapT(t *testing.T) *T {
-	return &T{t}
-}
+// func wrapT(t *testing.T) *T {
+// 	return &T{t}
+// }
 
-func (c *T) Error(args ...interface{}) {
-	c.delegate.Error(args)
-}
+// func (c *T) Error(args ...interface{}) {
+// 	c.delegate.Error(args)
+// }
 
-func (c *T) afterSuite() {
+func AfterSuite(t *testing.T) {
 	for _, closer := range suiteClosers {
 		closer() // ignore error
 	}
@@ -151,4 +156,11 @@ func either(flag bool, value, orValue interface{}) interface{} {
 		return value
 	}
 	return orValue
+}
+
+// util/TestRuleSetupAndRestoreClassEnv.java
+
+// Setup and restore suite-level environment (fine grained junk that
+// doesn't fit anywhere else)
+type TestRuleSetupAndRestoreClassEnv struct {
 }

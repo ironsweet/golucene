@@ -6,8 +6,12 @@ import (
 	"github.com/balzaczyy/golucene/core/search"
 	. "github.com/balzaczyy/golucene/test_framework"
 	"github.com/balzaczyy/golucene/test_framework/analysis"
+	. "github.com/balzaczyy/golucene/test_framework/util"
 	"testing"
 )
+
+// Hook up custom test logic into Go's test runner.
+func TestBefore(t *testing.T) { BeforeSuite(t) }
 
 func TestNegativeQueryBoost(t *testing.T) {
 	q := search.NewTermQuery(index.NewTerm("foo", "bar"))
@@ -70,3 +74,5 @@ func isSimilar(f1, f2, delta float32) bool {
 	diff := f1 - f2
 	return diff > 0 && diff < delta || diff < 0 && -diff < delta
 }
+
+func TestAfter(t *testing.T) { AfterSuite(t) }

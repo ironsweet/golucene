@@ -48,6 +48,13 @@ func either(flag bool, value, orValue interface{}) interface{} {
 
 // Create a new index writer config with random defaults
 func NewIndexWriterConfig(v util.Version, a analysis.Analyzer) *index.IndexWriterConfig {
+	return newRandomIndexWriteConfig(Random(), v, a)
+}
+
+// Create a new index write config with random defaults using the specified random
+func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer) *index.IndexWriterConfig {
+	// c := index.NewIndexWriterConfig(v, a)
+	// c.setSimilarity()
 	panic("not implemented yet")
 }
 
