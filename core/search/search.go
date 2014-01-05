@@ -203,6 +203,16 @@ func NewCollectionStatistics(field string, maxDoc, docCount, sumTotalTermFreq, s
 
 type Similarity interface {
 	queryNorm(valueForNormalization float32) float32
+	/*
+		Computes the normalization value for a field, given the
+		accumulated state of term processing for this field (see
+		FieldInvertState).
+
+		Matches in longer fields are less precise, so implementations
+		of this method usually set smaller values when state.Lenght() is
+		larger, and larger values when state.Lenght() is smaller.
+	*/
+	ComputeNorm(state *index.FieldInvertState) int64
 	computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight
 	simScorer(w SimWeight, ctx index.AtomicReaderContext) (ss SimScorer, err error)
 }
@@ -287,6 +297,10 @@ func (ts *TFIDFSimilarity) idfExplainPhrase(collectionStats CollectionStatistics
 		idf += details[i].value
 	}
 	return newExplanation(idf, fmt.Sprintf("idf(), sum of:"))
+}
+
+func (ts *TFIDFSimilarity) ComputeNorm(state *index.FieldInvertState) int64 {
+	panic("not implemented yet")
 }
 
 func (ts *TFIDFSimilarity) computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight {

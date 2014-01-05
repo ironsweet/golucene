@@ -294,7 +294,7 @@ type SegmentInfos struct {
 	generation     int64
 	lastGeneration int64
 	userData       map[string]string
-	Segments       []SegmentInfoPerCommit
+	Segments       []*SegmentInfoPerCommit
 }
 
 func LastCommitGeneration(files []string) int64 {
@@ -447,5 +447,6 @@ func (sis *SegmentInfos) ReadAll(directory store.Directory) error {
 }
 
 func (sis *SegmentInfos) Clear() {
-	sis.Segments = make([]SegmentInfoPerCommit, 0)
+	// sis.Segments = make([]*SegmentInfoPerCommit, 0)
+	sis.Segments = sis.Segments[:0] // reuse existing space
 }

@@ -16,23 +16,23 @@ type SegmentInfoPerCommit struct {
 	nextWriteDelGen int64
 }
 
-func NewSegmentInfoPerCommit(info SegmentInfo, delCount int, delGen int64) SegmentInfoPerCommit {
+func NewSegmentInfoPerCommit(info SegmentInfo, delCount int, delGen int64) *SegmentInfoPerCommit {
 	nextWriteDelGen := int64(1)
 	if delGen != -1 {
 		nextWriteDelGen = delGen + 1
 	}
-	return SegmentInfoPerCommit{info, delCount, delGen, nextWriteDelGen}
+	return &SegmentInfoPerCommit{info, delCount, delGen, nextWriteDelGen}
 }
 
-func (si SegmentInfoPerCommit) HasDeletions() bool {
+func (si *SegmentInfoPerCommit) HasDeletions() bool {
 	return si.delGen != -1
 }
 
-func (si SegmentInfoPerCommit) StringOf(dir store.Directory, pendingDelCount int) string {
+func (si *SegmentInfoPerCommit) StringOf(dir store.Directory, pendingDelCount int) string {
 	return si.info.StringOf(dir, si.delCount+pendingDelCount)
 }
 
-func (si SegmentInfoPerCommit) String() string {
+func (si *SegmentInfoPerCommit) String() string {
 	s := si.info.StringOf(si.info.dir, si.delCount)
 	if si.delGen != -1 {
 		s = fmt.Sprintf("%v:delGen=%v", s, si.delGen)
@@ -51,7 +51,7 @@ func (si SegmentInfoPerCommit) String() string {
  */
 type SegmentReader struct {
 	*AtomicReaderImpl
-	si       SegmentInfoPerCommit
+	si       *SegmentInfoPerCommit
 	liveDocs util.Bits
 	// Normally set to si.docCount - si.delDocCount, unless we
 	// were created as an NRT reader from IW, in which case IW
@@ -66,7 +66,7 @@ type SegmentReader struct {
  * @throws IOException if there is a low-level IO error
  */
 // TODO: why is this public?
-func NewSegmentReader(si SegmentInfoPerCommit, termInfosIndexDivisor int, context store.IOContext) (r *SegmentReader, err error) {
+func NewSegmentReader(si *SegmentInfoPerCommit, termInfosIndexDivisor int, context store.IOContext) (r *SegmentReader, err error) {
 	log.Print("Initializing SegmentReader...")
 	r = &SegmentReader{}
 	log.Print("Obtaining AtomicReader...")
@@ -171,7 +171,7 @@ func (r *SegmentReader) SegmentName() string {
 	return r.si.info.name
 }
 
-func (r *SegmentReader) SegmentInfos() SegmentInfoPerCommit {
+func (r *SegmentReader) SegmentInfos() *SegmentInfoPerCommit {
 	return r.si
 }
 
@@ -255,7 +255,7 @@ type SegmentCoreReaders struct {
 	notifyListener chan *SegmentReader
 }
 
-func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si SegmentInfoPerCommit,
+func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *SegmentInfoPerCommit,
 	context store.IOContext, termsIndexDivisor int) (self SegmentCoreReaders, err error) {
 	if termsIndexDivisor == 0 {
 		panic("indexDivisor must be < 0 (don't load terms index) or greater than 0 (got 0)")

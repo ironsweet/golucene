@@ -42,6 +42,9 @@ func either(flag bool, value, orValue interface{}) interface{} {
 // Class level (suite) rules.
 // -----------------------------------------------------------------
 
+// Class environment setup rule.
+var classEnvRule = &TestRuleSetupAndRestoreClassEnv{}
+
 // -----------------------------------------------------------------
 // Test facilities and facades for subclasses.
 // -----------------------------------------------------------------
@@ -53,8 +56,57 @@ func NewIndexWriterConfig(v util.Version, a analysis.Analyzer) *index.IndexWrite
 
 // Create a new index write config with random defaults using the specified random
 func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer) *index.IndexWriterConfig {
-	// c := index.NewIndexWriterConfig(v, a)
-	// c.setSimilarity()
+	c := index.NewIndexWriterConfig(v, a)
+	c.SetSimilarity(classEnvRule.similarity)
+	if VERBOSE {
+		panic("not implemented yet")
+	}
+
+	if r.Intn(2) == 0 {
+		c.SetMergeScheduler(index.NewSerialMergeScheduler())
+	} else if Rarely(r) {
+		maxRoutineCount := NextInt(Random(), 1, 4)
+		maxMergeCount := NextInt(Random(), maxRoutineCount, maxRoutineCount+4)
+		cms := index.NewConcurrentMergeScheduler()
+		cms.SetMaxMergesAndRoutines(maxMergeCount, maxRoutineCount)
+		c.SetMergeScheduler(cms)
+	}
+	if r.Intn(2) == 0 {
+		if Rarely(r) {
+			// crazy value
+			c.SetMaxBufferedDocs(NextInt(r, 2, 15))
+		} else {
+			// reasonable value
+			c.SetMaxBufferedDocs(NextInt(r, 16, 1000))
+		}
+	}
+	// Go doesn't need thread-affinity state.
+	// if r.Intn(2) == 0 {
+	// 	maxNumRoutineState := either(Rarely(r),
+	// 		NextInt(r, 5, 20), // crazy value
+	// 		NextInt(r, 1, 4))  // reasonable value
+
+	// 	if Rarely(r) {
+	// 		// reandom thread pool
+	// 		c.SetIndexerThreadPool(newRandomDocumentsWriterPerThreadPool(maxNumRoutineState, r))
+	// 	} else {
+	// 		// random thread pool
+	// 		c.SetMaxThreadStates(maxNumRoutineState)
+	// 	}
+	// }
+
+	c.SetMergePolicy(newMergePolicy(r))
+
+	if Rarely(r) {
+		c.SetMergedSegmentWarmer(index.NewSimpleMergedSegmentWarmer(c.InfoStream()))
+	}
+	c.SetUseCompoundFile(r.Intn(2) == 0)
+	c.SetReaderPooling(r.Intn(2) == 0)
+	c.SetReaderTermsIndexDivisor(NextInt(r, 1, 4))
+	return c
+}
+
+func newMergePolicy(r *rand.Rand) *index.MergePolicy {
 	panic("not implemented yet")
 }
 
@@ -162,4 +214,12 @@ func newDirectoryImpl(random *rand.Rand, clazzName string) store.Directory {
 // Create a new searcher over the reader. This searcher might randomly use threads
 func NewSearcher(r index.IndexReader) *search.IndexSearcher {
 	panic("not implemented yet")
+}
+
+// util/TestRuleSetupAndRestoreClassEnv.java
+
+// Setup and restore suite-level environment (fine grained junk that
+// doesn't fit anywhere else)
+type TestRuleSetupAndRestoreClassEnv struct {
+	similarity search.Similarity
 }

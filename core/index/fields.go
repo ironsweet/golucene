@@ -201,6 +201,11 @@ hasDocValues = %v
 %v`, fis.hasFreq, fis.hasProx, fis.hasPayloads, fis.hasOffsets, fis.hasVectors, fis.hasNorms, fis.hasDocValues, fis.values)
 }
 
+type FieldNumbers struct {
+}
+
+// index/FieldInfo.java
+
 type IndexOptions int
 
 const (

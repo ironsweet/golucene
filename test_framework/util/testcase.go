@@ -54,9 +54,6 @@ func or(a, b string) string {
 // Class level (suite) rules.
 // -----------------------------------------------------------------
 
-// Class environment setup rule.
-var classEnvRule = &TestRuleSetupAndRestoreClassEnv{}
-
 // Suite failure marker (any error in the test or suite scope)
 var SuiteFailureMarker = &TestRuleMarkFailure{}
 
@@ -156,11 +153,4 @@ func either(flag bool, value, orValue interface{}) interface{} {
 		return value
 	}
 	return orValue
-}
-
-// util/TestRuleSetupAndRestoreClassEnv.java
-
-// Setup and restore suite-level environment (fine grained junk that
-// doesn't fit anywhere else)
-type TestRuleSetupAndRestoreClassEnv struct {
 }
