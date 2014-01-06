@@ -30,7 +30,7 @@ they will be run concurrently.
 
 The default MergePolicy is TieredMergePolicy.
 */
-type MergePolicy struct {
+type MergePolicy interface {
 }
 
 /*
@@ -155,5 +155,41 @@ func (cms *ConcurrentMergeScheduler) String() string {
 }
 
 func (cms *ConcurrentMergeScheduler) Clone() MergeScheduler {
+	panic("not implemented yet")
+}
+
+// index/TieredMergePolicy.java
+
+/*
+Merges segments of approximately equal size, subject to an allowed
+number of segments per tier. This is similar to LogByteSizeMergePolicy,
+except this merge policy is able to merge non-adjacent segment, and
+separates how many segments are merged at once (SetMaxMergeAtOnce())
+from how many segments are allowed per tier (SetSegmentsPerTier()).
+This merge policy also does not over-merge (i.e. cascade merges).
+
+For normal merging, this policy first computes a "budget" of how many
+segments are allowed to be in the index. If the index is over-budget,
+then the policy sorts segments by decreasing size (pro-rating by
+percent deletes), and then finds the least-cost merge. Merge cost is
+measured by a combination of the "skew" of the merge (size of largest
+segments divided by smallest segment), total merge size and percent
+deletes reclaimed, so tha tmerges with lower skew, smaller size and
+those reclaiming more deletes, are flavored.
+
+If a merge wil produce a segment that's larger than SetMaxMergedSegmentMB(),
+then the policy will merge fewer segments (down to 1 at once, if that
+one has deletions) to keep the segment size under budget.
+
+NOTE: this policy freely merges non-adjacent segments; if this is a
+problem, use LogMergePolicy.
+
+NOTE: This policy always merges by byte size of the segments, always
+pro-rates by percent deletes, and does not apply any maximum segment
+size duirng forceMerge (unlike LogByteSizeMergePolicy).
+*/
+type TieredMergePolicy struct{}
+
+func newTieredMergePolicy() *TieredMergePolicy {
 	panic("not implemented yet")
 }

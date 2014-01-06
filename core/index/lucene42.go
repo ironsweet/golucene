@@ -29,104 +29,102 @@ const (
 	LUCENE42_FI_OMIT_POSITIONS               = 0x80
 )
 
-var (
-	Lucene42FieldInfosReader = func(dir store.Directory, segment string, context store.IOContext) (fi FieldInfos, err error) {
-		log.Printf("Reading FieldInfos from %v...", dir)
-		fi = FieldInfos{}
-		fileName := util.SegmentFileName(segment, "", LUCENE42_FI_EXTENSION)
-		log.Printf("Segment: %v", fileName)
-		input, err := dir.OpenInput(fileName, context)
-		if err != nil {
-			return fi, err
-		}
-		log.Printf("Reading %v", input)
-
-		success := false
-		defer func() {
-			if success {
-				input.Close()
-			} else {
-				util.CloseWhileHandlingError(err, input)
-			}
-		}()
-
-		_, err = codec.CheckHeader(input,
-			LUCENE42_FI_CODEC_NAME,
-			LUCENE42_FI_FORMAT_START,
-			LUCENE42_FI_FORMAT_CURRENT)
-		if err != nil {
-			return fi, err
-		}
-
-		size, err := input.ReadVInt() //read in the size
-		if err != nil {
-			return fi, err
-		}
-		log.Printf("Found %v FieldInfos.", size)
-
-		infos := make([]FieldInfo, size)
-		for i, _ := range infos {
-			name, err := input.ReadString()
-			if err != nil {
-				return fi, err
-			}
-			fieldNumber, err := input.ReadVInt()
-			if err != nil {
-				return fi, err
-			}
-			bits, err := input.ReadByte()
-			if err != nil {
-				return fi, err
-			}
-			isIndexed := (bits & LUCENE42_FI_IS_INDEXED) != 0
-			storeTermVector := (bits & LUCENE42_FI_STORE_TERMVECTOR) != 0
-			omitNorms := (bits & LUCENE42_FI_OMIT_NORMS) != 0
-			storePayloads := (bits & LUCENE42_FI_STORE_PAYLOADS) != 0
-			var indexOptions IndexOptions
-			switch {
-			case !isIndexed:
-				indexOptions = IndexOptions(0)
-			case (bits & LUCENE42_FI_OMIT_TERM_FREQ_AND_POSITIONS) != 0:
-				indexOptions = INDEX_OPT_DOCS_ONLY
-			case (bits & LUCENE42_FI_OMIT_POSITIONS) != 0:
-				indexOptions = INDEX_OPT_DOCS_AND_FREQS
-			case (bits & LUCENE42_FI_STORE_OFFSETS_IN_POSTINGS) != 0:
-				indexOptions = INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
-			default:
-				indexOptions = INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
-			}
-
-			// DV Types are packed in one byte
-			val, err := input.ReadByte()
-			if err != nil {
-				return fi, err
-			}
-			docValuesType, err := getDocValuesType(input, (byte)(val&0x0F))
-			if err != nil {
-				return fi, err
-			}
-			normsType, err := getDocValuesType(input, (byte)((uint8(val)>>4)&0x0F))
-			if err != nil {
-				return fi, err
-			}
-			attributes, err := input.ReadStringStringMap()
-			if err != nil {
-				return fi, err
-			}
-			infos[i] = NewFieldInfo(name, isIndexed, fieldNumber, storeTermVector,
-				omitNorms, storePayloads, indexOptions, docValuesType, normsType, attributes)
-		}
-
-		if input.FilePointer() != input.Length() {
-			return fi, errors.New(fmt.Sprintf(
-				"did not read all bytes from file '%v': read %v vs size %v (resource: %v)",
-				fileName, input.FilePointer(), input.Length(), input))
-		}
-		fi = NewFieldInfos(infos)
-		success = true
-		return fi, nil
+var Lucene42FieldInfosReader = func(dir store.Directory, segment string, context store.IOContext) (fi FieldInfos, err error) {
+	log.Printf("Reading FieldInfos from %v...", dir)
+	fi = FieldInfos{}
+	fileName := util.SegmentFileName(segment, "", LUCENE42_FI_EXTENSION)
+	log.Printf("Segment: %v", fileName)
+	input, err := dir.OpenInput(fileName, context)
+	if err != nil {
+		return fi, err
 	}
-)
+	log.Printf("Reading %v", input)
+
+	success := false
+	defer func() {
+		if success {
+			input.Close()
+		} else {
+			util.CloseWhileHandlingError(err, input)
+		}
+	}()
+
+	_, err = codec.CheckHeader(input,
+		LUCENE42_FI_CODEC_NAME,
+		LUCENE42_FI_FORMAT_START,
+		LUCENE42_FI_FORMAT_CURRENT)
+	if err != nil {
+		return fi, err
+	}
+
+	size, err := input.ReadVInt() //read in the size
+	if err != nil {
+		return fi, err
+	}
+	log.Printf("Found %v FieldInfos.", size)
+
+	infos := make([]FieldInfo, size)
+	for i, _ := range infos {
+		name, err := input.ReadString()
+		if err != nil {
+			return fi, err
+		}
+		fieldNumber, err := input.ReadVInt()
+		if err != nil {
+			return fi, err
+		}
+		bits, err := input.ReadByte()
+		if err != nil {
+			return fi, err
+		}
+		isIndexed := (bits & LUCENE42_FI_IS_INDEXED) != 0
+		storeTermVector := (bits & LUCENE42_FI_STORE_TERMVECTOR) != 0
+		omitNorms := (bits & LUCENE42_FI_OMIT_NORMS) != 0
+		storePayloads := (bits & LUCENE42_FI_STORE_PAYLOADS) != 0
+		var indexOptions IndexOptions
+		switch {
+		case !isIndexed:
+			indexOptions = IndexOptions(0)
+		case (bits & LUCENE42_FI_OMIT_TERM_FREQ_AND_POSITIONS) != 0:
+			indexOptions = INDEX_OPT_DOCS_ONLY
+		case (bits & LUCENE42_FI_OMIT_POSITIONS) != 0:
+			indexOptions = INDEX_OPT_DOCS_AND_FREQS
+		case (bits & LUCENE42_FI_STORE_OFFSETS_IN_POSTINGS) != 0:
+			indexOptions = INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
+		default:
+			indexOptions = INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
+		}
+
+		// DV Types are packed in one byte
+		val, err := input.ReadByte()
+		if err != nil {
+			return fi, err
+		}
+		docValuesType, err := getDocValuesType(input, (byte)(val&0x0F))
+		if err != nil {
+			return fi, err
+		}
+		normsType, err := getDocValuesType(input, (byte)((uint8(val)>>4)&0x0F))
+		if err != nil {
+			return fi, err
+		}
+		attributes, err := input.ReadStringStringMap()
+		if err != nil {
+			return fi, err
+		}
+		infos[i] = NewFieldInfo(name, isIndexed, fieldNumber, storeTermVector,
+			omitNorms, storePayloads, indexOptions, docValuesType, normsType, attributes)
+	}
+
+	if input.FilePointer() != input.Length() {
+		return fi, errors.New(fmt.Sprintf(
+			"did not read all bytes from file '%v': read %v vs size %v (resource: %v)",
+			fileName, input.FilePointer(), input.Length(), input))
+	}
+	fi = NewFieldInfos(infos)
+	success = true
+	return fi, nil
+}
 
 func getDocValuesType(input store.IndexInput, b byte) (t DocValuesType, err error) {
 	switch b {
@@ -144,64 +142,6 @@ func getDocValuesType(input store.IndexInput, b byte) (t DocValuesType, err erro
 		return DocValuesType(0), errors.New(
 			fmt.Sprintf("invalid docvalues byte: %v (resource=%v)", b, input))
 	}
-}
-
-type Codec struct {
-	ReadSegmentInfo           func(d store.Directory, segment string, ctx store.IOContext) (si SegmentInfo, err error)
-	ReadFieldInfos            func(d store.Directory, segment string, ctx store.IOContext) (fi FieldInfos, err error)
-	GetFieldsProducer         func(s SegmentReadState) (r FieldsProducer, err error)
-	GetDocValuesProducer      func(s SegmentReadState) (r DocValuesProducer, err error)
-	GetNormsDocValuesProducer func(s SegmentReadState) (r DocValuesProducer, err error)
-	GetStoredFieldsReader     func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error)
-	GetTermVectorsReader      func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
-}
-
-func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer, err error) {
-	switch name {
-	case "Lucene41":
-		postingsReader, err := NewLucene41PostingsReader(state.dir,
-			state.fieldInfos,
-			state.segmentInfo,
-			state.context,
-			state.segmentSuffix)
-		if err != nil {
-			return nil, err
-		}
-		success := false
-		defer func() {
-			if !success {
-				log.Printf("Failed to load FieldsProducer for %v.", name)
-				if err != nil {
-					log.Print("DEBUG ", err)
-				}
-				util.CloseWhileSuppressingError(postingsReader)
-			}
-		}()
-
-		fp, err := newBlockTreeTermsReader(state.dir,
-			state.fieldInfos,
-			state.segmentInfo,
-			postingsReader,
-			state.context,
-			state.segmentSuffix,
-			state.termsIndexDivisor)
-		if err != nil {
-			log.Print("DEBUG: ", err)
-			return fp, err
-		}
-		success = true
-		return fp, nil
-	}
-	panic(fmt.Sprintf("Service '%v' not found.", name))
-}
-
-func LoadDocValuesProducer(name string, state SegmentReadState) (fp DocValuesProducer, err error) {
-	switch name {
-	case "Lucene42":
-		return newLucene42DocValuesProducer(state, LUCENE42_DV_DATA_CODEC, LUCENE42_DV_DATA_EXTENSION,
-			LUCENE42_DV_METADATA_CODEC, LUCENE42_DV_METADATA_EXTENSION)
-	}
-	panic(fmt.Sprintf("Service '%v' not found.", name))
 }
 
 const (

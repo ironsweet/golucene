@@ -19,3 +19,7 @@ type InfoStream interface {
 	Message(component, message string)
 	IsEnabled(component string) bool
 }
+
+var DefaultInfoStream = func() InfoStream {
+	panic("not implemented yet")
+}

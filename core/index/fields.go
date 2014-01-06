@@ -204,6 +204,9 @@ hasDocValues = %v
 type FieldNumbers struct {
 }
 
+type FieldInfosBuilder struct {
+}
+
 // index/FieldInfo.java
 
 type IndexOptions int

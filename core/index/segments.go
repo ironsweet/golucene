@@ -439,6 +439,12 @@ func newSegmentReadState(dir store.Directory, info SegmentInfo, fieldInfos Field
 	return SegmentReadState{dir, info, fieldInfos, context, termsIndexDivisor, ""}
 }
 
+// index/SegmentWriteState.java
+
+// Holder class for common parameters used during write.
+type SegmentWriteState struct {
+}
+
 type DocValuesProducer interface {
 	io.Closer
 	Numeric(field FieldInfo) (v NumericDocValues, err error)

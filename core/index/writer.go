@@ -65,87 +65,106 @@ func (s IndexCommits) Less(i, j int) bool {
 	return s[i].Generation() < s[j].Generation()
 }
 
-// index/IndexDeletionPolicy.java
-
-/*
-Expert: policy for deletion of stale index commits.
-
-Implement this interface, and pass it to one of the IndexWriter or
-IndexReader constructors, to customize when older point-in-time-commits
-are deleted from the index directory. The default deletion policy is
-KeepOnlyLastCommitDeletionPolicy, which always remove old commits as
-soon as a new commit is done (this matches the behavior before 2.2).
-
-One expected use case for this ( and the reason why it was first
-created) is to work around problems with an index directory accessed
-via filesystems like NFS because NFS does not provide the "delete on
-last close" semantics that Lucene's "point in time" search normally
-relies on. By implementing a custom deletion policy, such as "a
-commit is only removed once it has been stale for more than X
-minutes", you can give your readers time to refresh to the new commit
-before IndexWriter removes the old commits. Note that doing so will
-increase the storage requirements of the index. See [LUCENE-710] for
-details.
-
-Implementers of sub-classes should make sure that Clone() returns an
-independent instance able to work with any other IndexWriter or
-Directory instance.
-*/
-type IndexDeletionPolicy interface {
-	/*
-		This is called once when a writer is first instantiated to give the
-		policy a chance to remove old commit points.
-
-		The writer locates all index commits present in the index directory
-		and calls this method. The policy may choose to delete some of the
-		commit points, doing so by calling method delete() of IndexCommit.
-
-		Note: the last CommitPoint is the most recent one, i.e. the "front
-		index state". Be careful not to delete it, unless you know for sure
-		what you are doing, and unless you can afford to lose the index
-		content while doing that.
-	*/
-	onInit(commits []IndexCommit) error
-	/*
-	  This is called each time the writer completed a commit. This
-	  gives the policy a chance to remove old commit points with each
-	  commit.
-
-	  The policy may now choose to delete old commit points by calling
-	  method Delete() of IndexCommit.
-
-	  This method is only called when Commit() or Close() is called, or
-	  possibly not at all if the Rollback() is called.
-
-	  Note: the last CommitPoint is the most recent one, i.e. the
-	  "front index state". Be careful not to delete it, unless you know
-	  for sure what you are doing, and unless you can afford to lose
-	  the index content while doing that.
-	*/
-	onCommit(commits []IndexCommit) error
-}
-
-// index/NoDeletionPolicy.java
-
-// An IndexDeletionPolicy which keeps all index commits around, never
-// deleting them. This class is a singleton and can be accessed by
-// referencing INSTANCE.
-type NoDeletionPolicy bool
-
-func (p NoDeletionPolicy) onCommit(commits []IndexCommit) error { return nil }
-func (p NoDeletionPolicy) onInit(commits []IndexCommit) error   { return nil }
-func (p NoDeletionPolicy) Clone() IndexDeletionPolicy           { return p }
-
-const NO_DELETION_POLICY = NoDeletionPolicy(true)
-
 // index/LiveIndexWriterConfig.java
+
+// Used by search package to assign a default similarity
+var DefaultSimilarity func() Similarity
 
 /*
 Holds all the configuration used by IndexWriter with few setters for
 settings that can be changed on an IndexWriter instance "live".
+
+All the fields are either readonly or volatile.
 */
 type LiveIndexWriterConfig struct {
-	delPolicy IndexDeletionPolicy // volatile
+	analyzer analysis.Analyzer
+
+	maxBufferedDocs         int
+	ramBufferSizeMB         float64
+	maxBufferedDeleteTerms  int
+	readerTermsIndexDivisor int
+	mergedSegmentWarmer     IndexReaderWarmer
+	termIndexInterval       int
+	// TODO: this should be private to the codec, not settable here
+
+	// controlling when commit points are deleted.
+	delPolicy IndexDeletionPolicy
+
+	// IndexCommit that IndexWriter is opened on.
+	commit IndexCommit
+
+	// OpenMode that IndexWriter is opened with.
+	openMode OpenMode
+
+	// Similarity to use when encoding norms.
+	similarity Similarity
+
+	// MergeScheduler to use for running merges.
+	mergeScheduler MergeScheduler
+
+	// Timeout when trying to obtain the write lock on init.
+	writeLockTimeout int64
+
+	// IndexingChain that determines how documents are indexed.
+	indexingChain IndexingChain
+
+	// Codec used to write new segments.
+	codec Codec
+
+	// InfoStream for debugging messages.
+	infoStream util.InfoStream
+
+	// MergePolicy for selecting merges.
+	mergePolicy MergePolicy
+
+	// DocumentsWriterPerThreadPool to control how goroutines are
+	// allocated to DocumentsWriterPerThread.
+	indexerThreadPool *DocumentsWriterPerThreadPool
+
+	// True if readers should be pooled.
+	readerPooling bool
+
+	// FlushPolicy to control when segments are flushed.
+	flushPolicy FlushPolicy
+
+	// Sets the hard upper bound on RAM usage for a single segment,
+	// after which the segment is forced to flush.
+	perRoutineHardLimitMB int
+
+	// Version that IndexWriter should emulate.
+	matchVersion util.Version
+
+	// True is segment flushes should use compound file format
+	useCompoundFile bool
+}
+
+// used by IndexWriterConfig
+func newLiveIndexWriterConfig(analyzer analysis.Analyzer, matchVersion util.Version) *LiveIndexWriterConfig {
+	assert(DefaultSimilarity != nil)
+	assert(DefaultCodec != nil)
+	return &LiveIndexWriterConfig{
+		analyzer:                analyzer,
+		matchVersion:            matchVersion,
+		ramBufferSizeMB:         DEFAULT_RAM_BUFFER_SIZE_MB,
+		maxBufferedDocs:         DEFAULT_MAX_BUFFERED_DOCS,
+		maxBufferedDeleteTerms:  DEFAULT_MAX_BUFFERED_DELETE_TERMS,
+		readerTermsIndexDivisor: DEFAULT_READER_TERMS_INDEX_DIVISOR,
+		termIndexInterval:       DEFAULT_TERM_INDEX_INTERVAL, // TODO: this should be private to the codec, not settable here
+		delPolicy:               DEFAULT_DELETION_POLICY,
+		useCompoundFile:         DEFAULT_USE_COMPOUND_FILE_SYSTEM,
+		openMode:                OPEN_MODE_CREATE_OR_APPEND,
+		similarity:              DefaultSimilarity(),
+		mergeScheduler:          NewConcurrentMergeScheduler(),
+		writeLockTimeout:        WRITE_LOCK_TIMEOUT,
+		indexingChain:           defaultIndexingChain,
+		codec:                   DefaultCodec(),
+		infoStream:              util.DefaultInfoStream(),
+		mergePolicy:             newTieredMergePolicy(),
+		flushPolicy:             newFlushByRamOrCountsPolicy(),
+		readerPooling:           DEFAULT_READER_POOLING,
+		indexerThreadPool:       newDocumentsWriterPerThreadPool(DEFAULT_MAX_THREAD_STATES),
+		perRoutineHardLimitMB:   DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB,
+	}
 }
 
 // index/IndexWriterConfig.java
@@ -163,8 +182,37 @@ const (
 	OPEN_MODE_CREATE_OR_APPEND = OpenMode(3)
 )
 
+// Default value is 32.
+const DEFAULT_TERM_INDEX_INTERVAL = 32 // TODO: this should be private to the codec, not settable here
+
+// Denotes a flush trigger is disabled.
+const DISABLE_AUTO_FLUSH = -1
+
+// Disabled by default (because IndexWriter flushes by RAM usage by default).
+const DEFAULT_MAX_BUFFERED_DELETE_TERMS = DISABLE_AUTO_FLUSH
+
+// Disabled by default (because IndexWriter flushes by RAM usage by default).
+const DEFAULT_MAX_BUFFERED_DOCS = DISABLE_AUTO_FLUSH
+
+// Default value is 16 MB (which means flush when buffered docs
+// consume approximately 16 MB RAM)
+const DEFAULT_RAM_BUFFER_SIZE_MB = 16
+
 // Default value for the write lock timeout (1,000 ms)
 const WRITE_LOCK_TIMEOUT = 1000
+
+const DEFAULT_READER_POOLING = false
+
+// Default value is 1.
+const DEFAULT_READER_TERMS_INDEX_DIVISOR = DEFAULT_TERMS_INDEX_DIVISOR
+
+// Default value is 1945.
+const DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB = 1945
+
+// The maximum number of simultaneous threads that may be indexing
+// documents at once in IndexWriter; if more than this many threads
+// arrive they will wait for others to finish. Default value is 8.
+const DEFAULT_MAX_THREAD_STATES = 8
 
 // Default value for compound file system for newly written segments
 // (set to true). For batch indexing with very large ram buffers use
@@ -199,7 +247,7 @@ problem, you should switch to LogByteSizeMergePolicy or
 LogDocMergePolicy.
 */
 func NewIndexWriterConfig(matchVersion util.Version, analyzer analysis.Analyzer) *IndexWriterConfig {
-	panic("not implemented yet")
+	return &IndexWriterConfig{LiveIndexWriterConfig: newLiveIndexWriterConfig(analyzer, matchVersion)}
 }
 
 /*
