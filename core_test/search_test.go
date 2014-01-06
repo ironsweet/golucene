@@ -11,7 +11,12 @@ import (
 )
 
 // Hook up custom test logic into Go's test runner.
-func TestBefore(t *testing.T) { BeforeSuite(t) }
+func TestBefore(t *testing.T) {
+	index.DefaultSimilarity = func() index.Similarity {
+		return search.NewDefaultSimilarity()
+	}
+	BeforeSuite(t)
+}
 
 func TestNegativeQueryBoost(t *testing.T) {
 	q := search.NewTermQuery(index.NewTerm("foo", "bar"))
