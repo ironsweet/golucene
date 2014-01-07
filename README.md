@@ -31,3 +31,7 @@ Develop Guidelines
 - "not implemented yet" means in scope but not yet translated from Java.
 - "not supported yet" means not in scope.
 - Wrapper can be implemented by composition instead of an explicit delegate field.
+
+Known Risks/Issues
+------------------
+- Volatile keyword is not supported yet.

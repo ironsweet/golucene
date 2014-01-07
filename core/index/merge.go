@@ -1,46 +1,13 @@
 package index
 
-// index/MergeScheduler.java
-
 import (
+	"github.com/balzaczyy/golucene/core/util"
 	"io"
+	"math"
 	"sync"
 )
 
-// index/MergePolicy.java
-
-/*
-Expert: a MergePolicy determines the sequence of primitive merge
-operations.
-
-Whenever the segments in an index have been altered by IndexWriter,
-either the addition of a newly flushed segment, addition of many
-segments from addIndexes* calls, or a previous merge that may now
-seed to cascade, IndexWriter invokes findMerges() to give the
-MergePolicy a chance to pick merges that are now required. This
-method returns a MergeSpecification instance describing the set of
-merges that should be done, or nil if no merges are necessary. When
-IndexWriter.forceMerge() is called, it calls findForcedMerges() and
-the MergePolicy should then return the necessary merges.
-
-Note that the policy can return more than one merge at a time. In
-this case, if the writer is using SerialMergeScheduler, the merges
-will be run sequentially but if it is using ConcurrentMergeScheduler
-they will be run concurrently.
-
-The default MergePolicy is TieredMergePolicy.
-*/
-type MergePolicy interface {
-}
-
-/*
-OneMerge provides the information necessary to perform an individual
-primitive merge operation, resulting in a single new segment. The
-merge spec includes the subset of segments to be merged as well as
-whether the new segment should use the compound file format.
-*/
-type OneMerge struct {
-}
+// index/MergeScheduler.java
 
 /*
 Expert: IndexWriter uses an instance implementing this interface to
@@ -158,7 +125,69 @@ func (cms *ConcurrentMergeScheduler) Clone() MergeScheduler {
 	panic("not implemented yet")
 }
 
+// index/MergePolicy.java
+
+// Default max segment size in order to use compound file system.
+// Set to maxInt64.
+const DEFAULT_MAX_CFS_SEGMENT_SIZE = math.MaxInt64
+
+/*
+Expert: a MergePolicy determines the sequence of primitive merge
+operations.
+
+Whenever the segments in an index have been altered by IndexWriter,
+either the addition of a newly flushed segment, addition of many
+segments from addIndexes* calls, or a previous merge that may now
+seed to cascade, IndexWriter invokes findMerges() to give the
+MergePolicy a chance to pick merges that are now required. This
+method returns a MergeSpecification instance describing the set of
+merges that should be done, or nil if no merges are necessary. When
+IndexWriter.forceMerge() is called, it calls findForcedMerges() and
+the MergePolicy should then return the necessary merges.
+
+Note that the policy can return more than one merge at a time. In
+this case, if the writer is using SerialMergeScheduler, the merges
+will be run sequentially but if it is using ConcurrentMergeScheduler
+they will be run concurrently.
+
+The default MergePolicy is TieredMergePolicy.
+*/
+type MergePolicy interface {
+}
+
+type MergePolicyImpl struct {
+	// IndexWriter that contains this instance.
+	writer *util.SetOnce
+	// If the size of te merge segment exceeds this ratio of the total
+	// index size then it will remain in non-compound format.
+	noCFSRatio float64
+	// If the size of the merged segment exceeds this value then it
+	// will not use compound file format.
+	maxCFSSegmentSize float64
+}
+
+func newMergePolicyImpl(defaultNoCFSRatio, defaultMaxCFSSegmentSize float64) *MergePolicyImpl {
+	return &MergePolicyImpl{
+		util.NewSetOnce(),
+		defaultNoCFSRatio,
+		defaultMaxCFSSegmentSize,
+	}
+}
+
+/*
+OneMerge provides the information necessary to perform an individual
+primitive merge operation, resulting in a single new segment. The
+merge spec includes the subset of segments to be merged as well as
+whether the new segment should use the compound file format.
+*/
+type OneMerge struct {
+}
+
 // index/TieredMergePolicy.java
+
+// Default noCFSRatio. If a merge's size is >= 10% of the index, then
+// we disable compound file for it.
+const DEFAULT_NO_CFS_RATIO = 0.1
 
 /*
 Merges segments of approximately equal size, subject to an allowed
@@ -188,8 +217,28 @@ NOTE: This policy always merges by byte size of the segments, always
 pro-rates by percent deletes, and does not apply any maximum segment
 size duirng forceMerge (unlike LogByteSizeMergePolicy).
 */
-type TieredMergePolicy struct{}
+type TieredMergePolicy struct {
+	*MergePolicyImpl
+
+	maxMergeAtOnce         int
+	maxMergedSegmentBytes  int64
+	maxMergeAtOnceExplicit int
+
+	floorSegmentBytes           int64
+	segsPerTier                 float64
+	forceMergeDeletesPctAllowed float64
+	reclaimDeletesWeight        float64
+}
 
 func newTieredMergePolicy() *TieredMergePolicy {
-	panic("not implemented yet")
+	return &TieredMergePolicy{
+		MergePolicyImpl:             newMergePolicyImpl(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE),
+		maxMergeAtOnce:              10,
+		maxMergedSegmentBytes:       5 * 1024 * 1024 * 1024,
+		maxMergeAtOnceExplicit:      30,
+		floorSegmentBytes:           2 * 1024 * 1024,
+		segsPerTier:                 10,
+		forceMergeDeletesPctAllowed: 10,
+		reclaimDeletesWeight:        2,
+	}
 }

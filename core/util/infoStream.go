@@ -20,6 +20,24 @@ type InfoStream interface {
 	IsEnabled(component string) bool
 }
 
+type NoOutput bool
+
+func (is NoOutput) Message(component, message string) {
+	panic("message() should not be called when isEnabled returns false")
+}
+
+func (is NoOutput) IsEnabled(component string) bool {
+	return false
+}
+
+func (is NoOutput) Close() error { return nil }
+
+func (is NoOutput) Clone() InfoStream {
+	return is
+}
+
+var NO_OUTPUT = NoOutput(true)
+
 var DefaultInfoStream = func() InfoStream {
-	panic("not implemented yet")
+	return NO_OUTPUT
 }
