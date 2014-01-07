@@ -162,7 +162,7 @@ func newLiveIndexWriterConfig(analyzer analysis.Analyzer, matchVersion util.Vers
 		mergePolicy:             newTieredMergePolicy(),
 		flushPolicy:             newFlushByRamOrCountsPolicy(),
 		readerPooling:           DEFAULT_READER_POOLING,
-		indexerThreadPool:       newDocumentsWriterPerThreadPool(DEFAULT_MAX_THREAD_STATES),
+		indexerThreadPool:       newThreadAffinityDocumentsWriterPerThreadPool(DEFAULT_MAX_THREAD_STATES),
 		perRoutineHardLimitMB:   DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB,
 	}
 }
