@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
-	"testing"
 	"time"
 )
 
@@ -57,35 +56,6 @@ func or(a, b string) string {
 // Suite failure marker (any error in the test or suite scope)
 var SuiteFailureMarker = &TestRuleMarkFailure{}
 
-// Ian: I have to extend Go's testing framework to simulate JUnit's
-// TestRule
-var myT *testing.T
-
-func BeforeSuite(t *testing.T) {
-	myT = t
-	SuiteFailureMarker.T = t
-}
-
-var suiteClosers []func() error
-
-// type T struct {
-// 	delegate *testing.T
-// }
-
-// func wrapT(t *testing.T) *T {
-// 	return &T{t}
-// }
-
-// func (c *T) Error(args ...interface{}) {
-// 	c.delegate.Error(args)
-// }
-
-func AfterSuite(t *testing.T) {
-	for _, closer := range suiteClosers {
-		closer() // ignore error
-	}
-}
-
 // -----------------------------------------------------------------
 // Test facilities and facades for subclasses.
 // -----------------------------------------------------------------
@@ -104,11 +74,6 @@ millions of calls like this:
 */
 func Random() *rand.Rand {
 	return rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
-}
-
-// Registers a Closeable resource that shold be closed after the suite completes.
-func CloseAfterSuite(closer func() error) {
-	suiteClosers = append(suiteClosers, closer)
 }
 
 // L643

@@ -1,10 +1,10 @@
 package util
 
 import (
+	. "github.com/balzaczyy/gounit"
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"testing"
 )
 
 // util/_TestUtil.java
@@ -73,13 +73,7 @@ func randomFixedLengthUnicodeString(random *rand.Rand, chars []rune) {
 // util/TestRuleMarkFailure.java
 
 type TestRuleMarkFailure struct {
-	*testing.T
 	failures bool
-}
-
-func (tr *TestRuleMarkFailure) Error(args ...interface{}) {
-	tr.failures = true
-	tr.Error(args)
 }
 
 // Check if this object had any marked failures.

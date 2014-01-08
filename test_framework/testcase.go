@@ -8,6 +8,7 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/test_framework/util"
+	. "github.com/balzaczyy/gounit"
 	"log"
 	"math/rand"
 	"os"
@@ -43,7 +44,7 @@ func either(flag bool, value, orValue interface{}) interface{} {
 // -----------------------------------------------------------------
 
 // Class environment setup rule.
-var classEnvRule = &TestRuleSetupAndRestoreClassEnv{}
+var ClassEnvRule = &TestRuleSetupAndRestoreClassEnv{}
 
 // -----------------------------------------------------------------
 // Test facilities and facades for subclasses.
@@ -57,7 +58,7 @@ func NewIndexWriterConfig(v util.Version, a analysis.Analyzer) *index.IndexWrite
 // Create a new index write config with random defaults using the specified random
 func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer) *index.IndexWriterConfig {
 	c := index.NewIndexWriterConfig(v, a)
-	c.SetSimilarity(classEnvRule.similarity)
+	c.SetSimilarity(ClassEnvRule.similarity)
 	if VERBOSE {
 		panic("not implemented yet")
 	}
@@ -222,4 +223,12 @@ func NewSearcher(r index.IndexReader) *search.IndexSearcher {
 // doesn't fit anywhere else)
 type TestRuleSetupAndRestoreClassEnv struct {
 	similarity search.Similarity
+}
+
+func (rule *TestRuleSetupAndRestoreClassEnv) Before() error {
+	panic("not implemented yet")
+}
+
+func (rule *TestRuleSetupAndRestoreClassEnv) After() error {
+	panic("not implemented yet")
 }
