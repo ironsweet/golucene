@@ -109,7 +109,7 @@ type LiveIndexWriterConfig struct {
 	indexingChain IndexingChain
 
 	// Codec used to write new segments.
-	codec Codec
+	codec *Codec
 
 	// InfoStream for debugging messages.
 	infoStream util.InfoStream

@@ -22,6 +22,7 @@ If you implement your own codec, make sure that it is included so
 SPI can load it.
 */
 type Codec struct {
+	name                      string
 	ReadSegmentInfo           func(d store.Directory, segment string, ctx store.IOContext) (si SegmentInfo, err error)
 	ReadFieldInfos            func(d store.Directory, segment string, ctx store.IOContext) (fi FieldInfos, err error)
 	GetFieldsProducer         func(s SegmentReadState) (r FieldsProducer, err error)
@@ -31,8 +32,22 @@ type Codec struct {
 	GetTermVectorsReader      func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
 }
 
+func (codec *Codec) Name() string {
+	return codec.name
+}
+
+// looks up a codec by name
+func LoadCodec(name string) *Codec {
+	panic("not implemented yet")
+}
+
+// returns a list of all available codec names
+func AvailableCodecs() []string {
+	panic("not implemented yet")
+}
+
 // Expert: returns the default codec used for newly created IndexWriterConfig(s).
-var DefaultCodec = func() Codec { return Lucene45Codec }
+var DefaultCodec = func() *Codec { return LoadCodec("Lucene45") }
 
 func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer, err error) {
 	switch name {

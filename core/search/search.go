@@ -138,7 +138,7 @@ func (ss IndexSearcher) createNormalizedWeight(q Query) (w Weight, err error) {
 		return nil, err
 	}
 	v := w.ValueForNormalization()
-	norm := ss.similarity.queryNorm(v)
+	norm := ss.similarity.QueryNorm(v)
 	if math.IsInf(float64(norm), 1) || math.IsNaN(float64(norm)) {
 		norm = 1.0
 	}
@@ -199,22 +199,6 @@ func NewCollectionStatistics(field string, maxDoc, docCount, sumTotalTermFreq, s
 	// assert sumDocFreq == -1 || sumDocFreq >= docCount; // #postings must be >= #docs with field
 	// assert sumTotalTermFreq == -1 || sumTotalTermFreq >= sumDocFreq; // #positions must be >= #postings
 	return CollectionStatistics{field, maxDoc, docCount, sumTotalTermFreq, sumDocFreq}
-}
-
-type Similarity interface {
-	queryNorm(valueForNormalization float32) float32
-	/*
-		Computes the normalization value for a field, given the
-		accumulated state of term processing for this field (see
-		FieldInvertState).
-
-		Matches in longer fields are less precise, so implementations
-		of this method usually set smaller values when state.Lenght() is
-		larger, and larger values when state.Lenght() is smaller.
-	*/
-	ComputeNorm(state *index.FieldInvertState) int64
-	computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight
-	simScorer(w SimWeight, ctx index.AtomicReaderContext) (ss SimScorer, err error)
 }
 
 /**
@@ -459,7 +443,7 @@ func NewDefaultSimilarity() Similarity {
 	return ans
 }
 
-func (ds *DefaultSimilarity) queryNorm(sumOfSquaredWeights float32) float32 {
+func (ds *DefaultSimilarity) QueryNorm(sumOfSquaredWeights float32) float32 {
 	return 1.0 / float32(math.Sqrt(float64(sumOfSquaredWeights)))
 }
 

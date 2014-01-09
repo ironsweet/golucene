@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/store"
+	"github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/test_framework/util"
 )
 
@@ -28,3 +29,39 @@ func NewCloseableDirectory(dir BaseDirectoryWrapper, failureMarker *TestRuleMark
 		return nil
 	}
 }
+
+// util/NullInfoStream.java
+
+// Prints nothing. Just to make sure tests pass w/ and w/o enabled
+// InfoStream without actually making noise.
+type NullInfoStream int
+
+var nullInfoStream = NullInfoStream(0)
+
+func NewNullInfoStream() util.InfoStream {
+	return nullInfoStream
+}
+
+func (is NullInfoStream) Message(component, message string) {
+	assert(component != "")
+	assert(message != "")
+}
+
+func (is NullInfoStream) IsEnabled(component string) bool {
+	assert(component != "")
+	return true // to actually enable logging, we just ignore on message()
+}
+
+func (is NullInfoStream) Close() error {
+	return nil
+}
+
+func (is NullInfoStream) Clone() util.InfoStream {
+	return is
+}
+
+// func assert(ok bool) {
+// 	if !ok {
+// 		panic("assert fail")
+// 	}
+// }

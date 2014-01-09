@@ -1,7 +1,6 @@
 package automaton
 
 import (
-	"log"
 	"unicode"
 )
 
@@ -29,7 +28,6 @@ func (ra *RunAutomaton) charClass(c int) int {
 
 // Constructs a new RunAutomaton from a deterministic Automaton.
 func newRunAutomaton(a *Automaton, maxInterval int, tablesize bool) *RunAutomaton {
-	log.Println("DEBUG newRunAutomaton")
 	a.determinize()
 	states := a.NumberedStates()
 	nStates := len(states)

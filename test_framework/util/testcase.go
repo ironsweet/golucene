@@ -1,6 +1,7 @@
 package util
 
 import (
+	"errors"
 	"math"
 	"math/rand"
 	"os"
@@ -22,7 +23,9 @@ const (
 
 // True if and only if tests are run in verbose mode. If this flag is false
 // tests are not expected toprint and messages.
-var VERBOSE = ("false" == or(os.Getenv("tests.verbose"), "false"))
+var VERBOSE = ("true" == or(os.Getenv("tests.verbose"), "false"))
+
+var INFOSTREAM = ("true" == or(os.Getenv("tests.infostream"), strconv.FormatBool(VERBOSE)))
 
 // A random multiplier which you should use when writing random tests:
 // multiply it by the number of iterations to scale your tests (for nightly builds).
@@ -34,8 +37,19 @@ var RANDOM_MULTIPLIER = func() int {
 	return n
 }()
 
-// Gets the directory to run tests with
-var TEST_DIRECTORY = or(os.Getenv("tests.directory"), "random")
+var (
+	// Gets the codc to run tests with.
+	TEST_CODEC = or(os.Getenv("tests.codec"), "random")
+
+	// Gets the postingsFormat to run tests with.
+	TEST_POSTINGSFORMAT = or(os.Getenv("tests.postingsformat"), "random")
+
+	// Gets the docValuesFormat to run tests with
+	TEST_DOCVALUESFORMAT = or(os.Getenv("tests.docvaluesformat"), "random")
+
+	// Gets the directory to run tests with
+	TEST_DIRECTORY = or(os.Getenv("tests.directory"), "random")
+)
 
 // Whether or not Nightly tests should run
 var TEST_NIGHTLY = ("true" == or(os.Getenv(SYSPROP_NIGHTLY), "false"))
@@ -47,7 +61,20 @@ func or(a, b string) string {
 	return b
 }
 
-// L300
+// L332
+
+// -----------------------------------------------------------------
+// Fields initialized in class or instance rules.
+// -----------------------------------------------------------------
+
+var PREFLEX_IMPERSONATION_IS_ACTIVE bool
+
+/*
+When true, Codecs fo rold Lucene version will support writing indexes
+in that format. Defaults to true, can be disabled by specific tests
+on demand.
+*/
+const OLD_FORMAT_IMPERSONATION_IS_ACTIVE = true
 
 // -----------------------------------------------------------------
 // Class level (suite) rules.
@@ -118,4 +145,22 @@ func either(flag bool, value, orValue interface{}) interface{} {
 		return value
 	}
 	return orValue
+}
+
+/*
+Assumption is different from Assert that Assumption returns error,
+while Assert panics.
+*/
+func AssumeTrue(msg string, ok bool) error {
+	if !ok {
+		return errors.New(msg)
+	}
+	return nil
+}
+
+func AssumeFalse(msg string, ok bool) error {
+	if !ok {
+		return errors.New(msg)
+	}
+	return nil
 }

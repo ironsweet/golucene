@@ -7,11 +7,14 @@ import (
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	ts "github.com/balzaczyy/golucene/test_framework/search"
 	. "github.com/balzaczyy/golucene/test_framework/util"
 	. "github.com/balzaczyy/gounit"
+	"io"
 	"log"
 	"math/rand"
 	"os"
+	"reflect"
 )
 
 // --------------------------------------------------------------------
@@ -219,16 +222,201 @@ func NewSearcher(r index.IndexReader) *search.IndexSearcher {
 
 // util/TestRuleSetupAndRestoreClassEnv.java
 
+var suppressedCodecs string
+
+func SuppressCodecs(name string) {
+	suppressedCodecs = name
+}
+
+type ThreadNameFixingPrintStreamInfoStream struct {
+	*util.PrintStreamInfoStream
+}
+
+func newThreadNameFixingPrintStreamInfoStream(w io.Writer) *ThreadNameFixingPrintStreamInfoStream {
+	panic("not implemented yet")
+}
+
+func (is *ThreadNameFixingPrintStreamInfoStream) Message(component, message string) {
+	panic("not implemented yet")
+}
+
+func (is *ThreadNameFixingPrintStreamInfoStream) Clone() util.InfoStream {
+	clone := *is
+	return &clone
+}
+
 // Setup and restore suite-level environment (fine grained junk that
 // doesn't fit anywhere else)
 type TestRuleSetupAndRestoreClassEnv struct {
+	savedCodec      *index.Codec
+	savedInfoStream util.InfoStream
+
 	similarity search.Similarity
+	codec      *index.Codec
+
+	avoidCodecs map[string]bool
 }
 
 func (rule *TestRuleSetupAndRestoreClassEnv) Before() error {
+	// if verbose: print some debugging stuff about which codecs are loaded.
+	if VERBOSE {
+		for _, codec := range index.AvailableCodecs() {
+			log.Printf("Loaded codec: '%v': %v", codec, reflect.TypeOf(index.LoadCodec(codec)).Name())
+		}
+
+		panic("not implemented yet")
+	}
+
+	rule.savedInfoStream = util.DefaultInfoStream()
+	random := Random()
+	if INFOSTREAM {
+		util.SetDefaultInfoStream(newThreadNameFixingPrintStreamInfoStream(os.Stdout))
+	} else if random.Intn(2) == 0 {
+		util.SetDefaultInfoStream(NewNullInfoStream())
+	}
+
+	rule.avoidCodecs = make(map[string]bool)
+	if suppressedCodecs != "" {
+		rule.avoidCodecs[suppressedCodecs] = true
+	}
+
+	PREFLEX_IMPERSONATION_IS_ACTIVE = false
+	rule.savedCodec = index.DefaultCodec()
+	randomVal := random.Intn(10)
+	if "Lucene3x" == TEST_CODEC ||
+		"random" == TEST_CODEC &&
+			"random" == TEST_POSTINGSFORMAT &&
+			"random" == TEST_DOCVALUESFORMAT &&
+			randomVal == 3 &&
+			!rule.shouldAvoidCodec("Lucene3x") { // preflex-only setup
+		panic("not supported yet")
+	} else if "Lucene40" == TEST_CODEC ||
+		"random" == TEST_CODEC &&
+			"random" == TEST_POSTINGSFORMAT &&
+			randomVal == 0 &&
+			!rule.shouldAvoidCodec("Lucene40") { // 4.0 setup
+		panic("not supported yet")
+	} else if "Lucene41" == TEST_CODEC ||
+		"random" == TEST_CODEC &&
+			"random" == TEST_POSTINGSFORMAT &&
+			"random" == TEST_DOCVALUESFORMAT &&
+			randomVal == 1 &&
+			!rule.shouldAvoidCodec("Lucene41") {
+		panic("not supported yet")
+	} else if "Lucene42" == TEST_CODEC ||
+		"random" == TEST_CODEC &&
+			"random" == TEST_POSTINGSFORMAT &&
+			"random" == TEST_DOCVALUESFORMAT &&
+			randomVal == 2 &&
+			!rule.shouldAvoidCodec("Lucene42") {
+		panic("not supported yet")
+	} else if "random" != TEST_POSTINGSFORMAT ||
+		"random" != TEST_DOCVALUESFORMAT {
+		// the user wired postings or DV: this is messy
+		// refactor into RandomCodec...
+
+		panic("not supported yet")
+	} else if "SimpleText" == TEST_CODEC ||
+		"random" == TEST_CODEC &&
+			randomVal == 9 &&
+			Rarely(random) &&
+			!rule.shouldAvoidCodec("SimpleText") {
+		panic("not supported yet")
+	} else if "Appending" == TEST_CODEC ||
+		"random" == TEST_CODEC &&
+			randomVal == 8 &&
+			!rule.shouldAvoidCodec("Appending") {
+		panic("not supported yet")
+	} else if "CheapBastard" == TEST_CODEC ||
+		"random" == TEST_CODEC &&
+			randomVal == 8 &&
+			!rule.shouldAvoidCodec("CheapBastard") &&
+			!rule.shouldAvoidCodec("Lucene41") {
+		panic("not supported yet")
+	} else if "Asserting" == TEST_CODEC ||
+		"random" == TEST_CODEC &&
+			randomVal == 6 &&
+			!rule.shouldAvoidCodec("Asserting") {
+		panic("not implemented yet")
+	} else if "COmpressing" == TEST_CODEC ||
+		"random" == TEST_CODEC &&
+			randomVal == 5 &&
+			!rule.shouldAvoidCodec("Compressing") {
+		panic("not supported yet")
+	} else if "random" != TEST_CODEC {
+		rule.codec = index.LoadCodec(TEST_CODEC)
+	} else if "random" == TEST_POSTINGSFORMAT {
+		panic("not supported yet")
+	} else {
+		assert(false)
+	}
+	index.DefaultCodec = func() *index.Codec { return rule.codec }
+
+	// Initialize locale/ timezone
+	// testLocale := or(os.Getenv("tests.locale"), "random")
+	// testTimeZon := or(os.Getenv("tests.timezone"), "random")
+
+	// Always pick a random one for consistency (whether tests.locale
+	// was specified or not)
+	// Ian: it's not supported yet
+	// rule.savedLocale := DefaultLocale()
+	// if "random" == testLocale {
+	// 	rule.locale = randomLocale(random)
+	// } else {
+	// 	rule.locale = localeForName(testLocale)
+	// }
+	// SetDefaultLocale(rule.locale)
+
+	// SetDefaultTimeZone() will set user.timezone to the default
+	// timezone of the user's locale. So store the original property
+	// value and restore it at end.
+	// rule.restoreProperties["user.timezone"] = os.Getenv("user.timezone")
+	// rule.savedTimeZone = DefaultTimeZone()
+	// if "random" == testTimeZone {
+	// 	rule.timeZone = randomTimeZone(random)
+	// } else {
+	// 	rule.timeZone = TimeZone(testTimeZone)
+	// }
+	// SetDefaultTImeZone(rule.timeZone)
+
+	if random.Intn(2) == 0 {
+		rule.similarity = search.NewDefaultSimilarity()
+	} else {
+		rule.similarity = ts.NewRandomSimilarityProvider(random)
+	}
+
+	// Check codec restrictions once at class level.
+	err := rule.checkCodecRestrictions(rule.codec)
+	if err != nil {
+		log.Printf("NOTE: %v Suppressed codecs: %v", err, rule.avoidCodecs)
+	}
+	return err
+}
+
+func or(a, b string) string {
+	if len(a) > 0 {
+		return a
+	}
+	return b
+}
+
+// Check codec restrictions.
+func (rule *TestRuleSetupAndRestoreClassEnv) checkCodecRestrictions(codec *index.Codec) error {
+	AssumeTrue(fmt.Sprintf("Class not allowed to use codec: %v.", codec.Name),
+		rule.shouldAvoidCodec(codec.Name()))
+
 	panic("not implemented yet")
 }
 
 func (rule *TestRuleSetupAndRestoreClassEnv) After() error {
 	panic("not implemented yet")
+}
+
+// Should a given codec be avoided for the currently executing suite?
+func (rule *TestRuleSetupAndRestoreClassEnv) shouldAvoidCodec(codec string) bool {
+	if len(rule.avoidCodecs) == 0 {
+		return false
+	}
+	_, ok := rule.avoidCodecs[codec]
+	return ok
 }
