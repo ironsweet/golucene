@@ -248,11 +248,11 @@ func (is *ThreadNameFixingPrintStreamInfoStream) Clone() util.InfoStream {
 // Setup and restore suite-level environment (fine grained junk that
 // doesn't fit anywhere else)
 type TestRuleSetupAndRestoreClassEnv struct {
-	savedCodec      *index.Codec
+	savedCodec      index.Codec
 	savedInfoStream util.InfoStream
 
 	similarity search.Similarity
-	codec      *index.Codec
+	codec      index.Codec
 
 	avoidCodecs map[string]bool
 }
@@ -350,7 +350,7 @@ func (rule *TestRuleSetupAndRestoreClassEnv) Before() error {
 	} else {
 		assert(false)
 	}
-	index.DefaultCodec = func() *index.Codec { return rule.codec }
+	index.DefaultCodec = func() index.Codec { return rule.codec }
 
 	// Initialize locale/ timezone
 	// testLocale := or(os.Getenv("tests.locale"), "random")
@@ -401,7 +401,7 @@ func or(a, b string) string {
 }
 
 // Check codec restrictions.
-func (rule *TestRuleSetupAndRestoreClassEnv) checkCodecRestrictions(codec *index.Codec) error {
+func (rule *TestRuleSetupAndRestoreClassEnv) checkCodecRestrictions(codec index.Codec) error {
 	AssumeTrue(fmt.Sprintf("Class not allowed to use codec: %v.", codec.Name),
 		rule.shouldAvoidCodec(codec.Name()))
 

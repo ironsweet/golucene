@@ -32,22 +32,35 @@ type Codec struct {
 	GetTermVectorsReader      func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
 }
 
-func (codec *Codec) Name() string {
+func (codec Codec) Name() string {
 	return codec.name
 }
 
+var allCodecs = make(map[string]Codec)
+
+// workaround Lucene Java's SPI mechanism
+func RegisterCodec(codecs ...Codec) {
+	for _, codec := range codecs {
+		allCodecs[codec.name] = codec
+	}
+}
+
 // looks up a codec by name
-func LoadCodec(name string) *Codec {
-	panic("not implemented yet")
+func LoadCodec(name string) Codec {
+	return allCodecs[name]
 }
 
 // returns a list of all available codec names
 func AvailableCodecs() []string {
-	panic("not implemented yet")
+	ans := make([]string, 0, len(allCodecs))
+	for name, _ := range allCodecs {
+		ans = append(ans, name)
+	}
+	return ans
 }
 
 // Expert: returns the default codec used for newly created IndexWriterConfig(s).
-var DefaultCodec = func() *Codec { return LoadCodec("Lucene45") }
+var DefaultCodec = func() Codec { return LoadCodec("Lucene45") }
 
 func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer, err error) {
 	switch name {
