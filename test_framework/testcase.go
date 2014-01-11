@@ -338,7 +338,7 @@ func (rule *TestRuleSetupAndRestoreClassEnv) Before() error {
 			randomVal == 6 &&
 			!rule.shouldAvoidCodec("Asserting") {
 		panic("not implemented yet")
-	} else if "COmpressing" == TEST_CODEC ||
+	} else if "Compressing" == TEST_CODEC ||
 		"random" == TEST_CODEC &&
 			randomVal == 5 &&
 			!rule.shouldAvoidCodec("Compressing") {
@@ -405,7 +405,18 @@ func (rule *TestRuleSetupAndRestoreClassEnv) checkCodecRestrictions(codec index.
 	AssumeTrue(fmt.Sprintf("Class not allowed to use codec: %v.", codec.Name),
 		rule.shouldAvoidCodec(codec.Name()))
 
-	panic("not implemented yet")
+	if _, ok := codec.(*index.RandomCodec); ok && len(rule.avoidCodecs) > 0 {
+		panic("not implemented yet")
+	}
+
+	pf := codec.PostingsFormat()
+	AssumeFalse(fmt.Sprintf("Class not allowed to use postings format: %v.", pf.Name()),
+		rule.shouldAvoidCodec(pf.Name()))
+
+	AssumeFalse(fmt.Sprintf("Class not allowed to use postings format: %v.", TEST_POSTINGSFORMAT),
+		rule.shouldAvoidCodec(TEST_POSTINGSFORMAT))
+
+	return nil
 }
 
 func (rule *TestRuleSetupAndRestoreClassEnv) After() error {

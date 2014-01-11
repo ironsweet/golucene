@@ -1,5 +1,11 @@
 package index
 
+import (
+	"math/rand"
+)
+
+// Test-only
+
 // index/RandomCodec.java
 
 /*
@@ -11,5 +17,10 @@ fields can be put into things like HashSets and added to documents
 in different orders and the tests will still be deterministic and
 reproducible.
 */
+type RandomCodec struct {
+	*CodecImpl
+}
 
-type RandomCodec struct{}
+func NewRandomCodec(r *rand.Rand, avoidCodecs map[string]bool) *RandomCodec {
+	panic("not implemented yet")
+}

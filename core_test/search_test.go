@@ -8,11 +8,14 @@ import (
 	"github.com/balzaczyy/golucene/test_framework/analysis"
 	. "github.com/balzaczyy/golucene/test_framework/util"
 	. "github.com/balzaczyy/gounit"
+	"os"
 	"testing"
 )
 
 // Hook up custom test logic into Go's test runner.
 func TestBefore(t *testing.T) {
+	fmt.Printf("tests.codec: %v\n", os.Getenv("tests.codec"))
+
 	index.DefaultSimilarity = func() index.Similarity {
 		return search.NewDefaultSimilarity()
 	}

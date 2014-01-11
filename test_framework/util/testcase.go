@@ -13,7 +13,7 @@ import (
 // Test groups, system properties and other annotations modifying tests
 // --------------------------------------------------------------------
 const (
-	SYSPROP_NIGHTLY = "tests.nightly"
+	SYSPROP_NIGHTLY = "tests_nightly"
 )
 
 // -----------------------------------------------------------------
@@ -23,14 +23,14 @@ const (
 
 // True if and only if tests are run in verbose mode. If this flag is false
 // tests are not expected toprint and messages.
-var VERBOSE = ("true" == or(os.Getenv("tests.verbose"), "false"))
+var VERBOSE = ("true" == or(os.Getenv("tests_verbose"), "false"))
 
-var INFOSTREAM = ("true" == or(os.Getenv("tests.infostream"), strconv.FormatBool(VERBOSE)))
+var INFOSTREAM = ("true" == or(os.Getenv("tests_infostream"), strconv.FormatBool(VERBOSE)))
 
 // A random multiplier which you should use when writing random tests:
 // multiply it by the number of iterations to scale your tests (for nightly builds).
 var RANDOM_MULTIPLIER = func() int {
-	n, err := strconv.Atoi(or(os.Getenv("tests.multiplier"), "1"))
+	n, err := strconv.Atoi(or(os.Getenv("tests_multiplier"), "1"))
 	if err != nil {
 		panic(err)
 	}
@@ -39,16 +39,16 @@ var RANDOM_MULTIPLIER = func() int {
 
 var (
 	// Gets the codc to run tests with.
-	TEST_CODEC = or(os.Getenv("tests.codec"), "random")
+	TEST_CODEC = or(os.Getenv("tests_codec"), "random")
 
 	// Gets the postingsFormat to run tests with.
-	TEST_POSTINGSFORMAT = or(os.Getenv("tests.postingsformat"), "random")
+	TEST_POSTINGSFORMAT = or(os.Getenv("tests_postingsformat"), "random")
 
 	// Gets the docValuesFormat to run tests with
-	TEST_DOCVALUESFORMAT = or(os.Getenv("tests.docvaluesformat"), "random")
+	TEST_DOCVALUESFORMAT = or(os.Getenv("tests_docvaluesformat"), "random")
 
 	// Gets the directory to run tests with
-	TEST_DIRECTORY = or(os.Getenv("tests.directory"), "random")
+	TEST_DIRECTORY = or(os.Getenv("tests_directory"), "random")
 )
 
 // Whether or not Nightly tests should run
