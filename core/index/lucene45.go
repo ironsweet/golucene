@@ -18,10 +18,10 @@ If you want to reuse functionality of this codec in another codec,
 extend FilterCodec.
 */
 var Lucene45Codec = &CodecImpl{
-	fieldsFormat:  newLucene41StoredFieldsFormat(),
-	vectorsFormat: newLucene42TermVectorsFormat(),
-	// fieldInfosFormat: newLucene42FieldInfosFormat(),
-	infosFormat: newLucene40SegmentInfoFormat(),
+	fieldsFormat:     newLucene41StoredFieldsFormat(),
+	vectorsFormat:    newLucene42TermVectorsFormat(),
+	fieldInfosFormat: newLucene42FieldInfosFormat(),
+	infosFormat:      newLucene40SegmentInfoFormat(),
 	// liveDocsFormat: newLucene40LiveDocsFormat(),
 	postingsFormat: newPerFieldPostingsFormat(func(field string) PostingsFormat {
 		panic("not implemented yet")
@@ -29,23 +29,7 @@ var Lucene45Codec = &CodecImpl{
 	docValuesFormat: newPerFieldDocValuesFormat(func(field string) DocValuesFormat {
 		panic("not implemented yet")
 	}),
-	// ReadSegmentInfo: Lucene40SegmentInfoReader,
-	// ReadFieldInfos:  Lucene42FieldInfosReader,
-	// GetFieldsProducer: func(readState SegmentReadState) (fp FieldsProducer, err error) {
-	// 	return newPerFieldPostingsReader(readState)
-	// },
-	// GetDocValuesProducer: func(s SegmentReadState) (dvp DocValuesProducer, err error) {
-	// 	return newPerFieldDocValuesReader(s)
-	// },
-	// GetNormsDocValuesProducer: func(s SegmentReadState) (dvp DocValuesProducer, err error) {
-	// 	return newLucene42DocValuesProducer(s, "Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm")
-	// },
-	// GetStoredFieldsReader: func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
-	// 	return newLucene41StoredFieldsReader(d, si, fn, ctx)
-	// },
-	// GetTermVectorsReader: func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
-	// 	return newLucene42TermVectorsReader(d, si, fn, ctx)
-	// },
+	normsFormat: newLucene42NormsFormat(),
 }
 
 // codec/lucene45/Lucene45DocValuesFormat.java

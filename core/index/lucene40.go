@@ -41,18 +41,23 @@ Field Descriptions:
 - Files is a list of files referred to by this segment.
 */
 type Lucene40SegmentInfoFormat struct {
+	reader SegmentInfoReader
+	writer SegmentInfoWriter
 }
 
 func newLucene40SegmentInfoFormat() *Lucene40SegmentInfoFormat {
-	panic("not implemented yet")
+	return &Lucene40SegmentInfoFormat{
+		reader: Lucene40SegmentInfoReader,
+		writer: Lucene40SegmentInfoWriter,
+	}
 }
 
 func (f *Lucene40SegmentInfoFormat) SegmentInfoReader() SegmentInfoReader {
-	panic("not implemented yet")
+	return f.reader
 }
 
 func (f *Lucene40SegmentInfoFormat) SegmentInfoWriter() SegmentInfoWriter {
-	panic("not implemented yet")
+	return f.writer
 }
 
 const (
@@ -64,71 +69,78 @@ const (
 	SEGMENT_INFO_YES = 1
 )
 
-var (
-	Lucene40SegmentInfoReader = func(dir store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error) {
-		si = SegmentInfo{}
-		fileName := util.SegmentFileName(segment, "", LUCENE40_SI_EXTENSION)
-		input, err := dir.OpenInput(fileName, context)
-		if err != nil {
-			return si, err
-		}
+// lucene40/Lucene40SegmentInfoReader.java
 
-		success := false
-		defer func() {
-			if !success {
-				util.CloseWhileSuppressingError(input)
-			} else {
-				input.Close()
-			}
-		}()
-
-		_, err = codec.CheckHeader(input, LUCENE40_CODEC_NAME, LUCENE40_VERSION_START, LUCENE40_VERSION_CURRENT)
-		if err != nil {
-			return si, err
-		}
-		version, err := input.ReadString()
-		if err != nil {
-			return si, err
-		}
-		docCount, err := input.ReadInt()
-		if err != nil {
-			return si, err
-		}
-		if docCount < 0 {
-			return si, errors.New(fmt.Sprintf("invalid docCount: %v (resource=%v)", docCount, input))
-		}
-		sicf, err := input.ReadByte()
-		if err != nil {
-			return si, err
-		}
-		isCompoundFile := (sicf == SEGMENT_INFO_YES)
-		diagnostics, err := input.ReadStringStringMap()
-		if err != nil {
-			return si, err
-		}
-		attributes, err := input.ReadStringStringMap()
-		if err != nil {
-			return si, err
-		}
-		files, err := input.ReadStringSet()
-		if err != nil {
-			return si, err
-		}
-
-		if input.FilePointer() != input.Length() {
-			return si, errors.New(fmt.Sprintf(
-				"did not read all bytes from file '%v': read %v vs size %v (resource: %v)",
-				fileName, input.FilePointer(), input.Length(), input))
-		}
-
-		si = SegmentInfo{dir, version, segment, docCount, isCompoundFile, nil, diagnostics, attributes, nil}
-		si.CheckFileNames(files)
-		si.Files = files
-
-		success = true
-		return si, nil
+var Lucene40SegmentInfoReader = func(dir store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error) {
+	si = SegmentInfo{}
+	fileName := util.SegmentFileName(segment, "", LUCENE40_SI_EXTENSION)
+	input, err := dir.OpenInput(fileName, context)
+	if err != nil {
+		return si, err
 	}
-)
+
+	success := false
+	defer func() {
+		if !success {
+			util.CloseWhileSuppressingError(input)
+		} else {
+			input.Close()
+		}
+	}()
+
+	_, err = codec.CheckHeader(input, LUCENE40_CODEC_NAME, LUCENE40_VERSION_START, LUCENE40_VERSION_CURRENT)
+	if err != nil {
+		return si, err
+	}
+	version, err := input.ReadString()
+	if err != nil {
+		return si, err
+	}
+	docCount, err := input.ReadInt()
+	if err != nil {
+		return si, err
+	}
+	if docCount < 0 {
+		return si, errors.New(fmt.Sprintf("invalid docCount: %v (resource=%v)", docCount, input))
+	}
+	sicf, err := input.ReadByte()
+	if err != nil {
+		return si, err
+	}
+	isCompoundFile := (sicf == SEGMENT_INFO_YES)
+	diagnostics, err := input.ReadStringStringMap()
+	if err != nil {
+		return si, err
+	}
+	attributes, err := input.ReadStringStringMap()
+	if err != nil {
+		return si, err
+	}
+	files, err := input.ReadStringSet()
+	if err != nil {
+		return si, err
+	}
+
+	if input.FilePointer() != input.Length() {
+		return si, errors.New(fmt.Sprintf(
+			"did not read all bytes from file '%v': read %v vs size %v (resource: %v)",
+			fileName, input.FilePointer(), input.Length(), input))
+	}
+
+	si = SegmentInfo{dir, version, segment, docCount, isCompoundFile, nil, diagnostics, attributes, nil}
+	si.CheckFileNames(files)
+	si.Files = files
+
+	success = true
+	return si, nil
+}
+
+// lucene40/Lucne40SegmentInfoWriter.java
+
+// Lucene 4.0 implementation of SegmentInfoWriter
+var Lucene40SegmentInfoWriter = func(dir store.Directory, si SegmentInfo, fis FieldInfos, ctx store.IOContext) error {
+	panic("not implemented yet")
+}
 
 // Lucene40StoredFieldsWriter.java
 const (

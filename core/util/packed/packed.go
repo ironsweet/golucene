@@ -11,6 +11,18 @@ import (
 
 // util/packed/PackedInts.java
 
+/*
+Simplistic compression for arrays of unsinged int64 values. Each value
+is >= 0 and <= a specified maximum value. The vlues are stored as
+packed ints, with each value consuming a fixed number of bits.
+*/
+var PackedInts = struct {
+	FASTEST float32 // At most 700% memory overhead, always select a direct implementation.
+	FAST    float32 // At most 50% memory overhead, always elect a reasonable fast implementation.
+	DEFAULT float32 // At most 20% memory overhead.
+	COMPACT float32 // No memory overhead at all, but hte returned implementation may be slow.
+}{7, 0.5, 0.2, 0}
+
 const (
 	PACKED_CODEC_NAME           = "PackedInts"
 	PACKED_VERSION_START        = 0

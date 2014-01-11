@@ -24,7 +24,7 @@ type PerFieldPostingsFormat struct {
 }
 
 func newPerFieldPostingsFormat(f func(field string) PostingsFormat) *PerFieldPostingsFormat {
-	panic("not implemented yet")
+	return &PerFieldPostingsFormat{}
 }
 
 func (pf *PerFieldPostingsFormat) Name() string {
@@ -36,7 +36,7 @@ func (pf *PerFieldPostingsFormat) FieldsConsumer(state SegmentWriteState) (w Fie
 }
 
 func (pf *PerFieldPostingsFormat) FieldsProducer(state SegmentReadState) (r FieldsProducer, err error) {
-	panic("not implemented yet")
+	return newPerFieldPostingsReader(state)
 }
 
 const (
@@ -142,7 +142,7 @@ type PerFieldDocValuesFormat struct {
 }
 
 func newPerFieldDocValuesFormat(f func(field string) DocValuesFormat) *PerFieldDocValuesFormat {
-	panic("not implemented yet")
+	return &PerFieldDocValuesFormat{}
 }
 
 func (pf *PerFieldDocValuesFormat) Name() string {
@@ -154,7 +154,7 @@ func (pf *PerFieldDocValuesFormat) FieldsConsumer(state SegmentWriteState) (w Do
 }
 
 func (pf *PerFieldDocValuesFormat) FieldsProducer(state SegmentReadState) (r DocValuesProducer, err error) {
-	panic("not implemented yet")
+	return newPerFieldDocValuesReader(state)
 }
 
 type PerFieldDocValuesReader struct {

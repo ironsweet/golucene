@@ -617,7 +617,9 @@ type Lucene41StoredFieldsFormat struct {
 }
 
 func newLucene41StoredFieldsFormat() *Lucene41StoredFieldsFormat {
-	panic("not implemented yet")
+	return &Lucene41StoredFieldsFormat{
+		newCompressingStoredFieldsFormat("Lucene41StoredFields", "", codec.COMPRESSION_MODE_FAST, 1<<14),
+	}
 }
 
 type Lucene41StoredFieldsReader struct {

@@ -6,6 +6,7 @@ import (
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"github.com/balzaczyy/golucene/core/util/packed"
 	"log"
 )
 
@@ -19,10 +20,10 @@ If you want to reuse functionality of this codec, in another codec,
 extend FilterCodec.
 */
 var Lucene42Codec = &CodecImpl{
-	fieldsFormat:  newLucene41StoredFieldsFormat(),
-	vectorsFormat: newLucene42TermVectorsFormat(),
-	// fieldInfosFormat: newLucene42FieldInfosFormat(),
-	infosFormat: newLucene40SegmentInfoFormat(),
+	fieldsFormat:     newLucene41StoredFieldsFormat(),
+	vectorsFormat:    newLucene42TermVectorsFormat(),
+	fieldInfosFormat: newLucene42FieldInfosFormat(),
+	infosFormat:      newLucene40SegmentInfoFormat(),
 	// liveDocsFormat: newLucene40LiveDocsFormat(),
 	// Returns the postings format that should be used for writing new
 	// segments of field.
@@ -38,24 +39,77 @@ var Lucene42Codec = &CodecImpl{
 	docValuesFormat: newPerFieldDocValuesFormat(func(field string) DocValuesFormat {
 		panic("not implemented yet")
 	}),
-	// return Codec{ReadSegmentInfo: Lucene40SegmentInfoReader,
-	// 	ReadFieldInfos: Lucene42FieldInfosReader,
-	// 	GetFieldsProducer: func(readState SegmentReadState) (fp FieldsProducer, err error) {
-	// 		return newPerFieldPostingsReader(readState)
-	// 	},
-	// 	GetDocValuesProducer: func(s SegmentReadState) (dvp DocValuesProducer, err error) {
-	// 		return newPerFieldDocValuesReader(s)
-	// 	},
-	// 	GetNormsDocValuesProducer: func(s SegmentReadState) (dvp DocValuesProducer, err error) {
-	// 		return newLucene42DocValuesProducer(s, "Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm")
-	// 	},
-	// 	GetStoredFieldsReader: func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
-	// 		return newLucene41StoredFieldsReader(d, si, fn, ctx)
-	// 	},
-	// 	GetTermVectorsReader: func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
-	// 		return newLucene42TermVectorsReader(d, si, fn, ctx)
-	// 	},
-	// }
+	normsFormat: newLucene42NormsFormat(),
+}
+
+// lucene42/Lucene42FieldInfosFormat.java
+
+/*
+Lucene 4.2 Field Infos format.
+
+Field names are stored in the field info file, with suffix .fnm.
+
+FieldInfos (.fnm) --> Header, HeaderCount, <FieldName, FieldNumber,
+                      FieldBits, DocValuesBits, Attribute>^FieldsCount
+
+Data types:
+- Header --> CodecHeader
+- FieldsCount --> VInt
+- FieldName --> string
+- FieldBits, DocValuesBit --> byte
+- FieldNumber --> VInt
+- Attributes --> map[string]string
+
+Field Description:
+- FieldsCount: the number of fields in this file.
+- FieldName: name of the field as a UTF-8 string.
+- FieldNumber: the field's number. NOte that unlike previous versions
+  of Lucene, the fields are not numbered implicitly by their order in
+  the file, instead explicitly.
+- FieldBits: a byte containing field options.
+  - The low-order bit is one for indexed fields, and zero for non-indexed
+    fields.
+  - The second lowest-order bit is one for fields that have term vectors
+    stored, and zero for fields without term vectors.
+  - If the third lowest order-bit is set (0x4), offsets are stored into
+    the postings list in addition to positions.
+  - Fourth bit is unsed.
+  - If the fifth lowest-order bit is set (0x10), norms are omitted for
+    the indexed field.
+  - If the sixth lowest-order bit is set (0x20), payloads are stored
+    for the indexed field.
+  - If the seventh lowest-order bit is set (0x40), term frequencies a
+    and ositions omitted for the indexed field.
+  - If the eighth lowest-order bit is set (0x80), positions are omitted
+    for the indexed field.
+- DocValuesBits: a byte containing per-document value types. The type
+  recorded as two four-bit intergers, with the high-order bits
+  representing norms options, and low-order bits representing DocVlaues
+  options. Each four-bit interger can be decoded as such:
+  - 0: no DocValues for this field.
+  - 1: NumericDocValues.
+  - 2: BinaryDocvalues.
+  - 3: SortedDocValues.
+- Attributes: a key-value map of codec-private attributes.
+*/
+type Lucene42FieldInfosFormat struct {
+	reader FieldInfosReader
+	writer FieldInfosWriter
+}
+
+func newLucene42FieldInfosFormat() *Lucene42FieldInfosFormat {
+	return &Lucene42FieldInfosFormat{
+		reader: Lucene42FieldInfosReader,
+		writer: nil,
+	}
+}
+
+func (f *Lucene42FieldInfosFormat) FieldInfosReader() FieldInfosReader {
+	return f.reader
+}
+
+func (f *Lucene42FieldInfosFormat) FieldInfosWriter() FieldInfosWriter {
+	return f.writer
 }
 
 const (
@@ -300,7 +354,9 @@ type Lucene42TermVectorsFormat struct {
 }
 
 func newLucene42TermVectorsFormat() *Lucene42TermVectorsFormat {
-	panic("not implemented yet")
+	return &Lucene42TermVectorsFormat{
+		newCompressingTermVectorsFormat("Lucene41StoredFields", "", codec.COMPRESSION_MODE_FAST, 1<<12),
+	}
 }
 
 type Lucene42TermVectorsReader struct {
@@ -343,4 +399,39 @@ func (r *CompressingTermVectorsReader) get(doc int) Fields {
 
 func (r *CompressingTermVectorsReader) clone() TermVectorsReader {
 	panic("not implemented yet")
+}
+
+// lucene42/Lucene42NormsFormat.java
+
+/*
+Lucene 4.2 score normalization format.
+
+NOTE: this uses the same format as Lucene42DocValuesFormat Numeric
+DocValues, but with different fiel extensions, and passing FASTEST
+for uncompressed encoding: trading off space for performance.
+
+Fiels:
+- .nvd: Docvalues data
+- .nvm: DocValues metadata
+*/
+type Lucene42NormsFormat struct {
+	acceptableOverheadRatio float32
+}
+
+func newLucene42NormsFormat() *Lucene42NormsFormat {
+	// note: we choose FASTEST here (otherwise our norms are half as big
+	// but 15% slower than previous lucene)
+	return newLucene42NormsFormatWithOverhead(packed.PackedInts.FASTEST)
+}
+
+func newLucene42NormsFormatWithOverhead(acceptableOverheadRatio float32) *Lucene42NormsFormat {
+	return &Lucene42NormsFormat{acceptableOverheadRatio}
+}
+
+func (f *Lucene42NormsFormat) NormsConsumer(state SegmentWriteState) (w DocValuesConsumer, err error) {
+	panic("not implemented yet")
+}
+
+func (f *Lucene42NormsFormat) NormsProducer(state SegmentReadState) (r DocValuesProducer, err error) {
+	return newLucene42DocValuesProducer(state, "Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm")
 }
