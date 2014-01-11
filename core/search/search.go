@@ -434,7 +434,7 @@ type DefaultSimilarity struct {
 	discountOverlaps bool
 }
 
-func NewDefaultSimilarity() Similarity {
+func NewDefaultSimilarity() *DefaultSimilarity {
 	ans := &DefaultSimilarity{
 		&TFIDFSimilarity{},
 		true,
