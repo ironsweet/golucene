@@ -6,9 +6,57 @@ import (
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"io"
 	"log"
 )
+
+// lucene42/Lucene42Codec.java
+
+/*
+Implements the Lucene 4.2 index format, with configurable per-field
+postings and docvalues formats.
+
+If you want to reuse functionality of this codec, in another codec,
+extend FilterCodec.
+*/
+var Lucene42Codec = &CodecImpl{
+	fieldsFormat:  newLucene41StoredFieldsFormat(),
+	vectorsFormat: newLucene42TermVectorsFormat(),
+	// fieldInfosFormat: newLucene42FieldInfosFormat(),
+	infosFormat: newLucene40SegmentInfoFormat(),
+	// liveDocsFormat: newLucene40LiveDocsFormat(),
+	// Returns the postings format that should be used for writing new
+	// segments of field.
+	//
+	// The default implemnetation always returns "Lucene41"
+	postingsFormat: newPerFieldPostingsFormat(func(field string) PostingsFormat {
+		panic("not implemented yet")
+	}),
+	// Returns the decvalues format that should be used for writing new
+	// segments of field.
+	//
+	// The default implementation always returns "Lucene42"
+	docValuesFormat: newPerFieldDocValuesFormat(func(field string) DocValuesFormat {
+		panic("not implemented yet")
+	}),
+	// return Codec{ReadSegmentInfo: Lucene40SegmentInfoReader,
+	// 	ReadFieldInfos: Lucene42FieldInfosReader,
+	// 	GetFieldsProducer: func(readState SegmentReadState) (fp FieldsProducer, err error) {
+	// 		return newPerFieldPostingsReader(readState)
+	// 	},
+	// 	GetDocValuesProducer: func(s SegmentReadState) (dvp DocValuesProducer, err error) {
+	// 		return newPerFieldDocValuesReader(s)
+	// 	},
+	// 	GetNormsDocValuesProducer: func(s SegmentReadState) (dvp DocValuesProducer, err error) {
+	// 		return newLucene42DocValuesProducer(s, "Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm")
+	// 	},
+	// 	GetStoredFieldsReader: func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
+	// 		return newLucene41StoredFieldsReader(d, si, fn, ctx)
+	// 	},
+	// 	GetTermVectorsReader: func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
+	// 		return newLucene42TermVectorsReader(d, si, fn, ctx)
+	// 	},
+	// }
+}
 
 const (
 	// Extension of field infos
@@ -144,197 +192,115 @@ func getDocValuesType(input store.IndexInput, b byte) (t DocValuesType, err erro
 	}
 }
 
-const (
-	PER_FIELD_FORMAT_KEY = "PerFieldPostingsFormat.format"
-	PER_FIELD_SUFFIX_KEY = "PerFieldPostingsFormat.suffix"
-)
+// lucene42/Lucene42TermVectorsFormat.java
 
-func NewLucene42Codec() Codec {
-	return Codec{ReadSegmentInfo: Lucene40SegmentInfoReader,
-		ReadFieldInfos: Lucene42FieldInfosReader,
-		GetFieldsProducer: func(readState SegmentReadState) (fp FieldsProducer, err error) {
-			return newPerFieldPostingsReader(readState)
-		},
-		GetDocValuesProducer: func(s SegmentReadState) (dvp DocValuesProducer, err error) {
-			return newPerFieldDocValuesReader(s)
-		},
-		GetNormsDocValuesProducer: func(s SegmentReadState) (dvp DocValuesProducer, err error) {
-			return newLucene42DocValuesProducer(s, "Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm")
-		},
-		GetStoredFieldsReader: func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
-			return newLucene41StoredFieldsReader(d, si, fn, ctx)
-		},
-		GetTermVectorsReader: func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
-			return newLucene42TermVectorsReader(d, si, fn, ctx)
-		},
-	}
+/*
+Lucene 4.2 term vectors format.
+
+Very similarly to Lucene41StoredFieldsFormat, this format is based on
+compressed chunks of data, with document-level granularity so that a
+document can never span across distinct chunks. Moreover, data is
+made as compact as possible:
+
+- textual data is compressedusing the very light LZ4 compression
+algorithm,
+- binary data is written using fixed-size blocks of packed ints.
+
+Term vectors are stored using two files
+
+- a data file where terms, frequencies, positions, offsets and
+payloads are stored,
+- an index file, loaded into memory, used to locate specific
+documents in the data file.
+
+Looking up term vectors for any document requires at most 1 disk seek.
+
+File formats
+
+1. vector_data
+
+A vector data file (extension .tvd). This file stores terms,
+frequencies, positions, offsets and payloads for every document. Upon
+writing a new segment, it accumulates data into memory until the
+buffer used to store terms and payloads grows beyond 4KB. Then it
+flushes all metadata, terms and positions to disk using LZ4
+compression for terms and payloads and blocks of packed ints for
+positions
+
+Here is more detailed description of the field data file format:
+
+- VectorData (.tvd) --> <Header>, PackedIntsVersion, ChunkSize, <Chunk>^ChunkCount
+- Header --> CodecHeader
+- PackedIntsVersion --> PackedInts.CURRENT_VERSION as a VInt
+- ChunkSize is the number of bytes of terms to accumulate before
+  flusing, as a VInt
+- ChunkCount is not known in advance and is the number of chunks
+  necessary to store all document of the segment
+- Chunk --> DocBase, ChunkDocs, <NumFields>, <FieldNums>, <FieldNumOffs>, <Flags>,
+  <NumTerms>, <TermLengths>, <TermFreqs>, <Position>, <StartOffsets>, <Lengths>,
+  <PayloadLengths>, <TermAndPayloads>
+- DocBase is the ID of the first doc of the chunk as a VInt
+- ChunkDocs is the number of documents in the chunk
+- NumFields --> DocNumFields^ChunkDocs
+- DocNUmFields is the number of fields for each doc, written as a
+  VInt if ChunkDocs==1 and as a PackedInts array otherwise
+- FieldNums --> FieldNumDelta^TotalFields, as a PackedInts array
+- FieldNumOff is the offset of the field number in FieldNums
+- TotalFields is the total number of fields (sum of the values of NumFields)
+- Flags --> Bit <FieldFlags>
+- Bit is a single bit which when true means that fields have the same
+  options for every document in the chunk
+- FieldFlags --> if Bit==1: Flag^TotalDistinctFields else Flag^TotalFields
+- Flag: a 3-bits int where:
+  - the first bit means that the field has positions
+  - the second bit means that the field has offsets
+  - the third bitmeans that the field has payloads
+- NumTerms --> FieldNumTerms^TotalFields
+- FieldNumTerms: the numer of terms for each field, using blocks of 64 packed ints
+- TermLengths --> PrefixLength^TotalTerms SuffixLength^TotalTerms
+- TotalTerms: total number of terms (sum of NumTerms)
+- SuffixLength: length of the term of a field, the common prefix with
+  the previous term otherwise using blocks of 64 packed ints
+- TermFreqs --> TermFreqMinus1^TotalTerms
+- TermFreqMinus1: (frequency - 1) for each term using blocks of 64 packed ints
+- Positions --> PositionDelta^TotalPositions
+- TotalPositions is the sum of frequencies of terms of all fields that have positions
+- PositionDelta: the absolute position fo rthe first position of a
+  term, and the difference with the previous positions for following
+  positions using blocks of 64 packed ints
+- StartOffsets --> (AvgCharsPerTerm^TotalDistinctFields) StartOffsetDelta^TotalOffsets
+- TotalOffsets is the sum of frequencies of terms of all fields tha thave offsets
+- AvgCharsPerTerm: average number of chars per term, encoded as a
+  float32 on 4 bytes. They are not present if no field has both
+  positions and offsets enabled.
+- StartOffsetDelta: (startOffset - previousStartOffset - AvgCharsPerTerm
+  * PositionDelta). previousStartOffset is 0 for the first offset and
+  AvgCharsPerTerm is 0 if the field has no ositions using blocks of
+  64 pakced ints
+- Lengths --> LengthMinusTermLength^TotalOffsets
+- LengthMinusTermLength: (endOffset - startOffset - termLenght) using blocks of 64 packed ints
+- PayloadLengths --> PayloadLength^TotalPayloads
+- TotalPayloads is the sum of frequencies of terms of all fields that have payloads
+- PayloadLength is the payload length encoded using blocks of 64 packed ints
+- TermAndPayloads --> LZ4-compressed representation of <FieldTermsAndPayLoads>^TotalFields
+- FieldTermsAndPayLoads --> Terms (Payloads)
+- Terms: term bytes
+- Payloads: payload bytes (if the field has payloads)
+
+2. vector_index
+
+An index file (extension .tvx).
+
+- VectorIndex (.tvx) --> <Header>, <ChunkIndex>
+- Header --> CodecHeader
+- ChunkIndex: See CompressingStoredFieldsIndexWriter
+*/
+type Lucene42TermVectorsFormat struct {
+	*CompressingTermVectorsFormat
 }
 
-type PerFieldPostingsReader struct {
-	fields  map[string]FieldsProducer
-	formats map[string]FieldsProducer
-}
-
-func newPerFieldPostingsReader(state SegmentReadState) (fp FieldsProducer, err error) {
-	ans := PerFieldPostingsReader{
-		make(map[string]FieldsProducer),
-		make(map[string]FieldsProducer),
-	}
-	// Read _X.per and init each format:
-	success := false
-	defer func() {
-		if !success {
-			log.Printf("Failed to initialize PerFieldPostingsReader.")
-			if err != nil {
-				log.Print("DEBUG ", err)
-			}
-			fps := make([]FieldsProducer, 0)
-			for _, v := range ans.formats {
-				fps = append(fps, v)
-			}
-			items := make([]io.Closer, len(fps))
-			for i, v := range fps {
-				items[i] = v
-			}
-			util.CloseWhileSuppressingError(items...)
-		}
-	}()
-	// Read field name -> format name
-	for _, fi := range state.fieldInfos.values {
-		log.Printf("Processing %v...", fi)
-		if fi.indexed {
-			fieldName := fi.name
-			log.Printf("Name: %v", fieldName)
-			if formatName, ok := fi.attributes[PER_FIELD_FORMAT_KEY]; ok {
-				log.Printf("Format: %v", formatName)
-				// null formatName means the field is in fieldInfos, but has no postings!
-				suffix := fi.attributes[PER_FIELD_SUFFIX_KEY]
-				log.Printf("Suffix: %v", suffix)
-				// assert suffix != nil
-				segmentSuffix := formatName + "_" + suffix
-				log.Printf("Segment suffix: %v", segmentSuffix)
-				if _, ok := ans.formats[segmentSuffix]; !ok {
-					log.Printf("Loading fields producer: %v", segmentSuffix)
-					newReadState := state // clone
-					newReadState.segmentSuffix = formatName + "_" + suffix
-					fp, err = LoadFieldsProducer(formatName, newReadState)
-					if err != nil {
-						return fp, err
-					}
-					ans.formats[segmentSuffix] = fp
-				}
-				ans.fields[fieldName] = ans.formats[segmentSuffix]
-			}
-		}
-	}
-	success = true
-	return &ans, nil
-}
-
-func (r *PerFieldPostingsReader) Terms(field string) Terms {
-	if p, ok := r.fields[field]; ok {
-		return p.Terms(field)
-	}
-	return nil
-}
-
-func (r *PerFieldPostingsReader) Close() error {
-	fps := make([]FieldsProducer, 0)
-	for _, v := range r.formats {
-		fps = append(fps, v)
-	}
-	items := make([]io.Closer, len(fps))
-	for i, v := range fps {
-		items[i] = v
-	}
-	return util.Close(items...)
-}
-
-type PerFieldDocValuesReader struct {
-	fields  map[string]DocValuesProducer
-	formats map[string]DocValuesProducer
-}
-
-func newPerFieldDocValuesReader(state SegmentReadState) (dvp DocValuesProducer, err error) {
-	ans := PerFieldDocValuesReader{
-		make(map[string]DocValuesProducer), make(map[string]DocValuesProducer)}
-	// Read _X.per and init each format:
-	success := false
-	defer func() {
-		if !success {
-			fps := make([]DocValuesProducer, 0)
-			for _, v := range ans.formats {
-				fps = append(fps, v)
-			}
-			items := make([]io.Closer, len(fps))
-			for i, v := range fps {
-				items[i] = v
-			}
-			util.CloseWhileSuppressingError(items...)
-		}
-	}()
-	// Read field name -> format name
-	for _, fi := range state.fieldInfos.values {
-		if fi.docValueType != 0 {
-			fieldName := fi.name
-			if formatName, ok := fi.attributes[PER_FIELD_FORMAT_KEY]; ok {
-				// null formatName means the field is in fieldInfos, but has no docvalues!
-				suffix := fi.attributes[PER_FIELD_SUFFIX_KEY]
-				// assert suffix != nil
-				segmentSuffix := formatName + "_" + suffix
-				if _, ok := ans.formats[segmentSuffix]; !ok {
-					newReadState := state // clone
-					newReadState.segmentSuffix = formatName + "_" + suffix
-					if p, err := LoadDocValuesProducer(formatName, newReadState); err == nil {
-						ans.formats[segmentSuffix] = p
-					}
-				}
-				ans.fields[fieldName] = ans.formats[segmentSuffix]
-			}
-		}
-	}
-	success = true
-	return &ans, nil
-}
-
-func (dvp *PerFieldDocValuesReader) Numeric(field FieldInfo) (v NumericDocValues, err error) {
-	if p, ok := dvp.fields[field.name]; ok {
-		return p.Numeric(field)
-	}
-	return nil, nil
-}
-
-func (dvp *PerFieldDocValuesReader) Binary(field FieldInfo) (v BinaryDocValues, err error) {
-	if p, ok := dvp.fields[field.name]; ok {
-		return p.Binary(field)
-	}
-	return nil, nil
-}
-
-func (dvp *PerFieldDocValuesReader) Sorted(field FieldInfo) (v SortedDocValues, err error) {
-	if p, ok := dvp.fields[field.name]; ok {
-		return p.Sorted(field)
-	}
-	return nil, nil
-}
-
-func (dvp *PerFieldDocValuesReader) SortedSet(field FieldInfo) (v SortedSetDocValues, err error) {
-	if p, ok := dvp.fields[field.name]; ok {
-		return p.SortedSet(field)
-	}
-	return nil, nil
-}
-
-func (dvp *PerFieldDocValuesReader) Close() error {
-	fps := make([]DocValuesProducer, 0)
-	for _, v := range dvp.formats {
-		fps = append(fps, v)
-	}
-	items := make([]io.Closer, len(fps))
-	for i, v := range fps {
-		items[i] = v
-	}
-	return util.Close(items...)
+func newLucene42TermVectorsFormat() *Lucene42TermVectorsFormat {
+	panic("not implemented yet")
 }
 
 type Lucene42TermVectorsReader struct {

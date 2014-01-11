@@ -935,11 +935,11 @@ func (w *IndexWriter) merge(merge *OneMerge) error {
 	panic("not implemented yet")
 }
 
-func setDiagnostics(info *SegmentInfo, source string) {
+func setDiagnostics(info SegmentInfo, source string) {
 	setDiagnosticsAndDetails(info, source, nil)
 }
 
-func setDiagnosticsAndDetails(info *SegmentInfo, source string, details map[string]string) {
+func setDiagnosticsAndDetails(info SegmentInfo, source string, details map[string]string) {
 	panic("not implemented yet")
 }
 
@@ -1007,7 +1007,7 @@ file.
 func createCompoundFile(infoStream util.InfoStream,
 	directory store.Directory,
 	checkAbort *CheckAbort,
-	info *SegmentInfo,
+	info SegmentInfo,
 	context store.IOContext) (names []string, err error) {
 	panic("not implemented yet")
 }

@@ -16,7 +16,7 @@ func TestBefore(t *testing.T) {
 	index.DefaultSimilarity = func() index.Similarity {
 		return search.NewDefaultSimilarity()
 	}
-	index.RegisterCodec(index.Lucene45Codec, index.NewLucene42Codec())
+	index.RegisterCodec(index.Lucene45Codec, index.Lucene42Codec)
 	// This controls how suite-level rules are nested. It is important
 	// that _all_ rules declared in testcase are executed in proper
 	// order if they depend on each other.

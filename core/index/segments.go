@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"io"
 	"log"
 	"sync/atomic"
 )
@@ -333,56 +332,58 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 	}
 	log.Printf("CFS Directory: %v", cfsDir)
 	log.Print("Reading FieldInfos...")
-	self.fieldInfos, err = codec.ReadFieldInfos(cfsDir, si.info.name, store.IO_CONTEXT_READONCE)
+	self.fieldInfos, err = codec.FieldInfosFormat().FieldInfosReader()(cfsDir, si.info.name, store.IO_CONTEXT_READONCE)
 	if err != nil {
 		return self, err
 	}
+
 	self.termsIndexDivisor = termsIndexDivisor
+	format := codec.PostingsFormat()
 
 	log.Print("Obtaining SegmentReadState...")
 	segmentReadState := newSegmentReadState(cfsDir, si.info, self.fieldInfos, context, termsIndexDivisor)
 	// Ask codec for its Fields
 	log.Print("Obtaining FieldsProducer...")
-	self.fields, err = codec.GetFieldsProducer(segmentReadState)
+	self.fields, err = format.FieldsProducer(segmentReadState)
 	if err != nil {
 		return self, err
 	}
-	// assert fields != null;
+	assert(self.fields != nil)
 	// ask codec for its Norms:
 	// TODO: since we don't write any norms file if there are no norms,
 	// kinda jaky to assume the codec handles the case of no norms file at all gracefully?!
 
 	if self.fieldInfos.hasDocValues {
 		log.Print("Obtaining DocValuesProducer...")
-		self.dvProducer, err = codec.GetDocValuesProducer(segmentReadState)
+		self.dvProducer, err = codec.DocValuesFormat().FieldsProducer(segmentReadState)
 		if err != nil {
 			return self, err
 		}
-		// assert dvProducer != null;
+		assert(self.dvProducer != nil)
 	} else {
 		// self.dvProducer = nil
 	}
 
 	if self.fieldInfos.hasNorms {
 		log.Print("Obtaining NormsDocValuesProducer...")
-		self.normsProducer, err = codec.GetNormsDocValuesProducer(segmentReadState)
+		self.normsProducer, err = codec.NormsFormat().NormsProducer(segmentReadState)
 		if err != nil {
 			return self, err
 		}
-		// assert normsProducer != null;
+		assert(self.normsProducer != nil)
 	} else {
 		// self.normsProducer = nil
 	}
 
 	log.Print("Obtaining StoredFieldsReader...")
-	self.fieldsReaderOrig, err = si.info.codec.GetStoredFieldsReader(cfsDir, si.info, self.fieldInfos, context)
+	self.fieldsReaderOrig, err = si.info.codec.StoredFieldsFormat().FieldsReader(cfsDir, si.info, self.fieldInfos, context)
 	if err != nil {
 		return self, err
 	}
 
 	if self.fieldInfos.hasVectors { // open term vector files only as needed
 		log.Print("Obtaining TermVectorsReader...")
-		self.termVectorsReaderOrig, err = si.info.codec.GetTermVectorsReader(cfsDir, si.info, self.fieldInfos, context)
+		self.termVectorsReaderOrig, err = si.info.codec.TermVectorsFormat().VectorsReader(cfsDir, si.info, self.fieldInfos, context)
 		if err != nil {
 			return self, err
 		}
@@ -443,14 +444,6 @@ func newSegmentReadState(dir store.Directory, info SegmentInfo, fieldInfos Field
 
 // Holder class for common parameters used during write.
 type SegmentWriteState struct {
-}
-
-type DocValuesProducer interface {
-	io.Closer
-	Numeric(field FieldInfo) (v NumericDocValues, err error)
-	Binary(field FieldInfo) (v BinaryDocValues, err error)
-	Sorted(field FieldInfo) (v SortedDocValues, err error)
-	SortedSet(field FieldInfo) (v SortedSetDocValues, err error)
 }
 
 // type NumericDocValues interface {
