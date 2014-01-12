@@ -2,11 +2,11 @@ package index
 
 import (
 	"container/list"
+	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"sync"
-	// "sync/atomic"
 )
 
 // index/IndexCommit.java
@@ -167,6 +167,70 @@ func newLiveIndexWriterConfig(analyzer analysis.Analyzer, matchVersion util.Vers
 	}
 }
 
+// L358
+/*
+Determines the minimal number of documents required before the
+buffered in-memory documents are flushed as a new Segment. Large
+values generally give faster indexing.
+
+When this is set, the writer will flush every maxBufferedDocs added
+documents. Pass in DISABLE_AUTO_FLUSH to prevent triggering a flush
+due to number of buffered documents. Note that if flushing by RAM
+usage is also enabled, then the flush will be triggered by whichever
+comes first.
+
+Disabled by default (writer flushes by RAM usage).
+
+Takes effect immediately, but only the next time a document is added,
+updated or deleted.
+*/
+func (conf *LiveIndexWriterConfig) SetMaxBufferedDocs(maxBufferedDocs int) *LiveIndexWriterConfig {
+	assert2(maxBufferedDocs == DISABLE_AUTO_FLUSH || maxBufferedDocs >= 2,
+		"maxBufferedDocs must at least be 2 when enabled")
+	assert2(maxBufferedDocs != DISABLE_AUTO_FLUSH || conf.ramBufferSizeMB != DISABLE_AUTO_FLUSH,
+		"at least one of ramBufferSize and maxBufferedDocs must be enabled")
+	conf.maxBufferedDocs = maxBufferedDocs
+	return conf
+}
+
+/*
+Sets the termsIndeDivisor passed to any readers that IndexWriter
+opens, for example when applying deletes or creating a near-real-time
+reader in OpenDirectoryReader(). If you pass -1, the terms index
+won't be loaded by the readers. This is only useful in advanced
+siguations when you will only .Next() through all terms; attempts to
+seek will hit an error.
+
+takes effect immediately, but only applies to readers opened after
+this call
+
+NOTE: divisor settings > 1 do not apply to all PostingsFormat
+implementation, including the default one in this release. It only
+makes sense for terms indexes that can efficiently re-sample terms at
+load time.
+*/
+func (conf *LiveIndexWriterConfig) SetReaderTermsIndexDivisor(divisor int) *LiveIndexWriterConfig {
+	assert2(divisor > 0 || divisor == -1, fmt.Sprintf(
+		"divisor must be >= 1, or -1 (got %v)", divisor))
+	conf.readerTermsIndexDivisor = divisor
+	return conf
+}
+
+/*
+Sets if the IndexWriter should pack newly written segments in a
+compound file. Default is true.
+
+Use false for batch indexing with very large ram buffer settings.
+
+Note: To control compound file usage during segment merges see
+SetNoCFSRatio() and SetMaxCFSSegmentSizeMB(). This setting only
+applies to newly created segment.
+*/
+func (conf *LiveIndexWriterConfig) SetUseCompoundFile(useCompoundFile bool) *LiveIndexWriterConfig {
+	conf.useCompoundFile = useCompoundFile
+	return conf
+}
+
 // index/IndexWriterConfig.java
 
 // Specifies the open mode for IndeWriter
@@ -234,7 +298,13 @@ conveniently, for example:
 */
 type IndexWriterConfig struct {
 	*LiveIndexWriterConfig
-	similarity Similarity // used when encoding norms
+	writer *util.SetOnce
+}
+
+// Sets the IndexWriter this config is attached to.
+func (conf *IndexWriterConfig) setIndexWriter(writer *IndexWriter) *IndexWriterConfig {
+	conf.writer.Set(writer)
+	return conf
 }
 
 /*
@@ -248,6 +318,10 @@ LogDocMergePolicy.
 */
 func NewIndexWriterConfig(matchVersion util.Version, analyzer analysis.Analyzer) *IndexWriterConfig {
 	return &IndexWriterConfig{LiveIndexWriterConfig: newLiveIndexWriterConfig(analyzer, matchVersion)}
+}
+
+func (conf *IndexWriterConfig) Clone() *IndexWriterConfig {
+	panic("not implemented yet")
 }
 
 /*
@@ -313,7 +387,8 @@ selects merges to do for forceMerge.
 */
 func (conf *IndexWriterConfig) SetMergePolicy(mergePolicy MergePolicy) *IndexWriterConfig {
 	assert2(mergePolicy != nil, "mergePolicy must not be nil")
-	panic("not implemented yet")
+	conf.mergePolicy = mergePolicy
+	return conf
 }
 
 // L406
@@ -326,17 +401,19 @@ reader. NOTE: if you set this to false, IndexWriter will still pool
 readers once openDirectoryReader(IndexWriter, bool) is called.
 */
 func (conf *IndexWriterConfig) SetReaderPooling(readerPooling bool) *IndexWriterConfig {
-	panic("not implemented yet")
+	conf.readerPooling = readerPooling
+	return conf
 }
 
 // L478
 func (conf *IndexWriterConfig) InfoStream() util.InfoStream {
-	panic("not implemented yet")
+	return conf.infoStream
 }
 
 // L548
 func (conf *IndexWriterConfig) SetMaxBufferedDocs(maxBufferedDocs int) *IndexWriterConfig {
-	panic("not implemented yet")
+	conf.LiveIndexWriterConfig.SetMaxBufferedDocs(maxBufferedDocs)
+	return conf
 }
 
 func (conf *IndexWriterConfig) SetMergedSegmentWarmer(mergeSegmentWarmer IndexReaderWarmer) *IndexWriterConfig {
@@ -344,11 +421,13 @@ func (conf *IndexWriterConfig) SetMergedSegmentWarmer(mergeSegmentWarmer IndexRe
 }
 
 func (conf *IndexWriterConfig) SetReaderTermsIndexDivisor(divisor int) *IndexWriterConfig {
-	panic("not implemented yet")
+	conf.LiveIndexWriterConfig.SetReaderTermsIndexDivisor(divisor)
+	return conf
 }
 
 func (conf *IndexWriterConfig) SetUseCompoundFile(useCompoundFile bool) *IndexWriterConfig {
-	panic("not implemented yet")
+	conf.LiveIndexWriterConfig.SetUseCompoundFile(useCompoundFile)
+	return conf
 }
 
 func (conf *IndexWriterConfig) String() string {
