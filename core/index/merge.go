@@ -166,6 +166,19 @@ type MergePolicyImpl struct {
 	maxCFSSegmentSize float64
 }
 
+/*
+Creates a new merge policy instance. Note that if you intend to use
+it without passing it to IndexWriter, you should call SetIndexWriter()
+*/
+func NewDefaultMergePolicyImpl() *MergePolicyImpl {
+	return newMergePolicyImpl(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE)
+}
+
+/*
+Create a new merge policy instance with default settings for noCFSRatio
+and maxCFSSegmentSize. This ctor should be used by subclasses using
+different defaults than the MergePolicy.
+*/
 func newMergePolicyImpl(defaultNoCFSRatio, defaultMaxCFSSegmentSize float64) *MergePolicyImpl {
 	return &MergePolicyImpl{
 		util.NewSetOnce(),
@@ -241,4 +254,23 @@ func newTieredMergePolicy() *TieredMergePolicy {
 		forceMergeDeletesPctAllowed: 10,
 		reclaimDeletesWeight:        2,
 	}
+}
+
+// index/LogMergePolicy.java
+
+/*
+This class implements a MergePolicy that tries to merge segments into
+levels of exponentially increasing size, where each level has fewer
+segments than the value of the merge factor. Whenver extra segments
+(beyond the merge factor upper bound) are encountered, all segments
+within the level are merged. You can get or set the merge factor
+using MergeFactor() and SetMergeFactor() repectively.
+
+This class is abstract and required a subclass to define the Size()
+method  which specifies how a segment's size is determined.
+LogDocMergePolicy is one subclass that measures size by document
+count in the segment. LogByteSizeMergePolicy is another subclass that
+measures size as the total byte size of the file(s) for the segment.
+*/
+type LogMergePolicy struct {
 }

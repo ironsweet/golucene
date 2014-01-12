@@ -114,7 +114,7 @@ type PerFieldSimilarityWrapper struct {
 }
 
 func NewPerFieldSimilarityWrapper(f func(name string) Similarity) *PerFieldSimilarityWrapper {
-	panic("not implemented yet")
+	return &PerFieldSimilarityWrapper{get: f}
 }
 
 func (wrapper *PerFieldSimilarityWrapper) ComputeNorm(state *index.FieldInvertState) int64 {

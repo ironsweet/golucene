@@ -7,6 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	ti "github.com/balzaczyy/golucene/test_framework/index"
 	ts "github.com/balzaczyy/golucene/test_framework/search"
 	. "github.com/balzaczyy/golucene/test_framework/util"
 	. "github.com/balzaczyy/gounit"
@@ -110,7 +111,28 @@ func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer
 	return c
 }
 
-func newMergePolicy(r *rand.Rand) *index.MergePolicy {
+func newMergePolicy(r *rand.Rand) index.MergePolicy {
+	if Rarely(r) {
+		return ti.NewMockRandomMergePolicy(r)
+	} else if r.Intn(2) == 0 {
+		return newTieredMergePolicy(r)
+	} else if r.Intn(5) == 0 {
+		return newAlcoholicMergePolicy(r /*, ClassEnvRule.timeZone*/)
+	} else {
+		return newLogMergePolicy(r)
+	}
+}
+
+// L883
+func newTieredMergePolicy(r *rand.Rand) *index.TieredMergePolicy {
+	panic("not implemented yet")
+}
+
+func newAlcoholicMergePolicy(r *rand.Rand /*, tz TimeZone*/) *ti.AlcoholicMergePolicy {
+	panic("not implemented yet")
+}
+
+func newLogMergePolicy(r *rand.Rand) *index.LogMergePolicy {
 	panic("not implemented yet")
 }
 

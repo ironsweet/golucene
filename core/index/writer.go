@@ -301,7 +301,8 @@ Only takes effect when IndexWriter is first created.
 */
 func (conf *IndexWriterConfig) SetMergeScheduler(mergeScheduler MergeScheduler) *IndexWriterConfig {
 	assert2(mergeScheduler != nil, "mergeScheduler must not be nil")
-	panic("not implemented yet")
+	conf.mergeScheduler = mergeScheduler
+	return conf
 }
 
 /*
@@ -310,7 +311,7 @@ segments in the index. Its role is to select which merges to do, if
 any, and return a MergeSpecification describing the merges. It also
 selects merges to do for forceMerge.
 */
-func (conf *IndexWriterConfig) SetMergePolicy(mergePolicy *MergePolicy) *IndexWriterConfig {
+func (conf *IndexWriterConfig) SetMergePolicy(mergePolicy MergePolicy) *IndexWriterConfig {
 	assert2(mergePolicy != nil, "mergePolicy must not be nil")
 	panic("not implemented yet")
 }
