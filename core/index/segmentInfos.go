@@ -243,6 +243,11 @@ type SegmentInfo struct {
 	Files          map[string]bool // must use CheckFileNames()
 }
 
+// seprate norms are not supported in >= 4.0
+func (si *SegmentInfo) hasSeparateNorms() bool {
+	return false
+}
+
 func (si *SegmentInfo) String() string {
 	return si.StringOf(si.dir, 0)
 }

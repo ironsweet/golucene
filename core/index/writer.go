@@ -1025,16 +1025,16 @@ func setDiagnosticsAndDetails(info SegmentInfo, source string, details map[strin
 
 // Returns a string description of all segments, for debugging.
 func (w *IndexWriter) segString() string {
-	return segmentsToString(w.segmentInfos.Segments)
+	return w.segmentsToString(w.segmentInfos.Segments)
 }
 
 // returns a string description of the specified segments, for debugging.
-func segmentsToString(infos []*SegmentInfoPerCommit) string {
+func (w *IndexWriter) segmentsToString(infos []*SegmentInfoPerCommit) string {
 	panic("not implemented yet")
 }
 
 // Returns a string description of the specified segment, for debugging.
-func segmentToString(info *SegmentInfoPerCommit) string {
+func (w *IndexWriter) SegmentToString(info *SegmentInfoPerCommit) string {
 	panic("not implemented yet")
 }
 

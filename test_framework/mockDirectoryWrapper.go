@@ -424,7 +424,7 @@ func (w *MockDirectoryWrapper) FileExists(name string) bool {
 	return w.Directory.FileExists(name)
 }
 
-func (w *MockDirectoryWrapper) FileLength(name string) int64 {
+func (w *MockDirectoryWrapper) FileLength(name string) (n int64, err error) {
 	w.Lock() // synchronized
 	defer w.Unlock()
 

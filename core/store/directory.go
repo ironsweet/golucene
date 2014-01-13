@@ -166,7 +166,12 @@ type Directory interface {
 	ListAll() (paths []string, err error)
 	FileExists(name string) bool
 	// DeleteFile(name string) error
-	// FileLength(name string) int64
+	// Returns thelength of a file in the directory. This method
+	// follows the following contract:
+	// - Must return 0 if the file doesn't exists.
+	// - Returns a value >=0 if the file exists, which specifies its
+	// length.
+	FileLength(name string) (n int64, err error)
 	// CreateOutput(name string, ctx, IOContext) (out IndexOutput, err error)
 	// Sync(names []string) error
 	OpenInput(name string, context IOContext) (in IndexInput, err error)

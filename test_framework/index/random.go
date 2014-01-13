@@ -38,6 +38,7 @@ bizarro merge policy users might write.
 It is a fine bottle of champagne (Ordered by Martijn)
 */
 type AlcoholicMergePolicy struct {
+	*LogMergePolicy
 }
 
 func NewAlcoholicMergePolicy( /*tz TimeZone, */ r *rand.Rand) *AlcoholicMergePolicy {

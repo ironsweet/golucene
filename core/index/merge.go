@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
 	"math"
@@ -22,18 +23,6 @@ type MergeScheduler interface {
 	Merge(writer *IndexWriter) error
 	Clone() MergeScheduler
 }
-
-// Passed to MergePolicy.FindMerges(MergeTrigger, SegmentInfos) to
-// indicate the event that triggered the merge
-type MergeTrigger int
-
-const (
-	// Merge was triggered by a segment flush.
-	MERGE_TRIGGER_SEGMENT_FLUSH = 1
-	// Merge was triggered by a full flush. Full flushes can be caused
-	// by a commit, NRT reader reopen or close call on the index writer
-	MERGE_TRIGGER_FULL_FLUSH = 2
-)
 
 // index/MergeState.java
 
@@ -153,9 +142,15 @@ they will be run concurrently.
 The default MergePolicy is TieredMergePolicy.
 */
 type MergePolicy interface {
+	SetNoCFSRatio(noCFSRatio float64)
+	SetMaxCFSSegmentSizeMB(v float64)
 }
 
 type MergePolicyImpl struct {
+	// Return the byte size of the provided SegmentInfoPerCommit,
+	// pro-rated by percentage of non-deleted documents if
+	// SetCalibrateSizeByDeletes() is set.
+	size func(info *SegmentInfoPerCommit) (n int64, err error)
 	// IndexWriter that contains this instance.
 	writer *util.SetOnce
 	// If the size of te merge segment exceeds this ratio of the total
@@ -164,6 +159,30 @@ type MergePolicyImpl struct {
 	// If the size of the merged segment exceeds this value then it
 	// will not use compound file format.
 	maxCFSSegmentSize float64
+}
+
+type MergeSpecifier interface {
+	// Determine what set of merge operations are now necessary on the
+	// index. IndexWriter calls this whenever there is a change to the
+	// segments. This call is always synchronized on the IndexWriter
+	// instance so only one thread at a time will call this method.
+	// FindMerges(mergeTrigger MergeTrigger, segmentInfos *SegmentInfos) (spec MergeSpecification, err error)
+	// Determine what set of merge operations is necessary in order to
+	// merge to <= the specified segment count. IndexWriter calls this
+	// when its forceMerge() method is called. This call is always
+	// synchronized on the IndexWriter instance so only one thread at a
+	// time will call this method.
+	// FindForcedMerges(segmentInfos *SegmentInfos, maxSegmentCount int,
+	// segmentsToMerge map[SegmentInfoPerCommit]bool) (spec MergeSpecification, err error)
+	// Determine what set of merge operations is necessary in order to
+	// expunge all deletes from the index.
+	// FindForcedDeletesMerges(segmentinfos *SegmentInfos) (spec MergeSpecification, err error)
+}
+
+func (mp *MergePolicyImpl) Clone() MergePolicy {
+	clone := *mp
+	clone.writer = util.NewSetOnce()
+	return &clone
 }
 
 /*
@@ -180,12 +199,92 @@ and maxCFSSegmentSize. This ctor should be used by subclasses using
 different defaults than the MergePolicy.
 */
 func newMergePolicyImpl(defaultNoCFSRatio, defaultMaxCFSSegmentSize float64) *MergePolicyImpl {
-	return &MergePolicyImpl{
-		util.NewSetOnce(),
-		defaultNoCFSRatio,
-		defaultMaxCFSSegmentSize,
+	ans := &MergePolicyImpl{
+		writer:            util.NewSetOnce(),
+		noCFSRatio:        defaultNoCFSRatio,
+		maxCFSSegmentSize: defaultMaxCFSSegmentSize,
+	}
+	ans.size = func(info *SegmentInfoPerCommit) (n int64, err error) {
+		byteSize, err := info.SizeInBytes()
+		if err != nil {
+			return 0, err
+		}
+		docCount := info.info.docCount
+		if docCount <= 0 {
+			return byteSize, nil
+		}
+
+		delCount := ans.writer.Get().(*IndexWriter).numDeletedDocs(info)
+		delRatio := float32(delCount) / float32(docCount)
+		assert(delRatio <= 1)
+		return int64(float32(byteSize) * (1 - delRatio)), nil
+	}
+	return ans
+}
+
+/*
+Sets the IndexWriter to use by this merge policy. This method is
+allowed to be called only once, and is usually set by IndexWriter. If
+it is called more thanonce, panic is thrown.
+*/
+func (mp *MergePolicyImpl) setIndexWriter(writer *IndexWriter) {
+	mp.writer.Set(writer)
+}
+
+/*
+Returns true if this single info is already fully merged (has no
+pending deletes, is in the same dir as the writer, and matches the
+current compound file setting)
+*/
+func (mp *MergePolicyImpl) isMerged(info *SegmentInfoPerCommit) bool {
+	w := mp.writer.Get().(*IndexWriter)
+	assert(w != nil)
+	hasDeletions := w.numDeletedDocs(info) > 0
+	return !hasDeletions &&
+		!info.info.hasSeparateNorms() &&
+		info.info.dir == w.directory &&
+		(mp.noCFSRatio > 0 && mp.noCFSRatio < 1 || mp.maxCFSSegmentSize < math.MaxInt64)
+}
+
+/*
+If a merged segment will be more than this percentage of the total
+size of the index, leave the segment as non-compound file even if
+compound file is enabled. Set to 1.0 to always use CFS regardless or
+merge size.
+*/
+func (mp *MergePolicyImpl) SetNoCFSRatio(noCFSRatio float64) {
+	assert2(noCFSRatio >= 0 && noCFSRatio <= 1, fmt.Sprintf(
+		"noCFSRatio must be 0.0 to 1.0 inclusive; got %v", noCFSRatio))
+	mp.noCFSRatio = noCFSRatio
+}
+
+/*
+If a merged segment will be more than this value, leave the segment
+as non-compound file even if compound file is enabled. Set this to
+math.Inf(1) (default) and noCFSRatio to 1.0 to always use CFS
+regardless of merge size.
+*/
+func (mp *MergePolicyImpl) SetMaxCFSSegmentSizeMB(v float64) {
+	assert2(v >= 0, fmt.Sprintf("maxCFSSegmentSizeMB must be >=0 (got %v)", v))
+	v *= 1024 * 1024
+	if v > float64(math.MaxInt64) {
+		mp.maxCFSSegmentSize = math.MaxInt64
+	} else {
+		mp.maxCFSSegmentSize = v
 	}
 }
+
+// Passed to MergePolicy.FindMerges(MergeTrigger, SegmentInfos) to
+// indicate the event that triggered the merge
+type MergeTrigger int
+
+const (
+	// Merge was triggered by a segment flush.
+	MERGE_TRIGGER_SEGMENT_FLUSH = MergeTrigger(1)
+	// Merge was triggered by a full flush. Full flushes can be caused
+	// by a commit, NRT reader reopen or close call on the index writer
+	MERGE_TRIGGER_FULL_FLUSH = MergeTrigger(2)
+)
 
 /*
 OneMerge provides the information necessary to perform an individual
@@ -195,6 +294,13 @@ whether the new segment should use the compound file format.
 */
 type OneMerge struct {
 }
+
+/*
+A MergeSpecification instance provides the information necessary to
+perform multiple merges. It simply contains a list of OneMerge
+instances.
+*/
+type MergeSpecification []OneMerge
 
 // index/TieredMergePolicy.java
 
@@ -259,6 +365,16 @@ func newTieredMergePolicy() *TieredMergePolicy {
 // index/LogMergePolicy.java
 
 /*
+Defines the allowed range of log(size) for each level. A level is
+computed by taking the max segment log size, minus LEVEL_LOG_SPAN,
+and finding all segments falling within that range.
+*/
+const LEVEL_LOG_SPAN = 0.75
+
+// Default merge factor, which is how many segments are merged at a time
+const DEFAULT_MERGE_FACTOR = 10
+
+/*
 This class implements a MergePolicy that tries to merge segments into
 levels of exponentially increasing size, where each level has fewer
 segments than the value of the merge factor. Whenver extra segments
@@ -273,4 +389,235 @@ count in the segment. LogByteSizeMergePolicy is another subclass that
 measures size as the total byte size of the file(s) for the segment.
 */
 type LogMergePolicy struct {
+	*MergePolicyImpl
+
+	// How many segments to merge at a time.
+	mergeFactor int
+	// Any segments whose size is smaller than this value will be
+	// rounded up to this value. This ensures that tiny segments are
+	// aggressively merged.
+	minMergeSize int64
+	// If the size of a segment exceeds this value then it will never
+	// be merged.
+	maxMergeSize int64
+	// If true, we pro-rate a segment's size by the percentage of
+	// non-deleted documents.
+	calibrateSizeByDeletes bool
+}
+
+func newLogMergePolicy() *LogMergePolicy {
+	return &LogMergePolicy{
+		MergePolicyImpl:        newMergePolicyImpl(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE),
+		mergeFactor:            DEFAULT_MERGE_FACTOR,
+		calibrateSizeByDeletes: true,
+	}
+}
+
+// Returns true if LMP is enabled in IndexWriter's InfoStream.
+func (mp *LogMergePolicy) verbose() bool {
+	w := mp.writer.Get().(*IndexWriter)
+	return w != nil && w.infoStream.IsEnabled("LMP")
+}
+
+// Print a debug message to IndexWriter's infoStream.
+func (mp *LogMergePolicy) message(message string) {
+	if mp.verbose() {
+		mp.writer.Get().(*IndexWriter).infoStream.Message("LMP", message)
+	}
+}
+
+/*
+Determines how often segment indices are merged by AdDocument(). With
+smaller values, less RAM is used while indexing, and searches are
+faster, but indexing speed is slower. With larger values, more RAM is
+used during indexing, and while searches is slower, indexing is
+faster. Thus larger values (> 10) are best for batch index creation,
+and smaller values (< 10) for indces that are interactively
+maintained.
+*/
+func (mp *LogMergePolicy) SetMergeFactor(mergeFactor int) {
+	assert2(mergeFactor >= 2, "mergeFactor cannot be less than 2")
+	mp.mergeFactor = mergeFactor
+}
+
+// Sets whether the segment size should be calibrated by the number
+// of delets when choosing segments to merge
+func (mp *LogMergePolicy) SetCalbrateSizeByDeletes(calibrateSizeByDeletes bool) {
+	mp.calibrateSizeByDeletes = calibrateSizeByDeletes
+}
+
+func (mp *LogMergePolicy) Close() error {
+	return nil
+}
+
+/*
+Return the byte size of the provided SegmentInfoPerCommit, pro-rated
+by percentage of non-deleted documents if SetCalibratedSizeByDeletes()
+is set.
+*/
+func (mp *LogMergePolicy) sizeBytes(info *SegmentInfoPerCommit) (n int64, err error) {
+	if mp.calibrateSizeByDeletes {
+		return mp.MergePolicyImpl.size(info)
+	}
+	return info.SizeInBytes()
+}
+
+/*
+Returns true if the number of segments eligible for merging is less
+than or equal to the specified maxNumSegments.
+*/
+func (mp *LogMergePolicy) isMergedBy(infos *SegmentInfos, maxNumSegments int, segmentsToMerge map[*SegmentInfoPerCommit]bool) bool {
+	panic("not implemented yet")
+}
+
+type SegmentInfoAndLevel struct {
+	info  *SegmentInfoPerCommit
+	level float32
+	index int
+}
+
+type SegmentInfoAndLevels []SegmentInfoAndLevel
+
+func (ss SegmentInfoAndLevels) Len() int           { return len(ss) }
+func (ss SegmentInfoAndLevels) Swap(i, j int)      { ss[i], ss[j] = ss[j], ss[i] }
+func (ss SegmentInfoAndLevels) Less(i, j int) bool { return ss[i].level < ss[j].level }
+
+/*
+Checks if any merges are now necessary and returns a MergeSpecification
+if so. A merge is necessary when there are more than SetMergeFactor()
+segments at a given level. When multiple levels have too many
+segments, this method will return multiple merges, allowing the
+MergeScheduler to use concurrency.
+*/
+func (mp *LogMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *SegmentInfos) (spec MergeSpecification, err error) {
+	numSegments := len(infos.Segments)
+	mp.message(fmt.Sprintf("findMerges: %v segments", numSegments))
+
+	// Compute levels, whic is just log (base mergeFactor) of the size
+	// of each segment
+	levels := make([]*SegmentInfoAndLevel, 0)
+	norm := math.Log(float64(mp.mergeFactor))
+
+	mergingSegments := mp.writer.Get().(*IndexWriter).mergingSegments
+
+	for i, info := range infos.Segments {
+		size, err := mp.size(info)
+		if err != nil {
+			return nil, err
+		}
+
+		// Floor tiny segments
+		if size < 1 {
+			size = 1
+		}
+
+		infoLevel := &SegmentInfoAndLevel{info, float32(math.Log(float64(size)) / norm), i}
+		levels = append(levels, infoLevel)
+
+		if mp.verbose() {
+			segBytes, err := mp.sizeBytes(info)
+			if err != nil {
+				return nil, err
+			}
+			var extra string
+			if _, ok := mergingSegments[info]; ok {
+				extra = " [merging]"
+			}
+			if size >= mp.maxMergeSize {
+				extra = fmt.Sprintf("%v [skip: too large]", extra)
+			}
+			mp.message(fmt.Sprintf("seg=%v level=%v size=%.3f MB%v",
+				mp.writer.Get().(*IndexWriter).SegmentToString(info),
+				infoLevel.level,
+				segBytes/1024/1024,
+				extra))
+		}
+	}
+
+	var levelFloor float32 = 0
+	if mp.minMergeSize > 0 {
+		levelFloor = float32(math.Log(float64(mp.minMergeSize)) / float64(norm))
+	}
+
+	// Now, we quantize the log values into levfels. The first level is
+	// any segment whose log size is within LEVEL_LOG_SPAN of the max
+	// size, or, who has such as segment "to the right". Then, we find
+	// the max of all other segments and use that to define the next
+	// level segment, etc.
+
+	numMergeableSegments := len(levels)
+
+	for start := 0; start < numMergeableSegments; {
+		// Find max level of all segments not already quantized.
+		maxLevel := levels[start].level
+		for i := 1 + start; i < numMergeableSegments; i++ {
+			level := levels[i].level
+			if level > maxLevel {
+				maxLevel = level
+			}
+		}
+
+		// Now search backwards for the rightmost segment that falls into
+		// this level:
+		var levelBottom float32
+		if maxLevel <= levelFloor {
+			// All remaining segments fall into the min level
+			levelBottom = -1
+		} else {
+			levelBottom = float32(float64(maxLevel) - LEVEL_LOG_SPAN)
+
+			// Force a boundary at the level floor
+			if levelBottom < levelFloor && maxLevel >= levelFloor {
+				levelBottom = levelFloor
+			}
+		}
+
+		upto := numMergeableSegments - 1
+		for upto >= start {
+			if levels[upto].level >= levelBottom {
+				break
+			}
+			upto--
+		}
+		mp.message(fmt.Sprintf("  level %v to %v: %v segments",
+			levelBottom, maxLevel, 1+upto-start))
+
+		// Finally, record all merges that are viable at this level:
+		end := start + mp.mergeFactor
+		for end <= 1+upto {
+			panic("not implemented yet")
+		}
+
+		start = 1 + upto
+	}
+
+	return
+}
+
+func (mp LogMergePolicy) String() string {
+	panic("not implemented yet")
+}
+
+// index/LogDocMergePolicy.java
+
+/*
+This is a LogMergePolicy that measures size of a segment as the
+number of  documents (not taking deletions into account).
+*/
+type LogDocMergePolicy struct {
+}
+
+func NewLogDocMergePolicy() *LogMergePolicy {
+	panic("not implemented yet")
+}
+
+// index/LogByteSizeMergePolicy.java
+
+// this is a LogMergePolicy that measures size of a segment as the
+// total byte size of the segment's files.
+type LogByteSizeMergePlicy struct {
+}
+
+func NewLogByteSizeMergePolicy() *LogMergePolicy {
+	panic("not implemented yet")
 }

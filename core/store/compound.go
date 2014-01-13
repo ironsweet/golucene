@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/util"
+	"io"
 	"log"
 	"sync"
 )
@@ -26,24 +27,24 @@ const (
 
 type CompoundFileDirectory struct {
 	*DirectoryImpl
-	lock sync.Mutex
+	sync.Locker
 
 	directory      Directory
 	fileName       string
 	readBufferSize int
 	entries        map[string]FileEntry
-	openForWriter  bool
-	// writer CompoundFileWriter
-	handle IndexInputSlicer
+	openForWrite   bool
+	writer         *CompoundFileWriter
+	handle         IndexInputSlicer
 }
 
 func NewCompoundFileDirectory(directory Directory, fileName string, context IOContext, openForWrite bool) (d *CompoundFileDirectory, err error) {
 	self := &CompoundFileDirectory{
-		lock:           sync.Mutex{},
+		Locker:         &sync.Mutex{},
 		directory:      directory,
 		fileName:       fileName,
 		readBufferSize: bufferSize(context),
-		openForWriter:  openForWrite}
+		openForWrite:   openForWrite}
 	self.DirectoryImpl = NewDirectoryImpl(self)
 
 	if !openForWrite {
@@ -71,31 +72,30 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 }
 
 func (d *CompoundFileDirectory) Close() error {
-	log.Printf("Closing %v...", d)
-	if d == nil { // interface not nil
-		return nil
-	}
-	d.lock.Lock()
-	defer d.lock.Unlock()
+	d.Lock() // syncronized
+	defer d.Unlock()
 
-	if d == nil || !d.IsOpen {
+	log.Printf("Closing %v...", d)
+	if !d.IsOpen {
 		log.Print("CompoundFileDirectory is already closed.")
 		// allow double close - usually to be consistent with other closeables
 		return nil // already closed
 	}
 	d.IsOpen = false
-	/*
-		if d.writer != nil {
-			// assert d.openForWrite
-			return writer.Close()
-		} else {*/
-	return util.Close(d.handle)
-	// }
+	if d.writer != nil {
+		assert(d.openForWrite)
+		return d.writer.Close()
+	} else {
+		return util.Close(d.handle)
+	}
 }
 
 func (d *CompoundFileDirectory) OpenInput(name string, context IOContext) (in IndexInput, err error) {
+	d.Lock() // synchronized
+	defer d.Unlock()
+
 	d.ensureOpen()
-	// assert !d.openForWrite
+	assert(!d.openForWrite)
 	id := util.StripSegmentName(name)
 	if entry, ok := d.entries[id]; ok {
 		is := d.handle.openSlice(name, entry.offset, entry.length)
@@ -129,6 +129,32 @@ func (d *CompoundFileDirectory) FileExists(name string) bool {
 	// }
 	_, ok := d.entries[util.StripSegmentName(name)]
 	return ok
+}
+
+// Returns the length of a file in the directory.
+func (d *CompoundFileDirectory) FileLength(name string) (n int64, err error) {
+	panic("not implemented yet")
+}
+
+func (d *CompoundFileDirectory) CreateOutput(name string, context IOContext) (out IndexOutput, err error) {
+	d.ensureOpen()
+	panic("not implemented yet")
+}
+
+func (d *CompoundFileDirectory) Sync(names []string) {
+	panic("not supported")
+}
+
+func (d *CompoundFileDirectory) MakeLock(name string) Lock {
+	panic("not supported by CFS")
+}
+
+func (d *CompoundFileDirectory) CreateSlicer(name string, context IOContext) (slicer IndexInputSlicer, err error) {
+	panic("not implemented yet")
+}
+
+func (d *CompoundFileDirectory) String() string {
+	return fmt.Sprintf("CompoundFileDirectory(file='%v' in dir=%v)", d.fileName, d.directory)
 }
 
 const (
@@ -215,4 +241,11 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 		panic("not supported yet; will also be obsolete soon")
 	}
 	return mapping, nil
+}
+
+// store/CompoundFileWriter
+
+// Combines multiple files into a single compound file
+type CompoundFileWriter struct {
+	io.Closer
 }

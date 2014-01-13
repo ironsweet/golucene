@@ -13,6 +13,7 @@ import (
 	. "github.com/balzaczyy/gounit"
 	"io"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"reflect"
@@ -133,7 +134,35 @@ func newAlcoholicMergePolicy(r *rand.Rand /*, tz TimeZone*/) *ti.AlcoholicMergeP
 }
 
 func newLogMergePolicy(r *rand.Rand) *index.LogMergePolicy {
-	panic("not implemented yet")
+	var logmp *index.LogMergePolicy
+	if r.Intn(2) == 0 {
+		logmp = index.NewLogDocMergePolicy()
+	} else {
+		logmp = index.NewLogByteSizeMergePolicy()
+	}
+	if Rarely(r) {
+		logmp.SetMergeFactor(NextInt(r, 2, 9))
+	} else {
+		logmp.SetMergeFactor(NextInt(r, 10, 50))
+	}
+	configureRandom(r, logmp)
+	return logmp
+}
+
+func configureRandom(r *rand.Rand, mergePolicy index.MergePolicy) {
+	if r.Intn(2) == 0 {
+		mergePolicy.SetNoCFSRatio(0.1 + r.Float64())
+	} else if r.Intn(2) == 0 {
+		mergePolicy.SetNoCFSRatio(1.0)
+	} else {
+		mergePolicy.SetNoCFSRatio(0)
+	}
+
+	if Rarely(r) {
+		mergePolicy.SetMaxCFSSegmentSizeMB(0.2 + r.Float64()*2)
+	} else {
+		mergePolicy.SetMaxCFSSegmentSizeMB(math.Inf(1))
+	}
 }
 
 /*

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 )
@@ -95,6 +96,16 @@ func (d *FSDirectory) FileExists(name string) bool {
 	d.ensureOpen()
 	_, err := os.Stat(name)
 	return err != nil
+}
+
+// Returns the length in bytes of a file in the directory.
+func (d *FSDirectory) FileLength(name string) (n int64, err error) {
+	d.ensureOpen()
+	fi, err := os.Stat(filepath.Join(d.path, name))
+	if err != nil {
+		return 0, err
+	}
+	return fi.Size(), nil
 }
 
 func (d *FSDirectory) LockID() string {
