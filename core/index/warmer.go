@@ -11,11 +11,12 @@ A very simple meged segment warmer that just ensures data structures
 are initialized.
 */
 type SimpleMergedSegmentWarmer struct {
+	infoStream util.InfoStream
 }
 
 // Creates a new SimpleMergedSegmentWarmer
 func NewSimpleMergedSegmentWarmer(infoStream util.InfoStream) *SimpleMergedSegmentWarmer {
-	panic("not implemented yet")
+	return &SimpleMergedSegmentWarmer{infoStream}
 }
 
 func (warmer *SimpleMergedSegmentWarmer) warm(reader AtomicReader) error {

@@ -63,6 +63,16 @@ func (ms *SerialMergeScheduler) Close() error {
 // index/ConcurrentMergeScheduler.java
 
 /*
+Default maxThreadCount. We default to 1: tests on spinning-magnet
+drives showed slower indexing performance if more than one merge
+routine runs at once (though on an SSD it was faster)
+*/
+const DEFAULT_MAX_ROUTINE_COUNT = 1
+
+// Default maxMergeCount.
+const DEFAULT_MAX_MERGE_COUNT = 2
+
+/*
 A MergeScheduler that runs each merge using a separate goroutine.
 
 Specify the max number of goroutines that may run at once, and the
@@ -77,16 +87,36 @@ or more merges complete.
 */
 type ConcurrentMergeScheduler struct {
 	sync.Locker
+
+	// Max number of merge routines allowed to be running at once. When
+	// there are more merges then this, we forcefully pause the larger
+	// ones, letting the smaller ones run, up until maxMergeCount
+	// merges at which point we forcefully pause incoming routines
+	// (that presumably are the ones causing so much merging).
+	maxRoutineCount int
+
+	// Max number of merges we accept before forcefully throttling the
+	// incoming routines
+	maxMergeCount int
 }
 
 func NewConcurrentMergeScheduler() *ConcurrentMergeScheduler {
-	return &ConcurrentMergeScheduler{&sync.Mutex{}}
+	return &ConcurrentMergeScheduler{
+		Locker:          &sync.Mutex{},
+		maxRoutineCount: DEFAULT_MAX_ROUTINE_COUNT,
+		maxMergeCount:   DEFAULT_MAX_MERGE_COUNT,
+	}
 }
 
 // Sets the maximum number of merge goroutines and simultaneous
 // merges allowed.
 func (cms *ConcurrentMergeScheduler) SetMaxMergesAndRoutines(maxMergeCount, maxRoutineCount int) {
-	panic("not implemented yet")
+	assert2(maxRoutineCount >= 1, "maxRoutineCount should be at least 1")
+	assert2(maxMergeCount >= 1, "maxMergeCount should be at least 1")
+	assert2(maxRoutineCount <= maxMergeCount, fmt.Sprintf(
+		"maxRoutineCount should be <= maxMergeCount (= %v)", maxMergeCount))
+	cms.maxRoutineCount = maxRoutineCount
+	cms.maxMergeCount = maxMergeCount
 }
 
 func (cms *ConcurrentMergeScheduler) Close() error {
@@ -142,6 +172,7 @@ they will be run concurrently.
 The default MergePolicy is TieredMergePolicy.
 */
 type MergePolicy interface {
+	SetIndexWriter(writer *IndexWriter)
 	SetNoCFSRatio(noCFSRatio float64)
 	SetMaxCFSSegmentSizeMB(v float64)
 }
@@ -227,7 +258,7 @@ Sets the IndexWriter to use by this merge policy. This method is
 allowed to be called only once, and is usually set by IndexWriter. If
 it is called more thanonce, panic is thrown.
 */
-func (mp *MergePolicyImpl) setIndexWriter(writer *IndexWriter) {
+func (mp *MergePolicyImpl) SetIndexWriter(writer *IndexWriter) {
 	mp.writer.Set(writer)
 }
 
@@ -400,6 +431,11 @@ type LogMergePolicy struct {
 	// If the size of a segment exceeds this value then it will never
 	// be merged.
 	maxMergeSize int64
+	// Although the core MPs set it explicitly, we must default in case
+	// someone out there wrote this own LMP ...
+	// If the size of a segment exceeds this value then it will never
+	// be merged during ForceMerge()
+	maxMergeSizeForForcedMerge int64
 	// If true, we pro-rate a segment's size by the percentage of
 	// non-deleted documents.
 	calibrateSizeByDeletes bool
@@ -407,9 +443,10 @@ type LogMergePolicy struct {
 
 func newLogMergePolicy() *LogMergePolicy {
 	return &LogMergePolicy{
-		MergePolicyImpl:        newMergePolicyImpl(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE),
-		mergeFactor:            DEFAULT_MERGE_FACTOR,
-		calibrateSizeByDeletes: true,
+		MergePolicyImpl:            newMergePolicyImpl(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE),
+		mergeFactor:                DEFAULT_MERGE_FACTOR,
+		maxMergeSizeForForcedMerge: math.MaxInt64,
+		calibrateSizeByDeletes:     true,
 	}
 }
 
@@ -613,11 +650,32 @@ func NewLogDocMergePolicy() *LogMergePolicy {
 
 // index/LogByteSizeMergePolicy.java
 
+// Default minimum segment size.
+var DEFAULT_MIN_MERGE_MB = 1.6
+
+// Default maximum segment size. A segment of this size or larger
+// will never be merged.
+const DEFAULT_MAX_MERGE_MB = 2048
+
+// Default maximum segment size. A segment of this size or larger
+// will never be merged during forceMerge.
+var DEFAULT_MAX_MERGE_MB_FOR_FORCED_MERGE = math.MaxInt64
+
 // this is a LogMergePolicy that measures size of a segment as the
 // total byte size of the segment's files.
-type LogByteSizeMergePlicy struct {
+type LogByteSizeMergePolicy struct {
+	*LogMergePolicy
 }
 
 func NewLogByteSizeMergePolicy() *LogMergePolicy {
-	panic("not implemented yet")
+	ans := &LogByteSizeMergePolicy{
+		LogMergePolicy: newLogMergePolicy(),
+	}
+	ans.minMergeSize = int64(DEFAULT_MIN_MERGE_MB * 1024 * 1024)
+	ans.maxMergeSize = int64(DEFAULT_MAX_MERGE_MB * 1024 * 1024)
+	ans.maxMergeSizeForForcedMerge = int64(DEFAULT_MAX_MERGE_MB_FOR_FORCED_MERGE * 1024 * 1024)
+	ans.size = func(info *SegmentInfoPerCommit) (n int64, err error) {
+		return ans.sizeBytes(info)
+	}
+	return ans.LogMergePolicy
 }

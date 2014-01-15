@@ -130,7 +130,7 @@ func newTieredMergePolicy(r *rand.Rand) *index.TieredMergePolicy {
 }
 
 func newAlcoholicMergePolicy(r *rand.Rand /*, tz TimeZone*/) *ti.AlcoholicMergePolicy {
-	panic("not implemented yet")
+	return newAlcoholicMergePolicy(rand.New(rand.NewSource(r.Int63())))
 }
 
 func newLogMergePolicy(r *rand.Rand) *index.LogMergePolicy {

@@ -293,6 +293,60 @@ func (si *SegmentInfo) CheckFileNames(files map[string]bool) {
 	}
 }
 
+// index/SegmentInfos.java
+
+/*
+A collection of segmentInfo objects with methods for operating on
+those segments in relation to the file system.
+
+The active segments in the index are stored in the segment into file,
+segments_N. There may be one or more segments_N files in the index;
+however, hte one with the largest generation is the activbe one (when
+older segments_N files are present it's because they temporarily
+cannot be deleted, or, a writer is in the process of committing, or a
+custom IndexDeletionPolicy is in use). This file lists each segment
+by name and has details about the codec and generation of deletes.
+
+There is also a file segments.gen. This file contains the current
+generation (the _N in segments_N) of the index. This is used only as
+a fallback in case the current generation cannot be accurately
+determined by directory listing alone (as is the case for some NFS
+clients with time-based directory cache expiration). This file simply
+contains an Int32 version header (FORMAT_SEGMENTS_GEN_CURRENT),
+followed by the generation recorded as int64, written twice.
+
+Files:
+
+- segments.gen: GenHeader, Generation, Generation
+- segments_N: Header, Version, NameCounter, SegCount,
+  <SegName, SegCodec, DelGen, DeletionCount>^SegCount, CommitUserData, Checksum
+
+Data types:
+
+- Header --> CodecHeader
+- Genheader, NameCounter, SegCount, DeletionCount --> int32
+- Generation, Version, DelGen, Checksum --> int64
+- SegName, SegCodec --> string
+- CommitUserData --> map[string]string
+
+Field Descriptions:
+
+- Version counts how often the index has been changed by adding or
+  deleting docments.
+- NameCounter is used to generate names for new segment files.
+- SegName is the name of the segment, and is used as the file name
+  prefix for all of the files that compose the segment's index.
+- DelGen is the generation count of the deletes file. If this is -1,
+  there are no deletes. Anything above zero means there are deletes
+  stored by LiveDocsFormat.
+- DeletionCount records the number of deleted documents in this segment.
+- Checksum contains the CRC32 checksum of all bytes in the segments_N
+  file up until the checksum. This is used to verify integrity of the
+  file on opening the index.
+- SegCodec is the nme of the Codec that encoded this segment.
+- CommitUserData stores an optional user-spplied opaue
+  map[string]string that was passed to SetCommitData().
+*/
 type SegmentInfos struct {
 	counter        int
 	version        int64
@@ -337,6 +391,10 @@ func GenerationFromSegmentsFileName(fileName string) int64 {
 	}
 }
 
+/*
+Read a particular segmentFileName. Note that this may return IO error
+if a commit is in process.
+*/
 func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string) error {
 	log.Printf("Reading segment info from %v...", segmentFileName)
 	success := false
@@ -454,7 +512,43 @@ func (sis *SegmentInfos) ReadAll(directory store.Directory) error {
 	return err
 }
 
+// L1041
+/*
+Replaces all segments in this instance in this instance, but keeps
+generation, version, counter so that future commits remain write once.
+*/
+func (sis *SegmentInfos) replace(other *SegmentInfos) {
+	sis.rollbackSegmentInfos(other.Segments)
+	sis.lastGeneration = other.lastGeneration
+}
+
+func (sis *SegmentInfos) createBackupSegmentInfos() []*SegmentInfoPerCommit {
+	ans := make([]*SegmentInfoPerCommit, len(sis.Segments))
+	for i, info := range sis.Segments {
+		assert(info.info.codec != nil)
+		ans[i] = info.Clone()
+	}
+	return ans
+}
+
+// L1104
+func (sis *SegmentInfos) rollbackSegmentInfos(infos []*SegmentInfoPerCommit) {
+	if cap(sis.Segments) < len(infos) {
+		sis.Segments = make([]*SegmentInfoPerCommit, len(infos))
+		copy(sis.Segments, infos)
+	} else {
+		n := len(sis.Segments)
+		copy(sis.Segments, infos)
+		for i, limit := len(infos), n; i < limit; i++ {
+			sis.Segments[i] = nil
+		}
+		sis.Segments = sis.Segments[0:len(infos)]
+	}
+}
+
 func (sis *SegmentInfos) Clear() {
-	// sis.Segments = make([]*SegmentInfoPerCommit, 0)
+	for i, _ := range sis.Segments {
+		sis.Segments[i] = nil
+	}
 	sis.Segments = sis.Segments[:0] // reuse existing space
 }

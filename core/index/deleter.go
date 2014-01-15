@@ -1,5 +1,10 @@
 package index
 
+import (
+	"github.com/balzaczyy/golucene/core/store"
+	"github.com/balzaczyy/golucene/core/util"
+)
+
 // index/IndexDeletionPolicy.java
 
 /*
@@ -136,6 +141,20 @@ Note that you must hold the write.lock before instantiating this
 class. It opens segments_N file(s) directly with no retry logic.
 */
 type IndexFileDeleter struct {
+	startingCommitDeleted bool
+	lastSegmentInfos      *SegmentInfos
+}
+
+/*
+Initialize the deleter: find all previous commits in the Directory,
+incref the files they reference, call the policy to let it delete
+commits. This will remove any files not referenced by any of the
+commits.
+*/
+func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
+	segmentInfos *SegmentInfos, infoStream util.InfoStream, writer *IndexWriter,
+	initialIndexExists bool) (deleter *IndexFileDeleter, err error) {
+	panic("not implemented yet")
 }
 
 //L432

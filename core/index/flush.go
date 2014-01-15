@@ -1,5 +1,10 @@
 package index
 
+import (
+	"github.com/balzaczyy/golucene/core/util"
+	"sync"
+)
+
 /*
 FlushPlicy controls when segments are flushed from a RAM resident
 internal data-structure to the IndexWriter's Directory.
@@ -20,9 +25,34 @@ and mark it as flush-pending via DocumentsWriterFlushControl.SetFLushingPending(
 or if deletes need to be applied.
 */
 type FlushPolicy interface {
+	// Called for each delete term. If this is a delte triggered due to
+	// an update the given ThreadState is non-nil.
+	//
+	// Note: this method is called synchronized on the given
+	// DocumentsWriterFlushControl and it is guaranteed that the
+	// calling goroutine holds the lock on the given ThreadState
+	// OnDelete(control *DocumentsWriterFlushControl, state *ThreadState)
+	// Called by DocumentsWriter to initialize the FlushPolicy
+	init(indexWriterConfig *LiveIndexWriterConfig)
 }
 
 type FlushPolicyImpl struct {
+	sync.Locker
+	indexWriterConfig *LiveIndexWriterConfig
+	infoStream        util.InfoStream
+}
+
+func newFlushPolicyImpl() *FlushPolicyImpl {
+	return &FlushPolicyImpl{
+		Locker: &sync.Mutex{},
+	}
+}
+
+func (fp *FlushPolicyImpl) init(indexWriterConfig *LiveIndexWriterConfig) {
+	fp.Lock() // synchronized
+	defer fp.Unlock()
+	fp.indexWriterConfig = indexWriterConfig
+	fp.infoStream = indexWriterConfig.infoStream
 }
 
 // index/FlushByRamOrCountsPolicy.java
@@ -50,8 +80,11 @@ DocumentsWriterPerThread will be marked as pending iff the global
 active RAM consumption is >= the configured max RAM buffer.
 */
 type FlushByRamOrCountsPolicy struct {
+	*FlushPolicyImpl
 }
 
 func newFlushByRamOrCountsPolicy() *FlushByRamOrCountsPolicy {
-	return &FlushByRamOrCountsPolicy{}
+	return &FlushByRamOrCountsPolicy{
+		FlushPolicyImpl: newFlushPolicyImpl(),
+	}
 }

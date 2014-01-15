@@ -2,6 +2,7 @@ package index
 
 import (
 	"container/list"
+	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
 	"github.com/balzaczyy/golucene/core/store"
@@ -167,6 +168,35 @@ func newLiveIndexWriterConfig(analyzer analysis.Analyzer, matchVersion util.Vers
 	}
 }
 
+// Creates a new config that handles the live IndexWriter settings.
+func newLiveIndexWriterConfigFrom(config *IndexWriterConfig) *LiveIndexWriterConfig {
+	return &LiveIndexWriterConfig{
+		maxBufferedDeleteTerms:  config.maxBufferedDeleteTerms,
+		maxBufferedDocs:         config.maxBufferedDocs,
+		mergedSegmentWarmer:     config.mergedSegmentWarmer,
+		ramBufferSizeMB:         config.ramBufferSizeMB,
+		readerTermsIndexDivisor: config.readerTermsIndexDivisor,
+		termIndexInterval:       config.termIndexInterval,
+		matchVersion:            config.matchVersion,
+		analyzer:                config.analyzer,
+		delPolicy:               config.delPolicy,
+		commit:                  config.commit,
+		openMode:                config.openMode,
+		similarity:              config.similarity,
+		mergeScheduler:          config.mergeScheduler,
+		writeLockTimeout:        config.writeLockTimeout,
+		indexingChain:           config.indexingChain,
+		codec:                   config.codec,
+		infoStream:              config.infoStream,
+		mergePolicy:             config.mergePolicy,
+		indexerThreadPool:       config.indexerThreadPool,
+		readerPooling:           config.readerPooling,
+		flushPolicy:             config.flushPolicy,
+		perRoutineHardLimitMB:   config.perRoutineHardLimitMB,
+		useCompoundFile:         config.useCompoundFile,
+	}
+}
+
 // L358
 /*
 Determines the minimal number of documents required before the
@@ -190,6 +220,16 @@ func (conf *LiveIndexWriterConfig) SetMaxBufferedDocs(maxBufferedDocs int) *Live
 	assert2(maxBufferedDocs != DISABLE_AUTO_FLUSH || conf.ramBufferSizeMB != DISABLE_AUTO_FLUSH,
 		"at least one of ramBufferSize and maxBufferedDocs must be enabled")
 	conf.maxBufferedDocs = maxBufferedDocs
+	return conf
+}
+
+/*
+Sets the merged segment warmer.
+
+Take effect on the next merge.
+*/
+func (conf *LiveIndexWriterConfig) SetMergedSegmentWarmer(mergeSegmentWarmer IndexReaderWarmer) *LiveIndexWriterConfig {
+	conf.mergedSegmentWarmer = mergeSegmentWarmer
 	return conf
 }
 
@@ -417,7 +457,8 @@ func (conf *IndexWriterConfig) SetMaxBufferedDocs(maxBufferedDocs int) *IndexWri
 }
 
 func (conf *IndexWriterConfig) SetMergedSegmentWarmer(mergeSegmentWarmer IndexReaderWarmer) *IndexWriterConfig {
-	panic("not implemented yet")
+	conf.LiveIndexWriterConfig.SetMergedSegmentWarmer(mergeSegmentWarmer)
+	return conf
 }
 
 func (conf *IndexWriterConfig) SetReaderTermsIndexDivisor(divisor int) *IndexWriterConfig {
@@ -435,6 +476,9 @@ func (conf *IndexWriterConfig) String() string {
 }
 
 // index/IndexWriter.java
+
+// Name of the write lock in the index.
+const WRITE_LOCK_NAME = "write.lock"
 
 /*
 Absolute hard maximum length for a term, in bytes once encoded as
@@ -469,12 +513,19 @@ type IndexWriter struct {
 	directory store.Directory   // where this index resides
 	analyzer  analysis.Analyzer // how to analyze text
 
-	segmentInfos *SegmentInfos
+	rollbackSegments []*SegmentInfoPerCommit // list of segmentInfo we will fallback to if the commit fails
 
-	deleter *IndexFileDeleter
+	segmentInfos         *SegmentInfos // the segments
+	globalFieldNumberMap *FieldNumbers
+
+	docWriter  *DocumentsWriter
+	eventQueue *list.List
+	deleter    *IndexFileDeleter
 
 	// used by forceMerge to note those needing merging
 	segmentsToMerge map[*SegmentInfoPerCommit]bool
+
+	writeLock store.Lock
 
 	closed  bool // volatile
 	closing bool // volatile
@@ -482,6 +533,7 @@ type IndexWriter struct {
 	// Holds all SegmentInfo instances currently involved in merges
 	mergingSegments map[*SegmentInfoPerCommit]bool
 
+	mergePolicy     MergePolicy
 	mergeScheduler  MergeScheduler
 	pendingMerges   *list.List
 	runningMerges   map[*OneMerge]bool
@@ -490,7 +542,23 @@ type IndexWriter struct {
 	flushCount        int // atomic
 	flushDeletesCount int // atomic
 
-	readerPool *ReaderPool
+	readerPool            *ReaderPool
+	bufferedDeletesStream *BufferedDeletesStream
+
+	// This is a "write once" variable (like the organic dye on a DVD-R
+	// that may or may not be heated by a laser and then cooled to
+	// permanently record the event): it's false, until Reader() is
+	// called for the first time, at which point it's switched to true
+	// and never changes back to false. Once this is true, we hold open
+	// and reuse SegmentReader instances internally for applying
+	// deletes, doing merges, and reopening near real-time readers.
+	poolReaders bool
+
+	// The instance that we passed to the constructor. It is saved only
+	// in order to allow users to query an IndexWriter settings.
+	config *LiveIndexWriterConfig
+
+	codec Codec // for writing new segments
 
 	// If non-nil, information about merges will be printed to this.
 	infoStream util.InfoStream
@@ -505,10 +573,13 @@ type IndexWriter struct {
 
 	// Used only by commit and prepareCommit, below; lock order is
 	// commitLock -> IW
-	commitLock *sync.Locker
+	commitLock sync.Locker
 
 	// Ensures only one flush() is actually flushing segments at a time:
-	fullFlushLock *sync.Locker
+	fullFlushLock sync.Locker
+
+	// Called internally if any index state has changed.
+	changed chan bool
 }
 
 // L421
@@ -589,10 +660,130 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 		pendingMerges:   list.New(),
 		runningMerges:   make(map[*OneMerge]bool),
 		mergeExceptions: make([]*OneMerge, 0),
+
+		config:         newLiveIndexWriterConfigFrom(conf),
+		directory:      d,
+		analyzer:       conf.analyzer,
+		infoStream:     conf.infoStream,
+		mergePolicy:    conf.mergePolicy,
+		mergeScheduler: conf.mergeScheduler,
+		codec:          conf.codec,
+
+		bufferedDeletesStream: newBufferedDeletesStream(conf.infoStream),
+		poolReaders:           conf.readerPooling,
+
+		writeLock: d.MakeLock(WRITE_LOCK_NAME),
 	}
 	ans.readerPool = newReaderPool(ans)
 
-	panic("not implemented yet")
+	conf.setIndexWriter(ans)
+	ans.mergePolicy.SetIndexWriter(ans)
+
+	// obtain write lock
+	if ok, err := ans.writeLock.ObtainWithin(conf.writeLockTimeout); !ok || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New(fmt.Sprintf("Index locked for write: %v", ans.writeLock))
+	}
+
+	var success bool = false
+	defer func() {
+		if !success {
+			ans.infoStream.Message("IW", "init: hit exception on init; releasing write lock")
+			ans.writeLock.Release() // don't mask the original exception
+			ans.writeLock = nil
+		}
+	}()
+
+	var create bool
+	switch conf.openMode {
+	case OPEN_MODE_CREATE:
+		create = true
+	case OPEN_MODE_APPEND:
+		create = false
+	default:
+		// CREATE_OR_APPEND - create only if an index does not exist
+		ok, err := IsIndexExists(d)
+		if err != nil {
+			return nil, err
+		}
+		create = !ok
+	}
+
+	// If index is too old, reading the segments will return
+	// IndexFormatTooOldError
+	ans.segmentInfos = &SegmentInfos{}
+
+	var initialIndexExists bool = true
+
+	if create {
+		// Try to read first. This is to allow create against an index
+		// that's currently open for searching. In this case we write the
+		// next segments_N file with no segments:
+		err = ans.segmentInfos.ReadAll(d)
+		if err == nil {
+			ans.segmentInfos.Clear()
+		} else {
+			// Likely this means it's a fresh directory
+			initialIndexExists = false
+			err = nil
+		}
+
+		// Record that we have a change (zero out all segments) pending:
+		ans.changed <- true
+	} else {
+		err = ans.segmentInfos.ReadAll(d)
+		if err != nil {
+			return
+		}
+
+		if commit := conf.commit; commit != nil {
+			// Swap out all segments, but, keep metadta in SegmentInfos,
+			// like version & generation, to preserve write-once. This is
+			// important if readers are open against the future commit
+			// points.
+			assert2(commit.Directory() == d,
+				"IndexCommit's directory doesn't match my directory")
+			oldInfos := &SegmentInfos{}
+			ans.segmentInfos.replace(oldInfos)
+			ans.changed <- true
+			ans.infoStream.Message("IW", fmt.Sprintf(
+				"init: loaded commit '%v'", commit.SegmentsFileName()))
+		}
+	}
+
+	ans.rollbackSegments = ans.segmentInfos.createBackupSegmentInfos()
+
+	// start with previous field numbers, but new FieldInfos
+	ans.globalFieldNumberMap, err = ans.fieldNumberMap()
+	if err != nil {
+		return
+	}
+	ans.config.flushPolicy.init(ans.config)
+	ans.docWriter = newDocumentsWriter(ans, ans.config, d)
+	ans.eventQueue = ans.docWriter.events
+
+	// Default deleter (for backwards compatibility) is
+	// KeepOnlyLastCommitDeleter:
+	ans.deleter, err = newIndexFileDeleter(d, conf.delPolicy,
+		ans.segmentInfos, ans.infoStream, ans, initialIndexExists)
+	if err != nil {
+		return
+	}
+
+	if ans.deleter.startingCommitDeleted {
+		// Deletion policy deleted the "head" commit point. We have to
+		// mark outsef as changed so that if we are closed w/o any
+		// further changes we write a new segments_N file.
+		ans.changed <- true
+	}
+
+	ans.infoStream.Message("IW", fmt.Sprintf("init: create=%v", create))
+	ans.messageState()
+
+	success = true
+	return ans, nil
 }
 
 func (w *IndexWriter) fieldInfos(info *SegmentInfo) (infos FieldInfos, err error) {
@@ -652,7 +843,7 @@ close the writer, again. See above for details. But it's probably
 impossible for GoLucene.
 */
 func (w *IndexWriter) Close() error {
-	panic("not implemented yet")
+	return w.CloseAndWait(true)
 }
 
 /*
@@ -670,6 +861,7 @@ in "merge starvation" whereby long merges will never have a chance to
 finish. This will cause too many segments in your index over time.
 */
 func (w *IndexWriter) CloseAndWait(waitForMerge bool) error {
+	// Ensure that only one thread actaully
 	panic("not implemented yet")
 }
 
@@ -915,15 +1107,8 @@ referenced exist (correctly) in the index directory.
 func (w *IndexWriter) checkpoint() error {
 	w.Lock() // synchronized
 	defer w.Unlock()
-	w.changed()
+	w.changed <- true
 	return w.deleter.checkpoint(w.segmentInfos, false)
-}
-
-// Called internally if any index state has changed.
-func (w *IndexWriter) changed() {
-	w.Lock() // synchronized
-	defer w.Unlock()
-	panic("not implemented yet")
 }
 
 /*
@@ -1148,3 +1333,42 @@ Used by IndexWriter to hold open SegmentReaders (for searching or
 merging), plus pending deletes, for a given segment.
 */
 type ReadersAndLiveDocs struct{}
+
+// index/BufferedDeletesStream.java
+
+/*
+Tracks the stream of BufferedDeletes. When DocumentsWriterPerThread
+flushes, its buffered deletes are appended to this stream. We later
+apply these deletes (resolve them to the actual docIDs, per segment)
+when a merge is started (only to the to-be-merged segments). We also
+apply to all segments when NRT reader is pulled, commit/close is
+called, or when too many deletes are buffered and must be flushed (by
+RAM usage or by count).
+
+Each packet is assigned a generation, and each flushed or merged
+segment is also assigned a generation, so we can track when
+BufferedDeletes packets to apply to any given segment.
+*/
+type BufferedDeletesStream struct {
+	// TODO: maybe linked list?
+	deletes []*FrozenBufferedDeletes
+
+	// Starts at 1 so that SegmentInfos that have never had deletes
+	// applied (whose bufferedDelGen defaults to 0) will be correct:
+	nextGen int64
+
+	// used only by assert
+	lastDeleteTerm *Term
+
+	infoStream util.InfoStream
+	bytesUsed  int64 // atomic
+	numTerms   int   // atomic
+}
+
+func newBufferedDeletesStream(infoStream util.InfoStream) *BufferedDeletesStream {
+	return &BufferedDeletesStream{
+		deletes:    make([]*FrozenBufferedDeletes, 0),
+		nextGen:    1,
+		infoStream: infoStream,
+	}
+}
