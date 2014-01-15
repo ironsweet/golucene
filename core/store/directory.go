@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 )
 
 const (
@@ -102,8 +103,29 @@ func NewLockImpl(self Lock) *LockImpl {
 	return &LockImpl{self: self}
 }
 
-func (lock *LockImpl) ObtainWithin(lockWaitTimeout int64) (ok bool, err error) {
-	panic("not implemented yet")
+func (lock *LockImpl) ObtainWithin(lockWaitTimeout int64) (locked bool, err error) {
+	lock.failureReason = nil
+	locked, err = lock.self.Obtain()
+	if err != nil {
+		return
+	}
+	assert2(lockWaitTimeout >= 0 || lockWaitTimeout == LOCK_OBTAIN_WAIT_FOREVER, fmt.Sprintf(
+		"lockWaitTimeout should be LOCK_OBTAIN_WAIT_FOREVER or a non-negative number (got %v)", lockWaitTimeout))
+
+	maxSleepCount := lockWaitTimeout / LOCK_POOL_INTERVAL
+	for sleepCount := int64(0); !locked; locked, err = lock.self.Obtain() {
+		if lockWaitTimeout != LOCK_OBTAIN_WAIT_FOREVER && sleepCount >= maxSleepCount {
+			reason := fmt.Sprintf("Lock obtain time out: %v", lock)
+			if lock.failureReason != nil {
+				reason = fmt.Sprintf("%v: %v", reason, lock.failureReason)
+			}
+			err = errors.New(reason)
+			return
+		}
+		sleepCount++
+		time.Sleep(LOCK_POOL_INTERVAL * time.Millisecond)
+	}
+	return
 }
 
 // Utility to execute code with exclusive access.
