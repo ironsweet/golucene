@@ -126,7 +126,29 @@ func newMergePolicy(r *rand.Rand) index.MergePolicy {
 
 // L883
 func newTieredMergePolicy(r *rand.Rand) *index.TieredMergePolicy {
-	panic("not implemented yet")
+	tmp := index.NewTieredMergePolicy()
+	if Rarely(r) {
+		tmp.SetMaxMergeAtOnce(NextInt(r, 2, 9))
+		tmp.SetMaxMergeAtOnceExplicit(NextInt(r, 2, 9))
+	} else {
+		tmp.SetMaxMergeAtOnce(NextInt(r, 10, 50))
+		tmp.SetMaxMergeAtOnceExplicit(NextInt(r, 10, 50))
+	}
+	if Rarely(r) {
+		tmp.SetMaxMergedSegmentMB(0.2 + r.Float64()*100)
+	} else {
+		tmp.SetMaxMergedSegmentMB(r.Float64() * 100)
+	}
+	tmp.SetFloorSegmentMB(0.2 + r.Float64()*2)
+	tmp.SetForceMergeDeletesPctAllowed(0 + r.Float64()*30)
+	if Rarely(r) {
+		tmp.SetSegmentsPerTier(float64(NextInt(r, 2, 20)))
+	} else {
+		tmp.SetSegmentsPerTier(float64(NextInt(r, 10, 50)))
+	}
+	configureRandom(r, tmp)
+	tmp.SetReclaimDeletesWeight(r.Float64() * 4)
+	return tmp
 }
 
 func newAlcoholicMergePolicy(r *rand.Rand /*, tz TimeZone*/) *ti.AlcoholicMergePolicy {

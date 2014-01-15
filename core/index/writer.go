@@ -160,7 +160,7 @@ func newLiveIndexWriterConfig(analyzer analysis.Analyzer, matchVersion util.Vers
 		indexingChain:           defaultIndexingChain,
 		codec:                   DefaultCodec(),
 		infoStream:              util.DefaultInfoStream(),
-		mergePolicy:             newTieredMergePolicy(),
+		mergePolicy:             NewTieredMergePolicy(),
 		flushPolicy:             newFlushByRamOrCountsPolicy(),
 		readerPooling:           DEFAULT_READER_POOLING,
 		indexerThreadPool:       newThreadAffinityDocumentsWriterPerThreadPool(DEFAULT_MAX_THREAD_STATES),
@@ -357,7 +357,10 @@ problem, you should switch to LogByteSizeMergePolicy or
 LogDocMergePolicy.
 */
 func NewIndexWriterConfig(matchVersion util.Version, analyzer analysis.Analyzer) *IndexWriterConfig {
-	return &IndexWriterConfig{LiveIndexWriterConfig: newLiveIndexWriterConfig(analyzer, matchVersion)}
+	return &IndexWriterConfig{
+		LiveIndexWriterConfig: newLiveIndexWriterConfig(analyzer, matchVersion),
+		writer:                util.NewSetOnce(),
+	}
 }
 
 func (conf *IndexWriterConfig) Clone() *IndexWriterConfig {

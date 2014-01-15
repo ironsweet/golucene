@@ -380,7 +380,7 @@ type TieredMergePolicy struct {
 	reclaimDeletesWeight        float64
 }
 
-func newTieredMergePolicy() *TieredMergePolicy {
+func NewTieredMergePolicy() *TieredMergePolicy {
 	return &TieredMergePolicy{
 		MergePolicyImpl:             newMergePolicyImpl(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE),
 		maxMergeAtOnce:              10,
@@ -391,6 +391,93 @@ func newTieredMergePolicy() *TieredMergePolicy {
 		forceMergeDeletesPctAllowed: 10,
 		reclaimDeletesWeight:        2,
 	}
+}
+
+/*
+Maximum number of segments to be merged at a time during "normal"
+merging. For explicit merging (e.g., forceMerge or forceMergeDeletes
+was called), see SetMaxMergeAtonceExplicit(). Default is 10.
+*/
+func (tmp *TieredMergePolicy) SetMaxMergeAtOnce(v int) *TieredMergePolicy {
+	assert2(v >= 2, fmt.Sprintf("maxMergeAtonce must be > 1 (got %v)", v))
+	tmp.maxMergeAtOnce = v
+	return tmp
+}
+
+/*
+Maximum number of segments to be merged at a time, during forceMerge
+or forceMergeDeletes. Default is 30.
+*/
+func (tmp *TieredMergePolicy) SetMaxMergeAtOnceExplicit(v int) *TieredMergePolicy {
+	assert2(v >= 2, fmt.Sprintf("maxMergeAtonceExplicit must be > 1 (got %v)", v))
+	tmp.maxMergeAtOnceExplicit = v
+	return tmp
+}
+
+/*
+Maximum sized segment to produce during normal merging. This setting
+is approximate: the estimate of the merged segment size is made by
+summing sizes of to-be-merged segments(compensating for percent
+deleted docs). Default is 5 GB.
+*/
+func (tmp *TieredMergePolicy) SetMaxMergedSegmentMB(v float64) *TieredMergePolicy {
+	assert2(v >= 0, fmt.Sprintf("maxMergedSegmentMB must be >= 0 (got %v)", v))
+	v *= 1024 * 1024
+	tmp.maxMergedSegmentBytes = math.MaxInt64
+	if v < math.MaxInt64 {
+		tmp.maxMergedSegmentBytes = int64(v)
+	}
+	return tmp
+}
+
+/*
+Controls how aggressively merges that reclaim more deletions are
+favored. Higher values favor selecting merges that reclaim deletions.
+A value of 0 means deletions don't impact merge selection.
+*/
+func (tmp *TieredMergePolicy) SetReclaimDeletesWeight(v float64) *TieredMergePolicy {
+	assert2(v >= 0, fmt.Sprintf("reclaimDeletesWeight must be >= 0 (got %v)", v))
+	tmp.reclaimDeletesWeight = v
+	return tmp
+}
+
+/*
+Segments smaller than this are "rounded up" to this size, ie treated
+as equal (floor) size for merge selection. This is to prevent
+frequent flushing of tiny segments from allowing a long tail in the
+index. Default is 2 MB.
+*/
+func (tmp *TieredMergePolicy) SetFloorSegmentMB(v float64) *TieredMergePolicy {
+	assert2(v > 0, fmt.Sprintf("floorSegmentMB must be > 0 (got %v)", v))
+	v *= 1024 * 1024
+	tmp.floorSegmentBytes = math.MaxInt64
+	if v < math.MaxInt64 {
+		tmp.floorSegmentBytes = int64(v)
+	}
+	return tmp
+}
+
+/*
+When forceMergeDeletes is called, we only merge away a segment if its
+delete percentage is over this threshold. Default is 10%.
+*/
+func (tmp *TieredMergePolicy) SetForceMergeDeletesPctAllowed(v float64) *TieredMergePolicy {
+	assert2(v >= 0 && v <= 100, fmt.Sprintf("forceMergeDeletesPctAllowed must be between 0 and 100 inclusive (got %v)", v))
+	tmp.forceMergeDeletesPctAllowed = v
+	return tmp
+}
+
+/*
+Sets the allowed number of segments per tier. Smaller values mean
+more merging but fewer segments.
+
+NOTE: this value should be >= the SetMaxMergeAtOnce otherwise you'll
+force too much merging to occur.
+*/
+func (tmp *TieredMergePolicy) SetSegmentsPerTier(v float64) *TieredMergePolicy {
+	assert2(v >= 2, fmt.Sprintf("segmentsPerTier must be >= 2 (got %v)", v))
+	tmp.segsPerTier = v
+	return tmp
 }
 
 // index/LogMergePolicy.java
