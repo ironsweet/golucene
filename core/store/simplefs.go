@@ -9,6 +9,8 @@ import (
 	"sync"
 )
 
+// store/SimpleFSLockFactory.java
+
 type SimpleFSLock struct {
 	*LockImpl
 	file, dir string
@@ -24,7 +26,30 @@ func newSimpleFSLock(lockDir, lockFileName string) *SimpleFSLock {
 }
 
 func (lock *SimpleFSLock) Obtain() (ok bool, err error) {
-	panic("not implemented yet")
+	// Ensure that lockDir exists and is a directory:
+	var fi os.FileInfo
+	fi, err = os.Stat(lock.dir)
+	if err == nil { // exists
+		if !fi.IsDir() {
+			err = errors.New(fmt.Sprintf("Found regular file where directory expected: %v", lock.dir))
+			return
+		}
+	} else if !os.IsExist(err) {
+		err = os.Mkdir(lock.dir, 0600)
+		if err != nil { // IO error
+			return
+		}
+	} else { // IO error
+		return
+	}
+	var f *os.File
+	if f, err = os.OpenFile(filepath.Join(lock.dir, lock.file), os.O_CREATE, 0666); err == nil {
+		log.Println("File '%v' is created.", f)
+		ok = true
+		defer f.Close()
+	}
+	return
+
 }
 
 func (lock *SimpleFSLock) Release() {
@@ -43,6 +68,22 @@ func (lock *SimpleFSLock) String() string {
 	return fmt.Sprintf("SimpleFSLock@%v", lock.file)
 }
 
+/*
+Implements LockFactory using os.Create().
+
+NOTE: This API may has the same issue as the one in Lucene Java that
+the write lock may not be released when Go program exists abnormally.
+
+When this happens, an error is returned when trying to create a
+writer, in which case you need to explicitly clear the lock file
+first. You can either manually remove the file, or use
+UnlockDirectory() API. But, first be certain that no writer is in
+fact writing to the index otherwise you can easily corrupt your index.
+
+If you suspect that this or any other LockFactory is not working
+properly in your environment, you can easily test it by using
+VerifyingLockFactory, LockVerifyServer and LockStressTest.
+*/
 type SimpleFSLockFactory struct {
 	*FSLockFactory
 }

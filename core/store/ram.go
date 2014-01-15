@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -165,17 +166,71 @@ RAMDirectory.
 */
 type SingleInstanceLockFactory struct {
 	*LockFactoryImpl
-	locks map[string]bool
+	locksLock sync.Locker
+	locks     map[string]bool
 }
 
 func newSingleInstanceLockFactory() *SingleInstanceLockFactory {
-	return &SingleInstanceLockFactory{LockFactoryImpl: &LockFactoryImpl{}}
+	return &SingleInstanceLockFactory{
+		LockFactoryImpl: &LockFactoryImpl{},
+		locksLock:       &sync.Mutex{},
+		locks:           make(map[string]bool),
+	}
 }
 
 func (fac *SingleInstanceLockFactory) Make(name string) Lock {
-	panic("not implemented yet")
+	// We do not use the LockPrefix at all, becaues the private map
+	// instance effectively scopes the locking to this single Directory
+	// instance.
+	return newSingleInstanceLock(fac.locks, fac.locksLock, name)
 }
 
 func (fac *SingleInstanceLockFactory) Clear(name string) error {
-	panic("not implemented yet")
+	fac.locksLock.Lock() // synchronized
+	defer fac.locksLock.Unlock()
+	if _, ok := fac.locks[name]; ok {
+		delete(fac.locks, name)
+	}
+	return nil
+}
+
+type SingleInstanceLock struct {
+	*LockImpl
+	name      string
+	locksLock sync.Locker
+	locks     map[string]bool
+}
+
+func newSingleInstanceLock(locks map[string]bool, locksLock sync.Locker, name string) *SingleInstanceLock {
+	ans := &SingleInstanceLock{
+		name:      name,
+		locksLock: locksLock,
+		locks:     locks,
+	}
+	ans.LockImpl = NewLockImpl(ans)
+	return ans
+}
+
+func (lock *SingleInstanceLock) Obtain() (ok bool, err error) {
+	lock.locksLock.Lock() // synchronized
+	defer lock.locksLock.Unlock()
+	lock.locks[lock.name] = true
+	return true, nil
+}
+
+func (lock *SingleInstanceLock) Release() {
+	lock.locksLock.Lock() // synchronized
+	defer lock.locksLock.Unlock()
+	delete(lock.locks, lock.name)
+}
+
+func (lock *SingleInstanceLock) IsLocked() bool {
+	lock.locksLock.Lock() // synchronized
+	defer lock.locksLock.Unlock()
+	_, ok := lock.locks[lock.name]
+	return ok
+}
+
+func (lock *SingleInstanceLock) String() string {
+	return fmt.Sprintf("SingleInstanceLock: %v", lock.name)
 }
