@@ -575,6 +575,20 @@ func (mp *LogMergePolicy) Close() error {
 }
 
 /*
+Return the number of documents in the provided SegmentInfoPerCommit,
+pro-rated by percentage of non-deleted documents if
+SetCalibrateSizeByDeletes() is set.
+*/
+func (mp *LogMergePolicy) sizeDocs(info *SegmentInfoPerCommit) (n int64, err error) {
+	if mp.calibrateSizeByDeletes {
+		delCount := mp.writer.Get().(*IndexWriter).numDeletedDocs(info)
+		assert(delCount <= int(info.info.docCount))
+		return int64(int(info.info.docCount) - delCount), nil
+	}
+	return int64(info.info.docCount), nil
+}
+
+/*
 Return the byte size of the provided SegmentInfoPerCommit, pro-rated
 by percentage of non-deleted documents if SetCalibratedSizeByDeletes()
 is set.
@@ -724,15 +738,31 @@ func (mp LogMergePolicy) String() string {
 
 // index/LogDocMergePolicy.java
 
+// Default minimum segment size.
+const DEFAULT_MIN_MERGE_DOCS = 1000
+
 /*
 This is a LogMergePolicy that measures size of a segment as the
 number of  documents (not taking deletions into account).
 */
 type LogDocMergePolicy struct {
+	*LogMergePolicy
 }
 
 func NewLogDocMergePolicy() *LogMergePolicy {
-	panic("not implemented yet")
+	ans := &LogDocMergePolicy{
+		LogMergePolicy: newLogMergePolicy(),
+	}
+	ans.size = func(info *SegmentInfoPerCommit) (n int64, err error) {
+		return ans.sizeDocs(info)
+	}
+
+	// maxMergeSize(ForForcedMerge) are never used by LogDocMergePolicy;
+	// set it to math.MaxInt64 to disable it
+	ans.minMergeSize = DEFAULT_MIN_MERGE_DOCS
+	ans.maxMergeSize = math.MaxInt64
+	ans.maxMergeSizeForForcedMerge = math.MaxInt64
+	return ans.LogMergePolicy
 }
 
 // index/LogByteSizeMergePolicy.java
