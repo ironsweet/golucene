@@ -693,7 +693,9 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 	var success bool = false
 	defer func() {
 		if !success {
-			ans.infoStream.Message("IW", "init: hit exception on init; releasing write lock")
+			if ans.infoStream.IsEnabled("IW") {
+				ans.infoStream.Message("IW", "init: hit exception on init; releasing write lock")
+			}
 			ans.writeLock.Release() // don't mask the original exception
 			ans.writeLock = nil
 		}
