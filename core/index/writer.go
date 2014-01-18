@@ -731,7 +731,8 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 
 		writeLock: d.MakeLock(WRITE_LOCK_NAME),
 
-		changed: make(chan bool),
+		commitLock: &sync.Mutex{},
+		changed:    make(chan bool),
 	}
 	ans.readerPool = newReaderPool(ans)
 

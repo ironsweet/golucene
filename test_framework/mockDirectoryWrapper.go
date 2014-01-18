@@ -438,7 +438,7 @@ func (w *MockDirectoryWrapper) MakeLock(name string) store.Lock {
 	defer w.Unlock()
 
 	w.maybeYield()
-	return w.LockFactory().Make(name)
+	return w.lockFactory().Make(name)
 }
 
 func (w *MockDirectoryWrapper) ClearLock(name string) error {
@@ -446,7 +446,7 @@ func (w *MockDirectoryWrapper) ClearLock(name string) error {
 	defer w.Unlock()
 
 	w.maybeYield()
-	return w.LockFactory().Clear(name)
+	return w.lockFactory().Clear(name)
 }
 
 func (w *MockDirectoryWrapper) SetLockFactory(lockFactory store.LockFactory) {
@@ -468,6 +468,10 @@ func (w *MockDirectoryWrapper) LockFactory() store.LockFactory {
 	w.Lock() // synchronized
 	defer w.Unlock()
 
+	return w.lockFactory()
+}
+
+func (w *MockDirectoryWrapper) lockFactory() store.LockFactory {
 	w.maybeYield()
 	if w.wrapLockFactory {
 		return w.self.LockFactory()
