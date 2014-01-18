@@ -1,7 +1,9 @@
 package store
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"sync"
 )
 
@@ -87,7 +89,11 @@ func (rd *RAMDirectory) Sync(names []string) error {
 
 // Returns a stream reading an existing file.
 func (rd *RAMDirectory) OpenInput(name string, context IOContext) (in IndexInput, err error) {
-	panic("not implemented yet")
+	rd.ensureOpen()
+	if file, ok := rd.fileMap[name]; ok {
+		return newRAMInputStream(name, file)
+	}
+	return nil, errors.New(name)
 }
 
 // Closes the store to future operations, releasing associated memroy.
@@ -233,4 +239,118 @@ func (lock *SingleInstanceLock) IsLocked() bool {
 
 func (lock *SingleInstanceLock) String() string {
 	return fmt.Sprintf("SingleInstanceLock: %v", lock.name)
+}
+
+// store/RAMInputStream.java
+
+// A memory-resident IndexInput implementation.
+type RAMInputStream struct {
+	*IndexInputImpl
+
+	file   *RAMFile
+	length int64
+
+	currentBuffer      []byte
+	currentBufferIndex int
+
+	bufferPosition int
+	bufferStart    int64
+	bufferLength   int
+}
+
+func newRAMInputStream(name string, f *RAMFile) (in *RAMInputStream, err error) {
+	if !(f.length/BUFFER_SIZE < math.MaxInt32) {
+		return nil, errors.New(fmt.Sprintf("RAMInputStream too large length=%v: %v", f.length, name))
+	}
+
+	in = &RAMInputStream{
+		file:               f,
+		length:             int64(f.length),
+		currentBufferIndex: -1,
+	}
+	in.IndexInputImpl = newIndexInputImpl(fmt.Sprintf("RAMInputStream(name=%v)", name), in)
+	return in, nil
+}
+
+func (in *RAMInputStream) Close() error {
+	return nil
+}
+
+func (in *RAMInputStream) ReadByte() (b byte, err error) {
+	if in.bufferPosition >= in.bufferLength {
+		in.currentBufferIndex++
+		err = in.switchCurrentBuffer(true)
+		if err != nil {
+			return
+		}
+	}
+	in.bufferPosition++
+	return in.currentBuffer[in.bufferPosition-1], nil
+}
+
+func (in *RAMInputStream) ReadBytes(buf []byte) (err error) {
+	for limit := len(buf); limit > 0; {
+		if in.bufferPosition >= in.bufferLength {
+			in.currentBufferIndex++
+			err = in.switchCurrentBuffer(true)
+			if err != nil {
+				return
+			}
+		}
+
+		bytesToCopy := in.bufferLength - in.bufferPosition
+		if limit < bytesToCopy {
+			bytesToCopy = limit
+		}
+		copy(buf, in.currentBuffer[in.bufferPosition:in.bufferPosition+bytesToCopy])
+		buf = buf[bytesToCopy:]
+		limit -= bytesToCopy
+		in.bufferPosition += bytesToCopy
+	}
+	return
+}
+
+func (in *RAMInputStream) switchCurrentBuffer(enforceEOF bool) error {
+	in.bufferStart = int64(BUFFER_SIZE * in.currentBufferIndex)
+	if in.currentBufferIndex >= in.file.numBuffers() {
+		// end of file reached, no more buffer left
+		if enforceEOF {
+			return errors.New(fmt.Sprintf("read past EOF: %v", in))
+		}
+		// Force EOF if a read takes place at this position
+		in.currentBufferIndex--
+		in.bufferPosition = BUFFER_SIZE
+	} else {
+		in.currentBuffer = in.file.Buffer(in.currentBufferIndex)
+		in.bufferPosition = 0
+		bufLen := in.length - in.bufferStart
+		if BUFFER_SIZE < bufLen {
+			bufLen = BUFFER_SIZE
+		}
+		in.bufferLength = int(bufLen)
+	}
+	return nil
+}
+
+func (in *RAMInputStream) FilePointer() int64 {
+	if in.currentBufferIndex < 0 {
+		return 0
+	}
+	return in.bufferStart + int64(in.bufferPosition)
+}
+
+func (in *RAMInputStream) Seek(pos int64) error {
+	if in.currentBuffer == nil || pos < in.bufferStart || pos >= in.bufferStart+BUFFER_SIZE {
+		in.currentBufferIndex = int(pos / BUFFER_SIZE)
+		err := in.switchCurrentBuffer(false)
+		if err != nil {
+			return err
+		}
+	}
+	in.bufferPosition = int(pos % BUFFER_SIZE)
+	return nil
+}
+
+func (in *RAMInputStream) Clone() IndexInput {
+	panic("not implemented yet")
 }
