@@ -97,12 +97,12 @@ func (visitor *DocumentStoredFieldVisitor) binaryField(fi FieldInfo, value []byt
 }
 
 func (visitor *DocumentStoredFieldVisitor) stringField(fi FieldInfo, value string) error {
-	ft := newFieldTypeFrom(TEXT_FIELD_TYPE_STORED)
-	ft._storeTermVectors = fi.storeTermVector
-	ft._indexed = fi.indexed
+	ft := NewFieldTypeFrom(TEXT_FIELD_TYPE_STORED)
+	ft.storeTermVectors = fi.storeTermVector
+	ft.indexed = fi.indexed
 	ft._omitNorms = fi.omitNorms
 	ft._indexOptions = fi.indexOptions
-	visitor.doc.Add(newStringField(fi.name, value, ft))
+	visitor.doc.Add(NewStringField(fi.name, value, ft))
 	return nil
 }
 
@@ -151,31 +151,31 @@ const (
 
 // Describes the properties of a field.
 type FieldType struct {
-	_indexed                  bool
-	_stored                   bool
-	_tokenized                bool
-	_storeTermVectors         bool
-	_storeTermVectorOffsets   bool
-	_storeTermVectorPositions bool
-	_storeTermVectorPayloads  bool
-	_omitNorms                bool
-	_indexOptions             IndexOptions
-	numericType               NumericType
-	frozen                    bool
-	numericPrecisionStep      int
-	_docValueType             DocValuesType
+	indexed                  bool
+	stored                   bool
+	_tokenized               bool
+	storeTermVectors         bool
+	storeTermVectorOffsets   bool
+	storeTermVectorPositions bool
+	storeTermVectorPayloads  bool
+	_omitNorms               bool
+	_indexOptions            IndexOptions
+	numericType              NumericType
+	frozen                   bool
+	numericPrecisionStep     int
+	_docValueType            DocValuesType
 }
 
 // Create a new mutable FieldType with all of the properties from <code>ref</code>
-func newFieldTypeFrom(ref *FieldType) *FieldType {
+func NewFieldTypeFrom(ref *FieldType) *FieldType {
 	ft := newFieldType()
-	ft._indexed = ref._indexed
-	ft._stored = ref._stored
+	ft.indexed = ref.indexed
+	ft.stored = ref.stored
 	ft._tokenized = ref._tokenized
-	ft._storeTermVectors = ref._storeTermVectors
-	ft._storeTermVectorOffsets = ref._storeTermVectorOffsets
-	ft._storeTermVectorPositions = ref._storeTermVectorPositions
-	ft._storeTermVectorPayloads = ref._storeTermVectorPayloads
+	ft.storeTermVectors = ref.storeTermVectors
+	ft.storeTermVectorOffsets = ref.storeTermVectorOffsets
+	ft.storeTermVectorPositions = ref.storeTermVectorPositions
+	ft.storeTermVectorPayloads = ref.storeTermVectorPayloads
 	ft._omitNorms = ref._omitNorms
 	ft._indexOptions = ref._indexOptions
 	ft._docValueType = ref._docValueType
@@ -193,14 +193,33 @@ func newFieldType() *FieldType {
 	}
 }
 
-func (ft *FieldType) indexed() bool   { return ft._indexed }
-func (ft *FieldType) stored() bool    { return ft._stored }
-func (ft *FieldType) tokenized() bool { return ft._tokenized }
+func (ft *FieldType) checkIfFrozen() {
+	assert2(!ft.frozen, "this FieldType is already frozen and cannot be changed")
+}
 
-func (ft *FieldType) storeTermVectors() bool         { return ft._storeTermVectors }
-func (ft *FieldType) storeTermVectorOffsets() bool   { return ft._storeTermVectorOffsets }
-func (ft *FieldType) storeTermVectorPositions() bool { return ft._storeTermVectorPositions }
-func (ft *FieldType) storeTermVectorPayloads() bool  { return ft._storeTermVectorPayloads }
+func (ft *FieldType) Indexed() bool     { return ft.indexed }
+func (ft *FieldType) SetIndexed(v bool) { ft.checkIfFrozen(); ft.indexed = v }
+func (ft *FieldType) Stored() bool      { return ft.stored }
+func (ft *FieldType) SetStored(v bool)  { ft.checkIfFrozen(); ft.stored = v }
+func (ft *FieldType) tokenized() bool   { return ft._tokenized }
+
+func (ft *FieldType) StoreTermVectors() bool       { return ft.storeTermVectors }
+func (ft *FieldType) SetStoreTermVectors(v bool)   { ft.checkIfFrozen(); ft.storeTermVectors = v }
+func (ft *FieldType) StoreTermVectorOffsets() bool { return ft.storeTermVectorOffsets }
+func (ft *FieldType) SetStoreTermVectorOffsets(v bool) {
+	ft.checkIfFrozen()
+	ft.storeTermVectorOffsets = v
+}
+func (ft *FieldType) StoreTermVectorPositions() bool { return ft.storeTermVectorPositions }
+func (ft *FieldType) SetStoreTermVectorPositions(v bool) {
+	ft.checkIfFrozen()
+	ft.storeTermVectorPositions = v
+}
+func (ft *FieldType) StoreTermVectorPayloads() bool { return ft.storeTermVectorPayloads }
+func (ft *FieldType) SetStoreTermVectorPayloads(v bool) {
+	ft.checkIfFrozen()
+	ft.storeTermVectorPayloads = v
+}
 
 func (ft *FieldType) omitNorms() bool             { return ft._omitNorms }
 func (ft *FieldType) indexOptions() IndexOptions  { return ft._indexOptions }
@@ -209,10 +228,10 @@ func (ft *FieldType) docValueType() DocValuesType { return ft._docValueType }
 // Prints a Field for human consumption.
 func (ft *FieldType) String() string {
 	var buf bytes.Buffer
-	if ft.stored() {
+	if ft.Stored() {
 		buf.WriteString("stored")
 	}
-	if ft.indexed() {
+	if ft.Indexed() {
 		if buf.Len() > 0 {
 			buf.WriteString(",")
 		}
@@ -220,15 +239,15 @@ func (ft *FieldType) String() string {
 		if ft.tokenized() {
 			buf.WriteString(",tokenized")
 		}
-		if ft.storeTermVectors() {
+		if ft.StoreTermVectors() {
 			buf.WriteString(",termVector")
 		}
-		if ft.storeTermVectorOffsets() {
+		if ft.StoreTermVectorOffsets() {
 			buf.WriteString(",termVectorOffsets")
 		}
-		if ft.storeTermVectorPositions() {
+		if ft.StoreTermVectorPositions() {
 			buf.WriteString(",termVectorPosition")
-			if ft.storeTermVectorPayloads() {
+			if ft.StoreTermVectorPayloads() {
 				buf.WriteString(",termVectorPayloads")
 			}
 		}
@@ -271,10 +290,10 @@ type Field struct {
 }
 
 // Create field with String value
-func newStringField(name, value string, ft *FieldType) *Field {
-	assert2(ft._stored || ft._indexed,
+func NewStringField(name, value string, ft *FieldType) *Field {
+	assert2(ft.stored || ft.indexed,
 		"it doesn't make sense to have a field that is neither indexed nor stored")
-	assert2(ft._indexed || !ft._storeTermVectors,
+	assert2(ft.indexed || !ft.storeTermVectors,
 		"can not store term vector information for a field that is not indexed")
 	return &Field{_type: ft, _name: name, _data: value}
 }
@@ -343,7 +362,7 @@ var (
 	// Indexed, tokenized, not stored
 	TEXT_FIELD_TYPE_NOT_STORED = func() *FieldType {
 		ft := newFieldType()
-		ft._indexed = true
+		ft.indexed = true
 		ft._tokenized = true
 		ft.frozen = true
 		return ft
@@ -351,9 +370,9 @@ var (
 	// Indexed, tokenized, stored
 	TEXT_FIELD_TYPE_STORED = func() *FieldType {
 		ft := newFieldType()
-		ft._indexed = true
+		ft.indexed = true
 		ft._tokenized = true
-		ft._stored = true
+		ft.stored = true
 		ft.frozen = true
 		return ft
 	}()
@@ -368,7 +387,7 @@ type TextField struct {
 // Type for a stored-only field.
 var STORED_FIELD_TYPE = func() *FieldType {
 	ans := newFieldType()
-	ans._stored = true
+	ans.stored = true
 	return ans
 }()
 

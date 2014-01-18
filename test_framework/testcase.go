@@ -173,7 +173,7 @@ func newLogMergePolicy(r *rand.Rand) *index.LogMergePolicy {
 
 func configureRandom(r *rand.Rand, mergePolicy index.MergePolicy) {
 	if r.Intn(2) == 0 {
-		mergePolicy.SetNoCFSRatio(0.1 + r.Float64())
+		mergePolicy.SetNoCFSRatio(0.1 + r.Float64()*0.8)
 	} else if r.Intn(2) == 0 {
 		mergePolicy.SetNoCFSRatio(1.0)
 	} else {
@@ -252,7 +252,31 @@ func NewTextField(name, value string, stored bool) *index.Field {
 }
 
 func NewField(r *rand.Rand, name, value string, typ *index.FieldType) *index.Field {
-	panic("not implemented yet")
+	if Usually(r) || !typ.Indexed() {
+		// most of the time, don't modify the params
+		return index.NewStringField(name, value, typ)
+	}
+
+	newType := index.NewFieldTypeFrom(typ)
+	if !newType.Stored() && r.Intn(2) == 0 {
+		newType.SetStored(true) // randonly store it
+	}
+
+	if !newType.StoreTermVectors() && r.Intn(2) == 0 {
+		newType.SetStoreTermVectors(true)
+		if !newType.StoreTermVectorOffsets() {
+			newType.SetStoreTermVectorOffsets(r.Intn(2) == 0)
+		}
+		if !newType.StoreTermVectorPositions() {
+			newType.SetStoreTermVectorPositions(r.Intn(2) == 0)
+
+			if newType.StoreTermVectorPositions() && !newType.StoreTermVectorPayloads() && !PREFLEX_IMPERSONATION_IS_ACTIVE {
+				newType.SetStoreTermVectorPayloads(r.Intn(2) == 2)
+			}
+		}
+	}
+
+	return index.NewStringField(name, value, newType)
 }
 
 // Ian: Different from Lucene's default random class initializer, I have to

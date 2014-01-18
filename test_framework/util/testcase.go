@@ -140,6 +140,10 @@ func Rarely(random *rand.Rand) bool {
 	return random.Intn(100) >= min
 }
 
+func Usually(r *rand.Rand) bool {
+	return !Rarely(r)
+}
+
 func either(flag bool, value, orValue interface{}) interface{} {
 	if flag {
 		return value

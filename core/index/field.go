@@ -74,9 +74,9 @@ type IndexableField interface {
  */
 type IndexableFieldType interface {
 	/** True if this field should be indexed (inverted) */
-	indexed() bool
+	Indexed() bool
 	/** True if the field's value should be stored */
-	stored() bool
+	Stored() bool
 	/**
 	 * True if this field's value should be analyzed by the
 	 * {@link Analyzer}.
@@ -94,7 +94,7 @@ type IndexableFieldType interface {
 	 * <p>
 	 * This option is illegal if {@link #indexed()} returns false.
 	 */
-	storeTermVectors() bool
+	StoreTermVectors() bool
 	/**
 	 * True if this field's token character offsets should also
 	 * be stored into term vectors.
@@ -102,7 +102,7 @@ type IndexableFieldType interface {
 	 * This option is illegal if term vectors are not enabled for the field
 	 * ({@link #storeTermVectors()} is false)
 	 */
-	storeTermVectorOffsets() bool
+	StoreTermVectorOffsets() bool
 
 	/**
 	 * True if this field's token positions should also be stored
@@ -111,7 +111,7 @@ type IndexableFieldType interface {
 	 * This option is illegal if term vectors are not enabled for the field
 	 * ({@link #storeTermVectors()} is false).
 	 */
-	storeTermVectorPositions() bool
+	StoreTermVectorPositions() bool
 
 	/**
 	 * True if this field's token payloads should also be stored
@@ -120,7 +120,7 @@ type IndexableFieldType interface {
 	 * This option is illegal if term vector positions are not enabled
 	 * for the field ({@link #storeTermVectors()} is false).
 	 */
-	storeTermVectorPayloads() bool
+	StoreTermVectorPayloads() bool
 
 	/**
 	 * True if normalization values should be omitted for the field.
