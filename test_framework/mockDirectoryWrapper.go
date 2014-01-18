@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/store"
+	. "github.com/balzaczyy/golucene/test_framework/util"
 	"io"
 	"log"
 	"math/rand"
 	"reflect"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -69,6 +71,7 @@ type MockDirectoryWrapper struct {
 	// an open file, we entroll it here.
 	openFilesDeleted map[string]bool
 
+	failOnOpenInput                  bool
 	assertNoUnreferencedFilesOnClose bool
 }
 
@@ -169,9 +172,21 @@ func (w *MockDirectoryWrapper) Crash() error {
 	panic("not implemented yet")
 }
 
+func (w *MockDirectoryWrapper) maybeThrowIOExceptionOnOpen(name string) error {
+	panic("not implemented yet")
+}
+
 func (w *MockDirectoryWrapper) DeleteFile(name string) error {
 	w.maybeYield()
 	return w.deleteFile(name, false)
+}
+
+/*
+sets the cause of the incoming ioe to be the stack trace when the
+offending file name was opened
+*/
+func (w *MockDirectoryWrapper) fillOpenTrace(err error, name string, input bool) error {
+	panic("not implemented yet")
 }
 
 func (w *MockDirectoryWrapper) maybeYield() {
@@ -220,11 +235,56 @@ func (w *MockDirectoryWrapper) addFileHandle(c io.Closer, name string, handle Ha
 	panic("not implemented yet")
 }
 
-func (w *MockDirectoryWrapper) OpenInput(name string, context store.IOContext) (in store.IndexInput, err error) {
+func (w *MockDirectoryWrapper) OpenInput(name string, context store.IOContext) (ii store.IndexInput, err error) {
 	w.Lock() // synchronized
 	defer w.Unlock()
 
-	panic("not implemented yet")
+	if err = w.maybeThrowDeterministicException(); err != nil {
+		return
+	}
+	if err = w.maybeThrowIOExceptionOnOpen(name); err != nil {
+		return
+	}
+	w.maybeYield()
+	if w.failOnOpenInput {
+		if err = w.maybeThrowDeterministicException(); err != nil {
+			return
+		}
+	}
+	if !w.Directory.FileExists(name) {
+		return nil, errors.New(fmt.Sprintf("%v in dir=%v", name, w.Directory))
+	}
+
+	// cannot open a file for input if it's still open for output,
+	//except for segments.gen and segments_N
+	if _, ok := w.openFilesForWrite[name]; ok && strings.HasPrefix(name, "segments") {
+		err = w.fillOpenTrace(errors.New(fmt.Sprintf(
+			"MockDirectoryWrapper: file '%v' is still open for writing", name)), name, false)
+		return
+	}
+
+	var delegateInput store.IndexInput
+	delegateInput, err = w.Directory.OpenInput(name, NewIOContext(w.randomState, context))
+	if err != nil {
+		return
+	}
+
+	randomInt := w.randomState.Intn(500)
+	if randomInt == 0 {
+		if VERBOSE {
+			log.Printf("MockDirectoryWrapper: using SlowClosingMockIndexInputWrapper for file %v", name)
+		}
+		panic("not implemented yet")
+	} else if randomInt == 1 {
+		if VERBOSE {
+			log.Printf("MockDirectoryWrapper: using SlowOpeningMockIndexInputWrapper for file %v", name)
+		}
+		panic("not implemented yet")
+	} else {
+		ii = newMockIndexInputWrapper(w, name, delegateInput)
+	}
+	w.addFileHandle(ii, name, HANDLE_INPUT)
+	return ii, nil
 }
 
 func (w *MockDirectoryWrapper) Close() error {
@@ -612,4 +672,40 @@ func (lock *MockLock) Release() {
 
 func (lock *MockLock) IsLocked() bool {
 	return lock.delegate.IsLocked()
+}
+
+// store/MockIndexInputWrapper.java
+
+/*
+Used by MockDirectoryWrapper to create an input stream that keeps
+track of when it's been closed.
+*/
+type MockIndexInputWrapper struct {
+	store.IndexInput // delegate
+	dir              *MockDirectoryWrapper
+	name             string
+	isClone          bool
+	closed           bool
+}
+
+func newMockIndexInputWrapper(dir *MockDirectoryWrapper, name string, delegate store.IndexInput) *MockIndexInputWrapper {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexInputWrapper) ensureOpen() {
+	assert2(!w.closed, "Abusing closed IndexInput!")
+}
+
+func (w *MockIndexInputWrapper) Clone() store.IndexInput {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexInputWrapper) FilePointer() int64 {
+	w.ensureOpen()
+	return w.IndexInput.FilePointer()
+}
+
+func (w *MockIndexInputWrapper) Seek(pos int64) error {
+	w.ensureOpen()
+	return w.IndexInput.Seek(pos)
 }

@@ -287,6 +287,10 @@ func newDirectoryImpl(random *rand.Rand, clazzName string) store.Directory {
 	}
 }
 
+func NewIOContext(r *rand.Rand, oldContext store.IOContext) store.IOContext {
+	panic("not implemented yet")
+}
+
 // L1305
 // Create a new searcher over the reader. This searcher might randomly use threads
 func NewSearcher(r index.IndexReader) *search.IndexSearcher {
