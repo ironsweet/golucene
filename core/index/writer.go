@@ -480,6 +480,54 @@ func (conf *IndexWriterConfig) String() string {
 
 // index/IndexWriter.java
 
+// Use a seprate goroutine to protect closing control
+type ClosingControl struct {
+	_closed   bool // volatile
+	_closing  bool // volatile
+	isRunning bool
+	closer    chan func() (bool, error)
+	done      chan error
+}
+
+func newClosingControl() *ClosingControl {
+	ans := &ClosingControl{
+		closer: make(chan func() (bool, error)),
+		done:   make(chan error),
+	}
+	go ans.daemon()
+	return ans
+}
+
+func (cc *ClosingControl) daemon() {
+	var err error
+	for cc.isRunning {
+		err = nil
+		select {
+		case f := <-cc.closer:
+			if !cc._closed {
+				cc._closing = true
+				cc._closed, err = f()
+				cc._closing = false
+			}
+			cc.done <- err
+		}
+	}
+}
+
+// Used internally to throw an AlreadyClosedError if this IndexWriter
+// has been closed or is in the process of closing.
+func (cc *ClosingControl) ensureOpen(failIfClosing bool) {
+	assert2(cc._closed || failIfClosing && cc._closing, "this IndexWriter is closed")
+}
+
+func (cc *ClosingControl) close(f func() (ok bool, err error)) error {
+	if cc._closed {
+		return nil // already closed
+	}
+	cc.closer <- f
+	return <-cc.done
+}
+
 // Name of the write lock in the index.
 const WRITE_LOCK_NAME = "write.lock"
 
@@ -512,6 +560,9 @@ Close() should be called.
 */
 type IndexWriter struct {
 	sync.Locker
+	*ClosingControl
+
+	hitOOM bool // volatile
 
 	directory store.Directory   // where this index resides
 	analyzer  analysis.Analyzer // how to analyze text
@@ -658,6 +709,9 @@ beforehand.
 */
 func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter, err error) {
 	ans := &IndexWriter{
+		Locker:         &sync.Mutex{},
+		ClosingControl: newClosingControl(),
+
 		segmentsToMerge: make(map[*SegmentInfoPerCommit]bool),
 		mergingSegments: make(map[*SegmentInfoPerCommit]bool),
 		pendingMerges:   list.New(),
@@ -676,6 +730,8 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 		poolReaders:           conf.readerPooling,
 
 		writeLock: d.MakeLock(WRITE_LOCK_NAME),
+
+		changed: make(chan bool),
 	}
 	ans.readerPool = newReaderPool(ans)
 
@@ -866,11 +922,28 @@ in "merge starvation" whereby long merges will never have a chance to
 finish. This will cause too many segments in your index over time.
 */
 func (w *IndexWriter) CloseAndWait(waitForMerge bool) error {
-	// Ensure that only one thread actaully
-	panic("not implemented yet")
+	// Ensure that only one goroutine actaully gets to do the closing,
+	// and make sure no commit is also in progress:
+	w.commitLock.Lock()
+	defer w.commitLock.Unlock()
+	return w.close(func() (ok bool, err error) {
+		// If any methods have hit memory issue, then abort on
+		// close, in case the internal state of IndexWriter or
+		// DocumentsWriter is corrupt
+		if w.hitOOM {
+			return w.rollbackInternal()
+		}
+		return w.closeInternal(waitForMerge, true)
+	})
 }
 
-func (w *IndexWriter) closeInternal(waitForMerges bool, doFlush bool) error {
+/*
+Returns true if this goroutine should attempt to close, or false if
+IndexWriter is now closed; else, waits until another thread finishes
+closing.
+*/
+
+func (w *IndexWriter) closeInternal(waitForMerges bool, doFlush bool) (ok bool, err error) {
 	panic("not implemented yet")
 }
 
@@ -1080,10 +1153,11 @@ was when commit() was last called or when this writer was first
 opened. This also clears a previous call to prepareCommit()
 */
 func (w *IndexWriter) Rollback() error {
-	panic("not implemented yet")
+	w.ensureOpen()
+	return w.close(w.rollbackInternal)
 }
 
-func (w *IndexWriter) rollbackInternal() error {
+func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 	panic("not implemented yet")
 }
 
