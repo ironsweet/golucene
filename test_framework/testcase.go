@@ -346,8 +346,10 @@ func (is *ThreadNameFixingPrintStreamInfoStream) Clone() util.InfoStream {
 	return &clone
 }
 
-// Setup and restore suite-level environment (fine grained junk that
-// doesn't fit anywhere else)
+/*
+Setup and restore suite-level environment (fine grained junk that
+doesn't fit anywhere else)
+*/
 type TestRuleSetupAndRestoreClassEnv struct {
 	savedCodec      index.Codec
 	savedInfoStream util.InfoStream
@@ -521,7 +523,16 @@ func (rule *TestRuleSetupAndRestoreClassEnv) checkCodecRestrictions(codec index.
 }
 
 func (rule *TestRuleSetupAndRestoreClassEnv) After() error {
-	panic("not implemented yet")
+	savedCodec := rule.savedCodec
+	index.DefaultCodec = func() index.Codec { return savedCodec }
+	util.SetDefaultInfoStream(rule.savedInfoStream)
+	// if rule.savedLocale != nil {
+	// 	SetDefaultLocale(rule.savedLocale)
+	// }
+	// if rule.savedTimeZone != nil {
+	// 	SetDefaultTimeZone(rule.savedTimeZone)
+	// }
+	return nil
 }
 
 // Should a given codec be avoided for the currently executing suite?

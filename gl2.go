@@ -39,7 +39,9 @@ func main() {
 		if err != nil {
 			t.Error(err)
 		}
-		defer writer.Close()
+		if writer != nil {
+			defer writer.Close()
+		}
 
 		d := index.NewDocument()
 		d.Add(NewTextField("foo", "bar", true))
