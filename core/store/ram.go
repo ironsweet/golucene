@@ -233,6 +233,10 @@ func (fac *SingleInstanceLockFactory) Clear(name string) error {
 	return nil
 }
 
+func (fac *SingleInstanceLockFactory) String() string {
+	return fmt.Sprintf("SingleInstanceLockFactory@%v", fac.locks)
+}
+
 type SingleInstanceLock struct {
 	*LockImpl
 	name      string

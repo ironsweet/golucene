@@ -60,7 +60,8 @@ func (d *FSDirectory) SetLockFactory(lockFactory LockFactory) {
 
 	// for filesystem based LockFactory, delete the lockPrefix, if the locks are placed
 	// in index dir. If no index dir is given, set ourselves
-	if lf, ok := lockFactory.(*FSLockFactory); ok {
+	// TODO change FSDirectory to interface
+	if lf, ok := lockFactory.(*SimpleFSLockFactory); ok {
 		if lf.lockDir == "" {
 			lf.lockDir = d.path
 			lf.lockPrefix = ""

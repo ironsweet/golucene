@@ -182,6 +182,10 @@ func (f *FSLockFactory) Make(name string) Lock {
 	panic("invalid")
 }
 
+func (f *FSLockFactory) String() string {
+	return fmt.Sprintf("FSLockFactory@%v", f.lockDir)
+}
+
 type Directory interface {
 	io.Closer
 	// Files related methods

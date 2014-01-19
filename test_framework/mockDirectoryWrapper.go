@@ -35,9 +35,9 @@ if the index was corrupted.
 refusing to write/delete to open files.
 */
 type MockDirectoryWrapper struct {
-	self *store.DirectoryImpl // overrides LockFactory
 	*BaseDirectoryWrapperImpl
-	sync.Locker // simulate Java's synchronized keyword
+	sync.Locker                     // simulate Java's synchronized keyword
+	myLockFactory store.LockFactory // overrides LockFactory
 
 	randomErrorRate       float64
 	randomErrorRateOnOpen float64
@@ -109,7 +109,6 @@ func NewMockDirectoryWrapper(random *rand.Rand, delegate store.Directory) *MockD
 		// openFileHandles: make(map[io.Closer]error),
 		assertNoUnreferencedFilesOnClose: true,
 	}
-	ans.self = store.NewDirectoryImpl(ans)
 	ans.BaseDirectoryWrapperImpl = NewBaseDirectoryWrapper(delegate)
 	ans.Locker = &sync.Mutex{}
 	// must make a private random since our methods are called from different
@@ -119,10 +118,7 @@ func NewMockDirectoryWrapper(random *rand.Rand, delegate store.Directory) *MockD
 	ans.throttledOutput = newThrottledIndexOutput(
 		mBitsToBytes(40+ans.randomState.Intn(10)), 5+ans.randomState.Int63n(5), nil)
 	// force wrapping of LockFactory
-	fac := newMockLockFactoryWrapper(ans, delegate.LockFactory())
-	oldId := fac.LockPrefix()
-	ans.self.SetLockFactory(fac)
-	fac.SetLockPrefix(oldId) // workaround
+	ans.myLockFactory = newMockLockFactoryWrapper(ans, delegate.LockFactory())
 	ans.init()
 	return ans
 }
@@ -574,10 +570,7 @@ func (w *MockDirectoryWrapper) SetLockFactory(lockFactory store.LockFactory) {
 	// some impls (e.g. FSDir) do instanceof here
 	w.Directory.SetLockFactory(lockFactory)
 	// now set out wrapped factory here
-	fac := newMockLockFactoryWrapper(w, w.Directory.LockFactory())
-	oldId := fac.LockPrefix()
-	w.self.SetLockFactory(fac)
-	fac.SetLockPrefix(oldId) // workaround
+	w.myLockFactory = newMockLockFactoryWrapper(w, w.Directory.LockFactory())
 }
 
 func (w *MockDirectoryWrapper) LockFactory() store.LockFactory {
@@ -590,7 +583,7 @@ func (w *MockDirectoryWrapper) LockFactory() store.LockFactory {
 func (w *MockDirectoryWrapper) lockFactory() store.LockFactory {
 	w.maybeYield()
 	if w.wrapLockFactory {
-		return w.self.LockFactory()
+		return w.myLockFactory
 	} else {
 		return w.Directory.LockFactory()
 	}
