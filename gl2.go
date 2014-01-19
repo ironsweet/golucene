@@ -30,6 +30,7 @@ func main() {
 		t.Assert(-42 == q.Boost())
 
 		directory := NewDirectory()
+		fmt.Println("Directory", directory)
 		defer directory.Close()
 
 		analyzer := analysis.NewMockAnalyzerWithRandom(Random())

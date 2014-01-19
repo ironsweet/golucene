@@ -71,6 +71,7 @@ func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer
 	if r.Intn(2) == 0 {
 		c.SetMergeScheduler(index.NewSerialMergeScheduler())
 	} else if Rarely(r) {
+		log.Println("Use ConcurrentMergeScheduler")
 		maxRoutineCount := NextInt(Random(), 1, 4)
 		maxMergeCount := NextInt(Random(), maxRoutineCount, maxRoutineCount+4)
 		cms := index.NewConcurrentMergeScheduler()
@@ -79,6 +80,7 @@ func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer
 	}
 	if r.Intn(2) == 0 {
 		if Rarely(r) {
+			log.Println("Use crazy value for buffered docs")
 			// crazy value
 			c.SetMaxBufferedDocs(NextInt(r, 2, 15))
 		} else {
@@ -104,6 +106,7 @@ func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer
 	c.SetMergePolicy(newMergePolicy(r))
 
 	if Rarely(r) {
+		log.Println("Use SimpleMergedSegmentWarmer")
 		c.SetMergedSegmentWarmer(index.NewSimpleMergedSegmentWarmer(c.InfoStream()))
 	}
 	c.SetUseCompoundFile(r.Intn(2) == 0)
@@ -114,6 +117,7 @@ func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer
 
 func newMergePolicy(r *rand.Rand) index.MergePolicy {
 	if Rarely(r) {
+		log.Println("Use MockRandomMergePolicy")
 		return ti.NewMockRandomMergePolicy(r)
 	} else if r.Intn(2) == 0 {
 		return newTieredMergePolicy(r)
@@ -128,6 +132,7 @@ func newMergePolicy(r *rand.Rand) index.MergePolicy {
 func newTieredMergePolicy(r *rand.Rand) *index.TieredMergePolicy {
 	tmp := index.NewTieredMergePolicy()
 	if Rarely(r) {
+		log.Println("Use crazy value for max merge at once")
 		tmp.SetMaxMergeAtOnce(NextInt(r, 2, 9))
 		tmp.SetMaxMergeAtOnceExplicit(NextInt(r, 2, 9))
 	} else {
@@ -135,6 +140,7 @@ func newTieredMergePolicy(r *rand.Rand) *index.TieredMergePolicy {
 		tmp.SetMaxMergeAtOnceExplicit(NextInt(r, 10, 50))
 	}
 	if Rarely(r) {
+		log.Println("Use crazy value for max merge segment MB")
 		tmp.SetMaxMergedSegmentMB(0.2 + r.Float64()*100)
 	} else {
 		tmp.SetMaxMergedSegmentMB(r.Float64() * 100)
@@ -142,6 +148,7 @@ func newTieredMergePolicy(r *rand.Rand) *index.TieredMergePolicy {
 	tmp.SetFloorSegmentMB(0.2 + r.Float64()*2)
 	tmp.SetForceMergeDeletesPctAllowed(0 + r.Float64()*30)
 	if Rarely(r) {
+		log.Println("Use crazy value for max merge per tire")
 		tmp.SetSegmentsPerTier(float64(NextInt(r, 2, 20)))
 	} else {
 		tmp.SetSegmentsPerTier(float64(NextInt(r, 10, 50)))
@@ -163,6 +170,7 @@ func newLogMergePolicy(r *rand.Rand) *index.LogMergePolicy {
 		logmp = index.NewLogByteSizeMergePolicy()
 	}
 	if Rarely(r) {
+		log.Println("Use crazy value for merge factor")
 		logmp.SetMergeFactor(NextInt(r, 2, 9))
 	} else {
 		logmp.SetMergeFactor(NextInt(r, 10, 50))
@@ -181,6 +189,7 @@ func configureRandom(r *rand.Rand, mergePolicy index.MergePolicy) {
 	}
 
 	if Rarely(r) {
+		log.Println("Use crazy value for max CFS segment size MB")
 		mergePolicy.SetMaxCFSSegmentSizeMB(0.2 + r.Float64()*2)
 	} else {
 		mergePolicy.SetMaxCFSSegmentSizeMB(math.Inf(1))
@@ -208,6 +217,7 @@ func newDirectoryWithSeed(r *rand.Rand) BaseDirectoryWrapper {
 
 func wrapDirectory(random *rand.Rand, directory store.Directory, bare bool) BaseDirectoryWrapper {
 	if Rarely(random) {
+		log.Println("Use NRTCachingDirectory")
 		directory = store.NewNRTCachingDirectory(directory, random.Float64(), random.Float64())
 	}
 
@@ -453,6 +463,7 @@ func (rule *TestRuleSetupAndRestoreClassEnv) Before() error {
 	} else {
 		assert(false)
 	}
+	log.Println("Use codec:", rule.codec)
 	index.DefaultCodec = func() index.Codec { return rule.codec }
 
 	// Initialize locale/ timezone

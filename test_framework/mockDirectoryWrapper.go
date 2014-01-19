@@ -712,11 +712,14 @@ func (lock *MockLock) Obtain() (ok bool, err error) {
 	return ok, nil
 }
 
-func (lock *MockLock) Release() {
-	lock.delegate.Release()
+func (lock *MockLock) Release() error {
+	if err := lock.delegate.Release(); err != nil {
+		return err
+	}
 	lock.dir.openLocksLock.Lock()
 	defer lock.dir.openLocksLock.Unlock()
 	delete(lock.dir.openLocks, lock.name)
+	return nil
 }
 
 func (lock *MockLock) IsLocked() bool {

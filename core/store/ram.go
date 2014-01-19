@@ -261,10 +261,11 @@ func (lock *SingleInstanceLock) Obtain() (ok bool, err error) {
 	return true, nil
 }
 
-func (lock *SingleInstanceLock) Release() {
+func (lock *SingleInstanceLock) Release() error {
 	lock.locksLock.Lock() // synchronized
 	defer lock.locksLock.Unlock()
 	delete(lock.locks, lock.name)
+	return nil
 }
 
 func (lock *SingleInstanceLock) IsLocked() bool {
@@ -389,5 +390,5 @@ func (in *RAMInputStream) Seek(pos int64) error {
 }
 
 func (in *RAMInputStream) Clone() IndexInput {
-	panic("not implemented yet")
+	panic("not supported yet")
 }

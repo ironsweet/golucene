@@ -86,7 +86,7 @@ type Lock interface {
 	// milliseconds until lockWaitTimeout is passed.
 	ObtainWithin(lockWaitTimeout int64) (ok bool, err error)
 	// Releases exclusive access.
-	Release()
+	Release() error
 	// Returns true if the resource is currently locked. Note that one
 	// must still call obtain() before using the resource.
 	IsLocked() bool

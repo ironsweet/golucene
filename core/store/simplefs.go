@@ -52,8 +52,8 @@ func (lock *SimpleFSLock) Obtain() (ok bool, err error) {
 
 }
 
-func (lock *SimpleFSLock) Release() {
-	panic("not implemented yet")
+func (lock *SimpleFSLock) Release() (err error) {
+	return os.Remove(lock.file)
 }
 
 func (lock *SimpleFSLock) IsLocked() bool {
