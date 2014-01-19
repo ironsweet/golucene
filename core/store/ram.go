@@ -57,22 +57,49 @@ func (rd *RAMDirectory) ListAll() (names []string, err error) {
 
 // Returns true iff the named file exists in this directory
 func (rd *RAMDirectory) FileExists(name string) bool {
-	panic("not implemented yet")
+	rd.ensureOpen()
+	rd.fileMapLock.RLock()
+	defer rd.fileMapLock.RUnlock()
+	_, ok := rd.fileMap[name]
+	return ok
 }
 
 // Returns the length in bytes of a file in the directory.
 func (rd *RAMDirectory) FileLength(name string) (length int64, err error) {
-	panic("not implemented yet")
+	rd.ensureOpen()
+	rd.fileMapLock.RLock()
+	defer rd.fileMapLock.RUnlock()
+	if file, ok := rd.fileMap[name]; ok {
+		return int64(file.length), nil
+	}
+	return 0, errors.New(name)
 }
 
 // Removes an existing file in the directory
 func (rd *RAMDirectory) DeleteFile(name string) error {
-	panic("not implemented yet")
+	rd.ensureOpen()
+	rd.fileMapLock.RLock()
+	defer rd.fileMapLock.RUnlock()
+	if file, ok := rd.fileMap[name]; ok {
+		file.directory = nil
+		panic("not implemented yet")
+		return nil
+	}
+	return errors.New(name)
 }
 
 // Creates a new, empty file in the directory with the given name.
 // Returns a stream writing this file:
 func (rd *RAMDirectory) CreateOutput(name string, context IOContext) (out IndexOutput, err error) {
+	rd.ensureOpen()
+	file := rd.newRAMFile()
+	rd.fileMapLock.Lock()
+	defer rd.fileMapLock.Unlock()
+	if existing, ok := rd.fileMap[name]; ok {
+		panic("not implemented yet")
+		existing.directory = nil
+	}
+	rd.fileMap[name] = file
 	panic("not implemented yet")
 }
 
@@ -133,12 +160,18 @@ func newRAMFile(directory *RAMDirectory) *RAMFile {
 }
 
 func (rf *RAMFile) SetLength(length int) {
-	rf.Lock()
+	rf.Lock() // synchronized
 	defer rf.Unlock()
 	rf.length = length
 }
 
 func (rf *RAMFile) addBuffer(size int) []byte {
+	buffer := rf.newBuffer(size)
+	rf.Lock() // synchronized
+	defer rf.Unlock()
+	rf.buffers = append(rf.buffers, buffer)
+	rf.sizeInBytes += int64(size)
+
 	panic("not implemented yet")
 }
 

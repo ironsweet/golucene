@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"reflect"
 	"runtime"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -175,7 +176,17 @@ func (w *MockDirectoryWrapper) Crash() error {
 }
 
 func (w *MockDirectoryWrapper) maybeThrowIOExceptionOnOpen(name string) error {
-	panic("not implemented yet")
+	if w.randomState.Float64() < w.randomErrorRateOnOpen {
+		if VERBOSE {
+			log.Printf("MockDirectoryWrapper: now return random error during open file=%v", name)
+			debug.PrintStack()
+		}
+		if w.randomState.Intn(2) == 0 {
+			return errors.New(fmt.Sprintf("a random IO error (%v)", name))
+		}
+		return errors.New(fmt.Sprintf("a random IO error (%v)", name))
+	}
+	return nil
 }
 
 func (w *MockDirectoryWrapper) DeleteFile(name string) error {
