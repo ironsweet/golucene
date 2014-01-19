@@ -73,6 +73,8 @@ type MockDirectoryWrapper struct {
 
 	failOnOpenInput                  bool
 	assertNoUnreferencedFilesOnClose bool
+
+	failures []*Failure
 }
 
 func (mdw *MockDirectoryWrapper) init() {
@@ -462,10 +464,53 @@ func (w *MockDirectoryWrapper) removeIndexInput(in store.IndexInput, name string
 	panic("not implemented yet")
 }
 
+/*
+Objects that represent fail-lable conditions. Objects of a derived
+class are created and registered with teh mock directory. After
+register, each object will be invoked once for each first write of a
+file, giving the object a chance to throw an IO error.
+*/
+type Failure struct {
+	// eval is called on the first write of every new file
+	eval   func(dir *MockDirectoryWrapper) error
+	doFail bool
+}
+
+/*
+reset should set the state of the failure to its default (freshly
+constructed) state. Reset is convenient for tests that want to create
+one failure object and then reuse it in mutiple cases. This, combined
+with the fact that Failure subclasses are often anonymous classes
+makes reset difficult to do otherwise.
+
+A typical example of use is
+
+		failure := &Failure { eval: func(dir *MockDirectoryWrapper) { ... } }
+		...
+		mock.failOn(failure.reset())
+
+*/
+func (f *Failure) Reset() *Failure { return f }
+func (f *Failure) SetDoFail()      { f.doFail = true }
+func (f *Failure) ClearDoFail()    { f.doFail = false }
+
+/*
+add a Failure object to the list of objects to be evaluated at every
+potential failure opint
+*/
+func (w *MockDirectoryWrapper) failOn(fail *Failure) {
+	w.failures = append(w.failures, fail)
+}
+
 // Iterate through the failures list, giving each object a
 // chance to return an error
 func (w *MockDirectoryWrapper) maybeThrowDeterministicException() error {
-	panic("not implemented yet")
+	for _, f := range w.failures {
+		if err := f.eval(w); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (w *MockDirectoryWrapper) ListAll() (names []string, err error) {
