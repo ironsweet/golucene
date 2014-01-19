@@ -777,6 +777,17 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 	// IndexFormatTooOldError
 	ans.segmentInfos = &SegmentInfos{}
 
+	go func(infos *SegmentInfos) {
+		var changeCount int
+		for {
+			select {
+			case <-ans.changed:
+				changeCount++
+				// infos.changed()
+			}
+		}
+	}(ans.segmentInfos)
+
 	var initialIndexExists bool = true
 
 	if create {

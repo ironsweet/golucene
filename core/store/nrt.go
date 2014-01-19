@@ -62,7 +62,7 @@ func NewNRTCachingDirectory(delegate Directory, maxMergeSizeMB, maxCachedMB floa
 }
 
 func (nrt *NRTCachingDirectory) String() string {
-	return fmt.Sprintf("NRTCachingDirectory(%v; maxCacheMB=%v maxMergeSizeMB=%v)",
+	return fmt.Sprintf("NRTCachingDirectory(%v; maxCacheMB=%.2f maxMergeSizeMB=%.2f)",
 		nrt.Directory, nrt.maxCachedBytes/1024/1024, nrt.maxMergeSizeBytes/1024/1024)
 }
 
