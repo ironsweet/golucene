@@ -1,7 +1,9 @@
 golucene
 ========
 
-Go port of Apache Lucene but focus on IndexSearcher
+A [Go](http://golang.org) port of [Apache Lucene](http://lucene.apache.org).
+
+The migration effort is [paused and explained](http://zhouyiyan.cn/tech/Switch-of-interest/).
 
 Milestones
 ----------
@@ -11,13 +13,13 @@ Milestones
 
 Progress
 --------
-13205/40000 LoC, 23 Weeks Left
-V1.0 ETA: 2014.5.13
+27000/40000 LoC, 13 Weeks Left
+V1.0 ETA: n/a
 
 License
 -------
 
-Until further notice, all the codes and documents are licensed under APL 2.0.
+Until further notice, all the unreleased codes and documents are licensed under APL 2.0.
 
 Develop Guidelines
 ------------------
