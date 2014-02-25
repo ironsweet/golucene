@@ -25,9 +25,9 @@ func newTestIOContextFrom(r *rand.Rand, oldContext IOContext) IOContext {
 	case 2:
 		context = IO_CONTEXT_READONCE
 	case 3:
-		context = NewIOContextForMerge(MergeInfo{randomNumDocs, int64(size), true, -1})
+		context = NewIOContextForMerge(&MergeInfo{randomNumDocs, int64(size), true, -1})
 	case 4:
-		context = NewIOContextForFlush(FlushInfo{randomNumDocs, int64(size)})
+		context = NewIOContextForFlush(&FlushInfo{randomNumDocs, int64(size)})
 	default:
 		context = IO_CONTEXT_DEFAULT
 	}

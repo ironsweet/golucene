@@ -776,7 +776,7 @@ const DEFAULT_MAX_MERGE_MB = 2048
 
 // Default maximum segment size. A segment of this size or larger
 // will never be merged during forceMerge.
-var DEFAULT_MAX_MERGE_MB_FOR_FORCED_MERGE = math.MaxInt64
+var DEFAULT_MAX_MERGE_MB_FOR_FORCED_MERGE int64 = math.MaxInt64
 
 // this is a LogMergePolicy that measures size of a segment as the
 // total byte size of the segment's files.

@@ -6,7 +6,7 @@ import (
 )
 
 type BytesStore struct {
-	*util.DataOutput
+	*util.DataOutputImpl
 	blocks    [][]byte
 	blockSize uint32
 	blockBits uint32
@@ -16,41 +16,9 @@ type BytesStore struct {
 }
 
 func newBytesStore() *BytesStore {
-	self := &BytesStore{}
-	self.DataOutput = &util.DataOutput{
-		WriteByte: func(b byte) error {
-			if self.nextWrite == self.blockSize {
-				self.current = make([]byte, self.blockSize)
-				self.blocks = append(self.blocks, self.current)
-				self.nextWrite = 0
-			}
-			self.current[self.nextWrite] = b
-			self.nextWrite++
-			return nil
-		},
-		WriteBytes: func(buf []byte) error {
-			var offset uint32 = 0
-			length := uint32(len(buf))
-			for length > 0 {
-				chunk := self.blockSize - self.nextWrite
-				if length <= chunk {
-					copy(self.current[self.nextWrite:], buf[offset:offset+length])
-					self.nextWrite += length
-					break
-				} else {
-					if chunk > 0 {
-						copy(self.current[self.nextWrite:], buf[offset:offset+chunk])
-						offset += chunk
-						length -= chunk
-					}
-					self.current = make([]byte, self.blockSize)
-					self.blocks = append(self.blocks, self.current)
-					self.nextWrite = 0
-				}
-			}
-			return nil
-		}}
-	return self
+	bs := &BytesStore{}
+	bs.DataOutputImpl = util.NewDataOutput(bs)
+	return bs
 }
 
 func newBytesStoreFromBits(blockBits uint32) *BytesStore {
@@ -91,6 +59,40 @@ func newBytesStoreFromInput(in util.DataInput, numBytes int64, maxBlockSize uint
 	// So .getPosition still works
 	self.nextWrite = uint32(len(self.blocks[len(self.blocks)-1]))
 	return self, nil
+}
+
+func (bs *BytesStore) WriteByte(b byte) error {
+	if bs.nextWrite == bs.blockSize {
+		bs.current = make([]byte, bs.blockSize)
+		bs.blocks = append(bs.blocks, bs.current)
+		bs.nextWrite = 0
+	}
+	bs.current[bs.nextWrite] = b
+	bs.nextWrite++
+	return nil
+}
+
+func (bs *BytesStore) WriteBytes(buf []byte) error {
+	var offset uint32 = 0
+	length := uint32(len(buf))
+	for length > 0 {
+		chunk := bs.blockSize - bs.nextWrite
+		if length <= chunk {
+			copy(bs.current[bs.nextWrite:], buf[offset:offset+length])
+			bs.nextWrite += length
+			break
+		} else {
+			if chunk > 0 {
+				copy(bs.current[bs.nextWrite:], buf[offset:offset+chunk])
+				offset += chunk
+				length -= chunk
+			}
+			bs.current = make([]byte, bs.blockSize)
+			bs.blocks = append(bs.blocks, bs.current)
+			bs.nextWrite = 0
+		}
+	}
+	return nil
 }
 
 func (s *BytesStore) String() string {

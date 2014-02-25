@@ -94,7 +94,7 @@ func (d *CompoundFileDirectory) OpenInput(name string, context IOContext) (in In
 	d.Lock() // synchronized
 	defer d.Unlock()
 
-	d.ensureOpen()
+	d.EnsureOpen()
 	assert(!d.openForWrite)
 	id := util.StripSegmentName(name)
 	if entry, ok := d.entries[id]; ok {
@@ -109,7 +109,7 @@ func (d *CompoundFileDirectory) OpenInput(name string, context IOContext) (in In
 }
 
 func (d *CompoundFileDirectory) ListAll() (paths []string, err error) {
-	d.ensureOpen()
+	d.EnsureOpen()
 	// if self.writer != nil {
 	// 	return self.writer.ListAll()
 	// }
@@ -123,12 +123,16 @@ func (d *CompoundFileDirectory) ListAll() (paths []string, err error) {
 }
 
 func (d *CompoundFileDirectory) FileExists(name string) bool {
-	d.ensureOpen()
+	d.EnsureOpen()
 	// if d.writer != nil {
 	// 	return d.writer.FileExists(name)
 	// }
 	_, ok := d.entries[util.StripSegmentName(name)]
 	return ok
+}
+
+func (d *CompoundFileDirectory) DeleteFile(name string) error {
+	panic("not supported")
 }
 
 // Returns the length of a file in the directory.
@@ -137,11 +141,11 @@ func (d *CompoundFileDirectory) FileLength(name string) (n int64, err error) {
 }
 
 func (d *CompoundFileDirectory) CreateOutput(name string, context IOContext) (out IndexOutput, err error) {
-	d.ensureOpen()
+	d.EnsureOpen()
 	panic("not implemented yet")
 }
 
-func (d *CompoundFileDirectory) Sync(names []string) {
+func (d *CompoundFileDirectory) Sync(names []string) error {
 	panic("not supported")
 }
 

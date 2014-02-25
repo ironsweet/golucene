@@ -68,7 +68,7 @@ func LZ4Decompress(compressed DataInput, decompressedLen int, dest []byte) (leng
 		matchLen += MIN_MATCH
 
 		// copying a multiple of 8 bytes can make decompression from 5% to 10% faster
-		fastLen := (matchLen + 7) & 0xFFFFFFF8
+		fastLen := int((int64(matchLen) + 7) & 0xFFFFFFF8)
 		if matchDec < matchLen || dOff+fastLen > destEnd {
 			// overlap -> naive incremental copy
 			for ref, end := dOff-matchDec, dOff+matchLen; dOff < end; {

@@ -55,3 +55,7 @@ func (dw *BaseDirectoryWrapperImpl) IsOpen() bool {
 func (dw *BaseDirectoryWrapperImpl) String() string {
 	return fmt.Sprintf("BaseDirectoryWrapper(%v)", dw.Directory)
 }
+
+func (dw *BaseDirectoryWrapperImpl) ensureOpen() {
+	assert2(dw.isOpen, "this Directory is closed")
+}

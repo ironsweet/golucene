@@ -1,7 +1,9 @@
 package store
 
 import (
+	"errors"
 	"fmt"
+	"github.com/balzaczyy/golucene/core/util"
 	"math"
 	"os"
 	"path/filepath"
@@ -22,19 +24,23 @@ func (err *NoSuchDirectoryError) Error() string {
 }
 
 type FSDirectory struct {
-	sync.Locker
 	*DirectoryImpl
-	path      string
-	chunkSize int
+	sync.Locker
+	path           string
+	staleFiles     map[string]bool // synchronized, files written, but not yet sync'ed
+	staleFilesLock *sync.RWMutex
+	chunkSize      int
 }
 
 // TODO support lock factory
 func newFSDirectory(self Directory, path string) (d *FSDirectory, err error) {
 	d = &FSDirectory{
-		Locker:        &sync.Mutex{},
-		DirectoryImpl: NewDirectoryImpl(self),
-		path:          path,
-		chunkSize:     math.MaxInt32,
+		DirectoryImpl:  NewDirectoryImpl(self),
+		Locker:         &sync.Mutex{},
+		path:           path,
+		staleFiles:     make(map[string]bool),
+		staleFilesLock: &sync.RWMutex{},
+		chunkSize:      math.MaxInt32,
 	}
 
 	if fi, err := os.Stat(path); err == nil && !fi.IsDir() {
@@ -89,19 +95,19 @@ func FSDirectoryListAll(path string) (paths []string, err error) {
 }
 
 func (d *FSDirectory) ListAll() (paths []string, err error) {
-	d.ensureOpen()
+	d.EnsureOpen()
 	return FSDirectoryListAll(d.path)
 }
 
 func (d *FSDirectory) FileExists(name string) bool {
-	d.ensureOpen()
+	d.EnsureOpen()
 	_, err := os.Stat(name)
 	return err != nil
 }
 
 // Returns the length in bytes of a file in the directory.
 func (d *FSDirectory) FileLength(name string) (n int64, err error) {
-	d.ensureOpen()
+	d.EnsureOpen()
 	fi, err := os.Stat(filepath.Join(d.path, name))
 	if err != nil {
 		return 0, err
@@ -109,8 +115,77 @@ func (d *FSDirectory) FileLength(name string) (n int64, err error) {
 	return fi.Size(), nil
 }
 
+// Removes an existing file in the directory.
+func (d *FSDirectory) DeleteFile(name string) (err error) {
+	d.EnsureOpen()
+	if err = os.Remove(filepath.Join(d.path, name)); err == nil {
+		d.staleFilesLock.Lock()
+		defer d.staleFilesLock.Unlock()
+		delete(d.staleFiles, name)
+	}
+	return
+}
+
+/*
+Creates an IndexOutput for the file with the given name.
+*/
+func (d *FSDirectory) CreateOutput(name string, ctx IOContext) (out IndexOutput, err error) {
+	d.EnsureOpen()
+	err = d.ensureCanWrite(name)
+	if err != nil {
+		return nil, err
+	}
+	return newFSIndexOutput(d, name)
+}
+
+func (d *FSDirectory) ensureCanWrite(name string) error {
+	err := os.MkdirAll(d.path, os.ModeDir|0660)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Cannot create directory %v: %v", d.path, err))
+	}
+
+	err = os.Remove(filepath.Join(d.path, name))
+	if err != nil {
+		return errors.New(fmt.Sprintf("Cannot overwrite %v/%v: %v", d.path, name, err))
+	}
+
+	return nil
+}
+
+func (d *FSDirectory) onIndexOutputClosed(io *FSIndexOutput) {
+	d.staleFilesLock.Lock()
+	defer d.staleFilesLock.Unlock()
+	d.staleFiles[io.name] = true
+}
+
+func (d *FSDirectory) Sync(names []string) (err error) {
+	d.EnsureOpen()
+
+	toSync := make(map[string]bool)
+	d.staleFilesLock.RLock()
+	for _, name := range names {
+		if _, ok := d.staleFiles[name]; ok {
+			continue
+		}
+		toSync[name] = true
+	}
+	d.staleFilesLock.RUnlock()
+
+	for name, _ := range toSync {
+		err = d.fsync(name)
+		if err != nil {
+			return err
+		}
+	}
+
+	for name, _ := range toSync {
+		delete(d.staleFiles, name)
+	}
+	return
+}
+
 func (d *FSDirectory) LockID() string {
-	d.ensureOpen()
+	d.EnsureOpen()
 	var digest int
 	for _, ch := range d.path {
 		digest = 31*digest + int(ch)
@@ -123,6 +198,10 @@ func (d *FSDirectory) Close() error {
 	defer d.Unlock()
 	d.IsOpen = false
 	return nil
+}
+
+func (d *FSDirectory) fsync(name string) error {
+	panic("not implemented yet")
 }
 
 type FSIndexInput struct {
@@ -182,4 +261,69 @@ func (in *FSIndexInput) Clone() IndexInput {
 
 func (in *FSIndexInput) String() string {
 	return fmt.Sprintf("%v, off=%v, end=%v", in.BufferedIndexInput.String(), in.off, in.end)
+}
+
+/*
+The 'maximum' chunk size is 8192 bytes, because Lucene Java's malloc
+limitation. In GoLucene, it's not required but not tested either.
+*/
+const CHUNK_SIZE = 8192
+
+/*
+Writes output with File.Write([]byte) (int, error)
+*/
+type FSIndexOutput struct {
+	*BufferedIndexOutput
+	parent *FSDirectory
+	name   string
+	file   *os.File
+	isOpen bool // volatile
+}
+
+func newFSIndexOutput(parent *FSDirectory, name string) (*FSIndexOutput, error) {
+	file, err := os.OpenFile(filepath.Join(parent.path, name), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0660)
+	if err != nil {
+		return nil, err
+	}
+	out := &FSIndexOutput{
+		parent: parent,
+		name:   name,
+		file:   file,
+		isOpen: true,
+	}
+	out.BufferedIndexOutput = newBufferedIndexOutput(CHUNK_SIZE, out)
+	return out, nil
+}
+
+func (out *FSIndexOutput) flushBuffer(b []byte) error {
+	assert(out.isOpen)
+	offset, size := 0, len(b)
+	for size > 0 {
+		toWrite := CHUNK_SIZE
+		if size < toWrite {
+			toWrite = size
+		}
+		_, err := out.file.Write(b[offset : offset+toWrite])
+		if err != nil {
+			return err
+		}
+		offset += toWrite
+		size -= toWrite
+	}
+	assert(size == 0)
+	return nil
+}
+
+func (out *FSIndexOutput) Close() error {
+	out.parent.onIndexOutputClosed(out)
+	// only close the file if it has not been closed yet
+	if out.isOpen {
+		var err error
+		defer func() {
+			out.isOpen = false
+			util.CloseWhileHandlingError(err, out.file)
+		}()
+		err = out.BufferedIndexOutput.Close()
+	}
+	return nil
 }

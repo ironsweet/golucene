@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// store/IOContext.java
+
 const (
 	IO_CONTEXT_TYPE_MERGE   = 1
 	IO_CONTEXT_TYPE_READ    = 2
@@ -23,37 +25,65 @@ var (
 	IO_CONTEXT_READ     = NewIOContextBool(false)
 )
 
+/*
+IOContext holds additional details on the merge/search context. A
+IOContext object can never be initialized as nil as passed as a
+parameter to either OpenInput() or CreateOutput()
+*/
 type IOContext struct {
-	context IOContextType
-	// mergeInfo MergeInfo
-	// flushInfo FlushInfo
-	readOnce bool
+	context   IOContextType
+	mergeInfo *MergeInfo
+	flushInfo *FlushInfo
+	readOnce  bool
 }
 
-func NewIOContextForFlush(flushInfo FlushInfo) IOContext {
-	return IOContext{IOContextType(IO_CONTEXT_TYPE_FLUSH), false}
+func NewIOContextForFlush(flushInfo *FlushInfo) IOContext {
+	assert(flushInfo != nil)
+	return IOContext{
+		context:   IOContextType(IO_CONTEXT_TYPE_FLUSH),
+		readOnce:  false,
+		flushInfo: flushInfo,
+	}
 }
 
 func NewIOContextFromType(context IOContextType) IOContext {
-	return IOContext{context, false}
+	assert2(context != IO_CONTEXT_TYPE_MERGE, "Use NewIOContextForMerge() to create a MERGE IOContext")
+	assert2(context != IO_CONTEXT_TYPE_FLUSH, "Use NewIOContextForFlush() to create a FLUSH IOContext")
+	return IOContext{
+		context:  context,
+		readOnce: false,
+	}
 }
 
 func NewIOContextBool(readOnce bool) IOContext {
-	return IOContext{IOContextType(IO_CONTEXT_TYPE_READ), readOnce}
+	return IOContext{
+		context:  IOContextType(IO_CONTEXT_TYPE_READ),
+		readOnce: readOnce,
+	}
 }
 
-func NewIOContextForMerge(mergeInfo MergeInfo) IOContext {
-	return IOContext{IOContextType(IO_CONTEXT_TYPE_MERGE), false}
+func NewIOContextForMerge(mergeInfo *MergeInfo) IOContext {
+	assert2(mergeInfo != nil, "MergeInfo must not be nil if context is MERGE")
+	return IOContext{
+		context:   IOContextType(IO_CONTEXT_TYPE_MERGE),
+		mergeInfo: mergeInfo,
+		readOnce:  false,
+	}
+}
+
+func (ctx IOContext) String() string {
+	return fmt.Sprintf("IOContext [context=%v, mergeInfo=%v, flushInfo=%v, readOnce=%v",
+		ctx.context, ctx.mergeInfo, ctx.flushInfo, ctx.readOnce)
 }
 
 type FlushInfo struct {
 	numDocs              int
-	estimatedSegmentSize int64
+	EstimatedSegmentSize int64
 }
 
 type MergeInfo struct {
 	totalDocCount       int
-	estimatedMergeBytes int64
+	EstimatedMergeBytes int64
 	isExternal          bool
 	mergeMaxNumSegments int
 }
@@ -190,16 +220,27 @@ type Directory interface {
 	io.Closer
 	// Files related methods
 	ListAll() (paths []string, err error)
+	// Returns true iff a file with the given name exists.
 	FileExists(name string) bool
-	// DeleteFile(name string) error
+	// Removes an existing file in the directory.
+	DeleteFile(name string) error
 	// Returns thelength of a file in the directory. This method
 	// follows the following contract:
-	// - Must return 0 if the file doesn't exists.
-	// - Returns a value >=0 if the file exists, which specifies its
+	// 	- Must return 0 if the file doesn't exists.
+	// 	- Returns a value >=0 if the file exists, which specifies its
 	// length.
 	FileLength(name string) (n int64, err error)
-	// CreateOutput(name string, ctx, IOContext) (out IndexOutput, err error)
-	// Sync(names []string) error
+	// Creates a new, empty file in the directory with the given name.
+	// Returns a stream writing this file.
+	CreateOutput(name string, ctx IOContext) (out IndexOutput, err error)
+	// Ensure that any writes to these files ar emoved to stable
+	// storage. Lucene uses this to properly commit changes to the
+	// index, to prevent a machine/OS crash from corrupting the index.
+	//
+	// NOTE: Clients may call this method for same files over and over
+	// again, so some impls might optimize for that. For other impls
+	// the operation can be a noop, for various reasons.
+	Sync(names []string) error
 	OpenInput(name string, context IOContext) (in IndexInput, err error)
 	// Locks related methods
 	MakeLock(name string) Lock
@@ -211,6 +252,8 @@ type Directory interface {
 	// Copy(to Directory, src, dest string, ctx IOContext) error
 	// Experimental methods
 	CreateSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error)
+
+	EnsureOpen()
 }
 
 type directoryService interface {
@@ -223,8 +266,8 @@ type DirectoryImpl struct {
 	lockFactory LockFactory
 }
 
-func NewDirectoryImpl(self Directory) *DirectoryImpl {
-	return &DirectoryImpl{ /*Directory: self,*/ IsOpen: true}
+func NewDirectoryImpl(self directoryService) *DirectoryImpl {
+	return &DirectoryImpl{directoryService: self, IsOpen: true}
 }
 
 func (d *DirectoryImpl) MakeLock(name string) Lock {
@@ -239,7 +282,8 @@ func (d *DirectoryImpl) ClearLock(name string) error {
 }
 
 func (d *DirectoryImpl) SetLockFactory(lockFactory LockFactory) {
-	assert(lockFactory != nil)
+	assert(d != nil && lockFactory != nil)
+	d.LockID()
 	d.lockFactory = lockFactory
 	d.lockFactory.SetLockPrefix(d.LockID())
 }
@@ -254,8 +298,16 @@ func (d *DirectoryImpl) LockFactory() LockFactory {
 	return d.lockFactory
 }
 
+/*
+Return a string identifier that uniquely differentiates
+this Directory instance from other Directory instances.
+This ID should be the same if two Directory instances
+(even in different JVMs and/or on different machines)
+are considered "the same index".  This is how locking
+"scopes" to the right index.
+*/
 func (d *DirectoryImpl) LockID() string {
-	return d.String()
+	return fmt.Sprintf("%v", d)
 }
 
 func (d *DirectoryImpl) String() string {
@@ -264,7 +316,7 @@ func (d *DirectoryImpl) String() string {
 
 func (d *DirectoryImpl) CreateSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {
 	panic("Should be overrided, I guess")
-	d.ensureOpen()
+	d.EnsureOpen()
 	base, err := d.OpenInput(name, context)
 	if err != nil {
 		return nil, err
@@ -272,7 +324,7 @@ func (d *DirectoryImpl) CreateSlicer(name string, context IOContext) (is IndexIn
 	return simpleIndexInputSlicer{base}, nil
 }
 
-func (d *DirectoryImpl) ensureOpen() {
+func (d *DirectoryImpl) EnsureOpen() {
 	if !d.IsOpen {
 		log.Print("This Directory is closed.")
 		panic("this Directory is closed")

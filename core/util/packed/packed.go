@@ -317,7 +317,7 @@ func (it *PackedReaderIterator) iterations(mem int) int {
 	iterations := it.bulkOperation.computeIterations(it.valueCount, mem)
 	if it.packedIntsVersion < PACKED_VERSION_BYTE_ALIGNED {
 		// make sure iterations is a multiple of 8
-		iterations = (iterations + 7) & 0xFFFFFFF8
+		iterations = int((int64(iterations) + 7) & 0xFFFFFFF8)
 	}
 	return iterations
 }

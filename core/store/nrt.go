@@ -1,7 +1,9 @@
 package store
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"sync"
 )
 
@@ -37,11 +39,13 @@ below 60 MB).
 type NRTCachingDirectory struct {
 	Directory
 	sync.Locker
+
 	cache             *RAMDirectory
-	maxMergeSizeBytes float64
-	maxCachedBytes    float64
-	doCacheWrite      func(name string, context IOContext) bool
-	uncacheLock       sync.Locker
+	maxMergeSizeBytes int64
+	maxCachedBytes    int64
+
+	doCacheWrite func(name string, context IOContext) bool
+	uncacheLock  sync.Locker
 }
 
 /*
@@ -49,16 +53,29 @@ We will cache a newly created output if 1) it's a flush or a merge
 and the estimated size of the merged segment is <= maxMergedSizeMB,
 and 2) the total cached bytes is <= maxCachedMB.
 */
-func NewNRTCachingDirectory(delegate Directory, maxMergeSizeMB, maxCachedMB float64) *NRTCachingDirectory {
-	return &NRTCachingDirectory{
+func NewNRTCachingDirectory(delegate Directory, maxMergeSizeMB, maxCachedMB float64) (nrt *NRTCachingDirectory) {
+	nrt = &NRTCachingDirectory{
 		Directory:         delegate,
 		Locker:            &sync.Mutex{},
 		cache:             NewRAMDirectory(),
-		maxMergeSizeBytes: maxMergeSizeMB * 1024 * 1024,
-		maxCachedBytes:    maxCachedMB * 1024 * 1024,
-		doCacheWrite:      doCacheWrite,
+		maxMergeSizeBytes: int64(maxMergeSizeMB * 1024 * 1024),
+		maxCachedBytes:    int64(maxCachedMB * 1024 * 1024),
 		uncacheLock:       &sync.Mutex{},
 	}
+	// Subclass can override this to customize logic; return true if this
+	// file should be written to the RAMDirectory.
+	nrt.doCacheWrite = func(name string, context IOContext) bool {
+		var bytes int64
+		if context.mergeInfo != nil {
+			bytes = context.mergeInfo.EstimatedMergeBytes
+		} else if context.flushInfo != nil {
+			bytes = context.flushInfo.EstimatedSegmentSize
+		}
+		return name != "segments.gen" &&
+			bytes <= nrt.maxMergeSizeBytes &&
+			bytes+nrt.cache.sizeInBytes <= nrt.maxCachedBytes
+	}
+	return
 }
 
 func (nrt *NRTCachingDirectory) String() string {
@@ -118,16 +135,15 @@ func (nrt *NRTCachingDirectory) FileExists(name string) bool {
 }
 
 func (nrt *NRTCachingDirectory) DeleteFile(name string) error {
-	panic("not implemented yet")
-	// nrt.Lock() // synchronized
-	// defer nrt.Unlock()
-	// log.Printf("nrtdir.deleteFile name=%v", name)
-	// if nrt.FileExists(name) {
-	// 	assert2(!nrt.Directory.FileExists(name), fmt.Sprintf("name=%v", name))
-	// 	return nrt.cache.DeleteFile(name)
-	// } else {
-	// 	return nrt.Directory.DeleteFile(name)
-	// }
+	nrt.Lock() // synchronized
+	defer nrt.Unlock()
+	log.Printf("nrtdir.deleteFile name=%v", name)
+	if nrt.FileExists(name) {
+		assert2(!nrt.Directory.FileExists(name), fmt.Sprintf("name=%v", name))
+		return nrt.cache.DeleteFile(name)
+	} else {
+		return nrt.Directory.DeleteFile(name)
+	}
 }
 
 func assert2(ok bool, msg string) {
@@ -137,30 +153,56 @@ func assert2(ok bool, msg string) {
 }
 
 func (nrt *NRTCachingDirectory) FileLength(name string) (length int64, err error) {
-	panic("not implemented yet")
-	// nrt.Lock() // synchronized
-	// defer nrt.Unlock()
-	// if nrt.cache.FileExists(name) {
-	// 	return nrt.cache.FileLength(name)
-	// } else {
-	// 	return nrt.Directory.FileLength(name)
-	// }
+	nrt.Lock() // synchronized
+	defer nrt.Unlock()
+	if nrt.cache.FileExists(name) {
+		return nrt.cache.FileLength(name)
+	} else {
+		return nrt.Directory.FileLength(name)
+	}
 }
 
 func (nrt *NRTCachingDirectory) CreateOutput(name string, context IOContext) (out IndexOutput, err error) {
-	panic("not implemented yet")
+	log.Printf("nrtdir.createOutput name=%v", name)
+	if nrt.doCacheWrite(name, context) {
+		log.Println("  to cache")
+		nrt.Directory.DeleteFile(name) // ignore IO error
+		return nrt.cache.CreateOutput(name, context)
+	}
+	nrt.cache.DeleteFile(name) // ignore IO error
+	return nrt.Directory.CreateOutput(name, context)
 }
 
-func (nrt *NRTCachingDirectory) Sync(fileNames []string) error {
-	panic("not implemented yet")
+func (nrt *NRTCachingDirectory) Sync(fileNames []string) (err error) {
+	log.Printf("nrtdir.sync files=%v", fileNames)
+	for _, fileName := range fileNames {
+		err = nrt.unCache(fileName)
+		if err != nil {
+			return
+		}
+	}
+	return nrt.Directory.Sync(fileNames)
 }
 
 func (nrt *NRTCachingDirectory) OpenInput(name string, context IOContext) (in IndexInput, err error) {
-	panic("not implemented yet")
+	nrt.Lock() // synchronized
+	defer nrt.Unlock()
+	log.Printf("nrtdir.openInput name=%v", name)
+	if nrt.cache.FileExists(name) {
+		log.Println("  from cache")
+		return nrt.cache.OpenInput(name, context)
+	}
+	return nrt.Directory.OpenInput(name, context)
 }
 
 func (nrt *NRTCachingDirectory) CreateSlicer(name string, context IOContext) (slicer IndexInputSlicer, err error) {
-	panic("not implemented yet")
+	nrt.EnsureOpen()
+	log.Println("nrtdir.openInput name=%v", name)
+	if nrt.cache.FileExists(name) {
+		log.Println("  from cache")
+		return nrt.cache.CreateSlicer(name, context)
+	}
+	return nrt.Directory.CreateSlicer(name, context)
 }
 
 // Close this directory, which flushes any cached files to the
@@ -185,12 +227,41 @@ func (nrt *NRTCachingDirectory) Close() error {
 	return nrt.Directory.Close()
 }
 
-// Subclass can override this to customize logic; return true if this
-// file should be written to the RAMDirectory.
-func doCacheWrite(name string, context IOContext) bool {
-	panic("not implemented yet")
-}
+func (nrt *NRTCachingDirectory) unCache(fileName string) (err error) {
+	// Only let one goroutine uncache at a time; this only happens
+	// during commit() or close():
+	nrt.uncacheLock.Lock()
+	defer nrt.uncacheLock.Unlock()
 
-func (nrt *NRTCachingDirectory) unCache(fileName string) error {
-	panic("not implemented yet")
+	log.Printf("nrtdir.unCache name=%v", fileName)
+	if !nrt.cache.FileExists(fileName) {
+		// Another goroutine beat us...
+		return
+	}
+	if nrt.Directory.FileExists(fileName) {
+		return errors.New(fmt.Sprintf("canno uncache file='%v': it was separately also created in the delegate directory", fileName))
+	}
+	context := IO_CONTEXT_DEFAULT
+	var out IndexOutput
+	out, err = nrt.Directory.CreateOutput(fileName, context)
+	if err != nil {
+		return
+	}
+	defer out.Close()
+	var in IndexInput
+	in, err = nrt.cache.OpenInput(fileName, context)
+	if err != nil {
+		return
+	}
+	defer in.Close()
+	err = out.CopyBytes(in, in.Length())
+	if err != nil {
+		return
+	}
+
+	nrt.Lock() // Lock order: uncacheLock -> this
+	defer nrt.Unlock()
+	// Must sync here because other sync methods have
+	// if nrt.cache.FileExists(name) { ... } else { ... }
+	return nrt.cache.DeleteFile(fileName)
 }

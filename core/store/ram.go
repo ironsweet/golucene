@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
 )
 
 // store/RAMDirectory.java
@@ -45,7 +46,7 @@ func NewRAMDirectory() *RAMDirectory {
 }
 
 func (rd *RAMDirectory) ListAll() (names []string, err error) {
-	rd.ensureOpen()
+	rd.EnsureOpen()
 	rd.fileMapLock.RLock()
 	defer rd.fileMapLock.RUnlock()
 	names = make([]string, 0, len(rd.fileMap))
@@ -57,7 +58,7 @@ func (rd *RAMDirectory) ListAll() (names []string, err error) {
 
 // Returns true iff the named file exists in this directory
 func (rd *RAMDirectory) FileExists(name string) bool {
-	rd.ensureOpen()
+	rd.EnsureOpen()
 	rd.fileMapLock.RLock()
 	defer rd.fileMapLock.RUnlock()
 	_, ok := rd.fileMap[name]
@@ -66,7 +67,7 @@ func (rd *RAMDirectory) FileExists(name string) bool {
 
 // Returns the length in bytes of a file in the directory.
 func (rd *RAMDirectory) FileLength(name string) (length int64, err error) {
-	rd.ensureOpen()
+	rd.EnsureOpen()
 	rd.fileMapLock.RLock()
 	defer rd.fileMapLock.RUnlock()
 	if file, ok := rd.fileMap[name]; ok {
@@ -75,14 +76,23 @@ func (rd *RAMDirectory) FileLength(name string) (length int64, err error) {
 	return 0, errors.New(name)
 }
 
+/*
+Return total size in bytes of all files in this directory. This is
+currently quantized to BUFFER_SIZE.
+*/
+func (rd *RAMDirectory) SizeInBytes() int64 {
+	rd.EnsureOpen()
+	return atomic.LoadInt64(&rd.sizeInBytes)
+}
+
 // Removes an existing file in the directory
 func (rd *RAMDirectory) DeleteFile(name string) error {
-	rd.ensureOpen()
+	rd.EnsureOpen()
 	rd.fileMapLock.RLock()
 	defer rd.fileMapLock.RUnlock()
 	if file, ok := rd.fileMap[name]; ok {
 		file.directory = nil
-		panic("not implemented yet")
+		atomic.AddInt64(&rd.sizeInBytes, -file.sizeInBytes)
 		return nil
 	}
 	return errors.New(name)
@@ -91,16 +101,16 @@ func (rd *RAMDirectory) DeleteFile(name string) error {
 // Creates a new, empty file in the directory with the given name.
 // Returns a stream writing this file:
 func (rd *RAMDirectory) CreateOutput(name string, context IOContext) (out IndexOutput, err error) {
-	rd.ensureOpen()
+	rd.EnsureOpen()
 	file := rd.newRAMFile()
 	rd.fileMapLock.Lock()
 	defer rd.fileMapLock.Unlock()
 	if existing, ok := rd.fileMap[name]; ok {
-		panic("not implemented yet")
+		atomic.AddInt64(&rd.sizeInBytes, -existing.sizeInBytes)
 		existing.directory = nil
 	}
 	rd.fileMap[name] = file
-	panic("not implemented yet")
+	return newRAMOutputStream(file), nil
 }
 
 // Returns a new RAMFile for storing data. This method can be
@@ -116,7 +126,7 @@ func (rd *RAMDirectory) Sync(names []string) error {
 
 // Returns a stream reading an existing file.
 func (rd *RAMDirectory) OpenInput(name string, context IOContext) (in IndexInput, err error) {
-	rd.ensureOpen()
+	rd.EnsureOpen()
 	if file, ok := rd.fileMap[name]; ok {
 		return newRAMInputStream(name, file)
 	}
@@ -138,7 +148,7 @@ func (rd *RAMDirectory) Close() error {
 type RAMFile struct {
 	sync.Locker
 	buffers     [][]byte
-	length      int
+	length      int64
 	directory   *RAMDirectory
 	sizeInBytes int64
 	newBuffer   func(size int) []byte
@@ -159,7 +169,7 @@ func newRAMFile(directory *RAMDirectory) *RAMFile {
 	}
 }
 
-func (rf *RAMFile) SetLength(length int) {
+func (rf *RAMFile) SetLength(length int64) {
 	rf.Lock() // synchronized
 	defer rf.Unlock()
 	rf.length = length
@@ -172,7 +182,10 @@ func (rf *RAMFile) addBuffer(size int) []byte {
 	rf.buffers = append(rf.buffers, buffer)
 	rf.sizeInBytes += int64(size)
 
-	panic("not implemented yet")
+	if rf.directory != nil {
+		atomic.AddInt64(&rf.directory.sizeInBytes, int64(size))
+	}
+	return buffer
 }
 
 func (rf *RAMFile) Buffer(index int) []byte {
@@ -391,4 +404,43 @@ func (in *RAMInputStream) Seek(pos int64) error {
 
 func (in *RAMInputStream) Clone() IndexInput {
 	panic("not supported yet")
+}
+
+// store/RamOutputStream.java
+
+/*
+A memory-resident IndexOutput implementation
+*/
+type RAMOutputStream struct {
+	*IndexOutputImpl
+
+	file *RAMFile
+
+	currentBufferIndex int
+
+	bufferPosition int
+	bufferStart    int64
+	bufferLength   int
+}
+
+func newRAMOutputStream(f *RAMFile) *RAMOutputStream {
+	// make sure that we switch to the first needed buffer lazily
+	out := &RAMOutputStream{file: f, currentBufferIndex: -1}
+	out.IndexOutputImpl = newIndexOutput(out)
+	return out
+}
+
+func (out *RAMOutputStream) Close() error {
+	return out.Flush()
+}
+
+func (out *RAMOutputStream) setFileLength() {
+	if pointer := out.bufferStart + int64(out.bufferPosition); pointer > int64(out.file.length) {
+		out.file.SetLength(pointer)
+	}
+}
+
+func (out *RAMOutputStream) Flush() error {
+	out.setFileLength()
+	return nil
 }
