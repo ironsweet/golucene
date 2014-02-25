@@ -202,6 +202,59 @@ hasDocValues = %v
 }
 
 type FieldNumbers struct {
+	numberToName map[int]string
+	nameToNumber map[string]int
+	// We use this to enforce that a given field never changes DV type,
+	// even across segments / IndexWriter sessions:
+	docValuesType map[string]DocValuesType
+	// TODO: we should similarly catch an attempt to turn norms back on
+	// after they were already ommitted; today we silently discard the
+	// norm but this is badly trappy
+	lowestUnassignedFieldNumber int
+}
+
+func newFieldNumbers() *FieldNumbers {
+	return &FieldNumbers{
+		nameToNumber:  make(map[string]int),
+		numberToName:  make(map[int]string),
+		docValuesType: make(map[string]DocValuesType),
+	}
+}
+
+/*
+Returns the global field number for the given field name. If the name
+does not exist yet it tries to add it with the given preferred field
+number assigned if possible otherwise the first unassigned field
+number is used as the field number.
+*/
+func (fn *FieldNumbers) addOrGet(name string, preferredNumber int, dv DocValuesType) int {
+	if dv != 0 {
+		currentDv, ok := fn.docValuesType[name]
+		if !ok || currentDv == 0 {
+			fn.docValuesType[name] = dv
+		} else if currentDv != dv {
+			log.Panicf("cannot change DocValues type from %v to %v for field '%v'", currentDv, dv, name)
+		}
+	}
+	number, ok := fn.nameToNumber[name]
+	if !ok {
+		_, ok = fn.numberToName[preferredNumber]
+		if preferredNumber != -1 && !ok {
+			// cool - we can use this number globally
+			number = preferredNumber
+		} else {
+			// find a new FieldNumber
+			for _, ok = fn.numberToName[fn.lowestUnassignedFieldNumber]; ok; {
+				// might not be up to date - lets do the work once needed
+				fn.lowestUnassignedFieldNumber++
+			}
+			number = fn.lowestUnassignedFieldNumber
+		}
+
+		fn.numberToName[number] = name
+		fn.nameToNumber[name] = number
+	}
+	return number
 }
 
 type FieldInfosBuilder struct {

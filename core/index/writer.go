@@ -869,7 +869,17 @@ this SegmentInfos. If this SegmentInfos has no global field number
 map the returned instance is empty.
 */
 func (w *IndexWriter) fieldNumberMap() (m *FieldNumbers, err error) {
-	panic("not implemented yet")
+	m = newFieldNumbers()
+	for _, info := range w.segmentInfos.Segments {
+		fis, err := w.fieldInfos(info.info)
+		if err != nil {
+			return nil, err
+		}
+		for _, fi := range fis.values {
+			m.addOrGet(fi.name, int(fi.number), fi.docValueType)
+		}
+	}
+	return m, nil
 }
 
 func (w *IndexWriter) messageState() {
@@ -1291,11 +1301,11 @@ func (w *IndexWriter) merge(merge *OneMerge) error {
 	panic("not implemented yet")
 }
 
-func setDiagnostics(info SegmentInfo, source string) {
+func setDiagnostics(info *SegmentInfo, source string) {
 	setDiagnosticsAndDetails(info, source, nil)
 }
 
-func setDiagnosticsAndDetails(info SegmentInfo, source string, details map[string]string) {
+func setDiagnosticsAndDetails(info *SegmentInfo, source string, details map[string]string) {
 	panic("not implemented yet")
 }
 
@@ -1363,7 +1373,7 @@ file.
 func createCompoundFile(infoStream util.InfoStream,
 	directory store.Directory,
 	checkAbort *CheckAbort,
-	info SegmentInfo,
+	info *SegmentInfo,
 	context store.IOContext) (names []string, err error) {
 	panic("not implemented yet")
 }

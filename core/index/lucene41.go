@@ -40,7 +40,7 @@ type Lucene41PostingsReader struct {
 	forUtil ForUtil
 }
 
-func NewLucene41PostingsReader(dir store.Directory, fis FieldInfos, si SegmentInfo,
+func NewLucene41PostingsReader(dir store.Directory, fis FieldInfos, si *SegmentInfo,
 	ctx store.IOContext, segmentSuffix string) (r PostingsReaderBase, err error) {
 	log.Print("Initializing Lucene41PostingsReader...")
 	success := false
@@ -626,7 +626,7 @@ type Lucene41StoredFieldsReader struct {
 	*CompressingStoredFieldsReader
 }
 
-func newLucene41StoredFieldsReader(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
+func newLucene41StoredFieldsReader(d store.Directory, si *SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
 	formatName := "Lucene41StoredFields"
 	compressionMode := codec.COMPRESSION_MODE_FAST
 	// chunkSize := 1 << 14
@@ -700,7 +700,7 @@ func newCompressingStoredFieldsReaderFrom(reader *CompressingStoredFieldsReader)
 }
 
 // Sole constructor
-func newCompressingStoredFieldsReader(d store.Directory, si SegmentInfo, segmentSuffix string, fn FieldInfos,
+func newCompressingStoredFieldsReader(d store.Directory, si *SegmentInfo, segmentSuffix string, fn FieldInfos,
 	ctx store.IOContext, formatName string, compressionMode codec.CompressionMode) (r *CompressingStoredFieldsReader, err error) {
 	r = &CompressingStoredFieldsReader{}
 	r.compressionMode = compressionMode
@@ -971,7 +971,7 @@ type CompressingStoredFieldsIndexReader struct {
 	startPointersDeltas []packed.PackedIntsReader
 }
 
-func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput, si SegmentInfo) (r *CompressingStoredFieldsIndexReader, err error) {
+func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput, si *SegmentInfo) (r *CompressingStoredFieldsIndexReader, err error) {
 	r = &CompressingStoredFieldsIndexReader{}
 	r.maxDoc = int(si.docCount)
 	r.docBases = make([]int, 0, 16)

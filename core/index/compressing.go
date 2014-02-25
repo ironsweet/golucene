@@ -63,13 +63,13 @@ func newCompressingStoredFieldsFormat(formatName, segmentSuffix string,
 	}
 }
 
-func (format *CompressingStoredFieldsFormat) FieldsReader(d store.Directory, si SegmentInfo,
+func (format *CompressingStoredFieldsFormat) FieldsReader(d store.Directory, si *SegmentInfo,
 	fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
 	return newCompressingStoredFieldsReader(d, si, format.segmentSuffix, fn,
 		ctx, format.formatName, format.compressionMode)
 }
 
-func (format *CompressingStoredFieldsFormat) FieldsWriter(d store.Directory, si SegmentInfo,
+func (format *CompressingStoredFieldsFormat) FieldsWriter(d store.Directory, si *SegmentInfo,
 	context store.IOContext) (w StoredFieldsWriter, err error) {
 	panic("not implemented yet")
 }
@@ -120,11 +120,11 @@ func newCompressingTermVectorsFormat(formatName, segmentSuffix string,
 }
 
 func (vf *CompressingTermVectorsFormat) VectorsReader(d store.Directory,
-	segmentInfo SegmentInfo, fieldsInfos FieldInfos, context store.IOContext) (r TermVectorsReader, err error) {
+	segmentInfo *SegmentInfo, fieldsInfos FieldInfos, context store.IOContext) (r TermVectorsReader, err error) {
 	panic("not implemented yet")
 }
 
 func (vf *CompressingTermVectorsFormat) VectorsWriter(d store.Directory,
-	segmentInfo SegmentInfo, context store.IOContext) (w TermVectorsWriter, err error) {
+	segmentInfo *SegmentInfo, context store.IOContext) (w TermVectorsWriter, err error) {
 	panic("not implemented yet")
 }

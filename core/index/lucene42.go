@@ -377,7 +377,7 @@ type Lucene42TermVectorsReader struct {
 	*CompressingTermVectorsReader
 }
 
-func newLucene42TermVectorsReader(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
+func newLucene42TermVectorsReader(d store.Directory, si *SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
 	formatName := "Lucene41StoredFields"
 	compressionMode := codec.COMPRESSION_MODE_FAST
 	// chunkSize := 1 << 12
@@ -393,7 +393,7 @@ type CompressingTermVectorsReader struct {
 	closed        bool
 }
 
-func newCompressingTermVectorsReader(d store.Directory, si SegmentInfo, segmentSuffix string, fn FieldInfos,
+func newCompressingTermVectorsReader(d store.Directory, si *SegmentInfo, segmentSuffix string, fn FieldInfos,
 	ctx store.IOContext, formatName string, compressionMode codec.CompressionMode) (r *CompressingTermVectorsReader, err error) {
 	panic("not implemented yet")
 	return nil, nil

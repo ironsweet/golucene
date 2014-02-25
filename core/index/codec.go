@@ -52,14 +52,6 @@ type CodecImpl struct {
 	postingsFormat   PostingsFormat
 	docValuesFormat  DocValuesFormat
 	normsFormat      NormsFormat
-
-	// ReadSegmentInfo           func(d store.Directory, segment string, ctx store.IOContext) (si SegmentInfo, err error)
-	// ReadFieldInfos            func(d store.Directory, segment string, ctx store.IOContext) (fi FieldInfos, err error)
-	// GetFieldsProducer         func(s SegmentReadState) (r FieldsProducer, err error)
-	// GetDocValuesProducer      func(s SegmentReadState) (r DocValuesProducer, err error)
-	// GetNormsDocValuesProducer func(s SegmentReadState) (r DocValuesProducer, err error)
-	// GetStoredFieldsReader     func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error)
-	// GetTermVectorsReader      func(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
 }
 
 func (codec *CodecImpl) Name() string {
@@ -300,9 +292,9 @@ type DocValuesConsumer interface{}
 // Controls the format of stored fields
 type StoredFieldsFormat interface {
 	// Returns a StoredFieldsReader to load stored fields.
-	FieldsReader(d store.Directory, si SegmentInfo, fn FieldInfos, context store.IOContext) (r StoredFieldsReader, err error)
+	FieldsReader(d store.Directory, si *SegmentInfo, fn FieldInfos, context store.IOContext) (r StoredFieldsReader, err error)
 	// Returns a StoredFieldsWriter to write stored fields.
-	FieldsWriter(d store.Directory, si SegmentInfo, context store.IOContext) (w StoredFieldsWriter, err error)
+	FieldsWriter(d store.Directory, si *SegmentInfo, context store.IOContext) (w StoredFieldsWriter, err error)
 }
 
 // codecs/StoredFieldsReader.java
@@ -332,9 +324,9 @@ type StoredFieldsWriter interface{}
 // Controls the format of term vectors
 type TermVectorsFormat interface {
 	// Returns a TermVectorsReader to read term vectors.
-	VectorsReader(d store.Directory, si SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
+	VectorsReader(d store.Directory, si *SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
 	// Returns a TermVectorsWriter to write term vectors.
-	VectorsWriter(d store.Directory, si SegmentInfo, ctx store.IOContext) (w TermVectorsWriter, err error)
+	VectorsWriter(d store.Directory, si *SegmentInfo, ctx store.IOContext) (w TermVectorsWriter, err error)
 }
 
 // codecs/TermVectorsReader.java
@@ -396,12 +388,12 @@ type SegmentInfoFormat interface {
 
 // Read SegmentInfo data from a directory.
 type SegmentInfoReader func(d store.Directory, name string,
-	ctx store.IOContext) (info SegmentInfo, err error)
+	ctx store.IOContext) (info *SegmentInfo, err error)
 
 // codecs/SegmentInfoWriter.java
 
 // Write SegmentInfo data.
-type SegmentInfoWriter func(d store.Directory, info SegmentInfo,
+type SegmentInfoWriter func(d store.Directory, info *SegmentInfo,
 	infos FieldInfos, ctx store.IOContext) error
 
 // codecs/NormsFormat.java

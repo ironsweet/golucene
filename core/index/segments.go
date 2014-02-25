@@ -13,7 +13,7 @@ import (
 // Embeds a [read-only] SegmentInfo and adds per-commit fields.
 type SegmentInfoPerCommit struct {
 	// The SegmentInfo that we wrap.
-	info SegmentInfo
+	info *SegmentInfo
 	// How many deleted docs in the segment:
 	delCount int
 	// Generation number of the live docs file (-1 if there are no deletes yet)
@@ -28,7 +28,7 @@ type SegmentInfoPerCommit struct {
 	bufferedDeletesGen int64
 }
 
-func NewSegmentInfoPerCommit(info SegmentInfo, delCount int, delGen int64) *SegmentInfoPerCommit {
+func NewSegmentInfoPerCommit(info *SegmentInfo, delCount int, delGen int64) *SegmentInfoPerCommit {
 	nextWriteDelGen := int64(1)
 	if delGen != -1 {
 		nextWriteDelGen = delGen + 1
@@ -506,14 +506,14 @@ func (r *SegmentCoreReaders) decRef() {
 
 type SegmentReadState struct {
 	dir               store.Directory
-	segmentInfo       SegmentInfo
+	segmentInfo       *SegmentInfo
 	fieldInfos        FieldInfos
 	context           store.IOContext
 	termsIndexDivisor int
 	segmentSuffix     string
 }
 
-func newSegmentReadState(dir store.Directory, info SegmentInfo, fieldInfos FieldInfos,
+func newSegmentReadState(dir store.Directory, info *SegmentInfo, fieldInfos FieldInfos,
 	context store.IOContext, termsIndexDivisor int) SegmentReadState {
 	return SegmentReadState{dir, info, fieldInfos, context, termsIndexDivisor, ""}
 }

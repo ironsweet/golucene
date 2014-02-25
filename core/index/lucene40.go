@@ -71,8 +71,8 @@ const (
 
 // lucene40/Lucene40SegmentInfoReader.java
 
-var Lucene40SegmentInfoReader = func(dir store.Directory, segment string, context store.IOContext) (si SegmentInfo, err error) {
-	si = SegmentInfo{}
+var Lucene40SegmentInfoReader = func(dir store.Directory, segment string, context store.IOContext) (si *SegmentInfo, err error) {
+	si = &SegmentInfo{}
 	fileName := util.SegmentFileName(segment, "", LUCENE40_SI_EXTENSION)
 	input, err := dir.OpenInput(fileName, context)
 	if err != nil {
@@ -127,7 +127,7 @@ var Lucene40SegmentInfoReader = func(dir store.Directory, segment string, contex
 			fileName, input.FilePointer(), input.Length(), input))
 	}
 
-	si = SegmentInfo{dir, version, segment, docCount, isCompoundFile, nil, diagnostics, attributes, nil}
+	si = &SegmentInfo{dir, version, segment, docCount, isCompoundFile, nil, diagnostics, attributes, nil}
 	si.CheckFileNames(files)
 	si.Files = files
 
@@ -138,7 +138,7 @@ var Lucene40SegmentInfoReader = func(dir store.Directory, segment string, contex
 // lucene40/Lucne40SegmentInfoWriter.java
 
 // Lucene 4.0 implementation of SegmentInfoWriter
-var Lucene40SegmentInfoWriter = func(dir store.Directory, si SegmentInfo, fis FieldInfos, ctx store.IOContext) error {
+var Lucene40SegmentInfoWriter = func(dir store.Directory, si *SegmentInfo, fis FieldInfos, ctx store.IOContext) error {
 	panic("not implemented yet")
 }
 
