@@ -3,7 +3,7 @@ golucene
 
 A [Go](http://golang.org) port of [Apache Lucene](http://lucene.apache.org).
 
-The migration effort is [paused and explained](http://zhouyiyan.cn/tech/Switch-of-interest/).
+I'm back!
 
 Milestones
 ----------
@@ -13,8 +13,8 @@ Milestones
 
 Progress
 --------
-27000/40000 LoC, 13 Weeks Left
-V1.0 ETA: n/a
+27300/40000 LoC, 13 Weeks Left
+V1.0 ETA: 2014/5/16
 
 License
 -------
