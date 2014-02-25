@@ -322,7 +322,38 @@ func newDirectoryImpl(random *rand.Rand, clazzName string) store.Directory {
 }
 
 func NewIOContext(r *rand.Rand, oldContext store.IOContext) store.IOContext {
-	panic("not implemented yet")
+	randomNumDocs := r.Intn(4192)
+	size := r.Int63n(512) * int64(randomNumDocs)
+	if oldContext.FlushInfo != nil {
+		// Always return at least the estimatedSegmentSize of the
+		// incoming IOContext:
+		if size < oldContext.FlushInfo.EstimatedSegmentSize {
+			size = oldContext.FlushInfo.EstimatedSegmentSize
+		}
+		return store.NewIOContextForFlush(&store.FlushInfo{randomNumDocs, size})
+	} else if oldContext.MergeInfo != nil {
+		// Always return at least the estimatedMergeBytes of the
+		// incoming IOContext:
+		if size < oldContext.MergeInfo.EstimatedMergeBytes {
+			size = oldContext.MergeInfo.EstimatedMergeBytes
+		}
+		return store.NewIOContextForMerge(
+			&store.MergeInfo{randomNumDocs, size, r.Intn(2) == 0, NextInt(r, 1, 100)})
+	} else {
+		// Make a totally random IOContext:
+		switch r.Intn(5) {
+		case 1:
+			return store.IO_CONTEXT_READ
+		case 2:
+			return store.IO_CONTEXT_READONCE
+		case 3:
+			return store.NewIOContextForMerge(&store.MergeInfo{randomNumDocs, size, true, -1})
+		case 4:
+			return store.NewIOContextForFlush(&store.FlushInfo{randomNumDocs, size})
+		default:
+			return store.IO_CONTEXT_DEFAULT
+		}
+	}
 }
 
 // L1305

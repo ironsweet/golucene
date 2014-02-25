@@ -66,10 +66,10 @@ func NewNRTCachingDirectory(delegate Directory, maxMergeSizeMB, maxCachedMB floa
 	// file should be written to the RAMDirectory.
 	nrt.doCacheWrite = func(name string, context IOContext) bool {
 		var bytes int64
-		if context.mergeInfo != nil {
-			bytes = context.mergeInfo.EstimatedMergeBytes
-		} else if context.flushInfo != nil {
-			bytes = context.flushInfo.EstimatedSegmentSize
+		if context.MergeInfo != nil {
+			bytes = context.MergeInfo.EstimatedMergeBytes
+		} else if context.FlushInfo != nil {
+			bytes = context.FlushInfo.EstimatedSegmentSize
 		}
 		return name != "segments.gen" &&
 			bytes <= nrt.maxMergeSizeBytes &&

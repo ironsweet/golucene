@@ -32,8 +32,8 @@ parameter to either OpenInput() or CreateOutput()
 */
 type IOContext struct {
 	context   IOContextType
-	mergeInfo *MergeInfo
-	flushInfo *FlushInfo
+	MergeInfo *MergeInfo
+	FlushInfo *FlushInfo
 	readOnce  bool
 }
 
@@ -42,7 +42,7 @@ func NewIOContextForFlush(flushInfo *FlushInfo) IOContext {
 	return IOContext{
 		context:   IOContextType(IO_CONTEXT_TYPE_FLUSH),
 		readOnce:  false,
-		flushInfo: flushInfo,
+		FlushInfo: flushInfo,
 	}
 }
 
@@ -66,26 +66,26 @@ func NewIOContextForMerge(mergeInfo *MergeInfo) IOContext {
 	assert2(mergeInfo != nil, "MergeInfo must not be nil if context is MERGE")
 	return IOContext{
 		context:   IOContextType(IO_CONTEXT_TYPE_MERGE),
-		mergeInfo: mergeInfo,
+		MergeInfo: mergeInfo,
 		readOnce:  false,
 	}
 }
 
 func (ctx IOContext) String() string {
 	return fmt.Sprintf("IOContext [context=%v, mergeInfo=%v, flushInfo=%v, readOnce=%v",
-		ctx.context, ctx.mergeInfo, ctx.flushInfo, ctx.readOnce)
+		ctx.context, ctx.MergeInfo, ctx.FlushInfo, ctx.readOnce)
 }
 
 type FlushInfo struct {
-	numDocs              int
+	NumDocs              int
 	EstimatedSegmentSize int64
 }
 
 type MergeInfo struct {
-	totalDocCount       int
+	TotalDocCount       int
 	EstimatedMergeBytes int64
-	isExternal          bool
-	mergeMaxNumSegments int
+	IsExternal          bool
+	MergeMaxNumSegments int
 }
 
 // store/Lock.java
