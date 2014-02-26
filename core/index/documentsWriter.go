@@ -248,30 +248,3 @@ to hold them. We don't hold docIDs because these are applied on flush.
 */
 type FrozenBufferedDeletes struct {
 }
-
-// index/DocumentsWriterFlushControl.java
-
-/*
-This class controls DocumentsWriterPerThread (DWPT) flushing during
-indexing. It tracks the memory consumption per DWPT and uses a
-configured FlushPolicy to decide if a DWPT must flush.
-
-In addition to the FlushPolicy the flush control might set certain
-DWPT as flush pending iff a DWPT exceeds the RAMPerThreadHardLimitMB()
-to prevent address space exhaustion.
-*/
-type DocumentsWriterFlushControl struct{}
-
-func newDocumentsWriterFlushControl(documentsWriter *DocumentsWriter,
-	config *LiveIndexWriterConfig, bufferedDeletesStream *BufferedDeletesStream) *DocumentsWriterFlushControl {
-	panic("not implemented yet")
-}
-
-// index/DocumentsWriterFlushQueue.java
-
-type DocumentsWriterFlushQueue struct {
-}
-
-func newDocumentsWriterFlushQueue() *DocumentsWriterFlushQueue {
-	panic("not implemented yet")
-}
