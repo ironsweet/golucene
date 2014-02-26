@@ -3,10 +3,12 @@ package util
 import (
 	"bytes"
 	"fmt"
-	// "log"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+// index/IndexFileNames.java
 
 const (
 	SEGMENTS = "segments"
@@ -81,3 +83,8 @@ func StripExtension(filename string) string {
 	}
 	return filename
 }
+
+/*
+All files created by codecs must match this pattern (checked in SegmentInfo)
+*/
+var CODEC_FILE_PATTERN = regexp.MustCompile("_[a-z0-9]+(_.*)?\\..*")

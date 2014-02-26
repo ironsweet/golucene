@@ -491,8 +491,9 @@ type ClosingControl struct {
 
 func newClosingControl() *ClosingControl {
 	ans := &ClosingControl{
-		closer: make(chan func() (bool, error)),
-		done:   make(chan error),
+		isRunning: true,
+		closer:    make(chan func() (bool, error)),
+		done:      make(chan error),
 	}
 	go ans.daemon()
 	return ans
@@ -854,8 +855,8 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 
 	if ans.infoStream.IsEnabled("IW") {
 		ans.infoStream.Message("IW", fmt.Sprintf("init: create=%v", create))
+		ans.messageState()
 	}
-	ans.messageState()
 
 	success = true
 	return ans, nil

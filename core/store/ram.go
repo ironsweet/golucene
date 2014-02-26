@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"sync"
 	"sync/atomic"
 )
@@ -73,7 +74,7 @@ func (rd *RAMDirectory) FileLength(name string) (length int64, err error) {
 	if file, ok := rd.fileMap[name]; ok {
 		return int64(file.length), nil
 	}
-	return 0, errors.New(name)
+	return 0, os.ErrNotExist
 }
 
 /*

@@ -224,9 +224,9 @@ type Directory interface {
 	FileExists(name string) bool
 	// Removes an existing file in the directory.
 	DeleteFile(name string) error
-	// Returns thelength of a file in the directory. This method
+	// Returns the length of a file in the directory. This method
 	// follows the following contract:
-	// 	- Must return 0 if the file doesn't exists.
+	// 	- Must return error if the file doesn't exists.
 	// 	- Returns a value >=0 if the file exists, which specifies its
 	// length.
 	FileLength(name string) (n int64, err error)
