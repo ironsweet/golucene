@@ -7,6 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/core/analysis"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"strings"
 	"sync"
 )
 
@@ -1317,17 +1318,24 @@ func setDiagnosticsAndDetails(info *SegmentInfo, source string, details map[stri
 
 // Returns a string description of all segments, for debugging.
 func (w *IndexWriter) segString() string {
+	// TODO synchronized
 	return w.segmentsToString(w.segmentInfos.Segments)
 }
 
 // returns a string description of the specified segments, for debugging.
 func (w *IndexWriter) segmentsToString(infos []*SegmentInfoPerCommit) string {
-	panic("not implemented yet")
+	// TODO synchronized
+	var parts []string
+	for _, info := range infos {
+		parts = append(parts, w.SegmentToString(info))
+	}
+	return strings.Join(parts, " ")
 }
 
 // Returns a string description of the specified segment, for debugging.
 func (w *IndexWriter) SegmentToString(info *SegmentInfoPerCommit) string {
-	panic("not implemented yet")
+	// TODO synchronized
+	return info.StringOf(info.info.dir, w.numDeletedDocs(info)-info.delCount)
 }
 
 // called only from assert
