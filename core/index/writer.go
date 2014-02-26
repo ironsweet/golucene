@@ -886,7 +886,10 @@ func (w *IndexWriter) fieldNumberMap() (m *FieldNumbers, err error) {
 }
 
 func (w *IndexWriter) messageState() {
-	panic("not implemented yet")
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", fmt.Sprintf("\ndir=%v\nindex=%v\nversion=%v\n%v",
+			w.directory, w.segString(), util.LUCENE_VERSION, w.config))
+	}
 }
 
 /*
