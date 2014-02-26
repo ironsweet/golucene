@@ -7,6 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 	"os"
 	"strings"
+	"time"
 )
 
 // index/IndexFileDeleter.java
@@ -60,6 +61,9 @@ type IndexFileDeleter struct {
 	commits []IndexCommit
 
 	// Holds files we had incref'd from the previous non-commit checkpoint:
+	lastFiles []string
+
+	// Commits that the IndexDeletionPolicy have decided to delete:
 	commitsToDelete []*CommitPoint
 
 	infoStream util.InfoStream
@@ -258,7 +262,20 @@ func (fd *IndexFileDeleter) deleteCommits() error {
 	return nil
 }
 
-//L432
+func (fd *IndexFileDeleter) deletePendingFiles() {
+	// assert locked()
+	if fd.deletable != nil {
+		oldDeletable := fd.deletable
+		fd.deletable = nil
+		for _, filename := range oldDeletable {
+			if fd.infoStream.IsEnabled("IFD") {
+				fd.infoStream.Message("IFD", fmt.Sprintf("delete pending file %v", filename))
+			}
+			fd.deleteFile(filename)
+		}
+	}
+}
+
 /*
 For definition of "check point" see IndexWriter comments:
 "Clarification: Check Points (and commits)".
@@ -268,17 +285,56 @@ meaning new files are written to the index the in-memory SegmentInfos
 have been modified to point to those files.
 
 This may or may not be a commit (sgments_N may or may not have been
-	written).
+written).
 
-	WAe simply incref the files referenced by the new SegmentInfos and
-	decref the files we had previously seen (if any).
+We simply incref the files referenced by the new SegmentInfos and
+decref the files we had previously seen (if any).
 
-	If this is a commit, we also call the policy to give it a chance to
-	remove other commits. If any commits are removed, we decref their
-	files as well.
+If this is a commit, we also call the policy to give it a chance to
+remove other commits. If any commits are removed, we decref their
+files as well.
 */
-func (del *IndexFileDeleter) checkpoint(segmentInfos *SegmentInfos, isCommit bool) error {
-	panic("not implemented yet")
+func (fd *IndexFileDeleter) checkpoint(segmentInfos *SegmentInfos, isCommit bool) error {
+	// asset locked()
+	start := time.Now()
+	defer func() {
+		if fd.infoStream.IsEnabled("IFD") {
+			elapsed := time.Now().Sub(start)
+			fd.infoStream.Message("IFD", fmt.Sprintf("%v to checkpoint", elapsed))
+		}
+	}()
+
+	// Try again now to delete any previously un-deletable files (
+	// because they were in use, on Windows):
+	fd.deletePendingFiles()
+
+	// Incref the files:
+	fd.incRef(segmentInfos, isCommit)
+
+	if isCommit {
+		// Append to our commits list:
+		fd.commits = append(fd.commits, newCommitPoint(fd.commitsToDelete, fd.directory, segmentInfos))
+
+		// Tell policy so it can remove commits:
+		err := fd.policy.onCommit(fd.commits)
+		if err != nil {
+			return err
+		}
+
+		// Decref files for commits that were deleted by the policy:
+		err = fd.deleteCommits()
+		if err != nil {
+			return err
+		}
+	} else {
+		// DecRef old files from the last checkpoint, if any:
+		fd.decRefFiles(fd.lastFiles)
+		fd.lastFiles = nil
+
+		// Save files so we can decr on next checkpoint/commit:
+		fd.lastFiles = append(fd.lastFiles, segmentInfos.files(fd.directory, false)...)
+	}
+	return nil
 }
 
 func (del *IndexFileDeleter) incRef(segmentInfos *SegmentInfos, isCommit bool) {
@@ -300,7 +356,14 @@ func (del *IndexFileDeleter) incRefFile(filename string) {
 	rc.incRef()
 }
 
-func (fd *IndexFileDeleter) decRefFile(filename string) error {
+func (fd *IndexFileDeleter) decRefFiles(files []string) {
+	// assert locked()
+	for _, file := range files {
+		fd.decRefFile(file)
+	}
+}
+
+func (fd *IndexFileDeleter) decRefFile(filename string) {
 	//assert locked()
 	rc := fd.refCount(filename)
 	if fd.infoStream.IsEnabled("IFD") && VERBOSE_REF_COUNT {
@@ -313,7 +376,6 @@ func (fd *IndexFileDeleter) decRefFile(filename string) error {
 		fd.deleteFile(filename)
 		delete(fd.refCounts, filename)
 	}
-	return nil
 }
 
 // L538

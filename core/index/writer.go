@@ -852,7 +852,9 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 		ans.changed <- true
 	}
 
-	ans.infoStream.Message("IW", fmt.Sprintf("init: create=%v", create))
+	if ans.infoStream.IsEnabled("IW") {
+		ans.infoStream.Message("IW", fmt.Sprintf("init: create=%v", create))
+	}
 	ans.messageState()
 
 	success = true
