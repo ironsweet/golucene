@@ -512,6 +512,35 @@ func (sis *SegmentInfos) ReadAll(directory store.Directory) error {
 	return err
 }
 
+// L913
+/*
+Returns all file names referenced by SegmentInfo instances matching
+the provided Directory (ie files associated with any "external"
+segments are skipped). The returned collection is recomputed on each
+invocation.
+*/
+func (sis *SegmentInfos) files(dir store.Directory, includeSegmentsFile bool) []string {
+	files := make(map[string]bool)
+	if includeSegmentsFile {
+		if segmentFileName := sis.SegmentsFileName(); segmentFileName != "" {
+			files[segmentFileName] = true
+		}
+	}
+	for _, info := range sis.Segments {
+		assert(info.info.dir == dir)
+		// if info.info.dir == dir {
+		for _, file := range info.Files() {
+			files[file] = true
+		}
+		// }
+	}
+	var res = make([]string, 0, len(files))
+	for file, _ := range files {
+		res = append(res, file)
+	}
+	return res
+}
+
 // L1041
 /*
 Replaces all segments in this instance in this instance, but keeps

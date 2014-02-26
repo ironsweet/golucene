@@ -29,7 +29,7 @@ type IndexCommit interface {
 	// Get the segments file (segments_N) associated with the commit point.
 	SegmentsFileName() string
 	// Returns all index files referenced by this commit point.
-	FileNames() (names []string, err error)
+	FileNames() []string
 	// Returns the Directory for the index.
 	Directory() store.Directory
 	/*
@@ -52,7 +52,7 @@ type IndexCommit interface {
 	// Returns the generation (the _N in segments_N) for this IndexCommit
 	Generation() int64
 	// Returns userData, previously passed to SetCommitData(map) for this commit.
-	UserData() (data map[string]string, err error)
+	UserData() map[string]string
 }
 
 type IndexCommits []IndexCommit
