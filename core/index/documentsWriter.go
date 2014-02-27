@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"log"
 	"sync"
+	"sync/atomic"
 )
 
 // index/DocConsumer.java
@@ -74,11 +76,13 @@ that the document is always atomically ("all or none") added to the
 index.
 */
 type DocumentsWriter struct {
+	sync.Locker
+
 	directory    store.Directory
 	closed       bool // volatile
 	infoStream   util.InfoStream
 	config       *LiveIndexWriterConfig
-	numDocsInRAM int // atomic
+	numDocsInRAM int32 // atomic
 
 	// TODO: cut over to BytesRefHash in BufferedDeletes
 	deleteQueue *DocumentsWriterDeleteQueue // volatile
@@ -94,11 +98,13 @@ type DocumentsWriter struct {
 	flushPolicy   FlushPolicy
 	flushControl  *DocumentsWriterFlushControl
 	writer        *IndexWriter
+	eventsLock    *sync.RWMutex
 	events        *list.List // synchronized
 }
 
 func newDocumentsWriter(writer *IndexWriter, config *LiveIndexWriterConfig, directory store.Directory) *DocumentsWriter {
 	ans := &DocumentsWriter{
+		Locker:        &sync.Mutex{},
 		deleteQueue:   newDocumentsWriterDeleteQueue(),
 		ticketQueue:   newDocumentsWriterFlushQueue(),
 		directory:     directory,
@@ -107,144 +113,176 @@ func newDocumentsWriter(writer *IndexWriter, config *LiveIndexWriterConfig, dire
 		perThreadPool: config.indexerThreadPool,
 		flushPolicy:   config.flushPolicy,
 		writer:        writer,
+		eventsLock:    &sync.RWMutex{},
 		events:        list.New(),
 	}
 	ans.flushControl = newDocumentsWriterFlushControl(ans, config, writer.bufferedDeletesStream)
 	return ans
 }
 
+/*
+Called if we hit an error at a bad time (when updating the index
+files) and must discard all currently buffered docs. This resets our
+state, discarding any docs added since last flush.
+*/
+func (dw *DocumentsWriter) abort(writer *IndexWriter) {
+	dw.Lock()
+	defer dw.Unlock()
+
+	var success = false
+	var newFilesSet = make(map[string]bool)
+	defer func() {
+		if dw.infoStream.IsEnabled("DW") {
+			dw.infoStream.Message("DW", fmt.Sprintf("done abort; abortedFiles=%v success=%v",
+				newFilesSet, success))
+		}
+	}()
+
+	dw.deleteQueue.clear()
+	if dw.infoStream.IsEnabled("DW") {
+		dw.infoStream.Message("DW", "abort")
+	}
+	var states []*ThreadState
+	limit := dw.perThreadPool.maxThreadStates()
+	for i := 0; i < limit; i++ {
+		states = append(states, dw.perThreadPool.getAndLock(nil))
+	}
+	for _, state := range states {
+		dw.abortThreadState(state, newFilesSet)
+	}
+	for _, state := range states {
+		dw.perThreadPool.release(state)
+	}
+	dw.flushControl.abortPendingFlushes(newFilesSet)
+	dw.putEvent(newDeleteNewFilesEvent(newFilesSet))
+	dw.flushControl.waitForFlush()
+	success = true
+}
+
+func (dw *DocumentsWriter) abortThreadState(perThread *ThreadState, newFiles map[string]bool) {
+	if perThread.isActive { // we might be closed
+		if perThread.dwpt != nil {
+			defer func() {
+				perThread.dwpt.checkAndResetHasAborted()
+				dw.flushControl.doOnAbort(perThread)
+			}()
+			dw.subtractFlushedNumDocs(perThread.dwpt.numDocsInRAM)
+			perThread.dwpt.abort(newFiles)
+		} else {
+			dw.flushControl.doOnAbort(perThread)
+		}
+	} else {
+		assert(dw.closed)
+	}
+}
+
+func (dw *DocumentsWriter) close() {
+	dw.closed = true
+	dw.flushControl.close()
+}
+
+func (dw *DocumentsWriter) subtractFlushedNumDocs(numFlushed int) {
+	oldValue := atomic.LoadInt32(&dw.numDocsInRAM)
+	for !atomic.CompareAndSwapInt32(&dw.numDocsInRAM, oldValue, oldValue-int32(numFlushed)) {
+		oldValue = atomic.LoadInt32(&dw.numDocsInRAM)
+	}
+}
+
+func (dw *DocumentsWriter) putEvent(event Event) {
+	dw.eventsLock.Lock()
+	defer dw.eventsLock.Unlock()
+	dw.events.PushBack(event)
+}
+
+func (dw *DocumentsWriter) processEvents(writer *IndexWriter, triggerMerge, forcePurge bool) bool {
+	dw.eventsLock.RLock()
+	defer dw.eventsLock.RUnlock()
+
+	processed := false
+	for e := dw.events.Front(); e != nil; e = e.Next() {
+		processed = true
+		e.Value.(Event)(writer, triggerMerge, forcePurge)
+	}
+	return processed
+}
+
+/*
+Interface for internal atomic events. See DocumentsWriter fo details.
+Events are executed concurrently and no order is guaranteed. Each
+event should only rely on the serializeability within its process
+method. All actions that must happen before or after a certain action
+must be encoded inside the process() method.
+*/
+type Event func(writer *IndexWriter, triggerMerge, clearBuffers bool)
+
+func newDeleteNewFilesEvent(files map[string]bool) Event {
+	return Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) {
+		writer.Lock()
+		defer writer.Unlock()
+		var fileList []string
+		for file, _ := range files {
+			fileList = append(fileList, file)
+		}
+		writer.deleter.deleteNewFiles(fileList)
+	})
+}
+
 // index/DocumentsWriterPerThread.java
 
 // Returns the DocConsumer that the DocumentsWriter calls to
 // process the documents.
-type IndexingChain func(documentsWriterPerThread *DocumentsWrtierPerThread) DocConsumer
+type IndexingChain func(documentsWriterPerThread *DocumentsWriterPerThread) DocConsumer
 
-var defaultIndexingChain = func(documentsWriterPerThread *DocumentsWrtierPerThread) DocConsumer {
+var defaultIndexingChain = func(documentsWriterPerThread *DocumentsWriterPerThread) DocConsumer {
 	panic("not implemented yet")
 }
 
-type DocumentsWrtierPerThread struct {
+type DocumentsWriterPerThread struct {
+	directory *TrackingDirectoryWrapper
+	consumer  DocConsumer
+
+	// Deletes for our still-in-RAM (to be flushed next) segment
+	pendingDeletes *BufferedDeletes
+	segmentInfo    *SegmentInfo // Current segment we are working on
+	aborting       bool         // True if an abort is pending
+	hasAborted     bool         // True if the last exception throws by #updateDocument was aborting
+
+	infoStream   util.InfoStream
+	numDocsInRAM int // the number of RAM resident documents
+}
+
+/*
+Called if we hit an error at a bad time (when updating the index
+files) and must discard all currently buffered docs. This resets our
+state, discarding any docs added since last flush.
+*/
+func (dwpt *DocumentsWriterPerThread) abort(createdFiles map[string]bool) {
+	log.Printf("now abort seg=%v", dwpt.segmentInfo.name)
+	dwpt.hasAborted, dwpt.aborting = true, true
+	defer func() {
+		dwpt.aborting = false
+		if dwpt.infoStream.IsEnabled("DWPT") {
+			dwpt.infoStream.Message("DWPT", "done abort")
+		}
+	}()
+
+	if dwpt.infoStream.IsEnabled("DWPT") {
+		dwpt.infoStream.Message("DWPT", "now abort")
+	}
+	dwpt.consumer.abort()
+
+	dwpt.pendingDeletes.clear()
+	for file, _ := range dwpt.directory.createdFiles() {
+		createdFiles[file] = true
+	}
+}
+
+func (dwpt *DocumentsWriterPerThread) checkAndResetHasAborted() (res bool) {
+	res, dwpt.hasAborted = dwpt.hasAborted, false
+	return
 }
 
 // L600
 // if you increase this, you must fix field cache impl for
 // Terms/TermsIndex requires <= 32768
 const MAX_TERM_LENGTH_UTF8 = util.BYTE_BLOCK_SIZE - 2
-
-// index/DocumentsWriterPerThreadPool.java
-
-/*
-ThreadState references and guards a DocumentsWriterPerThread instance
-that is used during indexing to build a in-memory index segment.
-ThreadState also holds all flush related per-thread data controlled
-by DocumentsWriterFlushControl.
-
-A ThreadState, its methods and members should only accessed by one
-goroutine a time. users must acquire the lock via lock() and release
-the lock in a finally block via unlock() before accesing the state.
-*/
-type ThreadState struct{}
-
-func newThreadState() *ThreadState {
-	return &ThreadState{}
-}
-
-/*
-DocumentsWriterPerThreadPool controls ThreadState instances and their
-goroutine assignment during indexing. Each TheadState holds a
-reference to a DocumentsWriterPerThread that is once a ThreadState is
-obtained from the pool exclusively used for indexing a single
-document by the obtaining thread. Each indexing thread must obtain
-such a ThreadState to make progress. Depending on the DocumentsWriterPerThreadPool
-implementation ThreadState assingments might differ from document to
-document.
-
-Once a DocumentWriterPerThread is selected for flush the thread pool
-is reusing the flushing DocumentsWriterPerthread's ThreadState with a
-new DocumentsWriterPerThread instance.
-
-GoRoutine is different from Java's thread. So intead of thread
-affinity, I will use channel and concurrent running goroutines to
-hold individual DocumentsWriterPerThead instances and states.
-*/
-type DocumentsWriterPerThreadPool struct {
-	allocator             ThreadStateAllocator
-	threadStates          []*ThreadState
-	numThreadStatesActive int // volatile
-}
-
-type ThreadStateAllocator interface {
-	getAndLock(id int, documentsWriter *DocumentsWriter) *ThreadState
-}
-
-func newDocumentsWriterPerThreadPool(maxNumThreadStates int) *DocumentsWriterPerThreadPool {
-	assert2(maxNumThreadStates >= 1, fmt.Sprintf("maxNumThreadStates must be >= 1 but was: %v", maxNumThreadStates))
-	threadStates := make([]*ThreadState, maxNumThreadStates)
-	for i, _ := range threadStates {
-		threadStates[i] = newThreadState()
-	}
-	return &DocumentsWriterPerThreadPool{
-		threadStates:          threadStates,
-		numThreadStatesActive: 0,
-	}
-}
-
-// Returns the max number of ThreadState instances available in this
-// DocumentsWriterPerThreadPool
-func (tp *DocumentsWriterPerThreadPool) maxThreadStates() int {
-	return len(tp.threadStates)
-}
-
-// index/ThreadAffinityDocumentsWrierThreadPool.java
-
-/*
-A DocumentsWriterPerThreadPool implementation that tries to assign an
-indexing goroutine to the same ThreadState each time the goroutine
-tries to obtain a TheadState. Once a new ThreadState is created it is
-associated with the creating goroutine. Subsequently, if the
-goroutines associated ThreadState is not in use it will be associated
-with the requesting goroutine. Otherwise, if the ThreadState is used
-by another goroutine, ThreadAffinityDocumentsWriterPerThreadPool
-tries to find the curently minimal contended ThreadState.
-*/
-type ThreadAffinityAllocator struct {
-	sync.Locker
-	bindings map[int]*ThreadState // synchronized
-}
-
-// Creates a new ThreadAffinityDocumentsWriterThreadPool with a given
-// maximum of ThreadStates.
-func newThreadAffinityDocumentsWriterPerThreadPool(maxNumPerThreads int) *DocumentsWriterPerThreadPool {
-	ans := newDocumentsWriterPerThreadPool(maxNumPerThreads)
-	ans.allocator = &ThreadAffinityAllocator{
-		&sync.Mutex{},
-		make(map[int]*ThreadState),
-	}
-	assert(ans.maxThreadStates() >= 1)
-	return ans
-}
-
-func (alloc *ThreadAffinityAllocator) getAndLock(id int, documentsWriter *DocumentsWriter) *ThreadState {
-	// alloc.Lock()
-	// threadState := alloc.bindings[id]
-	// alloc.Unlock()
-	// if threadState != nil && threadState.tryLock() {
-	// 	return threadState
-	// }
-	// var minThreadState *ThreadState
-
-	// GoLucene use channel to implement the pool so it doesn't need to
-	// worry about contention at all.
-	// Find the state that has minimum number of goroutines waiting
-	panic("not implemented yet")
-}
-
-// index/FrozenBufferedDeletes.java
-
-/*
-Holds buffered deletes by term or query, once pushed. Pushed delets
-are write-once, so we shift to more memory efficient data structure
-to hold them. We don't hold docIDs because these are applied on flush.
-*/
-type FrozenBufferedDeletes struct {
-}

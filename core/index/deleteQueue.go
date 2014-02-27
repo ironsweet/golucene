@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"sync"
 )
 
 // index/DocumentsWriterDeleteQueue.java
@@ -48,6 +49,7 @@ type DocumentsWriterDeleteQueue struct {
 	tail                  *Node // volatile
 	globalSlice           *DeleteSlice
 	globalBufferedDeletes *BufferedDeletes
+	globalBufferLock      sync.Locker
 
 	generation int64
 }
@@ -64,12 +66,22 @@ func newDocumentsWriterDeleteQueueWith(globalBufferedDeletes *BufferedDeletes, g
 	tail := newNode(nil)
 	return &DocumentsWriterDeleteQueue{
 		globalBufferedDeletes: globalBufferedDeletes,
+		globalBufferLock:      &sync.Mutex{},
 		generation:            generation,
 		// we use a sentinel instance as our initial tail. No slice will
 		// ever try to apply this tail since the head is always omitted.
 		tail:        tail, // sentinel
 		globalSlice: newDeleteSlice(tail),
 	}
+}
+
+func (dq *DocumentsWriterDeleteQueue) clear() {
+	dq.globalBufferLock.Lock()
+	defer dq.globalBufferLock.Unlock()
+
+	currentTail := dq.tail
+	dq.globalSlice.head, dq.globalSlice.tail = currentTail, currentTail
+	dq.globalBufferedDeletes.clear()
 }
 
 func (dq *DocumentsWriterDeleteQueue) String() string {

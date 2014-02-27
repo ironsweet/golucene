@@ -7,6 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/core/analysis"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"log"
 	"strings"
 	"sync"
 )
@@ -164,7 +165,7 @@ func newLiveIndexWriterConfig(analyzer analysis.Analyzer, matchVersion util.Vers
 		mergePolicy:             NewTieredMergePolicy(),
 		flushPolicy:             newFlushByRamOrCountsPolicy(),
 		readerPooling:           DEFAULT_READER_POOLING,
-		indexerThreadPool:       newThreadAffinityDocumentsWriterPerThreadPool(DEFAULT_MAX_THREAD_STATES),
+		indexerThreadPool:       NewDocumentsWriterPerThreadPool(DEFAULT_MAX_THREAD_STATES),
 		perRoutineHardLimitMB:   DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB,
 	}
 }
@@ -571,6 +572,8 @@ type IndexWriter struct {
 
 	rollbackSegments []*SegmentInfoPerCommit // list of segmentInfo we will fallback to if the commit fails
 
+	pendingCommit *SegmentInfos // set when a commit is pending (after prepareCommit() & before commit())
+
 	segmentInfos         *SegmentInfos // the segments
 	globalFieldNumberMap *FieldNumbers
 
@@ -594,6 +597,7 @@ type IndexWriter struct {
 	pendingMerges   *list.List
 	runningMerges   map[*OneMerge]bool
 	mergeExceptions []*OneMerge
+	stopMerges      bool
 
 	flushCount        int // atomic
 	flushDeletesCount int // atomic
@@ -971,9 +975,109 @@ Returns true if this goroutine should attempt to close, or false if
 IndexWriter is now closed; else, waits until another thread finishes
 closing.
 */
-
 func (w *IndexWriter) closeInternal(waitForMerges bool, doFlush bool) (ok bool, err error) {
-	panic("not implemented yet")
+	defer func() {
+		if !ok {
+			if w.infoStream.IsEnabled("IW") {
+				w.infoStream.Message("IW", "hit error while closing")
+			}
+		}
+	}()
+
+	assert2(w.pendingCommit == nil,
+		"cannot close: prepareCommit was already called with no corresponding call to commit")
+
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", fmt.Sprintf("now flush at close waitForMerges=%v", waitForMerges))
+	}
+
+	w.docWriter.close()
+
+	err = w.closeInternalFlush(waitForMerges, doFlush)
+	if err != nil {
+		return false, err
+	}
+
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "now call final commit()")
+	}
+
+	if doFlush {
+		err = w.commitInternal()
+		if err != nil {
+			return false, err
+		}
+	}
+
+	// commitInternal calls ReaderPool.commit, which writes any pending
+	// liveDocs from ReaderPool, so it's safe to drop all readers now:
+	err = w.readerPool.dropAll(true)
+	if err != nil {
+		return false, err
+	}
+	w.deleter.Close() // no error
+
+	// used by assert below
+	oldWriter := w.docWriter
+	w.docWriter = nil
+
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", fmt.Sprintf("at close: %v", w.segString()))
+	}
+
+	if w.writeLock != nil {
+		err = w.writeLock.Release()
+		if err != nil {
+			return false, err
+		}
+		w.writeLock = nil
+	}
+
+	ok = true
+
+	n1 := oldWriter.perThreadPool.numDeactivatedThreadStates()
+	n2 := oldWriter.perThreadPool.maxThreadStates()
+	assert2(n1 == n2, fmt.Sprintf("%v %v", n1, n2))
+
+	return ok, nil
+}
+
+func (w *IndexWriter) closeInternalFlush(waitForMerges, doFlush bool) (err error) {
+	defer func() {
+		err2 := w.closeInternalCleanup(waitForMerges)
+		if err != nil && err2 != nil {
+			log.Printf("Flush failed and error hidden: %v", err)
+		}
+		err = err2
+	}()
+
+	// Only allow a new merge to be triggered if we are going to wait
+	// for merges:
+	if doFlush {
+		err = w.flush(waitForMerges, true)
+	} else {
+		w.docWriter.abort(w) // already closed -- never sync on IW
+	}
+	return
+}
+
+func (w *IndexWriter) closeInternalCleanup(waitForMerges bool) error {
+	defer func() {
+		// shutdown policy, scheduler and all threads (this call is not
+		// interruptible):
+		util.CloseWhileSuppressingError(w.mergePolicy, w.mergeScheduler)
+	}()
+
+	// clean up merge scheduler in all cases, although flushing may have failed:
+	if waitForMerges {
+		err := w.mergeScheduler.Merge(w)
+		if err != nil {
+			return err
+		}
+	}
+	w.finishMerges(waitForMerges)
+	w.stopMerges = true
+	return nil
 }
 
 // Retuns the Directory used by this index.
@@ -1406,23 +1510,6 @@ func (w *IndexWriter) purge(forced bool) (n int, err error) {
 func (w *IndexWriter) doAfterSegmentFlushed(triggerMerge bool, forcePurge bool) error {
 	panic("not implemented yet")
 }
-
-func (w *IndexWriter) processEvents(triggerMerge bool, forcePurge bool) (ok bool, err error) {
-	panic("not implemented yet")
-}
-
-func (w *IndexWriter) processEventsQueue(queue *list.List, triggerMerge, forcePurge bool) (ok, bool, err error) {
-	panic("not implemented yet")
-}
-
-/*
-Interface for internal atomic events. See DocumentsWriter fo details.
-Events are executed concurrently and no order is guaranteed. Each
-event should only rely on the serializeability within its process
-method. All actions that must happen before or after a certain action
-must be encoded inside the process() method.
-*/
-type Event func(writer *IndexWriter, triggerMerge, clearBuffers bool)
 
 /*
 If openDirectoryReader() has been called (ie, this writer is in near

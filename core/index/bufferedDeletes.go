@@ -41,7 +41,7 @@ func newBufferedDeletes() *BufferedDeletes {
 func (bd *BufferedDeletes) String() string {
 	if VERBOSE {
 		return fmt.Sprintf("gen=%v, numTerms=%v, terms=%v, queries=%v, docIDs=%v, bytesUsed=%v",
-			bd.gen, bd.numTermDeletes, bd.terms, bd.queries, bd.docIDs, bd.bytesUsed)
+			bd.gen, atomic.LoadInt32(&bd.numTermDeletes), bd.terms, bd.queries, bd.docIDs, bd.bytesUsed)
 	} else {
 		var buf bytes.Buffer
 		fmt.Fprintf(&buf, "gen=%v", bd.gen)
@@ -59,4 +59,22 @@ func (bd *BufferedDeletes) String() string {
 		}
 		return buf.String()
 	}
+}
+
+func (bd *BufferedDeletes) clear() {
+	bd.terms = make(map[*Term]int)
+	bd.queries = make(map[interface{}]int)
+	bd.docIDs = nil
+	atomic.StoreInt32(&bd.numTermDeletes, 0)
+	atomic.StoreInt64(&bd.bytesUsed, 0)
+}
+
+// index/FrozenBufferedDeletes.java
+
+/*
+Holds buffered deletes by term or query, once pushed. Pushed delets
+are write-once, so we shift to more memory efficient data structure
+to hold them. We don't hold docIDs because these are applied on flush.
+*/
+type FrozenBufferedDeletes struct {
 }

@@ -172,12 +172,15 @@ they will be run concurrently.
 The default MergePolicy is TieredMergePolicy.
 */
 type MergePolicy interface {
+	io.Closer
+	Clone() MergePolicy
 	SetIndexWriter(writer *IndexWriter)
 	SetNoCFSRatio(noCFSRatio float64)
 	SetMaxCFSSegmentSizeMB(v float64)
 }
 
 type MergePolicyImpl struct {
+	MergeSpecifier
 	// Return the byte size of the provided SegmentInfoPerCommit,
 	// pro-rated by percentage of non-deleted documents if
 	// SetCalibrateSizeByDeletes() is set.
@@ -208,6 +211,7 @@ type MergeSpecifier interface {
 	// Determine what set of merge operations is necessary in order to
 	// expunge all deletes from the index.
 	// FindForcedDeletesMerges(segmentinfos *SegmentInfos) (spec MergeSpecification, err error)
+	io.Closer
 }
 
 func (mp *MergePolicyImpl) Clone() MergePolicy {
@@ -220,8 +224,8 @@ func (mp *MergePolicyImpl) Clone() MergePolicy {
 Creates a new merge policy instance. Note that if you intend to use
 it without passing it to IndexWriter, you should call SetIndexWriter()
 */
-func NewDefaultMergePolicyImpl() *MergePolicyImpl {
-	return newMergePolicyImpl(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE)
+func NewDefaultMergePolicyImpl(self MergeSpecifier) *MergePolicyImpl {
+	return newMergePolicyImpl(self, DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE)
 }
 
 /*
@@ -229,8 +233,9 @@ Create a new merge policy instance with default settings for noCFSRatio
 and maxCFSSegmentSize. This ctor should be used by subclasses using
 different defaults than the MergePolicy.
 */
-func newMergePolicyImpl(defaultNoCFSRatio, defaultMaxCFSSegmentSize float64) *MergePolicyImpl {
+func newMergePolicyImpl(self MergeSpecifier, defaultNoCFSRatio, defaultMaxCFSSegmentSize float64) *MergePolicyImpl {
 	ans := &MergePolicyImpl{
+		MergeSpecifier:    self,
 		writer:            util.NewSetOnce(),
 		noCFSRatio:        defaultNoCFSRatio,
 		maxCFSSegmentSize: defaultMaxCFSSegmentSize,
@@ -381,8 +386,7 @@ type TieredMergePolicy struct {
 }
 
 func NewTieredMergePolicy() *TieredMergePolicy {
-	return &TieredMergePolicy{
-		MergePolicyImpl:             newMergePolicyImpl(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE),
+	res := &TieredMergePolicy{
 		maxMergeAtOnce:              10,
 		maxMergedSegmentBytes:       5 * 1024 * 1024 * 1024,
 		maxMergeAtOnceExplicit:      30,
@@ -391,6 +395,8 @@ func NewTieredMergePolicy() *TieredMergePolicy {
 		forceMergeDeletesPctAllowed: 10,
 		reclaimDeletesWeight:        2,
 	}
+	res.MergePolicyImpl = newMergePolicyImpl(res, DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE)
+	return res
 }
 
 /*
@@ -529,12 +535,13 @@ type LogMergePolicy struct {
 }
 
 func newLogMergePolicy() *LogMergePolicy {
-	return &LogMergePolicy{
-		MergePolicyImpl:            newMergePolicyImpl(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE),
+	res := &LogMergePolicy{
 		mergeFactor:                DEFAULT_MERGE_FACTOR,
 		maxMergeSizeForForcedMerge: math.MaxInt64,
 		calibrateSizeByDeletes:     true,
 	}
+	res.MergePolicyImpl = newMergePolicyImpl(res, DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE)
+	return res
 }
 
 // Returns true if LMP is enabled in IndexWriter's InfoStream.

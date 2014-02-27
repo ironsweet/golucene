@@ -15,10 +15,11 @@ type MockRandomMergePolicy struct {
 
 func NewMockRandomMergePolicy(r *rand.Rand) *MockRandomMergePolicy {
 	// fork a private random, since we are called unpredicatably from threads:
-	return &MockRandomMergePolicy{
-		NewDefaultMergePolicyImpl(),
-		rand.New(rand.NewSource(r.Int63())),
+	res := &MockRandomMergePolicy{
+		random: rand.New(rand.NewSource(r.Int63())),
 	}
+	res.MergePolicyImpl = NewDefaultMergePolicyImpl(res)
+	return res
 }
 
 func (p *MockRandomMergePolicy) FindMerges(mergeTrigger *MergeTrigger, segmentInfos *SegmentInfos) {

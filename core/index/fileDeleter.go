@@ -262,6 +262,17 @@ func (fd *IndexFileDeleter) deleteCommits() error {
 	return nil
 }
 
+func (fd *IndexFileDeleter) Close() error {
+	// DecRef old files from the last checkpoint, if any:
+	// assert locked
+	if len(fd.lastFiles) > 0 {
+		fd.decRefFiles(fd.lastFiles)
+		fd.lastFiles = nil
+	}
+	fd.deletePendingFiles()
+	return nil
+}
+
 func (fd *IndexFileDeleter) deletePendingFiles() {
 	// assert locked()
 	if fd.deletable != nil {
@@ -387,6 +398,28 @@ func (del *IndexFileDeleter) refCount(filename string) *RefCount {
 		del.refCounts[filename] = rc
 	}
 	return rc
+}
+
+/*
+Deletes the specified files, but only if they are new (have not yet
+been incref'd).
+*/
+func (fd *IndexFileDeleter) deleteNewFiles(files []string) {
+	// assert locked
+	for _, filename := range files {
+		// NOTE: it's very unusual yet possible for the
+		// refCount to be present and 0: it can happen if you
+		// open IW on a crashed index, and it removes a bunch
+		// of unref'd files, and then you add new docs / do
+		// merging, and it reuses that segment name.
+		// TestCrash.testCrashAfterReopen can hit this:
+		if rf, ok := fd.refCounts[filename]; !ok || rf.count == 0 {
+			if fd.infoStream.IsEnabled("IFD") {
+				fd.infoStream.Message("IFD", fmt.Sprintf("delete new file '%v'", filename))
+			}
+			fd.deleteFile(filename)
+		}
+	}
 }
 
 func (del *IndexFileDeleter) deleteFile(filename string) {
