@@ -494,7 +494,7 @@ func (rule *TestRuleSetupAndRestoreClassEnv) Before() error {
 	} else {
 		assert(false)
 	}
-	log.Println("Use codec:", rule.codec)
+	log.Printf("Use codec: %v", rule.codec)
 	index.DefaultCodec = func() index.Codec { return rule.codec }
 
 	// Initialize locale/ timezone

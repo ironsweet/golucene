@@ -20,6 +20,7 @@ If you want to reuse functionality of this codec, in another codec,
 extend FilterCodec.
 */
 var Lucene42Codec = &CodecImpl{
+	name:             "Lucene42Codec",
 	fieldsFormat:     newLucene41StoredFieldsFormat(),
 	vectorsFormat:    newLucene42TermVectorsFormat(),
 	fieldInfosFormat: newLucene42FieldInfosFormat(),
