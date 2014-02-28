@@ -1,5 +1,9 @@
 package index
 
+import (
+	"sync"
+)
+
 // L421
 type ReaderPool struct {
 	owner *IndexWriter
