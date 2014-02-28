@@ -159,7 +159,7 @@ func newTieredMergePolicy(r *rand.Rand) *index.TieredMergePolicy {
 }
 
 func newAlcoholicMergePolicy(r *rand.Rand /*, tz TimeZone*/) *ti.AlcoholicMergePolicy {
-	return newAlcoholicMergePolicy(rand.New(rand.NewSource(r.Int63())))
+	return ti.NewAlcoholicMergePolicy(rand.New(rand.NewSource(r.Int63())))
 }
 
 func newLogMergePolicy(r *rand.Rand) *index.LogMergePolicy {

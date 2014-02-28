@@ -754,7 +754,7 @@ func (mp *LogMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *SegmentIn
 	return
 }
 
-func (mp LogMergePolicy) String() string {
+func (mp *LogMergePolicy) String() string {
 	panic("not implemented yet")
 }
 
