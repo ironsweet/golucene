@@ -26,6 +26,13 @@ func (p *MockRandomMergePolicy) FindMerges(mergeTrigger *MergeTrigger, segmentIn
 	panic("not implemented yet")
 }
 
+func (p *MockRandomMergePolicy) Close() error { return nil }
+
+func (p *MockRandomMergePolicy) UseCompoundFile(infos *SegmentInfos, mergedInfo *SegmentInfoPerCommit) (bool, error) {
+	// 80% of the time we create CFS:
+	return p.random.Intn(5) != 1, nil
+}
+
 // index/AlcoholicMergePolicy.java
 
 /*

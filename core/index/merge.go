@@ -173,14 +173,14 @@ The default MergePolicy is TieredMergePolicy.
 */
 type MergePolicy interface {
 	io.Closer
-	Clone() MergePolicy
+	// Clone() MergePolicy
 	SetIndexWriter(writer *IndexWriter)
 	SetNoCFSRatio(noCFSRatio float64)
 	SetMaxCFSSegmentSizeMB(v float64)
 }
 
 type MergePolicyImpl struct {
-	MergeSpecifier
+	self MergeSpecifier
 	// Return the byte size of the provided SegmentInfoPerCommit,
 	// pro-rated by percentage of non-deleted documents if
 	// SetCalibrateSizeByDeletes() is set.
@@ -214,7 +214,7 @@ type MergeSpecifier interface {
 	io.Closer
 }
 
-func (mp *MergePolicyImpl) Clone() MergePolicy {
+func (mp *MergePolicyImpl) clone() *MergePolicyImpl {
 	clone := *mp
 	clone.writer = util.NewSetOnce()
 	return &clone
@@ -235,7 +235,7 @@ different defaults than the MergePolicy.
 */
 func newMergePolicyImpl(self MergeSpecifier, defaultNoCFSRatio, defaultMaxCFSSegmentSize float64) *MergePolicyImpl {
 	ans := &MergePolicyImpl{
-		MergeSpecifier:    self,
+		self:              self,
 		writer:            util.NewSetOnce(),
 		noCFSRatio:        defaultNoCFSRatio,
 		maxCFSSegmentSize: defaultMaxCFSSegmentSize,
@@ -399,6 +399,12 @@ func NewTieredMergePolicy() *TieredMergePolicy {
 	return res
 }
 
+func (tmp *TieredMergePolicy) Clone() MergePolicy {
+	clone := *tmp
+	tmp.MergePolicyImpl = tmp.MergePolicyImpl.clone()
+	return &clone
+}
+
 /*
 Maximum number of segments to be merged at a time during "normal"
 merging. For explicit merging (e.g., forceMerge or forceMergeDeletes
@@ -484,6 +490,15 @@ func (tmp *TieredMergePolicy) SetSegmentsPerTier(v float64) *TieredMergePolicy {
 	assert2(v >= 2, fmt.Sprintf("segmentsPerTier must be >= 2 (got %v)", v))
 	tmp.segsPerTier = v
 	return tmp
+}
+
+func (tmp *TieredMergePolicy) Close() error { return nil }
+
+func (tmp *TieredMergePolicy) String() string {
+	return fmt.Sprintf("[TieredMergePolicy: maxMergeAtOnce=%v, maxMergeAtOnceExplicit=%v, maxMergedSegmentMB=%v, floorSegmentMB=%v, forceMergeDeletesPctAllowed=%v, segmentPerTier=%v, maxCFSSegmentSizeMB=%v, noCFSRatio=%v",
+		tmp.maxMergeAtOnce, tmp.maxMergeAtOnceExplicit, tmp.maxMergedSegmentBytes/1024/1024,
+		tmp.floorSegmentBytes/1024/1024, tmp.forceMergeDeletesPctAllowed, tmp.segsPerTier,
+		tmp.maxCFSSegmentSize/1024/1024, tmp.noCFSRatio)
 }
 
 // index/LogMergePolicy.java
