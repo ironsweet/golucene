@@ -14,7 +14,7 @@ import (
 
 // Hook up custom test logic into Go's test runner.
 func TestBefore(t *testing.T) {
-	fmt.Printf("tests.codec: %v\n", os.Getenv("tests.codec"))
+	fmt.Printf("tests_codec: %v\n", os.Getenv("tests_codec"))
 
 	index.DefaultSimilarity = func() index.Similarity {
 		return search.NewDefaultSimilarity()
