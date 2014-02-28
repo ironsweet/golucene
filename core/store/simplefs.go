@@ -44,7 +44,7 @@ func (lock *SimpleFSLock) Obtain() (ok bool, err error) {
 	}
 	var f *os.File
 	if f, err = os.OpenFile(lock.file, os.O_CREATE, 0666); err == nil {
-		log.Println("File '%v' is created.", f)
+		log.Printf("File '%v' is created.", f)
 		ok = true
 		defer f.Close()
 	}
