@@ -177,9 +177,6 @@ type IndexWriter struct {
 
 	writeLock store.Lock
 
-	closed  bool // volatile
-	closing bool // volatile
-
 	// Holds all SegmentInfo instances currently involved in merges
 	mergingSegments map[*SegmentInfoPerCommit]bool
 
@@ -239,16 +236,6 @@ func (w *IndexWriter) numDeletedDocs(info *SegmentInfoPerCommit) int {
 	panic("not implemented yet")
 }
 
-// Used internally to throw an AlreadyClosedError if this IndexWriter
-// has been closed or is in the process of closing.
-func (w *IndexWriter) ensureOpenOrPanic(failIfClosing bool) {
-	w.Lock() // volatile check
-	defer w.Unlock()
-	if w.closed || failIfClosing && w.closing {
-		panic("this IndexWriter is closed")
-	}
-}
-
 /*
 Used internally to throw an AlreadyClosedError if this IndexWriter
 has been closed or is in the process of closing.
@@ -256,7 +243,7 @@ has been closed or is in the process of closing.
 Calls ensureOpen(true).
 */
 func (w *IndexWriter) ensureOpen() {
-	w.ensureOpenOrPanic(true)
+	w.ClosingControl.ensureOpen(true)
 }
 
 /*
@@ -782,7 +769,7 @@ func (w *IndexWriter) maxSegmentsMergePending() bool {
 }
 
 func (w *IndexWriter) maybeMerge(trigger *MergeTrigger, maxNumSegments int) (err error) {
-	w.ensureOpenOrPanic(false)
+	w.ClosingControl.ensureOpen(false)
 	if err = w.updatePendingMerges(trigger, maxNumSegments); err == nil {
 		err = w.mergeScheduler.Merge(w)
 	}
