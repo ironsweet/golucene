@@ -155,6 +155,7 @@ Close() should be called.
 type IndexWriter struct {
 	sync.Locker
 	*ClosingControl
+	*MergeControl
 
 	hitOOM bool // volatile
 
@@ -185,7 +186,6 @@ type IndexWriter struct {
 	pendingMerges   *list.List
 	runningMerges   map[*OneMerge]bool
 	mergeExceptions []*OneMerge
-	stopMerges      bool
 
 	flushCount        int // atomic
 	flushDeletesCount int // atomic

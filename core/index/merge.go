@@ -60,90 +60,6 @@ func (ms *SerialMergeScheduler) Close() error {
 	return nil
 }
 
-// index/ConcurrentMergeScheduler.java
-
-/*
-Default maxThreadCount. We default to 1: tests on spinning-magnet
-drives showed slower indexing performance if more than one merge
-routine runs at once (though on an SSD it was faster)
-*/
-const DEFAULT_MAX_ROUTINE_COUNT = 1
-
-// Default maxMergeCount.
-const DEFAULT_MAX_MERGE_COUNT = 2
-
-/*
-A MergeScheduler that runs each merge using a separate goroutine.
-
-Specify the max number of goroutines that may run at once, and the
-maximum number of simultaneous merges with SetMaxMergesAndRoutines().
-
-If the number of merges exceeds the max number of threads then the
-largest merges are paused until one of the smaller merges completes.
-
-If more than MaxMergeCount() merges are requested then this class
-will forcefully throttle the incoming goroutines by pausing until one
-or more merges complete.
-*/
-type ConcurrentMergeScheduler struct {
-	sync.Locker
-
-	// Max number of merge routines allowed to be running at once. When
-	// there are more merges then this, we forcefully pause the larger
-	// ones, letting the smaller ones run, up until maxMergeCount
-	// merges at which point we forcefully pause incoming routines
-	// (that presumably are the ones causing so much merging).
-	maxRoutineCount int
-
-	// Max number of merges we accept before forcefully throttling the
-	// incoming routines
-	maxMergeCount int
-}
-
-func NewConcurrentMergeScheduler() *ConcurrentMergeScheduler {
-	return &ConcurrentMergeScheduler{
-		Locker:          &sync.Mutex{},
-		maxRoutineCount: DEFAULT_MAX_ROUTINE_COUNT,
-		maxMergeCount:   DEFAULT_MAX_MERGE_COUNT,
-	}
-}
-
-// Sets the maximum number of merge goroutines and simultaneous
-// merges allowed.
-func (cms *ConcurrentMergeScheduler) SetMaxMergesAndRoutines(maxMergeCount, maxRoutineCount int) {
-	assert2(maxRoutineCount >= 1, "maxRoutineCount should be at least 1")
-	assert2(maxMergeCount >= 1, "maxMergeCount should be at least 1")
-	assert2(maxRoutineCount <= maxMergeCount, fmt.Sprintf(
-		"maxRoutineCount should be <= maxMergeCount (= %v)", maxMergeCount))
-	cms.maxRoutineCount = maxRoutineCount
-	cms.maxMergeCount = maxMergeCount
-}
-
-func (cms *ConcurrentMergeScheduler) Close() error {
-	cms.sync()
-	return nil
-}
-
-// Wait for any running merge threads to finish. This call is not
-// Interruptible as used by Close()
-func (cms *ConcurrentMergeScheduler) sync() {
-	panic("not implemented yet")
-}
-
-func (cms *ConcurrentMergeScheduler) Merge(writer *IndexWriter) error {
-	cms.Lock() // synchronized
-	defer cms.Unlock()
-	panic("not implemented yet")
-}
-
-func (cms *ConcurrentMergeScheduler) String() string {
-	panic("not implemented yet")
-}
-
-func (cms *ConcurrentMergeScheduler) Clone() MergeScheduler {
-	panic("not implemented yet")
-}
-
 // index/MergePolicy.java
 
 // Default max segment size in order to use compound file system.
@@ -329,6 +245,8 @@ merge spec includes the subset of segments to be merged as well as
 whether the new segment should use the compound file format.
 */
 type OneMerge struct {
+	// Segments to ber merged.
+	segments []*SegmentInfoPerCommit
 }
 
 /*
@@ -337,6 +255,17 @@ perform multiple merges. It simply contains a list of OneMerge
 instances.
 */
 type MergeSpecification []OneMerge
+
+/*
+Thrown when a merge was explicitly aborted because IndexWriter.close()
+was called with false. Normally this error is privately caught and
+suppressed by IndexWriter.
+*/
+type MergeAbortedError string
+
+func (err MergeAbortedError) Error() string {
+	return string(err)
+}
 
 // index/TieredMergePolicy.java
 
