@@ -2,7 +2,10 @@ package index
 
 import (
 	. "github.com/balzaczyy/golucene/core/index"
+	tu "github.com/balzaczyy/golucene/test_framework/util"
+	"math"
 	"math/rand"
+	"time"
 )
 
 // index/MockRandomMergePolicy.java
@@ -47,8 +50,23 @@ It is a fine bottle of champagne (Ordered by Martijn)
 */
 type AlcoholicMergePolicy struct {
 	*LogMergePolicy
+	random *rand.Rand
 }
 
 func NewAlcoholicMergePolicy( /*tz TimeZone, */ r *rand.Rand) *AlcoholicMergePolicy {
-	panic("not implemented yet")
+	now := time.Now()
+	mp := &AlcoholicMergePolicy{
+		NewLogMergePolicy(0, int64(tu.NextInt(r, 1024*1024, int(math.MaxInt32)))), r}
+	mp.Size = func(info *SegmentInfoPerCommit) (int64, error) {
+		n, err := info.SizeInBytes()
+		if hour := now.Hour(); err == nil && (hour < 6 || hour > 20 ||
+			mp.random.Intn(23) == 5) { // it's 5 o'clock somewhere
+			// pick a random drink during the day
+			return drinks[r.Intn(5)] * n, nil
+		}
+		return n, err
+	}
+	return mp
 }
+
+var drinks = []int64{15, 17, 21, 22, 30}

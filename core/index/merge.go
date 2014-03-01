@@ -100,7 +100,7 @@ type MergePolicyImpl struct {
 	// Return the byte size of the provided SegmentInfoPerCommit,
 	// pro-rated by percentage of non-deleted documents if
 	// SetCalibrateSizeByDeletes() is set.
-	size func(info *SegmentInfoPerCommit) (n int64, err error)
+	Size func(info *SegmentInfoPerCommit) (n int64, err error)
 	// IndexWriter that contains this instance.
 	writer *util.SetOnce
 	// If the size of te merge segment exceeds this ratio of the total
@@ -156,7 +156,7 @@ func newMergePolicyImpl(self MergeSpecifier, defaultNoCFSRatio, defaultMaxCFSSeg
 		noCFSRatio:        defaultNoCFSRatio,
 		maxCFSSegmentSize: defaultMaxCFSSegmentSize,
 	}
-	ans.size = func(info *SegmentInfoPerCommit) (n int64, err error) {
+	ans.Size = func(info *SegmentInfoPerCommit) (n int64, err error) {
 		byteSize, err := info.SizeInBytes()
 		if err != nil {
 			return 0, err
@@ -478,9 +478,11 @@ type LogMergePolicy struct {
 	calibrateSizeByDeletes bool
 }
 
-func newLogMergePolicy() *LogMergePolicy {
+func NewLogMergePolicy(min, max int64) *LogMergePolicy {
 	res := &LogMergePolicy{
 		mergeFactor:                DEFAULT_MERGE_FACTOR,
+		minMergeSize:               min,
+		maxMergeSize:               max,
 		maxMergeSizeForForcedMerge: math.MaxInt64,
 		calibrateSizeByDeletes:     true,
 	}
@@ -546,7 +548,7 @@ is set.
 */
 func (mp *LogMergePolicy) sizeBytes(info *SegmentInfoPerCommit) (n int64, err error) {
 	if mp.calibrateSizeByDeletes {
-		return mp.MergePolicyImpl.size(info)
+		return mp.MergePolicyImpl.Size(info)
 	}
 	return info.SizeInBytes()
 }
@@ -590,7 +592,7 @@ func (mp *LogMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *SegmentIn
 	mergingSegments := mp.writer.Get().(*IndexWriter).mergingSegments
 
 	for i, info := range infos.Segments {
-		size, err := mp.size(info)
+		size, err := mp.Size(info)
 		if err != nil {
 			return nil, err
 		}
@@ -702,16 +704,13 @@ type LogDocMergePolicy struct {
 
 func NewLogDocMergePolicy() *LogMergePolicy {
 	ans := &LogDocMergePolicy{
-		LogMergePolicy: newLogMergePolicy(),
+		LogMergePolicy: NewLogMergePolicy(DEFAULT_MIN_MERGE_DOCS, math.MaxInt64),
 	}
-	ans.size = func(info *SegmentInfoPerCommit) (n int64, err error) {
+	ans.Size = func(info *SegmentInfoPerCommit) (int64, error) {
 		return ans.sizeDocs(info)
 	}
-
 	// maxMergeSize(ForForcedMerge) are never used by LogDocMergePolicy;
 	// set it to math.MaxInt64 to disable it
-	ans.minMergeSize = DEFAULT_MIN_MERGE_DOCS
-	ans.maxMergeSize = math.MaxInt64
 	ans.maxMergeSizeForForcedMerge = math.MaxInt64
 	return ans.LogMergePolicy
 }
@@ -737,12 +736,11 @@ type LogByteSizeMergePolicy struct {
 
 func NewLogByteSizeMergePolicy() *LogMergePolicy {
 	ans := &LogByteSizeMergePolicy{
-		LogMergePolicy: newLogMergePolicy(),
+		LogMergePolicy: NewLogMergePolicy(int64(DEFAULT_MIN_MERGE_MB*1024*1024),
+			int64(DEFAULT_MAX_MERGE_MB*1024*1024)),
 	}
-	ans.minMergeSize = int64(DEFAULT_MIN_MERGE_MB * 1024 * 1024)
-	ans.maxMergeSize = int64(DEFAULT_MAX_MERGE_MB * 1024 * 1024)
 	ans.maxMergeSizeForForcedMerge = int64(DEFAULT_MAX_MERGE_MB_FOR_FORCED_MERGE * 1024 * 1024)
-	ans.size = func(info *SegmentInfoPerCommit) (n int64, err error) {
+	ans.Size = func(info *SegmentInfoPerCommit) (int64, error) {
 		return ans.sizeBytes(info)
 	}
 	return ans.LogMergePolicy
