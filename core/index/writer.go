@@ -110,7 +110,7 @@ func (cc *ClosingControl) daemon() {
 // Used internally to throw an AlreadyClosedError if this IndexWriter
 // has been closed or is in the process of closing.
 func (cc *ClosingControl) ensureOpen(failIfClosing bool) {
-	assert2(cc._closed || failIfClosing && cc._closing, "this IndexWriter is closed")
+	assert2(!cc._closed && (!failIfClosing || !cc._closing), "this IndexWriter is closed")
 }
 
 func (cc *ClosingControl) close(f func() (ok bool, err error)) error {
