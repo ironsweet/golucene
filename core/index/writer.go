@@ -121,6 +121,8 @@ func (cc *ClosingControl) close(f func() (ok bool, err error)) error {
 	return <-cc.done
 }
 
+const UNBOUNDED_MAX_MERGE_SEGMENTS = -1
+
 // Name of the write lock in the index.
 const WRITE_LOCK_NAME = "write.lock"
 
@@ -756,7 +758,7 @@ func (w *IndexWriter) maxSegmentsMergePending() bool {
 	panic("not implemented yet")
 }
 
-func (w *IndexWriter) maybeMerge(trigger *MergeTrigger, maxNumSegments int) (err error) {
+func (w *IndexWriter) maybeMerge(trigger MergeTrigger, maxNumSegments int) (err error) {
 	w.ClosingControl.ensureOpen(false)
 	if err = w.updatePendingMerges(trigger, maxNumSegments); err == nil {
 		err = w.mergeScheduler.Merge(w)
@@ -764,7 +766,7 @@ func (w *IndexWriter) maybeMerge(trigger *MergeTrigger, maxNumSegments int) (err
 	return
 }
 
-func (w *IndexWriter) updatePendingMerges(trigger *MergeTrigger, maxNumSegments int) error {
+func (w *IndexWriter) updatePendingMerges(trigger MergeTrigger, maxNumSegments int) error {
 	w.Lock() // synchronized
 	defer w.Unlock()
 	panic("not implemented yet")
@@ -895,10 +897,26 @@ Flush all in-memory buffered updates (adds and deletes) to the
 Directory.
 */
 func (w *IndexWriter) flush(triggerMerge bool, applyAllDeletes bool) error {
-	panic("not implemented yet")
+	// NOTE: this method cannot be sync'd because
+	// maybeMerge() in turn calls mergeScheduler.merge which
+	// in turn can take a long time to run and we don't want
+	// to hold the lock for that.  In the case of
+	// ConcurrentMergeScheduler this can lead to deadlock
+	// when it stalls due to too many running merges.
+
+	// We can be called during close, when closing==true, so we must pass false to ensureOpen:
+	w.ClosingControl.ensureOpen(false)
+	ok, err := w.doFlush(applyAllDeletes)
+	if err != nil {
+		return err
+	}
+	if ok && triggerMerge {
+		return w.maybeMerge(MERGE_TRIGGER_FULL_FLUSH, UNBOUNDED_MAX_MERGE_SEGMENTS)
+	}
+	return nil
 }
 
-func (w *IndexWriter) doFlush(applyAllDeletes bool) (ok bool, err error) {
+func (w *IndexWriter) doFlush(applyAllDeletes bool) (bool, error) {
 	panic("not implemented yet")
 }
 

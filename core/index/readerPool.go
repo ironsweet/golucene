@@ -47,6 +47,7 @@ Obtain the number of deleted docs for a pooled reader. If the reader
 isn't being pooled, the segmentInfo's delCount is returned.
 */
 func (pool *ReaderPool) numDeletedDocs(info *SegmentInfoPerCommit) int {
+	// ensureOpen(false)
 	delCount := info.delCount
 	if rld := pool.get(info, false); rld != nil {
 		delCount += rld.pendingDeleteCount()

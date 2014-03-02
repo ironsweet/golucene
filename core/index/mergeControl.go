@@ -93,6 +93,7 @@ will have completed once this method completes.
 func (mc *MergeControl) waitForMerges() {
 	mc.Lock() // synchronized
 	defer mc.Unlock()
+	// ensureOpen(false)
 
 	if mc.infoStream.IsEnabled("IW") {
 		mc.infoStream.Message("IW", "waitForMerges")
