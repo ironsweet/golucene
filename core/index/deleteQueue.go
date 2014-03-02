@@ -75,6 +75,10 @@ func newDocumentsWriterDeleteQueueWith(globalBufferedDeletes *BufferedDeletes, g
 	}
 }
 
+func (dq *DocumentsWriterDeleteQueue) anyChanges() bool {
+	panic("not implemented yet")
+}
+
 func (dq *DocumentsWriterDeleteQueue) clear() {
 	dq.globalBufferLock.Lock()
 	defer dq.globalBufferLock.Unlock()

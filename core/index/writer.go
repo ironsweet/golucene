@@ -9,6 +9,7 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
 	"sync"
+	"sync/atomic"
 )
 
 // index/IndexCommit.java
@@ -183,8 +184,8 @@ type IndexWriter struct {
 	mergeScheduler  MergeScheduler
 	mergeExceptions []*OneMerge
 
-	flushCount        int // atomic
-	flushDeletesCount int // atomic
+	flushCount        int32 // atomic
+	flushDeletesCount int32 // atomic
 
 	readerPool            *ReaderPool
 	bufferedDeletesStream *BufferedDeletesStream
@@ -213,7 +214,7 @@ type IndexWriter struct {
 	doAfterFlush func() error
 	// A hook for extending classes to execute operations before
 	// pending added and deleted documents are flushed to the Directory.
-	doBeforFlush func() error
+	doBeforeFlush func() error
 
 	// Used only by commit and prepareCommit, below; lock order is
 	// commitLock -> IW
@@ -251,6 +252,11 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 
 		segmentsToMerge: make(map[*SegmentInfoPerCommit]bool),
 		mergeExceptions: make([]*OneMerge, 0),
+		doAfterFlush:    func() error { return nil },
+		doBeforeFlush:   func() error { return nil },
+		commitLock:      &sync.Mutex{},
+		fullFlushLock:   &sync.Mutex{},
+		changed:         make(chan bool),
 
 		config:         newLiveIndexWriterConfigFrom(conf),
 		directory:      d,
@@ -264,9 +270,6 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 		poolReaders:           conf.readerPooling,
 
 		writeLock: d.MakeLock(WRITE_LOCK_NAME),
-
-		commitLock: &sync.Mutex{},
-		changed:    make(chan bool),
 	}
 	ans.readerPool = newReaderPool(ans)
 	ans.MergeControl = newMergeControl(conf.infoStream, ans.readerPool)
@@ -917,7 +920,70 @@ func (w *IndexWriter) flush(triggerMerge bool, applyAllDeletes bool) error {
 }
 
 func (w *IndexWriter) doFlush(applyAllDeletes bool) (bool, error) {
-	panic("not implemented yet")
+	assert2(!w.hitOOM, "this writer hit an OutOfMemoryError; cannot flush")
+
+	err := w.doBeforeFlush()
+	if err != nil {
+		return false, err
+	}
+	if w.infoStream.IsEnabled("TP") {
+		w.infoStream.Message("TP", "startDoFlush")
+	}
+
+	success := false
+	defer func() {
+		if !success && w.infoStream.IsEnabled("IW") {
+			w.infoStream.Message("IW", "hit error during flush")
+		}
+	}()
+
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", fmt.Sprintf("  start flush: applyAllDeletes=%v", applyAllDeletes))
+		w.infoStream.Message("IW", fmt.Sprintf("  index before flush %v", w.segString()))
+	}
+
+	anySegmentFlushed, err := func() (ok bool, err error) {
+		w.fullFlushLock.Lock()
+		defer w.fullFlushLock.Unlock()
+
+		flushSuccess := false
+		defer func() {
+			w.docWriter.finishFullFlush(flushSuccess)
+			w.docWriter.processEvents(w, false, true)
+		}()
+
+		if ok, err = w.docWriter.flushAllThreads(w); err == nil {
+			flushSuccess = true
+		}
+		return
+	}()
+	if err != nil {
+		return false, err
+	}
+
+	err = func() error {
+		w.Lock()
+		defer w.Unlock()
+		err := w.maybeApplyDeletes(applyAllDeletes)
+		if err != nil {
+			return err
+		}
+		err = w.doAfterFlush()
+		if err != nil {
+			return err
+		}
+		if !anySegmentFlushed {
+			//flushCount is incremented in flushAllThreads
+			atomic.AddInt32(&w.flushCount, 1)
+		}
+		return nil
+	}()
+	if err != nil {
+		return false, err
+	}
+
+	success = true
+	return anySegmentFlushed, nil
 }
 
 func (w *IndexWriter) maybeApplyDeletes(applyAllDeletes bool) error {

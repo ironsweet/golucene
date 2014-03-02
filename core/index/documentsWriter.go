@@ -100,6 +100,8 @@ type DocumentsWriter struct {
 	writer        *IndexWriter
 	eventsLock    *sync.RWMutex
 	events        *list.List // synchronized
+	// for asserts
+	currentFullFlushDelQueue *DocumentsWriterDeleteQueue
 }
 
 func newDocumentsWriter(writer *IndexWriter, config *LiveIndexWriterConfig, directory store.Directory) *DocumentsWriter {
@@ -176,15 +178,113 @@ func (dw *DocumentsWriter) abortThreadState(perThread *ThreadState, newFiles map
 	}
 }
 
+func (dw *DocumentsWriter) anyChanges() bool {
+	if dw.infoStream.IsEnabled("DW") {
+		dw.infoStream.Message("DW", fmt.Sprintf(
+			"anyChanges? numDocsInRAM=%v deletes=%v, hasTickets=%v pendingChangesInFullFlush=%v",
+			atomic.LoadInt32(&dw.numDocsInRAM), dw.deleteQueue.anyChanges(),
+			dw.ticketQueue.hasTickets(), dw.pendingChangesInCurrentFullFlush))
+	}
+	// Changes are either in a DWPT or in the deleteQueue.
+	// Yet if we currently flush deletes and/or dwpt, there
+	// could be a window where all changes are in the ticket queue
+	// before they are published to the IW, ie, we need to check if the
+	// ticket queue has any tickets.
+	return atomic.LoadInt32(&dw.numDocsInRAM) != 0 || dw.deleteQueue.anyChanges() ||
+		dw.ticketQueue.hasTickets() || dw.pendingChangesInCurrentFullFlush
+}
+
 func (dw *DocumentsWriter) close() {
 	dw.closed = true
 	dw.flushControl.close()
+}
+
+func (dw *DocumentsWriter) doFlush(flushingDWPT *DocumentsWriterPerThread) (bool, error) {
+	panic("not implemented yet")
 }
 
 func (dw *DocumentsWriter) subtractFlushedNumDocs(numFlushed int) {
 	oldValue := atomic.LoadInt32(&dw.numDocsInRAM)
 	for !atomic.CompareAndSwapInt32(&dw.numDocsInRAM, oldValue, oldValue-int32(numFlushed)) {
 		oldValue = atomic.LoadInt32(&dw.numDocsInRAM)
+	}
+}
+
+/*
+FlushAllThreads is synced by IW fullFlushLock. Flushing all threads
+is a two stage operation; the caller must ensure (in try/finally)
+that finishFLush is called after this method, to release the flush
+lock in DWFlushControl
+*/
+func (dw *DocumentsWriter) flushAllThreads(indexWriter *IndexWriter) (bool, error) {
+	if dw.infoStream.IsEnabled("DW") {
+		dw.infoStream.Message("DW", "startFullFlush")
+	}
+
+	flushingDeleteQueue := func() *DocumentsWriterDeleteQueue {
+		dw.Lock()
+		defer dw.Unlock()
+		dw.pendingChangesInCurrentFullFlush = dw.anyChanges()
+		// Cut over to a new delete queue. This must be synced on the
+		// flush control otherwise a new DWPT could sneak into the loop
+		// with an already flushing delete queue
+		dw.flushControl.markForFullFlush() // swaps the delQueue synced on FlushControl
+		dw.currentFullFlushDelQueue = dw.deleteQueue
+		return dw.deleteQueue
+	}()
+	assert(dw.currentFullFlushDelQueue != nil)
+	assert(dw.currentFullFlushDelQueue != dw.deleteQueue)
+
+	return func() (bool, error) {
+		anythingFlushed := false
+		defer func() { assert(flushingDeleteQueue == dw.currentFullFlushDelQueue) }()
+
+		flushingDWPT := dw.flushControl.nextPendingFlush()
+		for flushingDWPT != nil {
+			flushed, err := dw.doFlush(flushingDWPT)
+			if err != nil {
+				return false, err
+			}
+			if flushed {
+				anythingFlushed = true
+			}
+			flushingDWPT = dw.flushControl.nextPendingFlush()
+		}
+
+		// If a concurrent flush is still in flight wait for it
+		dw.flushControl.waitForFlush()
+		if !anythingFlushed && flushingDeleteQueue.anyChanges() {
+			// apply deletes if we did not flush any document
+			if dw.infoStream.IsEnabled("DW") {
+				dw.infoStream.Message("DW", "flush naked frozen global deletes")
+			}
+			err := dw.ticketQueue.addDeletes(flushingDeleteQueue)
+			if err != nil {
+				return false, err
+			}
+		}
+		_, err := dw.ticketQueue.forcePurge(indexWriter)
+		if err != nil {
+			return false, err
+		}
+		assert(!flushingDeleteQueue.anyChanges() && !dw.ticketQueue.hasTickets())
+		return anythingFlushed, nil
+	}()
+}
+
+func (dw *DocumentsWriter) finishFullFlush(success bool) {
+	defer func() { dw.pendingChangesInCurrentFullFlush = false }()
+	if dw.infoStream.IsEnabled("DW") {
+		dw.infoStream.Message("DW", fmt.Sprintf("finishFullFlush success %v", success))
+	}
+	dw.currentFullFlushDelQueue = nil
+	if success {
+		// Release the flush lock
+		dw.flushControl.finishFullFlush()
+	} else {
+		newFilesSet := make(map[string]bool)
+		dw.flushControl.abortFullFlushes(newFilesSet)
+		dw.putEvent(newDeleteNewFilesEvent(newFilesSet))
 	}
 }
 
@@ -249,6 +349,7 @@ type DocumentsWriterPerThread struct {
 
 	infoStream   util.InfoStream
 	numDocsInRAM int // the number of RAM resident documents
+	deleteQueue  *DocumentsWriterDeleteQueue
 }
 
 /*

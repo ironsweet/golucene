@@ -25,8 +25,8 @@ type DocumentsWriterFlushControl struct {
 	hardMaxBytesPerDWPT int64
 	activeBytes         int64
 	flushBytes          int64
-
-	flushQueue *list.List
+	fullFlush           bool
+	flushQueue          *list.List
 	// only for safety reasons if a DWPT is close to the RAM limit
 	blockedFlushes  *list.List
 	flushingWriters map[*DocumentsWriterPerThread]int64
@@ -125,6 +125,62 @@ func (fc *DocumentsWriterFlushControl) close() {
 	if !fc.closed {
 		fc.closed = true
 		fc.perThreadPool.deactivateUnreleasedStates()
+	}
+}
+
+func (fc *DocumentsWriterFlushControl) markForFullFlush() {
+	panic("not implemented yet")
+}
+
+func (fc *DocumentsWriterFlushControl) nextPendingFlush() *DocumentsWriterPerThread {
+	panic("not implemented yet")
+}
+
+/*
+Prunes the blockedQueue by removing all DWPT that are associated with
+the given flush queue.
+*/
+func (fc *DocumentsWriterFlushControl) pruneBlockedQueue(flushingQueue *DocumentsWriterDeleteQueue) {
+	for e := fc.blockedFlushes.Front(); e != nil; e = e.Next() {
+		if blockedFlush := e.Value.(*BlockedFlush); blockedFlush.dwpt.deleteQueue == flushingQueue {
+			fc.blockedFlushes.Remove(e)
+			_, ok := fc.flushingWriters[blockedFlush.dwpt]
+			assert2(!ok, "DWPT is already flushing")
+			// Record the flushing DWPT to reduce flushBytes in doAfterFlush
+			fc.flushingWriters[blockedFlush.dwpt] = blockedFlush.bytes
+			// don't decr pending here - its already done when DWPT is blocked
+			fc.flushQueue.PushBack(blockedFlush.dwpt)
+		}
+	}
+}
+
+func (fc *DocumentsWriterFlushControl) finishFullFlush() {
+	fc.Lock()
+	defer fc.Unlock()
+
+	assert(fc.fullFlush)
+	assert(fc.flushQueue.Len() == 0)
+	assert(len(fc.flushingWriters) == 0)
+
+	defer func() { fc.fullFlush = false }()
+
+	if fc.blockedFlushes.Len() > 0 {
+		fc.assertBlockedFlushes(fc.documentsWriter.deleteQueue)
+		fc.pruneBlockedQueue(fc.documentsWriter.deleteQueue)
+		assert(fc.blockedFlushes.Len() == 0)
+	}
+}
+
+func (fc *DocumentsWriterFlushControl) abortFullFlushes(newFiles map[string]bool) {
+	fc.Lock()
+	defer fc.Unlock()
+	defer func() { fc.fullFlush = false }()
+}
+
+func (fc *DocumentsWriterFlushControl) assertBlockedFlushes(flushingQueue *DocumentsWriterDeleteQueue) {
+	for e := fc.blockedFlushes.Front(); e != nil; e = e.Next() {
+		blockedFlush := e.Value.(*BlockedFlush)
+		assert(blockedFlush.dwpt.deleteQueue == flushingQueue)
 	}
 }
 
