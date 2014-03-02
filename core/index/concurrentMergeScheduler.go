@@ -103,7 +103,7 @@ func (cms *ConcurrentMergeScheduler) process(job *MergeJob) {
 	if cms.verbose() {
 		elapsed := time.Now().Sub(job.start)
 		cms.message("  stalled for %v", elapsed)
-		cms.message("  consider merge %v", job.writer.segmentsToString(job.merge.segments))
+		cms.message("  consider merge %v", job.writer.readerPool.segmentsToString(job.merge.segments))
 		// OK to spawn a new merge routine to handle this merge
 		cms.message("    launch new thread [%v]", atomic.AddInt32(&cms.mergeThreadCount, 1))
 		cms.message("  merge thread: start")

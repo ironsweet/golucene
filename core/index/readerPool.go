@@ -1,6 +1,7 @@
 package index
 
 import (
+	"strings"
 	"sync"
 )
 
@@ -39,4 +40,36 @@ func (pool *ReaderPool) get(info *SegmentInfoPerCommit, create bool) *ReadersAnd
 	pool.Lock() // synchronized
 	defer pool.Unlock()
 	panic("not implemented yet")
+}
+
+/*
+Obtain the number of deleted docs for a pooled reader. If the reader
+isn't being pooled, the segmentInfo's delCount is returned.
+*/
+func (pool *ReaderPool) numDeletedDocs(info *SegmentInfoPerCommit) int {
+	delCount := info.delCount
+	if rld := pool.get(info, false); rld != nil {
+		delCount += rld.pendingDeleteCount()
+	}
+	return delCount
+}
+
+/*
+returns a string description of the specified segments, for debugging.
+*/
+func (pool *ReaderPool) segmentsToString(infos []*SegmentInfoPerCommit) string {
+	// TODO synchronized
+	var parts []string
+	for _, info := range infos {
+		parts = append(parts, pool.segmentToString(info))
+	}
+	return strings.Join(parts, " ")
+}
+
+/*
+Returns a string description of the specified segment, for debugging.
+*/
+func (pool *ReaderPool) segmentToString(info *SegmentInfoPerCommit) string {
+	// TODO synchronized
+	return info.StringOf(info.info.dir, pool.numDeletedDocs(info)-info.delCount)
 }

@@ -166,7 +166,7 @@ func newMergePolicyImpl(self MergeSpecifier, defaultNoCFSRatio, defaultMaxCFSSeg
 			return byteSize, nil
 		}
 
-		delCount := ans.writer.Get().(*IndexWriter).numDeletedDocs(info)
+		delCount := ans.writer.Get().(*IndexWriter).readerPool.numDeletedDocs(info)
 		delRatio := float32(delCount) / float32(docCount)
 		assert(delRatio <= 1)
 		return int64(float32(byteSize) * (1 - delRatio)), nil
@@ -191,7 +191,7 @@ current compound file setting)
 func (mp *MergePolicyImpl) isMerged(info *SegmentInfoPerCommit) bool {
 	w := mp.writer.Get().(*IndexWriter)
 	assert(w != nil)
-	hasDeletions := w.numDeletedDocs(info) > 0
+	hasDeletions := w.readerPool.numDeletedDocs(info) > 0
 	return !hasDeletions &&
 		!info.info.hasSeparateNorms() &&
 		info.info.dir == w.directory &&
@@ -245,8 +245,20 @@ merge spec includes the subset of segments to be merged as well as
 whether the new segment should use the compound file format.
 */
 type OneMerge struct {
+	sync.Locker
+
+	registerDone bool // used by MergeControl
+
 	// Segments to ber merged.
 	segments []*SegmentInfoPerCommit
+
+	aborted bool
+}
+
+func (m *OneMerge) abort() {
+	m.Lock()
+	defer m.Unlock()
+	m.aborted = true
 }
 
 /*
@@ -534,7 +546,7 @@ SetCalibrateSizeByDeletes() is set.
 */
 func (mp *LogMergePolicy) sizeDocs(info *SegmentInfoPerCommit) (n int64, err error) {
 	if mp.calibrateSizeByDeletes {
-		delCount := mp.writer.Get().(*IndexWriter).numDeletedDocs(info)
+		delCount := mp.writer.Get().(*IndexWriter).readerPool.numDeletedDocs(info)
 		assert(delCount <= int(info.info.docCount))
 		return int64(int(info.info.docCount) - delCount), nil
 	}
@@ -618,7 +630,7 @@ func (mp *LogMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *SegmentIn
 				extra = fmt.Sprintf("%v [skip: too large]", extra)
 			}
 			mp.message(fmt.Sprintf("seg=%v level=%v size=%.3f MB%v",
-				mp.writer.Get().(*IndexWriter).SegmentToString(info),
+				mp.writer.Get().(*IndexWriter).readerPool.segmentToString(info),
 				infoLevel.level,
 				segBytes/1024/1024,
 				extra))

@@ -8,7 +8,6 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
-	"strings"
 	"sync"
 )
 
@@ -178,13 +177,8 @@ type IndexWriter struct {
 
 	writeLock store.Lock
 
-	// Holds all SegmentInfo instances currently involved in merges
-	mergingSegments map[*SegmentInfoPerCommit]bool
-
 	mergePolicy     MergePolicy
 	mergeScheduler  MergeScheduler
-	pendingMerges   *list.List
-	runningMerges   map[*OneMerge]bool
 	mergeExceptions []*OneMerge
 
 	flushCount        int // atomic
@@ -230,12 +224,6 @@ type IndexWriter struct {
 	changed chan bool
 }
 
-// Obtain the number of deleted docs for a pooled reader. If the
-// reader isn't being pooled, the segmentInfo's delCount is returned.
-func (w *IndexWriter) numDeletedDocs(info *SegmentInfoPerCommit) int {
-	panic("not implemented yet")
-}
-
 /*
 Used internally to throw an AlreadyClosedError if this IndexWriter
 has been closed or is in the process of closing.
@@ -260,9 +248,6 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 		ClosingControl: newClosingControl(),
 
 		segmentsToMerge: make(map[*SegmentInfoPerCommit]bool),
-		mergingSegments: make(map[*SegmentInfoPerCommit]bool),
-		pendingMerges:   list.New(),
-		runningMerges:   make(map[*OneMerge]bool),
 		mergeExceptions: make([]*OneMerge, 0),
 
 		config:         newLiveIndexWriterConfigFrom(conf),
@@ -282,6 +267,7 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 		changed:    make(chan bool),
 	}
 	ans.readerPool = newReaderPool(ans)
+	ans.MergeControl = newMergeControl(conf.infoStream, ans.readerPool)
 
 	conf.setIndexWriter(ans)
 	ans.mergePolicy.SetIndexWriter(ans)
@@ -615,8 +601,10 @@ func (w *IndexWriter) closeInternalCleanup(waitForMerges bool) error {
 		if err != nil {
 			return err
 		}
+		w.waitForMerges()
+	} else {
+		w.abortAllMerges()
 	}
-	w.finishMerges(waitForMerges)
 	w.stopMerges = true
 	return nil
 }
@@ -835,24 +823,6 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 	panic("not implemented yet")
 }
 
-func (w *IndexWriter) finishMerges(waitForMerge bool) {
-	w.Lock() // synchronized
-	defer w.Unlock()
-	panic("not implemented yet")
-}
-
-/*
-Wait for any currently outstanding merges to finish.
-
-It is guaranteed that any merges started prior to calling this method
-will have completed once this method completes.
-*/
-func (w *IndexWriter) waitForMerges() {
-	w.Lock() // synchronized
-	defer w.Unlock()
-	panic("not implemented yet")
-}
-
 /*
 Called whenever the SegmentInfos has been updatd and the index files
 referenced exist (correctly) in the index directory.
@@ -964,23 +934,7 @@ func setDiagnosticsAndDetails(info *SegmentInfo, source string, details map[stri
 // Returns a string description of all segments, for debugging.
 func (w *IndexWriter) segString() string {
 	// TODO synchronized
-	return w.segmentsToString(w.segmentInfos.Segments)
-}
-
-// returns a string description of the specified segments, for debugging.
-func (w *IndexWriter) segmentsToString(infos []*SegmentInfoPerCommit) string {
-	// TODO synchronized
-	var parts []string
-	for _, info := range infos {
-		parts = append(parts, w.SegmentToString(info))
-	}
-	return strings.Join(parts, " ")
-}
-
-// Returns a string description of the specified segment, for debugging.
-func (w *IndexWriter) SegmentToString(info *SegmentInfoPerCommit) string {
-	// TODO synchronized
-	return info.StringOf(info.info.dir, w.numDeletedDocs(info)-info.delCount)
+	return w.readerPool.segmentsToString(w.segmentInfos.Segments)
 }
 
 // called only from assert
@@ -1068,11 +1022,3 @@ type IndexReaderWarmer interface {
 	// that segment is made visible to near-real-time readers.
 	warm(reader AtomicReader) error
 }
-
-// index/ReadersAndLiveDocs.java
-
-/*
-Used by IndexWriter to hold open SegmentReaders (for searching or
-merging), plus pending deletes, for a given segment.
-*/
-type ReadersAndLiveDocs struct{}
