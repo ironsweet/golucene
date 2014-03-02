@@ -15,19 +15,19 @@ set of DWPTs and a global delete pool. Each of the DWPT and the
 global pool need to maintain their 'own' head of the queue (as a
 DeleteSlice instance per DWPT). The difference between the DWPT and
 the global pool is that the DWPT starts maintaining a head once it
-has added its  first document since for its segments private deletes
+has added its first document since for its segments private deletes
 only the deletes after that document are relevant. The global pool
 instead starts maintaining the head once this instance is created by
 taking the sentinel instance as its initial head.
 
-Since each DeleteSlicemaintains its own head and list is only single
-linked the garbage collector takes care of pruning the list for us.
+Since each DeleteSlice maintains its own head and list is only single
+linked, the garbage collector takes care of pruning the list for us.
 All nodes in the list that are still relevant should be either
 directly or indirectly referenced by one of the DWPT's private
 DeleteSlice or by the global BufferedDeletes slice.
 
 Each DWPT as well as the global delete pool maintain their private
-DeleteSlice instance. In the DWPT case updating a slice is equivalent
+DeleteSlice instance. In the DWPT case, updating a slice is equivalent
 to atomically finishing the document. The slice update guarantees a
 "happens before" relationship to all other updates in the same
 indexing session. When a DWPT updates a document it:
@@ -76,7 +76,15 @@ func newDocumentsWriterDeleteQueueWith(globalBufferedDeletes *BufferedDeletes, g
 }
 
 func (dq *DocumentsWriterDeleteQueue) anyChanges() bool {
-	panic("not implemented yet")
+	dq.globalBufferLock.Lock()
+	defer dq.globalBufferLock.Unlock()
+	// check if all items in the global slice were applied
+	// and if the global slice is up-to-date
+	// and if globalBufferedDeletes has changes
+	return dq.globalBufferedDeletes.any() ||
+		!dq.globalSlice.isEmpty() ||
+		dq.globalSlice.tail != dq.tail ||
+		dq.tail.next != nil
 }
 
 func (dq *DocumentsWriterDeleteQueue) clear() {
@@ -93,7 +101,6 @@ func (dq *DocumentsWriterDeleteQueue) String() string {
 }
 
 type DeleteSlice struct {
-	// No need to be volatile, slices are thread captive
 	head *Node // we don't apply this one
 	tail *Node
 }
@@ -104,6 +111,10 @@ func newDeleteSlice(currentTail *Node) *DeleteSlice {
 	// tail of the queue. Once we update the slice we only need to
 	// assig the tail and have a new slice
 	return &DeleteSlice{head: currentTail, tail: currentTail}
+}
+
+func (ds *DeleteSlice) isEmpty() bool {
+	return ds.head == ds.tail
 }
 
 type Node struct {

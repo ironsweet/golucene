@@ -69,6 +69,10 @@ func (bd *BufferedDeletes) clear() {
 	atomic.StoreInt64(&bd.bytesUsed, 0)
 }
 
+func (bd *BufferedDeletes) any() bool {
+	return len(bd.terms) > 0 || len(bd.docIDs) > 0 || len(bd.queries) > 0
+}
+
 // index/FrozenBufferedDeletes.java
 
 /*
