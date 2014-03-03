@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
+	"math"
 	"sync"
 )
 
@@ -89,8 +90,21 @@ func (fc *DocumentsWriterFlushControl) doAfterFlush(dwpt *DocumentsWriterPerThre
 	fc.assertMemory()
 }
 
-func (fc *DocumentsWriterFlushControl) updateStallState() {
-	panic("not implemented yet")
+func (fc *DocumentsWriterFlushControl) updateStallState() bool {
+	var limit int64 = math.MaxInt64
+	if maxRamMB := fc.config.ramBufferSizeMB; maxRamMB != DISABLE_AUTO_FLUSH {
+		limit = int64(2 * 1024 * 1024 * maxRamMB)
+	}
+	// We block indexing threads if net byte grows due to slow flushes,
+	// yet, for small ram buffers and large documents, we can easily
+	// reach the limit without any ongoing flushes. We need ensure that
+	// we don't stall/block if an ongoing or pending flush can not free
+	// up enough memory to release the stall lock.
+	stall := (fc.activeBytes+fc.flushBytes) > limit &&
+		fc.activeBytes < limit &&
+		!fc.closed
+	fc.stallControl.updateStalled(stall)
+	return stall
 }
 
 func (fc *DocumentsWriterFlushControl) waitForFlush() {

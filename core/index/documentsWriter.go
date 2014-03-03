@@ -217,12 +217,13 @@ func (dw *DocumentsWriter) flushAllThreads(indexWriter *IndexWriter) (bool, erro
 		dw.Lock()
 		defer dw.Unlock()
 		dw.pendingChangesInCurrentFullFlush = dw.anyChanges()
+		dq := dw.deleteQueue
 		// Cut over to a new delete queue. This must be synced on the
 		// flush control otherwise a new DWPT could sneak into the loop
 		// with an already flushing delete queue
 		dw.flushControl.markForFullFlush() // swaps the delQueue synced on FlushControl
-		dw.currentFullFlushDelQueue = dw.deleteQueue
-		return dw.deleteQueue
+		dw.currentFullFlushDelQueue = dq
+		return dq
 	}()
 	assert(dw.currentFullFlushDelQueue != nil)
 	assert(dw.currentFullFlushDelQueue != dw.deleteQueue)
