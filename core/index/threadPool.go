@@ -32,6 +32,17 @@ func newThreadState() *ThreadState {
 	return &ThreadState{isActive: true}
 }
 
+func (ts *ThreadState) deactivate() {
+	ts.isActive = false
+	ts.reset()
+}
+
+func (ts *ThreadState) reset() {
+	ts.dwpt = nil
+	ts.bytesUsed = 0
+	ts.flushPending = false
+}
+
 /*
 DocumentsWriterPerThreadPool controls ThreadState instances and their
 goroutine assignment during indexing. Each TheadState holds a
@@ -67,28 +78,14 @@ func NewDocumentsWriterPerThreadPool(maxNumThreadStates int) *DocumentsWriterPer
 	}
 }
 
-// Returns the max number of ThreadState instances available in this
-// DocumentsWriterPerThreadPool
-func (tp *DocumentsWriterPerThreadPool) maxThreadStates() int {
-	return len(tp.threadStates)
-}
-
-/*
-Deactivate all unreleased thread states.
-*/
-func (tp *DocumentsWriterPerThreadPool) deactivateUnreleasedStates() {
-	tp.Lock()
-	defer tp.Unlock()
-
-	// The implementation in Lucene Java is meaningless as 'unreleased'
-	// thread states are never initialized.
-	for i := tp.numThreadStatesActive; i < len(tp.threadStates); i++ {
-		assert(tp.threadStates[i] == nil)
+func (tp *DocumentsWriterPerThreadPool) reset(threadState *ThreadState, closed bool) *DocumentsWriterPerThread {
+	dwpt := threadState.dwpt
+	if !closed {
+		threadState.reset()
+	} else {
+		threadState.deactivate()
 	}
-}
-
-func (tp *DocumentsWriterPerThreadPool) reset(threadState *ThreadState, closed bool) {
-	panic("not implemented yet")
+	return dwpt
 }
 
 /*
@@ -139,6 +136,18 @@ func (tp *DocumentsWriterPerThreadPool) newThreadState() *ThreadState {
 	return nil
 }
 
+func (tp *DocumentsWriterPerThreadPool) foreach(f func(state *ThreadState)) {
+	tp.Lock()
+	defer tp.Unlock()
+
+	for _, state := range tp.threadStates {
+		if state == nil {
+			continue
+		}
+		f(state)
+	}
+}
+
 /*
 Release the ThreadState back to the pool. Equals to
 ThreadState.Unlock() in Lucene Java.
@@ -162,18 +171,4 @@ func (tp *DocumentsWriterPerThreadPool) release(ts *ThreadState) {
 			tp.threadStates[tp.numThreadStatesLocked], tp.threadStates[pos]
 		tp.hasMoreStates.Signal()
 	}
-}
-
-/*
-Returns the number of currently deactivated ThreadState instances.
-A deactivated ThreadState should not be used for indexing anymore.
-*/
-func (tp *DocumentsWriterPerThreadPool) numDeactivatedThreadStates() int {
-	var count = 0
-	for _, ts := range tp.threadStates {
-		if ts != nil && !ts.isActive {
-			count++
-		}
-	}
-	return count
 }

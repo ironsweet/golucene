@@ -25,6 +25,7 @@ type DocumentsWriterFlushControl struct {
 	hardMaxBytesPerDWPT int64
 	activeBytes         int64
 	flushBytes          int64
+	numPending          int // volatile
 	fullFlush           bool
 	flushQueue          *list.List
 	// only for safety reasons if a DWPT is close to the RAM limit
@@ -40,6 +41,8 @@ type DocumentsWriterFlushControl struct {
 	config                *LiveIndexWriterConfig
 	bufferedDeletesStream *BufferedDeletesStream
 	infoStream            util.InfoStream
+
+	fullFlushBuffer []*DocumentsWriterPerThread
 }
 
 func newDocumentsWriterFlushControl(documentsWriter *DocumentsWriter,
@@ -62,7 +65,7 @@ func newDocumentsWriterFlushControl(documentsWriter *DocumentsWriter,
 	}
 }
 
-func (fc *DocumentsWriterFlushControl) memoryCheck() bool {
+func (fc *DocumentsWriterFlushControl) assertMemory() bool {
 	panic("not implemented yet")
 }
 
@@ -83,7 +86,7 @@ func (fc *DocumentsWriterFlushControl) doAfterFlush(dwpt *DocumentsWriterPerThre
 	delete(fc.flushingWriters, dwpt)
 	fc.flushBytes -= bytes
 	// fc.perThreadPool.recycle(dwpt)
-	assert(fc.memoryCheck())
+	fc.assertMemory()
 }
 
 func (fc *DocumentsWriterFlushControl) updateStallState() {
@@ -99,6 +102,25 @@ func (fc *DocumentsWriterFlushControl) waitForFlush() {
 	}
 }
 
+/*
+Sets flush pending state on the given ThreadState. The ThreadState
+must have indexed at least one Document and must not be already
+pending.
+*/
+func (fc *DocumentsWriterFlushControl) _setFlushPending(perThread *ThreadState) {
+	assert(!perThread.flushPending)
+	if perThread.dwpt.numDocsInRAM > 0 {
+		perThread.flushPending = true // write access synced
+		bytes := perThread.bytesUsed
+		fc.flushBytes += bytes
+		fc.activeBytes -= bytes
+		fc.numPending++ // write access synced
+		fc.assertMemory()
+	}
+	// don't assert on numDocs since we could hit an abort except while
+	// selecting that dwpt for flushing
+}
+
 func (fc *DocumentsWriterFlushControl) doOnAbort(state *ThreadState) {
 	fc.Lock()
 	defer fc.Unlock()
@@ -108,9 +130,26 @@ func (fc *DocumentsWriterFlushControl) doOnAbort(state *ThreadState) {
 	} else {
 		fc.activeBytes -= state.bytesUsed
 	}
-	assert(fc.memoryCheck())
+	fc.assertMemory()
 	// Take it out of the loop this DWPT is stale
 	fc.perThreadPool.reset(state, fc.closed)
+}
+
+func (fc *DocumentsWriterFlushControl) _tryCheckOutForFlush(perThread *ThreadState) *DocumentsWriterPerThread {
+	assert(perThread.flushPending)
+	defer fc.updateStallState()
+	// We are pending so all memory is already moved to flushBytes
+	if perThread.isActive && perThread.dwpt != nil {
+		bytes := perThread.bytesUsed // do that before replace
+		dwpt := fc.perThreadPool.reset(perThread, fc.closed)
+		_, ok := fc.flushingWriters[dwpt]
+		assert2(!ok, "DWPT is already flushing")
+		// Record the flushing DWPT to reduce flushBytes in doAfterFlush
+		fc.flushingWriters[dwpt] = bytes
+		fc.numPending-- // write access synced
+		return dwpt
+	}
+	return nil
 }
 
 func (fc *DocumentsWriterFlushControl) String() string {
@@ -124,16 +163,101 @@ func (fc *DocumentsWriterFlushControl) close() {
 	// set by DW to signal that we should not release new DWPT after close
 	if !fc.closed {
 		fc.closed = true
-		fc.perThreadPool.deactivateUnreleasedStates()
 	}
 }
 
 func (fc *DocumentsWriterFlushControl) markForFullFlush() {
-	panic("not implemented yet")
+	flushingQueue := func() *DocumentsWriterDeleteQueue {
+		fc.Lock()
+		defer fc.Unlock()
+
+		assert2(!fc.fullFlush, "called DWFC#markForFullFlush() while full flush is still running")
+		assertn(len(fc.fullFlushBuffer) == 0, "full flush buffer should be empty: ", fc.fullFlushBuffer)
+
+		fc.fullFlush = true
+		res := fc.documentsWriter.deleteQueue
+		// Set a new delete queue - all subsequent DWPT will use this
+		// queue untiil we do another full flush
+		fc.documentsWriter.deleteQueue = newDocumentsWriterDeleteQueueWithGeneration(res.generation + 1)
+		return res
+	}()
+
+	fc.perThreadPool.foreach(func(next *ThreadState) {
+		if !next.isActive || next.dwpt == nil {
+			if fc.closed && next.isActive {
+				next.deactivate()
+			}
+			return
+		}
+		assertn(next.dwpt.deleteQueue == flushingQueue ||
+			next.dwpt.deleteQueue == fc.documentsWriter.deleteQueue,
+			" flushingQueue: %v currentQueue: %v perThread queue: %v numDocsInRAM: %v",
+			flushingQueue, fc.documentsWriter.deleteQueue, next.dwpt.deleteQueue,
+			next.dwpt.numDocsInRAM)
+		if next.dwpt.deleteQueue != flushingQueue {
+			// this one is already a new DWPT
+			return
+		}
+		fc.addFlushableState(next)
+	})
+
+	func() {
+		fc.Lock()
+		defer fc.Unlock()
+
+		// make sure we move all DWPT that are where concurrently marked
+		// as pending and moved to blocked are moved over to the
+		// flushQueue. There is a chance that this happens since we
+		// marking DWPT for full flush without blocking indexing.
+		fc.pruneBlockedQueue(flushingQueue)
+		fc.assertBlockedFlushes(fc.documentsWriter.deleteQueue)
+		for _, dwpt := range fc.fullFlushBuffer {
+			fc.flushQueue.PushBack(dwpt)
+		}
+		fc.fullFlushBuffer = nil
+		fc.updateStallState()
+	}()
+	fc.assertActiveDeleteQueue(fc.documentsWriter.deleteQueue)
+}
+
+func (fc *DocumentsWriterFlushControl) assertActiveDeleteQueue(queue *DocumentsWriterDeleteQueue) {
+	fc.perThreadPool.foreach(func(next *ThreadState) {
+		n := 0
+		if next.dwpt != nil {
+			n = next.dwpt.numDocsInRAM
+		}
+		assertn(!next.isActive || next.dwpt == nil || next.dwpt.deleteQueue == queue,
+			"isInitialized: %v numDocs: %v", next.isActive && next.dwpt != nil, n)
+	})
 }
 
 func (fc *DocumentsWriterFlushControl) nextPendingFlush() *DocumentsWriterPerThread {
 	panic("not implemented yet")
+}
+
+func (fc *DocumentsWriterFlushControl) addFlushableState(perThread *ThreadState) {
+	if fc.infoStream.IsEnabled("DWFC") {
+		fc.infoStream.Message("DWFC", fmt.Sprintf("addFlushableState %v", perThread.dwpt))
+	}
+	dwpt := perThread.dwpt
+	assert(perThread.isActive && perThread.dwpt != nil)
+	assert(fc.fullFlush)
+	assert(dwpt.deleteQueue != fc.documentsWriter.deleteQueue)
+	if dwpt.numDocsInRAM > 0 {
+		func() {
+			fc.Lock()
+			defer fc.Unlock()
+			if !perThread.flushPending {
+				fc._setFlushPending(perThread)
+			}
+			flushingDWPT := fc._tryCheckOutForFlush(perThread)
+			assert2(flushingDWPT != nil, "DWPT must never be null here since we hold the lock and it holds documents")
+			assert2(dwpt == flushingDWPT, "flushControl returned different DWPT")
+			fc.fullFlushBuffer = append(fc.fullFlushBuffer, flushingDWPT)
+		}()
+	} else {
+		fc.perThreadPool.reset(perThread, fc.closed) // make this state inactive
+	}
 }
 
 /*

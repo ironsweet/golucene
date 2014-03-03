@@ -144,17 +144,9 @@ func (dw *DocumentsWriter) abort(writer *IndexWriter) {
 	if dw.infoStream.IsEnabled("DW") {
 		dw.infoStream.Message("DW", "abort")
 	}
-	var states []*ThreadState
-	limit := dw.perThreadPool.maxThreadStates()
-	for i := 0; i < limit; i++ {
-		states = append(states, dw.perThreadPool.getAndLock(nil))
-	}
-	for _, state := range states {
-		dw.abortThreadState(state, newFilesSet)
-	}
-	for _, state := range states {
-		dw.perThreadPool.release(state)
-	}
+	dw.perThreadPool.foreach(func(perThread *ThreadState) {
+		dw.abortThreadState(perThread, newFilesSet)
+	})
 	dw.flushControl.abortPendingFlushes(newFilesSet)
 	dw.putEvent(newDeleteNewFilesEvent(newFilesSet))
 	dw.flushControl.waitForFlush()

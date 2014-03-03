@@ -567,9 +567,9 @@ func (w *IndexWriter) closeInternal(waitForMerges bool, doFlush bool) (ok bool, 
 
 	ok = true
 
-	n1 := oldWriter.perThreadPool.numDeactivatedThreadStates()
-	n2 := oldWriter.perThreadPool.maxThreadStates()
-	assert2(n1 == n2, fmt.Sprintf("%v %v", n1, n2))
+	oldWriter.perThreadPool.foreach(func(state *ThreadState) {
+		assert(!state.isActive)
+	})
 
 	return ok, nil
 }
