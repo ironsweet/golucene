@@ -149,6 +149,14 @@ func (fc *DocumentsWriterFlushControl) doOnAbort(state *ThreadState) {
 	fc.perThreadPool.reset(state, fc.closed)
 }
 
+func (fc *DocumentsWriterFlushControl) tryCheckoutForFlush(perThread *ThreadState) *DocumentsWriterPerThread {
+	fc.Lock()
+	defer fc.Unlock()
+
+	assert(perThread.flushPending)
+	return fc._tryCheckOutForFlush(perThread)
+}
+
 func (fc *DocumentsWriterFlushControl) _tryCheckOutForFlush(perThread *ThreadState) *DocumentsWriterPerThread {
 	assert(perThread.flushPending)
 	defer fc.updateStallState()
@@ -246,7 +254,33 @@ func (fc *DocumentsWriterFlushControl) assertActiveDeleteQueue(queue *DocumentsW
 }
 
 func (fc *DocumentsWriterFlushControl) nextPendingFlush() *DocumentsWriterPerThread {
-	panic("not implemented yet")
+	numPending, fullFlush, dwpt := func() (int, bool, *DocumentsWriterPerThread) {
+		fc.Lock()
+		defer fc.Unlock()
+
+		if e := fc.flushQueue.Front(); e != nil {
+			pool := e.Value.(*DocumentsWriterPerThread)
+			fc.updateStallState()
+			return 0, false, pool
+		}
+		return fc.numPending, fc.fullFlush, nil
+	}()
+	if dwpt != nil {
+		return dwpt
+	}
+
+	if numPending > 0 && !fullFlush {
+		// don't check if we are doing a full flush
+		dwpt = fc.perThreadPool.findUnused(func(next *ThreadState) interface{} {
+			if numPending > 0 && next.flushPending {
+				if dwpt := fc.tryCheckoutForFlush(next); dwpt != nil {
+					return dwpt
+				}
+			}
+			return nil
+		}).(*DocumentsWriterPerThread)
+	}
+	return dwpt
 }
 
 func (fc *DocumentsWriterFlushControl) addFlushableState(perThread *ThreadState) {

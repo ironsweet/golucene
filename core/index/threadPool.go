@@ -148,6 +148,18 @@ func (tp *DocumentsWriterPerThreadPool) foreach(f func(state *ThreadState)) {
 	}
 }
 
+func (tp *DocumentsWriterPerThreadPool) findUnused(f func(state *ThreadState) interface{}) interface{} {
+	tp.Lock()
+	defer tp.Unlock()
+
+	for i := tp.numThreadStatesLocked; i < tp.numThreadStatesActive; i++ {
+		if res := f(tp.threadStates[i]); res != nil {
+			return res
+		}
+	}
+	return nil
+}
+
 /*
 Release the ThreadState back to the pool. Equals to
 ThreadState.Unlock() in Lucene Java.
