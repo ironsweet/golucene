@@ -271,7 +271,7 @@ func (fc *DocumentsWriterFlushControl) nextPendingFlush() *DocumentsWriterPerThr
 
 	if numPending > 0 && !fullFlush {
 		// don't check if we are doing a full flush
-		dwpt = fc.perThreadPool.findUnused(func(next *ThreadState) interface{} {
+		dwpt = fc.perThreadPool.find(func(next *ThreadState) interface{} {
 			if numPending > 0 && next.flushPending {
 				if dwpt := fc.tryCheckoutForFlush(next); dwpt != nil {
 					return dwpt

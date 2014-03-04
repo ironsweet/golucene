@@ -1,6 +1,7 @@
 package index
 
 import (
+	"container/list"
 	"fmt"
 	"sync"
 )
@@ -18,6 +19,7 @@ goroutine a time. users must acquire the lock via lock() and release
 the lock in a finally block via unlock() before accesing the state.
 */
 type ThreadState struct {
+	id   int // used by pool
 	dwpt *DocumentsWriterPerThread
 	// TODO this should really be part of DocumentsWriterFlushControl
 	// write access guarded by DocumentsWriterFlushControl
@@ -28,8 +30,8 @@ type ThreadState struct {
 	isActive  bool
 }
 
-func newThreadState() *ThreadState {
-	return &ThreadState{isActive: true}
+func newThreadState(id int) *ThreadState {
+	return &ThreadState{id: id, isActive: true}
 }
 
 func (ts *ThreadState) deactivate() {
@@ -63,17 +65,21 @@ hold individual DocumentsWriterPerThread instances and states.
 */
 type DocumentsWriterPerThreadPool struct {
 	sync.Locker
-	threadStates          []*ThreadState
-	numThreadStatesActive int // volatile
-	numThreadStatesLocked int
-	hasMoreStates         *sync.Cond
+	threadStates  []*ThreadState
+	listeners     []*list.List
+	freeList      *list.List
+	lockedList    *list.List
+	hasMoreStates *sync.Cond
 }
 
 func NewDocumentsWriterPerThreadPool(maxNumThreadStates int) *DocumentsWriterPerThreadPool {
 	assert2(maxNumThreadStates >= 1, fmt.Sprintf("maxNumThreadStates must be >= 1 but was: %v", maxNumThreadStates))
 	return &DocumentsWriterPerThreadPool{
 		Locker:        &sync.Mutex{},
-		threadStates:  make([]*ThreadState, maxNumThreadStates),
+		threadStates:  make([]*ThreadState, 0, maxNumThreadStates),
+		listeners:     make([]*list.List, maxNumThreadStates),
+		freeList:      list.New(),
+		lockedList:    list.New(),
 		hasMoreStates: sync.NewCond(&sync.Mutex{}),
 	}
 }
@@ -92,7 +98,7 @@ func (tp *DocumentsWriterPerThreadPool) reset(threadState *ThreadState, closed b
 It's unfortunately that Go doesn't support 'Thread Affinity'. Default
 strategy is FIFO.
 */
-func (tp *DocumentsWriterPerThreadPool) getAndLock(documentsWriter *DocumentsWriter) *ThreadState {
+func (tp *DocumentsWriterPerThreadPool) lockAny() *ThreadState {
 	res := tp.findNextAvailableThreadState()
 	if res == nil {
 		res = tp.newThreadState()
@@ -110,14 +116,41 @@ func (tp *DocumentsWriterPerThreadPool) getAndLock(documentsWriter *DocumentsWri
 	return res
 }
 
+func (tp *DocumentsWriterPerThreadPool) lock(id int, wait bool) *ThreadState {
+	tp.Lock()
+	defer tp.Unlock()
+
+	for e := tp.freeList.Front(); e != nil; e = e.Next() {
+		if tid := e.Value.(int); tid == id {
+			tp.freeList.Remove(e)
+			tp.lockedList.PushBack(id)
+			return tp.threadStates[tid]
+		}
+	}
+
+	if !wait {
+		return nil
+	}
+	waitingList := tp.listeners[id]
+	if waitingList == nil {
+		waitingList = list.New()
+		tp.listeners[id] = waitingList
+	}
+	ch := make(chan *ThreadState)
+	waitingList.PushBack(ch)
+	return <-ch // block until reserved thread state is released
+}
+
 func (tp *DocumentsWriterPerThreadPool) findNextAvailableThreadState() *ThreadState {
 	tp.Lock()
 	defer tp.Unlock()
 
-	if tp.numThreadStatesLocked < tp.numThreadStatesActive {
-		res := tp.threadStates[tp.numThreadStatesLocked]
-		tp.numThreadStatesLocked++
-		return res
+	if tp.freeList.Len() > 0 {
+		e := tp.lockedList.Front()
+		tp.lockedList.Remove(e)
+		id := e.Value.(int)
+		tp.freeList.PushBack(id)
+		return tp.threadStates[id]
 	}
 	return nil
 }
@@ -127,34 +160,32 @@ func (tp *DocumentsWriterPerThreadPool) newThreadState() *ThreadState {
 	defer tp.Unlock()
 
 	// Create a new empty thread state if possible
-	if tp.numThreadStatesActive < len(tp.threadStates) {
-		res := newThreadState()
-		tp.threadStates[tp.numThreadStatesActive] = res
-		tp.numThreadStatesActive++
-		return res
+	if len(tp.threadStates) < cap(tp.threadStates) {
+		ts := newThreadState(len(tp.threadStates))
+		tp.threadStates = append(tp.threadStates, ts)
+		tp.lockedList.PushBack(ts.id)
+		return ts
 	}
 	return nil
 }
 
 func (tp *DocumentsWriterPerThreadPool) foreach(f func(state *ThreadState)) {
-	tp.Lock()
-	defer tp.Unlock()
-
-	for _, state := range tp.threadStates {
-		if state == nil {
-			continue
-		}
-		f(state)
+	for i, limit := 0, len(tp.threadStates); i < limit; i++ {
+		ts := tp.lock(i, true)
+		assert(ts != nil)
+		f(ts)
+		tp.release(ts)
 	}
 }
 
-func (tp *DocumentsWriterPerThreadPool) findUnused(f func(state *ThreadState) interface{}) interface{} {
-	tp.Lock()
-	defer tp.Unlock()
-
-	for i := tp.numThreadStatesLocked; i < tp.numThreadStatesActive; i++ {
-		if res := f(tp.threadStates[i]); res != nil {
-			return res
+func (tp *DocumentsWriterPerThreadPool) find(f func(state *ThreadState) interface{}) interface{} {
+	for i, limit := 0, len(tp.threadStates); i < limit; i++ {
+		if ts := tp.lock(i, false); ts != nil {
+			res := f(ts)
+			tp.release(ts)
+			if res != nil {
+				return res
+			}
 		}
 	}
 	return nil
@@ -168,19 +199,16 @@ func (tp *DocumentsWriterPerThreadPool) release(ts *ThreadState) {
 	tp.Lock()
 	defer tp.Unlock()
 
-	// sequential search since n is small
-	var pos int = -1
-	for i, v := range tp.threadStates {
-		if v == ts {
-			pos = i
-			break
-		}
+	if waitingList := tp.listeners[ts.id]; waitingList != nil && waitingList.Len() > 0 {
+		// this thread state is reserved
+		e := waitingList.Front()
+		waitingList.Remove(e)
+		// re-allocate to external handler
+		e.Value.(chan *ThreadState) <- ts
+		return
 	}
 
-	if pos >= 0 { // found
-		tp.numThreadStatesLocked--
-		tp.threadStates[pos], tp.threadStates[tp.numThreadStatesLocked] =
-			tp.threadStates[tp.numThreadStatesLocked], tp.threadStates[pos]
-		tp.hasMoreStates.Signal()
-	}
+	// push the thread state back to
+	tp.freeList.PushBack(ts.id)
+	tp.hasMoreStates.Signal()
 }
