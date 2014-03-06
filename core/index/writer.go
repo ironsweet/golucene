@@ -989,9 +989,10 @@ func (w *IndexWriter) doFlush(applyAllDeletes bool) (bool, error) {
 	return anySegmentFlushed, nil
 }
 
+/*
+Assuming already synchronized.
+*/
 func (w *IndexWriter) maybeApplyDeletes(applyAllDeletes bool) error {
-	w.Lock() // synchronized
-	defer w.Unlock()
 	panic("not implemented yet")
 }
 
