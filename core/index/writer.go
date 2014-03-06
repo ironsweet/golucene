@@ -106,6 +106,7 @@ func (cc *ClosingControl) daemon() {
 			cc.done <- err
 		}
 	}
+	log.Println("IW CC daemon is stopped.")
 }
 
 // Used internally to throw an AlreadyClosedError if this IndexWriter
