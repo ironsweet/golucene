@@ -98,6 +98,7 @@ func (cc *ClosingControl) daemon() {
 		err = nil
 		select {
 		case f := <-cc.closer:
+			log.Println("...closing...")
 			if !cc._closed {
 				cc._closing = true
 				cc._closed, err = f()
@@ -120,6 +121,7 @@ func (cc *ClosingControl) close(f func() (ok bool, err error)) error {
 		return nil // already closed
 	}
 	cc.closer <- f
+	log.Println("Closing IW...")
 	return <-cc.done
 }
 

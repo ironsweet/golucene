@@ -1,8 +1,13 @@
 package util
 
 import (
+	"fmt"
 	"io"
+	"log"
+	"os"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 // util/InfoStream.java
@@ -15,7 +20,7 @@ components.
 */
 type InfoStream interface {
 	io.Closer
-	Clone() InfoStream
+	// Clone() InfoStream
 	// prints a message
 	Message(component, message string)
 	// returns true if messages are enabled and should be posted.
@@ -56,6 +61,7 @@ Sets the default InfoStream used by a newly instantiated classes. It
 cannot be nil, to disable logging use NO_OUTPUT.
 */
 func SetDefaultInfoStream(infoStream InfoStream) {
+	log.Print("Setting default infoStream...")
 	defaultInfoStreamLock.Lock() // synchronized
 	defer defaultInfoStreamLock.Unlock()
 	assert2(infoStream != nil, `Cannot set InfoStream default implementation to nil.
@@ -65,16 +71,23 @@ To disable logging use NO_OUTPUT.`)
 
 // util/PrintStreamInfoStream.java
 
-// InfoStream implementation over an io.Writer such as os.Stdout
+var MESSAGE_ID int32 // atomic
+const FORMAT = "2006/01/02 15:04:05"
+
+/*
+InfoStream implementation over an io.Writer such as os.Stdout
+*/
 type PrintStreamInfoStream struct {
+	stream    io.Writer
+	messageId int32
 }
 
-func NewPrintStreamInfoStream(w io.Writer) {
-	panic("not implemented yet")
+func NewPrintStreamInfoStream(w io.Writer) *PrintStreamInfoStream {
+	return &PrintStreamInfoStream{w, atomic.AddInt32(&MESSAGE_ID, 1)}
 }
 
 func (is *PrintStreamInfoStream) Message(component, message string) {
-	panic("not implemented yet")
+	fmt.Fprintf(is.stream, "%v [%3v] %v\n", time.Now().Format(FORMAT), component, message)
 }
 
 func (is *PrintStreamInfoStream) IsEnabled(component string) bool {
@@ -89,5 +102,5 @@ func (is *PrintStreamInfoStream) Close() error {
 }
 
 func (is *PrintStreamInfoStream) isSystemStream() bool {
-	panic("not implemented yet")
+	return is.stream == os.Stdout || is.stream == os.Stderr
 }

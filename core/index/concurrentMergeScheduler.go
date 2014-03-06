@@ -161,8 +161,10 @@ func (cms *ConcurrentMergeScheduler) Close() error {
 	return nil
 }
 
-// Wait for any running merge threads to finish. This call is not
-// Interruptible as used by Close()
+/*
+Wait for any running merge threads to finish. This call is not
+Interruptible as used by Close()
+*/
 func (cms *ConcurrentMergeScheduler) sync() {
 	panic("not implemented yet")
 }

@@ -375,16 +375,14 @@ type ThreadNameFixingPrintStreamInfoStream struct {
 }
 
 func newThreadNameFixingPrintStreamInfoStream(w io.Writer) *ThreadNameFixingPrintStreamInfoStream {
-	panic("not implemented yet")
+	return &ThreadNameFixingPrintStreamInfoStream{util.NewPrintStreamInfoStream(w)}
 }
 
 func (is *ThreadNameFixingPrintStreamInfoStream) Message(component, message string) {
-	panic("not implemented yet")
-}
-
-func (is *ThreadNameFixingPrintStreamInfoStream) Clone() util.InfoStream {
-	clone := *is
-	return &clone
+	if "TP" == component {
+		return // ignore test points!
+	}
+	is.PrintStreamInfoStream.Message(component, message)
 }
 
 /*
