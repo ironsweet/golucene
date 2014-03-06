@@ -22,7 +22,7 @@ type InfoStream interface {
 	io.Closer
 	// Clone() InfoStream
 	// prints a message
-	Message(component, message string)
+	Message(component, message string, args ...interface{})
 	// returns true if messages are enabled and should be posted.
 	IsEnabled(component string) bool
 }
@@ -32,7 +32,7 @@ var NO_OUTPUT = NoOutput(true)
 
 type NoOutput bool
 
-func (is NoOutput) Message(component, message string) {
+func (is NoOutput) Message(component, message string, args ...interface{}) {
 	panic("message() should not be called when isEnabled returns false")
 }
 
@@ -41,10 +41,6 @@ func (is NoOutput) IsEnabled(component string) bool {
 }
 
 func (is NoOutput) Close() error { return nil }
-
-func (is NoOutput) Clone() InfoStream {
-	return is
-}
 
 var defaultInfoStream InfoStream = NO_OUTPUT
 var defaultInfoStreamLock = &sync.Mutex{}
@@ -86,8 +82,9 @@ func NewPrintStreamInfoStream(w io.Writer) *PrintStreamInfoStream {
 	return &PrintStreamInfoStream{w, atomic.AddInt32(&MESSAGE_ID, 1)}
 }
 
-func (is *PrintStreamInfoStream) Message(component, message string) {
-	fmt.Fprintf(is.stream, "%v [%3v] %v\n", time.Now().Format(FORMAT), component, message)
+func (is *PrintStreamInfoStream) Message(component, message string, args ...interface{}) {
+	fmt.Fprintf(is.stream, "%v [%3v] %v\n", time.Now().Format(FORMAT), component,
+		fmt.Sprintf(message, args...))
 }
 
 func (is *PrintStreamInfoStream) IsEnabled(component string) bool {
