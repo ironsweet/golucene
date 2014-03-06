@@ -33,6 +33,7 @@ Develop Guidelines
 - "not implemented yet" means in scope but not yet translated from Java.
 - "not supported yet" means not in scope.
 - Wrapper can be implemented by composition instead of an explicit delegate field.
+- Methods of fields start with underscore are internal only, and usually require external synchronizations.
 
 Known Risks/Issues
 ------------------

@@ -228,6 +228,8 @@ type IndexWriter struct {
 
 	// Called internally if any index state has changed.
 	changed chan bool
+
+	keepFullyDeletedSegments bool // test only
 }
 
 /*
@@ -967,7 +969,7 @@ func (w *IndexWriter) doFlush(applyAllDeletes bool) (bool, error) {
 	err = func() error {
 		w.Lock()
 		defer w.Unlock()
-		err := w.maybeApplyDeletes(applyAllDeletes)
+		err := w._maybeApplyDeletes(applyAllDeletes)
 		if err != nil {
 			return err
 		}
@@ -989,17 +991,62 @@ func (w *IndexWriter) doFlush(applyAllDeletes bool) (bool, error) {
 	return anySegmentFlushed, nil
 }
 
-/*
-Assuming already synchronized.
-*/
-func (w *IndexWriter) maybeApplyDeletes(applyAllDeletes bool) error {
-	panic("not implemented yet")
+func (w *IndexWriter) _maybeApplyDeletes(applyAllDeletes bool) error {
+	if applyAllDeletes {
+		if w.infoStream.IsEnabled("IW") {
+			w.infoStream.Message("IW", "apply all deletes during flush")
+		}
+		return w._applyAllDeletes()
+	} else if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "don't apply deletes now delTermCount=%v bytesUsed=%v",
+			atomic.LoadInt32(&w.bufferedDeletesStream.numTerms),
+			atomic.LoadInt64(&w.bufferedDeletesStream.bytesUsed))
+	}
+	return nil
 }
 
 func (w *IndexWriter) applyAllDeletes() error {
 	w.Lock() // synchronized
 	defer w.Unlock()
-	panic("not implemented yet")
+	return w._applyAllDeletes()
+}
+
+func (w *IndexWriter) _applyAllDeletes() error {
+	atomic.AddInt32(&w.flushDeletesCount, 1)
+	result, err := w.bufferedDeletesStream.applyDeletes(w.readerPool, w.segmentInfos.Segments)
+	if err != nil {
+		return err
+	}
+	if result.anyDeletes {
+		err = w.checkpoint()
+		if err != nil {
+			return err
+		}
+	}
+	if !w.keepFullyDeletedSegments && result.allDeleted != nil {
+		if w.infoStream.IsEnabled("IW") {
+			w.infoStream.Message("IW", "drop 100%% deleted segments: %v",
+				w.readerPool.segmentsToString(result.allDeleted))
+		}
+		for _, info := range result.allDeleted {
+			// If a merge has already registered for this segment, we leave
+			// it in the readerPool; the merge will skip merging it and
+			// will then drop it once it's done:
+			if _, ok := w.mergingSegments[info]; !ok {
+				w.segmentInfos.remove(info)
+				err = w.readerPool.drop(info)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		err = w.checkpoint()
+		if err != nil {
+			return err
+		}
+	}
+	w.bufferedDeletesStream.prune(w.segmentInfos)
+	return nil
 }
 
 // L3440

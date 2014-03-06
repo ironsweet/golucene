@@ -6,6 +6,14 @@ import (
 
 // index/BufferedDeletesStream.java
 
+type ApplyDeletesResult struct {
+	// True if any actual deletes took place:
+	anyDeletes bool
+
+	// If non-nil, contains segments that are 100% deleted
+	allDeleted []*SegmentInfoPerCommit
+}
+
 /*
 Tracks the stream of BufferedDeletes. When DocumentsWriterPerThread
 flushes, its buffered deletes are appended to this stream. We later
@@ -32,7 +40,7 @@ type BufferedDeletesStream struct {
 
 	infoStream util.InfoStream
 	bytesUsed  int64 // atomic
-	numTerms   int   // atomic
+	numTerms   int32 // atomic
 }
 
 func newBufferedDeletesStream(infoStream util.InfoStream) *BufferedDeletesStream {
@@ -41,4 +49,21 @@ func newBufferedDeletesStream(infoStream util.InfoStream) *BufferedDeletesStream
 		nextGen:    1,
 		infoStream: infoStream,
 	}
+}
+
+/*
+Resolves the buffered deleted Term/Query/docIDs, into actual deleted
+docIDs in the liveDocs MutableBits for each SegmentReader.
+*/
+func (ds *BufferedDeletesStream) applyDeletes(readerPool *ReaderPool, infos []*SegmentInfoPerCommit) (*ApplyDeletesResult, error) {
+	panic("not implemented yet")
+}
+
+// Lock order IW -> BD
+/*
+Removes any BufferedDeletes that we no longer need to store because
+all segments in the index have had the deletes applied.
+*/
+func (ds *BufferedDeletesStream) prune(infos *SegmentInfos) {
+	panic("not implemented yet")
 }

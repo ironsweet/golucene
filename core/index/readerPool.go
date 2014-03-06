@@ -20,6 +20,12 @@ func newReaderPool(owner *IndexWriter) *ReaderPool {
 	}
 }
 
+func (pool *ReaderPool) drop(info *SegmentInfoPerCommit) error {
+	pool.Lock()
+	defer pool.Unlock()
+	panic("not implemented yet")
+}
+
 // Remove all our references to readers, and commits any pending changes.
 func (pool *ReaderPool) dropAll(doSave bool) error {
 	pool.Lock() // synchronized

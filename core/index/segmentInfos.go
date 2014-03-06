@@ -581,3 +581,12 @@ func (sis *SegmentInfos) Clear() {
 	}
 	sis.Segments = sis.Segments[:0] // reuse existing space
 }
+
+/*
+Remove the provided SegmentInfoPerCommit.
+
+WARNING: O(N) cost
+*/
+func (sis *SegmentInfos) remove(si *SegmentInfoPerCommit) {
+
+}
