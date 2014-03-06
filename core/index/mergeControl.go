@@ -2,7 +2,6 @@ package index
 
 import (
 	"container/list"
-	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 	"sync"
 )
@@ -45,8 +44,8 @@ func (mc *MergeControl) abortAllMerges() {
 	for e := mc.pendingMerges.Front(); e != nil; e = e.Next() {
 		merge := e.Value.(*OneMerge)
 		if mc.infoStream.IsEnabled("IW") {
-			mc.infoStream.Message("IW", fmt.Sprintf("now abort pending merge %v",
-				mc.readerPool.segmentsToString(merge.segments)))
+			mc.infoStream.Message("IW", "now abort pending merge %v",
+				mc.readerPool.segmentsToString(merge.segments))
 		}
 		merge.abort()
 		mc.mergeFinish(merge)
@@ -55,8 +54,8 @@ func (mc *MergeControl) abortAllMerges() {
 
 	for merge, _ := range mc.runningMerges {
 		if mc.infoStream.IsEnabled("IW") {
-			mc.infoStream.Message("IW", fmt.Sprintf("now abort running merge %v",
-				mc.readerPool.segmentsToString(merge.segments)))
+			mc.infoStream.Message("IW", "now abort running merge %v",
+				mc.readerPool.segmentsToString(merge.segments))
 		}
 		merge.abort()
 	}
@@ -68,8 +67,8 @@ func (mc *MergeControl) abortAllMerges() {
 	// they are aborted.
 	for len(mc.runningMerges) > 0 {
 		if mc.infoStream.IsEnabled("IW") {
-			mc.infoStream.Message("IW", fmt.Sprintf("now wait for %v running merge(s) to abort",
-				len(mc.runningMerges)))
+			mc.infoStream.Message("IW", "now wait for %v running merge(s) to abort",
+				len(mc.runningMerges))
 		}
 		mc.mergeSignal.Wait()
 	}

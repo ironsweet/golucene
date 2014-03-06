@@ -86,8 +86,8 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 
 	currentSegmentsFile := segmentInfos.SegmentsFileName()
 	if infoStream.IsEnabled("IFD") {
-		infoStream.Message("IFD", fmt.Sprintf("init: current segments file is '%v'; deletePolicy=%v",
-			currentSegmentsFile, policy))
+		infoStream.Message("IFD", "init: current segments file is '%v'; deletePolicy=%v",
+			currentSegmentsFile, policy)
 	}
 
 	fd := &IndexFileDeleter{
@@ -125,7 +125,7 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 					// valid (<= the max gen). Load it, then incref all files
 					// it refers to:
 					if infoStream.IsEnabled("IFD") {
-						infoStream.Message("IFD", fmt.Sprintf("init: load commit '%v'", filename))
+						infoStream.Message("IFD", "init: load commit '%v'", filename)
 					}
 					sis := &SegmentInfos{}
 					err := sis.Read(directory, filename)
@@ -138,9 +138,9 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 						// doesn't.  So, we catch this and handle it
 						// as if the file does not exist
 						if infoStream.IsEnabled("IFD") {
-							infoStream.Message("IFD", fmt.Sprintf(
+							infoStream.Message("IFD",
 								"init: hit FileNotFoundException when loading commit '%v'; skipping this commit point",
-								filename))
+								filename)
 						}
 						sis = nil
 					} else if err != nil {
@@ -184,8 +184,8 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 				currentSegmentsFile))
 		}
 		if infoStream.IsEnabled("IFD") {
-			infoStream.Message("IFD", fmt.Sprintf("forced open of current segments file %v",
-				segmentInfos.SegmentsFileName()))
+			infoStream.Message("IFD", "forced open of current segments file %v",
+				segmentInfos.SegmentsFileName())
 		}
 		currentCommitPoint = newCommitPoint(fd.commitsToDelete, directory, sis)
 		fd.commits = append(fd.commits, currentCommitPoint)
@@ -200,8 +200,8 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 	for filename, rc := range fd.refCounts {
 		if rc.count == 0 {
 			if infoStream.IsEnabled("IFD") {
-				infoStream.Message("IFD", fmt.Sprintf("init: removing unreferenced file '%v'",
-					filename))
+				infoStream.Message("IFD", "init: removing unreferenced file '%v'",
+					filename)
 			}
 			fd.deleteFile(filename)
 		}
@@ -237,8 +237,8 @@ func (fd *IndexFileDeleter) deleteCommits() error {
 		// now-deleted commits:
 		for _, commit := range fd.commitsToDelete {
 			if fd.infoStream.IsEnabled("IFD") {
-				fd.infoStream.Message("IFD", fmt.Sprintf("deleteCommits: now decRef commit '%v'",
-					commit.segmentsFileName))
+				fd.infoStream.Message("IFD", "deleteCommits: now decRef commit '%v'",
+					commit.segmentsFileName)
 			}
 			for _, file := range commit.files {
 				fd.decRefFile(file)
@@ -280,7 +280,7 @@ func (fd *IndexFileDeleter) deletePendingFiles() {
 		fd.deletable = nil
 		for _, filename := range oldDeletable {
 			if fd.infoStream.IsEnabled("IFD") {
-				fd.infoStream.Message("IFD", fmt.Sprintf("delete pending file %v", filename))
+				fd.infoStream.Message("IFD", "delete pending file %v", filename)
 			}
 			fd.deleteFile(filename)
 		}
@@ -311,7 +311,7 @@ func (fd *IndexFileDeleter) checkpoint(segmentInfos *SegmentInfos, isCommit bool
 	defer func() {
 		if fd.infoStream.IsEnabled("IFD") {
 			elapsed := time.Now().Sub(start)
-			fd.infoStream.Message("IFD", fmt.Sprintf("%v to checkpoint", elapsed))
+			fd.infoStream.Message("IFD", "%v to checkpoint", elapsed)
 		}
 	}()
 
@@ -361,8 +361,8 @@ func (del *IndexFileDeleter) incRefFile(filename string) {
 	// assert locked
 	rc := del.refCount(filename)
 	if del.infoStream.IsEnabled("IFD") && VERBOSE_REF_COUNT {
-		del.infoStream.Message("IFD", fmt.Sprintf("  IncRef '%v': pre-incr count is %v",
-			filename, rc.count))
+		del.infoStream.Message("IFD", "  IncRef '%v': pre-incr count is %v",
+			filename, rc.count)
 	}
 	rc.incRef()
 }
@@ -378,8 +378,8 @@ func (fd *IndexFileDeleter) decRefFile(filename string) {
 	//assert locked()
 	rc := fd.refCount(filename)
 	if fd.infoStream.IsEnabled("IFD") && VERBOSE_REF_COUNT {
-		fd.infoStream.Message("IFD", fmt.Sprintf("  DecRef '%v': pre-decr count is %v",
-			filename, rc.count))
+		fd.infoStream.Message("IFD", "  DecRef '%v': pre-decr count is %v",
+			filename, rc.count)
 	}
 	if rc.decRef() == 0 {
 		// This file is no longer referenced by any past commit points
@@ -415,7 +415,7 @@ func (fd *IndexFileDeleter) deleteNewFiles(files []string) {
 		// TestCrash.testCrashAfterReopen can hit this:
 		if rf, ok := fd.refCounts[filename]; !ok || rf.count == 0 {
 			if fd.infoStream.IsEnabled("IFD") {
-				fd.infoStream.Message("IFD", fmt.Sprintf("delete new file '%v'", filename))
+				fd.infoStream.Message("IFD", "delete new file '%v'", filename)
 			}
 			fd.deleteFile(filename)
 		}
@@ -425,7 +425,7 @@ func (fd *IndexFileDeleter) deleteNewFiles(files []string) {
 func (del *IndexFileDeleter) deleteFile(filename string) {
 	//assert locked()
 	if del.infoStream.IsEnabled("IFD") {
-		del.infoStream.Message("IFD", fmt.Sprintf("delete '%v'", filename))
+		del.infoStream.Message("IFD", "delete '%v'", filename)
 	}
 	err := del.directory.DeleteFile(filename)
 	if err != nil { // if delete fails
@@ -437,9 +437,9 @@ func (del *IndexFileDeleter) deleteFile(filename string) {
 			// the file is open in another process, and queue
 			// the file for subsequent deletion.
 			if del.infoStream.IsEnabled("IFD") {
-				del.infoStream.Message("IFD", fmt.Sprintf(
+				del.infoStream.Message("IFD",
 					"unable to remove file '%v': %v; will re-try later.",
-					filename, err))
+					filename, err)
 			}
 			del.deletable = append(del.deletable, filename)
 		}

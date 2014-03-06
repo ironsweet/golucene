@@ -2,7 +2,6 @@ package index
 
 import (
 	"container/list"
-	"fmt"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
@@ -135,8 +134,7 @@ func (dw *DocumentsWriter) abort(writer *IndexWriter) {
 	var newFilesSet = make(map[string]bool)
 	defer func() {
 		if dw.infoStream.IsEnabled("DW") {
-			dw.infoStream.Message("DW", fmt.Sprintf("done abort; abortedFiles=%v success=%v",
-				newFilesSet, success))
+			dw.infoStream.Message("DW", "done abort; abortedFiles=%v success=%v", newFilesSet, success)
 		}
 	}()
 
@@ -172,10 +170,10 @@ func (dw *DocumentsWriter) abortThreadState(perThread *ThreadState, newFiles map
 
 func (dw *DocumentsWriter) anyChanges() bool {
 	if dw.infoStream.IsEnabled("DW") {
-		dw.infoStream.Message("DW", fmt.Sprintf(
+		dw.infoStream.Message("DW",
 			"anyChanges? numDocsInRAM=%v deletes=%v, hasTickets=%v pendingChangesInFullFlush=%v",
 			atomic.LoadInt32(&dw.numDocsInRAM), dw.deleteQueue.anyChanges(),
-			dw.ticketQueue.hasTickets(), dw.pendingChangesInCurrentFullFlush))
+			dw.ticketQueue.hasTickets(), dw.pendingChangesInCurrentFullFlush)
 	}
 	// Changes are either in a DWPT or in the deleteQueue.
 	// Yet if we currently flush deletes and/or dwpt, there
@@ -268,7 +266,7 @@ func (dw *DocumentsWriter) flushAllThreads(indexWriter *IndexWriter) (bool, erro
 func (dw *DocumentsWriter) finishFullFlush(success bool) {
 	defer func() { dw.pendingChangesInCurrentFullFlush = false }()
 	if dw.infoStream.IsEnabled("DW") {
-		dw.infoStream.Message("DW", fmt.Sprintf("finishFullFlush success %v", success))
+		dw.infoStream.Message("DW", "finishFullFlush success %v", success)
 	}
 	dw.currentFullFlushDelQueue = nil
 	if success {

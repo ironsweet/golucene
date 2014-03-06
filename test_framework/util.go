@@ -42,7 +42,7 @@ func NewNullInfoStream() util.InfoStream {
 	return nullInfoStream
 }
 
-func (is NullInfoStream) Message(component, message string) {
+func (is NullInfoStream) Message(component, message string, args ...interface{}) {
 	assert(component != "")
 	assert(message != "")
 }

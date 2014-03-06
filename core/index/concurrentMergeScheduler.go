@@ -153,7 +153,7 @@ Outputs the given message - this method assumes verbose() was called
 and returned true.
 */
 func (cms *ConcurrentMergeScheduler) message(format string, args ...interface{}) {
-	cms.writer.infoStream.Message("CMS", fmt.Sprintf(format, args...))
+	cms.writer.infoStream.Message("CMS", format, args...)
 }
 
 func (cms *ConcurrentMergeScheduler) Close() error {

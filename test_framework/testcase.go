@@ -378,11 +378,11 @@ func newThreadNameFixingPrintStreamInfoStream(w io.Writer) *ThreadNameFixingPrin
 	return &ThreadNameFixingPrintStreamInfoStream{util.NewPrintStreamInfoStream(w)}
 }
 
-func (is *ThreadNameFixingPrintStreamInfoStream) Message(component, message string) {
+func (is *ThreadNameFixingPrintStreamInfoStream) Message(component, message string, args ...interface{}) {
 	if "TP" == component {
 		return // ignore test points!
 	}
-	is.PrintStreamInfoStream.Message(component, message)
+	is.PrintStreamInfoStream.Message(component, message, args...)
 }
 
 /*

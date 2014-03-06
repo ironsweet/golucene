@@ -285,7 +285,7 @@ func (fc *DocumentsWriterFlushControl) nextPendingFlush() *DocumentsWriterPerThr
 
 func (fc *DocumentsWriterFlushControl) addFlushableState(perThread *ThreadState) {
 	if fc.infoStream.IsEnabled("DWFC") {
-		fc.infoStream.Message("DWFC", fmt.Sprintf("addFlushableState %v", perThread.dwpt))
+		fc.infoStream.Message("DWFC", "addFlushableState %v", perThread.dwpt)
 	}
 	dwpt := perThread.dwpt
 	assert(perThread.isActive && perThread.dwpt != nil)

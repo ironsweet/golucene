@@ -362,8 +362,8 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 			oldInfos := &SegmentInfos{}
 			ans.segmentInfos.replace(oldInfos)
 			ans.changed <- true
-			ans.infoStream.Message("IW", fmt.Sprintf(
-				"init: loaded commit '%v'", commit.SegmentsFileName()))
+			ans.infoStream.Message("IW", "init: loaded commit '%v'",
+				commit.SegmentsFileName())
 		}
 	}
 
@@ -394,7 +394,7 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 	}
 
 	if ans.infoStream.IsEnabled("IW") {
-		ans.infoStream.Message("IW", fmt.Sprintf("init: create=%v", create))
+		ans.infoStream.Message("IW", "init: create=%v", create)
 		ans.messageState()
 	}
 
@@ -427,8 +427,8 @@ func (w *IndexWriter) fieldNumberMap() (m *FieldNumbers, err error) {
 
 func (w *IndexWriter) messageState() {
 	if w.infoStream.IsEnabled("IW") {
-		w.infoStream.Message("IW", fmt.Sprintf("\ndir=%v\nindex=%v\nversion=%v\n%v",
-			w.directory, w.segString(), util.LUCENE_VERSION, w.config))
+		w.infoStream.Message("IW", "\ndir=%v\nindex=%v\nversion=%v\n%v",
+			w.directory, w.segString(), util.LUCENE_VERSION, w.config)
 	}
 }
 
@@ -523,7 +523,7 @@ func (w *IndexWriter) closeInternal(waitForMerges bool, doFlush bool) (ok bool, 
 		"cannot close: prepareCommit was already called with no corresponding call to commit")
 
 	if w.infoStream.IsEnabled("IW") {
-		w.infoStream.Message("IW", fmt.Sprintf("now flush at close waitForMerges=%v", waitForMerges))
+		w.infoStream.Message("IW", "now flush at close waitForMerges=%v", waitForMerges)
 	}
 
 	w.docWriter.close()
@@ -557,7 +557,7 @@ func (w *IndexWriter) closeInternal(waitForMerges bool, doFlush bool) (ok bool, 
 	w.docWriter = nil
 
 	if w.infoStream.IsEnabled("IW") {
-		w.infoStream.Message("IW", fmt.Sprintf("at close: %v", w.segString()))
+		w.infoStream.Message("IW", "at close: %v", w.segString())
 	}
 
 	if w.writeLock != nil {
@@ -941,8 +941,8 @@ func (w *IndexWriter) doFlush(applyAllDeletes bool) (bool, error) {
 	}()
 
 	if w.infoStream.IsEnabled("IW") {
-		w.infoStream.Message("IW", fmt.Sprintf("  start flush: applyAllDeletes=%v", applyAllDeletes))
-		w.infoStream.Message("IW", fmt.Sprintf("  index before flush %v", w.segString()))
+		w.infoStream.Message("IW", "  start flush: applyAllDeletes=%v", applyAllDeletes)
+		w.infoStream.Message("IW", "  index before flush %v", w.segString())
 	}
 
 	anySegmentFlushed, err := func() (ok bool, err error) {
