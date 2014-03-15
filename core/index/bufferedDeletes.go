@@ -81,4 +81,22 @@ are write-once, so we shift to more memory efficient data structure
 to hold them. We don't hold docIDs because these are applied on flush.
 */
 type FrozenBufferedDeletes struct {
+	bytesUsed      int
+	numTermDeletes int
+	gen            int64 // -1, assigned by BufferedDeletesStream once pushed
+	// true iff this frozen packet represents a segment private deletes
+	// in that case it should only have queries
+	isSegmentPrivate bool
+}
+
+func newFrozenBufferedDeletes() *FrozenBufferedDeletes {
+	return &FrozenBufferedDeletes{gen: -1}
+}
+
+func (bd *FrozenBufferedDeletes) queries() []*QueryAndLimit {
+	panic("not implemented yet")
+}
+
+func (bd *FrozenBufferedDeletes) String() string {
+	panic("not implemented yet")
 }

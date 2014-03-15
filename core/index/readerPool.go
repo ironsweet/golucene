@@ -5,7 +5,6 @@ import (
 	"sync"
 )
 
-// L421
 type ReaderPool struct {
 	owner *IndexWriter
 	sync.Locker
@@ -20,9 +19,17 @@ func newReaderPool(owner *IndexWriter) *ReaderPool {
 	}
 }
 
+func (pool *ReaderPool) infoIsLive(info *SegmentInfoPerCommit) bool {
+	panic("not implemented yet")
+}
+
 func (pool *ReaderPool) drop(info *SegmentInfoPerCommit) error {
 	pool.Lock()
 	defer pool.Unlock()
+	panic("not implemented yet")
+}
+
+func (pool *ReaderPool) release(rld *ReadersAndLiveDocs) error {
 	panic("not implemented yet")
 }
 
