@@ -887,11 +887,39 @@ close the writer.
 */
 func (w *IndexWriter) Commit() error {
 	w.ensureOpen()
+	w.commitLock.Lock()
+	defer w.commitLock.Unlock()
 	return w.commitInternal()
 }
 
+/*
+Assume commitLock is locked.
+*/
 func (w *IndexWriter) commitInternal() error {
-	panic("not implemented yet")
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "commit: start")
+	}
+
+	w.ClosingControl.ensureOpen(false)
+
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "commit: enter lock")
+	}
+
+	if w.pendingCommit == nil {
+		if w.infoStream.IsEnabled("IW") {
+			w.infoStream.Message("IW", "commit: now prepare")
+		}
+		err := w.prepareCommitInternal()
+		if err != nil {
+			return err
+		}
+	} else {
+		if w.infoStream.IsEnabled("IW") {
+			w.infoStream.Message("IW", "commit: already prepared")
+		}
+	}
+	return w.finishCommit()
 }
 
 func (w *IndexWriter) finishCommit() error {
