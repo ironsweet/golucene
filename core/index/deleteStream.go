@@ -6,6 +6,7 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
+	"math"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -319,7 +320,48 @@ Removes any BufferedDeletes that we no longer need to store because
 all segments in the index have had the deletes applied.
 */
 func (ds *BufferedDeletesStream) prune(infos *SegmentInfos) {
-	panic("not implemented yet")
+	ds.assertDeleteStats()
+	var minGen int64 = math.MaxInt64
+	for _, info := range infos.Segments {
+		if info.bufferedDeletesGen < minGen {
+			minGen = info.bufferedDeletesGen
+		}
+	}
+
+	if ds.infoStream.IsEnabled("BD") {
+		ds.infoStream.Message("BD", "prune sis=%v minGen=%v packetCount=%v",
+			infos, minGen, len(ds.deletes))
+	}
+	for delIDX, limit := 0, len(ds.deletes); delIDX < limit; delIDX++ {
+		if ds.deletes[delIDX].gen >= minGen {
+			ds.pruneDeletes(delIDX)
+			ds.assertDeleteStats()
+			return
+		}
+	}
+
+	// All deletes pruned
+	ds.pruneDeletes(len(ds.deletes))
+	assert(!ds.any())
+	ds.assertDeleteStats()
+}
+
+func (ds *BufferedDeletesStream) pruneDeletes(count int) {
+	if count > 0 {
+		if ds.infoStream.IsEnabled("BD") {
+			ds.infoStream.Message("BD", "pruneDeletes: prune %v packets; %v packets remain",
+				count, len(ds.deletes)-count)
+		}
+		for delIDX := 0; delIDX < count; delIDX++ {
+			packet := ds.deletes[delIDX]
+			n := atomic.AddInt32(&ds.numTerms, -int32(packet.numTermDeletes))
+			assert(n >= 0)
+			n2 := atomic.AddInt64(&ds.bytesUsed, -int64(packet.bytesUsed))
+			assert(n2 >= 0)
+			ds.deletes[delIDX] = nil
+		}
+		ds.deletes = ds.deletes[count:]
+	}
 }
 
 /* Delete by term */
