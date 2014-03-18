@@ -1252,7 +1252,9 @@ Used only  by assert for testing. Current points:
 - DocumentsWriter.ThreadState.init start
 */
 func (w *IndexWriter) testPoint(message string) {
-	panic("not implemented yet")
+	if w.infoStream.IsEnabled("TP") {
+		w.infoStream.Message("TP", message)
+	}
 }
 
 /*
