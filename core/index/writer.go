@@ -167,9 +167,14 @@ type IndexWriter struct {
 	directory store.Directory   // where this index resides
 	analyzer  analysis.Analyzer // how to analyze text
 
+	changeCount int64 // volatile, increments every time a change is completed
+
 	rollbackSegments []*SegmentInfoPerCommit // list of segmentInfo we will fallback to if the commit fails
 
-	pendingCommit *SegmentInfos // set when a commit is pending (after prepareCommit() & before commit())
+	pendingCommit            *SegmentInfos // set when a commit is pending (after prepareCommit() & before commit())
+	pendingCommitChangeCount int64         // volatile
+
+	filesToCommit []string
 
 	segmentInfos         *SegmentInfos // the segments
 	globalFieldNumberMap *FieldNumbers
@@ -859,8 +864,119 @@ func (w *IndexWriter) resetMergeExceptions() {
 	panic("not implemented yet")
 }
 
+/*
+Requires commitLock
+*/
 func (w *IndexWriter) prepareCommitInternal() error {
-	panic("not implemented yet")
+	w.ClosingControl.ensureOpen(false)
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "prepareCommit: flush")
+		w.infoStream.Message("IW", "  index before flush %v", w.segString())
+	}
+
+	assert2(!w.hitOOM, "this writer hit an OOM; cannot commit")
+	assert2(w.pendingCommit == nil, "prepareCommit was already called with no corresponding call to commit")
+
+	err := w.doBeforeFlush()
+	if err != nil {
+		return err
+	}
+	w.testPoint("startDoFlush")
+
+	// This is copied from doFLush, except it's modified to clone &
+	// incRef the flushed SegmentInfos inside the sync block:
+
+	toCommit, anySegmentsFlushed, err := func() (toCommit *SegmentInfos, anySegmentsFlushed bool, err error) {
+		w.fullFlushLock.Lock()
+		defer w.fullFlushLock.Unlock()
+
+		var flushSuccess = false
+		var success = false
+		defer func() {
+			if !success {
+				if w.infoStream.IsEnabled("IW") {
+					w.infoStream.Message("IW", "hit error during prepareCommit")
+				}
+			}
+			// Done: finish the full flush!
+			w.docWriter.finishFullFlush(flushSuccess)
+			err2 := w.doAfterFlush()
+			if err2 != nil {
+				log.Printf("Error in doAfterFlush: %v", err2)
+			}
+		}()
+
+		anySegmentsFlushed, err = w.docWriter.flushAllThreads(w)
+		if err != nil {
+			return
+		}
+		if !anySegmentsFlushed {
+			// prevent double increment since docWriter.doFlush increments
+			// the flushCount if we flushed anything.
+			atomic.AddInt32(&w.flushCount, -1)
+		}
+		w.docWriter.processEvents(w, false, true)
+		flushSuccess = true
+
+		err = func() (err error) {
+			w.Lock()
+			defer w.Unlock()
+
+			err = w._maybeApplyDeletes(true)
+			if err != nil {
+				return
+			}
+
+			err = w.readerPool.commit(w.segmentInfos)
+			if err != nil {
+				return
+			}
+
+			// Must clone the segmentInfos while we still
+			// hold fullFlushLock and while sync'd so that
+			// no partial changes (eg a delete w/o
+			// corresponding add from an updateDocument) can
+			// sneak into the commit point:
+			toCommit = w.segmentInfos.Clone()
+
+			w.pendingCommitChangeCount = w.changeCount
+
+			// This protects the segmentInfos we are now going
+			// to commit.  This is important in case, eg, while
+			// we are trying to sync all referenced files, a
+			// merge completes which would otherwise have
+			// removed the files we are now syncing.
+			w.filesToCommit = toCommit.files(w.directory, false)
+			w.deleter.incRefFiles(w.filesToCommit)
+			return
+		}()
+		if err != nil {
+			return
+		}
+		success = true
+		return
+	}()
+
+	var success = false
+	defer func() {
+		if !success {
+			func() {
+				w.Lock()
+				defer w.Unlock()
+				w.deleter.decRefFiles(w.filesToCommit)
+				w.filesToCommit = nil
+			}()
+		}
+	}()
+	if anySegmentsFlushed {
+		err := w.maybeMerge(MERGE_TRIGGER_FULL_FLUSH, UNBOUNDED_MAX_MERGE_SEGMENTS)
+		if err != nil {
+			return err
+		}
+	}
+	success = true
+
+	return w.startCommit(toCommit)
 }
 
 /*
@@ -1135,7 +1251,7 @@ Used only  by assert for testing. Current points:
 - startMergeInit
 - DocumentsWriter.ThreadState.init start
 */
-func (w *IndexWriter) testPoint(message string) bool {
+func (w *IndexWriter) testPoint(message string) {
 	panic("not implemented yet")
 }
 

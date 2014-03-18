@@ -512,6 +512,28 @@ func (sis *SegmentInfos) ReadAll(directory store.Directory) error {
 	return err
 }
 
+/*
+Returns a copy of this instance, also copying each SegmentInfo.
+*/
+func (sis *SegmentInfos) Clone() *SegmentInfos {
+	clone := &SegmentInfos{
+		sis.counter,
+		sis.version,
+		sis.generation,
+		sis.lastGeneration,
+		make(map[string]string),
+		nil,
+	}
+	for _, info := range sis.Segments {
+		assert(info.info.codec != nil)
+		clone.Segments = append(clone.Segments, info.Clone())
+	}
+	for k, v := range sis.userData {
+		clone.userData[k] = v
+	}
+	return clone
+}
+
 // L913
 /*
 Returns all file names referenced by SegmentInfo instances matching

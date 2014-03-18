@@ -357,6 +357,13 @@ func (del *IndexFileDeleter) incRef(segmentInfos *SegmentInfos, isCommit bool) {
 	}
 }
 
+func (del *IndexFileDeleter) incRefFiles(files []string) {
+	// assert locked
+	for _, file := range files {
+		del.incRefFile(file)
+	}
+}
+
 func (del *IndexFileDeleter) incRefFile(filename string) {
 	// assert locked
 	rc := del.refCount(filename)
