@@ -39,7 +39,7 @@ type Codec interface {
 	// Encodes/decodes document normalization values
 	NormsFormat() NormsFormat
 	// Encodes/decodes live docs
-	// LiveDocsFormat() LiveDocsFormat
+	LiveDocsFormat() LiveDocsFormat
 }
 
 type CodecImpl struct {
@@ -428,6 +428,10 @@ type DocValuesProducer interface {
 
 // codecs/LiveDocsFormat.java
 
-// Format for live/deleted documents
+/* Format for live/deleted documents */
 type LiveDocsFormat interface {
+	// Persist live docs bits. Use SegmentInfoPerCommit.nextDelGen() to
+	// determine the generation of the deletes file you should write to.
+	WriteLiveDocs(bits util.MutableBits, dir store.Directory,
+		info *SegmentInfoPerCommit, newDelCount int, ctx store.IOContext) error
 }

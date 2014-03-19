@@ -850,6 +850,18 @@ func (w *IndexWriter) checkpoint() error {
 }
 
 /*
+Checkpoints with IndexFileDeleter, so it's aware of new files, and
+increments changeCount, so on close/commit we will write a new
+segments file, but does NOT bump segmentInfos.version.
+*/
+func (w *IndexWriter) checkpointNoSIS() error {
+	w.Lock() // synchronized
+	defer w.Unlock()
+	w.changeCount++
+	return w.deleter.checkpoint(w.segmentInfos, false)
+}
+
+/*
 Atomically adds the segment private delete packet and publishes the
 flushed segments SegmentInfo to the index writer.
 */

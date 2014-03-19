@@ -15,4 +15,14 @@ type Bits interface {
 	 * @return <code>true</code> if the bit is set, <code>false</code> otherwise.
 	 */
 	At(index int) bool
+
+	// Returns the number of bits in the set
+	Length() int
+}
+
+// util/MutableBits.java
+
+/* Extension of Bits for live documents. */
+type MutableBits interface {
+	Bits
 }

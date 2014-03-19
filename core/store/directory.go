@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"fmt"
+	"github.com/balzaczyy/golucene/core/util"
 	"io"
 	"log"
 	"time"
@@ -249,7 +250,7 @@ type Directory interface {
 	LockFactory() LockFactory
 	LockID() string
 	// Utilities
-	// Copy(to Directory, src, dest string, ctx IOContext) error
+	Copy(to Directory, src, dest string, ctx IOContext) error
 	// Experimental methods
 	CreateSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error)
 
@@ -312,6 +313,48 @@ func (d *DirectoryImpl) LockID() string {
 
 func (d *DirectoryImpl) String() string {
 	return fmt.Sprintf("Directory lockFactory=%v", d.lockFactory)
+}
+
+/*
+Copies the file src to 'to' under the new file name dest.
+
+If you want to copy the entire source directory to the destination
+one, you can do so like this:
+
+		var to Directory // the directory to copy to
+		for _, file := range dir.ListAll() {
+			dir.Copy(to, file, newFile, IO_CONTEXT_DEFAULT)
+			// newFile can be either file, or a new name
+		}
+
+NOTE: this method does not check whether dest exists and will
+overwrite it if it does.
+*/
+func (d *DirectoryImpl) Copy(to Directory, src, dest string, ctx IOContext) (err error) {
+	var os IndexOutput
+	var is IndexInput
+	defer func() {
+		var success = false
+		defer func() {
+			if !success {
+				to.DeleteFile(dest) // ignore error
+			}
+		}()
+
+		err = util.CloseWhileHandlingError(err, os, is)
+		success = true
+	}()
+
+	os, err = to.CreateOutput(dest, ctx)
+	if err != nil {
+		return err
+	}
+	is, err = d.OpenInput(src, ctx)
+	if err != nil {
+		return err
+	}
+	err = os.CopyBytes(is, is.Length())
+	return
 }
 
 func (d *DirectoryImpl) CreateSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {

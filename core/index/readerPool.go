@@ -40,11 +40,35 @@ func (pool *ReaderPool) dropAll(doSave bool) error {
 	panic("not implemented yet")
 }
 
-// Commit live docs changes for the segment readers for the provided infos.
+/* Commit live docs changes for the segment readers for the provided infos. */
 func (pool *ReaderPool) commit(infos *SegmentInfos) error {
 	pool.Lock() // synchronized
 	defer pool.Unlock()
-	panic("not implemented yet")
+
+	for _, info := range infos.Segments {
+		if rld, ok := pool.readerMap[info]; ok {
+			assert(rld.info == info)
+			ok, err := rld.writeLiveDocs(pool.owner.directory)
+			if err != nil {
+				return err
+			}
+			if ok {
+				// Make sure we only write del docs for a live segment:
+				assert(pool.infoIsLive(info))
+				// Must checkpoint because we just created new _X_N.del and
+				// field updates files; don't call IW.checkpoint because that
+				// also increments SIS.version, which we do not want to do
+				// here: it was doen previously (after we invoked
+				// BDS.applyDeletes), whereas here all we did was move the
+				// stats to disk:
+				err = pool.owner.checkpointNoSIS()
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // Obtain a readersAndLiveDocs instance from the ReaderPool. If
