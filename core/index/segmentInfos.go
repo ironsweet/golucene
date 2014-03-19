@@ -354,6 +354,10 @@ type SegmentInfos struct {
 	lastGeneration int64
 	userData       map[string]string
 	Segments       []*SegmentInfoPerCommit
+
+	// Only non-nil after prepareCommit has been called and before
+	// finishCommit is called
+	pendingSegnOutput *store.ChecksumIndexOutput
 }
 
 func LastCommitGeneration(files []string) int64 {
@@ -512,17 +516,21 @@ func (sis *SegmentInfos) ReadAll(directory store.Directory) error {
 	return err
 }
 
+func (sis *SegmentInfos) write(directory store.Directory) error {
+	panic("not implemented yet")
+}
+
 /*
 Returns a copy of this instance, also copying each SegmentInfo.
 */
 func (sis *SegmentInfos) Clone() *SegmentInfos {
 	clone := &SegmentInfos{
-		sis.counter,
-		sis.version,
-		sis.generation,
-		sis.lastGeneration,
-		make(map[string]string),
-		nil,
+		counter:        sis.counter,
+		version:        sis.version,
+		generation:     sis.generation,
+		lastGeneration: sis.lastGeneration,
+		userData:       make(map[string]string),
+		Segments:       nil,
 	}
 	for _, info := range sis.Segments {
 		assert(info.info.codec != nil)
@@ -532,6 +540,42 @@ func (sis *SegmentInfos) Clone() *SegmentInfos {
 		clone.userData[k] = v
 	}
 	return clone
+}
+
+// L873
+/* Carry over generation numbers from another SegmentInfos */
+func (sis *SegmentInfos) updateGeneration(other *SegmentInfos) {
+	sis.lastGeneration = other.lastGeneration
+	sis.generation = other.generation
+}
+
+func (sis *SegmentInfos) rollbackCommit(dir store.Directory) {
+	if sis.pendingSegnOutput != nil {
+		// Suppress so we keep throwing the original error in our caller
+		util.CloseWhileSuppressingError(sis.pendingSegnOutput)
+		sis.pendingSegnOutput = nil
+
+		// Must carefully compute filename from "generation" since
+		// lastGeneration isn't incremented:
+		segmentFilename := util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", sis.generation)
+
+		// Suppress so we keep throwing the original error in our caller
+		util.DeleteFilesIgnoringErrors(dir, segmentFilename)
+	}
+}
+
+/*
+Call this to start a commit. This writes the new segments file, but
+writes an invalid checksum at the end, so that it is not visible to
+readers. Once this is called you must call finishCommit() to complete
+the commit or rollbackCommit() to abort it.
+
+Note: changed() should be called prior to this method if changes have
+been made to this SegmentInfos instance.
+*/
+func (sis *SegmentInfos) prepareCommit(dir store.Directory) error {
+	assert2(sis.pendingSegnOutput == nil, "prepareCommit was already called")
+	return sis.write(dir)
 }
 
 // L913

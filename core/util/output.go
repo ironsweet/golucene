@@ -10,6 +10,7 @@ DataOutput may only be used from one thread, because it is not thread
 safe (it keeps internal state like file position).
 */
 type DataOutput interface {
+	DataWriter
 	CopyBytes(input DataInput, numBytes int64) error
 }
 

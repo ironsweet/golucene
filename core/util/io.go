@@ -91,3 +91,18 @@ func addSuppressed(err error, suppressed error) error {
 	}
 	return &CompoundError{[]error{suppressed}}
 }
+
+type FileDeleter interface {
+	DeleteFile(name string) error
+}
+
+/*
+Deletes all given files, suppressing all throw errors.
+
+Note that the files should not be nil.
+*/
+func DeleteFilesIgnoringErrors(dir FileDeleter, files ...string) {
+	for _, name := range files {
+		dir.DeleteFile(name) // ignore error
+	}
+}

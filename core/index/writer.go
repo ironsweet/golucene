@@ -167,7 +167,8 @@ type IndexWriter struct {
 	directory store.Directory   // where this index resides
 	analyzer  analysis.Analyzer // how to analyze text
 
-	changeCount int64 // volatile, increments every time a change is completed
+	changeCount           int64 // volatile, increments every time a change is completed
+	lastCommitChangeCount int64 // volatile, last changeCount that was committed
 
 	rollbackSegments []*SegmentInfoPerCommit // list of segmentInfo we will fallback to if the commit fails
 
@@ -1229,7 +1230,7 @@ func (w *IndexWriter) segString() string {
 }
 
 // called only from assert
-func (w *IndexWriter) fileExist(toSync *SegmentInfos) (ok bool, err error) {
+func (w *IndexWriter) filesExist(toSync *SegmentInfos) (ok bool, err error) {
 	panic("not implemented yet")
 }
 
@@ -1247,7 +1248,117 @@ succeeds, then we prepare a new segments_N file but do not fully
 commit it.
 */
 func (w *IndexWriter) startCommit(toSync *SegmentInfos) error {
-	panic("not implemented yet")
+	w.testPoint("startStartCommit")
+	assert(w.pendingCommit == nil)
+	assert2(!w.hitOOM, "this writer hit an OutOfMemoryError; cannot commit")
+
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "startCommit(): start")
+	}
+
+	err := func() error {
+		w.Lock()
+		defer w.Unlock()
+
+		assertn(w.lastCommitChangeCount <= w.changeCount,
+			"lastCommitChangeCount=%v changeCount=%v", w.lastCommitChangeCount, w.changeCount)
+		if w.pendingCommitChangeCount == w.lastCommitChangeCount {
+			if w.infoStream.IsEnabled("IW") {
+				w.infoStream.Message("IW", "  skip startCommit(): no changes pending")
+			}
+			w.deleter.decRefFiles(w.filesToCommit)
+			w.filesToCommit = nil
+			return nil
+		}
+
+		if w.infoStream.IsEnabled("IW") {
+			w.infoStream.Message("IW", "startCommit index=%v changeCount=%v",
+				w.readerPool.segmentsToString(toSync.Segments), w.changeCount)
+		}
+
+		ok, err := w.filesExist(toSync)
+		if err != nil {
+			return err
+		}
+		assert(ok)
+		return nil
+	}()
+	if err != nil {
+		return err
+	}
+
+	w.testPoint("midStartCommit")
+
+	var pendingCommitSet = false
+	defer func() {
+		w.Lock()
+		defer w.Unlock()
+
+		// Have out master segmentInfos record the generations we just
+		// prepared. We do this on error or success so we don't
+		// double-write a segments_N file.
+		w.segmentInfos.updateGeneration(toSync)
+
+		if !pendingCommitSet {
+			if w.infoStream.IsEnabled("IW") {
+				w.infoStream.Message("IW", "hit error committing segments file")
+			}
+
+			// Hit error
+			w.deleter.decRefFiles(w.filesToCommit)
+			w.filesToCommit = nil
+		}
+	}()
+
+	w.testPoint("midStartCommit2")
+	err = func() (err error) {
+		w.Lock()
+		defer w.Unlock()
+
+		assert(w.pendingCommit == nil)
+		assert(w.segmentInfos.generation == toSync.generation)
+
+		// Eror here means nothing is prepared (this method unwinds
+		// everything it did on an error)
+		err = toSync.prepareCommit(w.directory)
+		if err != nil {
+			return err
+		}
+		log.Print("DONE prepareCommit")
+
+		pendingCommitSet = true
+		w.pendingCommit = toSync
+		return nil
+	}()
+	if err != nil {
+		return err
+	}
+
+	// This call can take a long time -- 10s of seconds or more. We do
+	// it without syncing on this:
+	var success = false
+	var filesToSync []string
+	defer func() {
+		if !success {
+			pendingCommitSet = false
+			w.pendingCommit = nil
+			toSync.rollbackCommit(w.directory)
+		}
+	}()
+
+	filesToSync = toSync.files(w.directory, false)
+	err = w.directory.Sync(filesToSync)
+	if err != nil {
+		return err
+	}
+
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "done all syncs: %v", filesToSync)
+	}
+
+	w.testPoint("midStartCommitSuccess")
+	w.testPoint("finishStartCommit")
+	return nil
 }
 
 /*
