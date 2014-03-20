@@ -122,6 +122,10 @@ func newDocumentsWriter(writer *IndexWriter, config *LiveIndexWriterConfig, dire
 	return ans
 }
 
+func (dw *DocumentsWriter) ensureOpen() {
+	assert2(!dw.closed, "this IndexWriter is closed")
+}
+
 /*
 Called if we hit an error at a bad time (when updating the index
 files) and must discard all currently buffered docs. This resets our
@@ -190,11 +194,70 @@ func (dw *DocumentsWriter) close() {
 	dw.flushControl.close()
 }
 
+func (dw *DocumentsWriter) preUpdate() (bool, error) {
+	panic("not implemented yet")
+}
+
+func (dw *DocumentsWriter) postUpdate(flusingDWPT *DocumentsWriterPerThread, hasEvents bool) (bool, error) {
+	panic("not implemented yet")
+}
+
+func (dw *DocumentsWriter) ensureInitialized(state *ThreadState) {
+	panic("not implemented yet")
+}
+
 // L428
 func (dw *DocumentsWriter) updateDocument(doc []IndexableField,
 	analyzer analysis.Analyzer, delTerm *Term) (bool, error) {
 
-	panic("not implemented yet")
+	hasEvents, err := dw.preUpdate()
+	if err != nil {
+		return false, err
+	}
+
+	flushingDWPT, err := func() (*DocumentsWriterPerThread, error) {
+		perThread := dw.flushControl.obtainAndLock()
+		defer dw.flushControl.perThreadPool.release(perThread)
+
+		if !perThread.isActive {
+			dw.ensureOpen()
+			panic("perThread is not active but we are still open")
+		}
+		dw.ensureInitialized(perThread)
+		assert(perThread.dwpt != nil)
+		dwpt := perThread.dwpt
+		dwptNuMDocs := dwpt.numDocsInRAM
+
+		err := func() error {
+			defer func() {
+				if dwpt.checkAndResetHasAborted() {
+					if len(dwpt.filesToDelete) > 0 {
+						dw.putEvent(newDeleteNewFilesEvent(dwpt.filesToDelete))
+					}
+					dw.subtractFlushedNumDocs(dwptNuMDocs)
+					dw.flushControl.doOnAbort(perThread)
+				}
+			}()
+
+			err := dwpt.updateDocument(doc, analyzer, delTerm)
+			if err != nil {
+				return err
+			}
+			atomic.AddInt32(&dw.numDocsInRAM, 1)
+			return nil
+		}()
+		if err != nil {
+			return nil, err
+		}
+
+		isUpdate := delTerm != nil
+		return dw.flushControl.doAfterDocument(perThread, isUpdate), nil
+	}()
+	if err != nil {
+		return false, err
+	}
+
+	return dw.postUpdate(flushingDWPT, hasEvents)
 }
 
 func (dw *DocumentsWriter) doFlush(flushingDWPT *DocumentsWriterPerThread) (bool, error) {
@@ -349,6 +412,8 @@ type DocumentsWriterPerThread struct {
 	infoStream   util.InfoStream
 	numDocsInRAM int // the number of RAM resident documents
 	deleteQueue  *DocumentsWriterDeleteQueue
+
+	filesToDelete map[string]bool
 }
 
 /*
@@ -380,6 +445,10 @@ func (dwpt *DocumentsWriterPerThread) abort(createdFiles map[string]bool) {
 func (dwpt *DocumentsWriterPerThread) checkAndResetHasAborted() (res bool) {
 	res, dwpt.hasAborted = dwpt.hasAborted, false
 	return
+}
+
+func (dwpt *DocumentsWriterPerThread) updateDocument(doc []IndexableField, analyzer analysis.Analyzer, delTerm *Term) error {
+	panic("not implemented yet")
 }
 
 // L600

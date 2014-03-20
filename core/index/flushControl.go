@@ -70,6 +70,10 @@ func (fc *DocumentsWriterFlushControl) assertMemory() bool {
 	panic("not implemented yet")
 }
 
+func (fc *DocumentsWriterFlushControl) doAfterDocument(perThread *ThreadState, isUpdate bool) *DocumentsWriterPerThread {
+	panic("not implemented yet")
+}
+
 func (fc *DocumentsWriterFlushControl) doAfterFlush(dwpt *DocumentsWriterPerThread) {
 	fc.Lock()
 	defer fc.Unlock()
@@ -186,6 +190,10 @@ func (fc *DocumentsWriterFlushControl) close() {
 	if !fc.closed {
 		fc.closed = true
 	}
+}
+
+func (fc *DocumentsWriterFlushControl) obtainAndLock() *ThreadState {
+	panic("not implemented yet")
 }
 
 func (fc *DocumentsWriterFlushControl) markForFullFlush() {
