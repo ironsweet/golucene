@@ -5,10 +5,46 @@ import (
 	"fmt"
 )
 
-const (
-	CODEC_MAGIC = 0x3fd76c17
-)
+// codecs/CodecUtil.java
 
+/* Constant to identify the start of a codec header */
+const CODEC_MAGIC = 0x3fd76c17
+
+type DataOutput interface {
+	WriteInt(n int32) error
+	WriteString(s string) error
+}
+
+/*
+Writes a codc header, which records both a string to identify the
+file and a version number. This header can be parsed and validated
+with CheckHeader().
+
+CodecHeader --> Magic,CodecName,Version
+	Magic --> uint32. This identifies the start of the header. It is
+	always CODEC_MAGIC.
+	CodecName --> string. This is a string to identify this file.
+	Version --> uint32. Records the version of the file.
+
+Note that the length of a codec header depends only upon the name of
+the codec, so this length can be computed at any time with
+HeaderLength().
+*/
+func WriteHeader(out DataOutput, codec string, version int) error {
+	bytes := []byte(codec)
+	assert2(len(bytes) == len(codec) && len(bytes) < 128,
+		"codec must be simple ASCII, less than 128 characters in length [got %v]", codec)
+	err := out.WriteInt(CODEC_MAGIC)
+	if err == nil {
+		err = out.WriteString(codec)
+		if err == nil {
+			err = out.WriteInt(int32(version))
+		}
+	}
+	return err
+}
+
+/* Computes the length of a codec header */
 func HeaderLength(codec string) int {
 	return 9 + len(codec)
 }

@@ -11,7 +11,11 @@ safe (it keeps internal state like file position).
 */
 type DataOutput interface {
 	DataWriter
+	WriteInt(i int32) error
+	WriteLong(i int64) error
+	WriteString(s string) error
 	CopyBytes(input DataInput, numBytes int64) error
+	WriteStringStringMap(m map[string]string) error
 }
 
 type DataWriter interface {
@@ -26,6 +30,95 @@ type DataOutputImpl struct {
 
 func NewDataOutput(part DataWriter) *DataOutputImpl {
 	return &DataOutputImpl{DataWriter: part}
+}
+
+/*
+Writes an int as four bytes.
+
+32-bit unsigned integer written as four bytes, high-order bytes first.
+*/
+func (out *DataOutputImpl) WriteInt(i int32) error {
+	err := out.WriteByte(byte(i >> 24))
+	if err == nil {
+		err = out.WriteByte(byte(i >> 16))
+		if err == nil {
+			err = out.WriteByte(byte(i >> 8))
+			if err == nil {
+				err = out.WriteByte(byte(i))
+			}
+		}
+	}
+	return err
+}
+
+/*
+Writes an int in a variable-length format. Writes between one and
+five bytes. Smaller values take fewer bytes. Negative numbers are
+supported, by should be avoided.
+
+VByte is a variable-length format. For positive integers, it is
+defined where the high-order bit of each byte indicates whether more
+bytes remain to be read. The low-order seven bits are appended as
+increasingly more significant bits in the resulting integer value.
+Thus values from zero to 127 may be stored in a single byte, values
+from 128 to 16,383 may be stored in two bytes, and so on.
+
+VByte Encoding Examle
+
+	| Value		| Byte 1		| Byte 2		| Byte 3		|
+	| 0				| 00000000	|
+	| 1				| 00000001	|
+	| 2				| 00000010	|
+	| ...			|
+	| 127			| 01111111	|
+	| 128			| 10000000	| 00000001	|
+	| 129			| 10000001	| 00000001	|
+	| 130			| 10000010	| 00000001	|
+	| ...			|
+	| 16,383	| 11111111	| 01111111	|
+	| 16,384	| 10000000	| 10000000	| 00000001	|
+	| 16,385	| 10000001	| 10000000	| 00000001	|
+	| ...			|
+
+This provides compression while still being efficient to decode.
+*/
+func (out *DataOutputImpl) WriteVInt(i int32) error {
+	for (i & ^0x7F) != 0 {
+		err := out.WriteByte(byte(i&0x7F) | 0x80)
+		if err != nil {
+			return err
+		}
+		i = int32(uint32(i) >> 7)
+	}
+	return out.WriteByte(byte(i))
+}
+
+/*
+Writes a long as eight bytes.
+
+64-bit unsigned integer written as eight bytes, high-order bytes first.
+*/
+func (out *DataOutputImpl) WriteLong(i int64) error {
+	err := out.WriteInt(int32(i >> 32))
+	if err == nil {
+		err = out.WriteInt(int32(i))
+	}
+	return err
+}
+
+/*
+Writes a string.
+
+Writes strings as UTF-8 encoded bytes. First the length, in bytes, is
+written as a VInt, followed by the bytes.
+*/
+func (out *DataOutputImpl) WriteString(s string) error {
+	bytes := []byte(s)
+	err := out.WriteVInt(int32(len(bytes)))
+	if err == nil {
+		err = out.WriteBytes(bytes)
+	}
+	return err
 }
 
 const DATA_OUTPUT_COPY_BUFFER_SIZE = 16384
@@ -52,6 +145,32 @@ func (out *DataOutputImpl) CopyBytes(input DataInput, numBytes int64) error {
 			return err
 		}
 		left -= int64(toCopy)
+	}
+	return nil
+}
+
+/*
+Writes a string map.
+
+First the size is written as an int32, followed by each key-value
+pair written as two consecutive strings.
+*/
+func (out *DataOutputImpl) WriteStringStringMap(m map[string]string) error {
+	if m == nil {
+		return out.WriteInt(0)
+	}
+	err := out.WriteInt(int32(len(m)))
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		err = out.WriteString(k)
+		if err == nil {
+			err = out.WriteString(v)
+		}
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

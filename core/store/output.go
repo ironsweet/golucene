@@ -3,7 +3,7 @@ package store
 import (
 	"github.com/balzaczyy/golucene/core/util"
 	"hash"
-	// "hash/crc32"
+	"hash/crc32"
 	"io"
 )
 
@@ -31,6 +31,10 @@ Note that you cannot use seek().
 type ChecksumIndexOutput struct {
 	IndexOutput
 	digest hash.Hash32
+}
+
+func NewChecksumIndexOutput(main IndexOutput) *ChecksumIndexOutput {
+	return &ChecksumIndexOutput{IndexOutput: main, digest: crc32.NewIEEE()}
 }
 
 func (out *ChecksumIndexOutput) WriteByte(b byte) error {

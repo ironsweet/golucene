@@ -81,12 +81,12 @@ func IsIndexExists(directory store.Directory) (ok bool, err error) {
 
 type StandardDirectoryReader struct {
 	*DirectoryReaderImpl
-	segmentInfos SegmentInfos
+	segmentInfos *SegmentInfos
 }
 
 // TODO support IndexWriter
 func newStandardDirectoryReader(directory store.Directory, readers []AtomicReader,
-	sis SegmentInfos, termInfosIndexDivisor int, applyAllDeletes bool) *StandardDirectoryReader {
+	sis *SegmentInfos, termInfosIndexDivisor int, applyAllDeletes bool) *StandardDirectoryReader {
 	log.Printf("Initializing StandardDirectoryReader with %v sub readers...", len(readers))
 	ans := &StandardDirectoryReader{segmentInfos: sis}
 	ans.DirectoryReaderImpl = newDirectoryReader(ans, directory, readers)
@@ -117,7 +117,7 @@ func openStandardDirectoryReader(directory store.Directory,
 			}
 		}
 		log.Printf("Obtained %v SegmentReaders.", len(readers))
-		return newStandardDirectoryReader(directory, readers, *sis, termInfosIndexDivisor, false), nil
+		return newStandardDirectoryReader(directory, readers, sis, termInfosIndexDivisor, false), nil
 	}).run()
 	if err != nil {
 		return nil, err

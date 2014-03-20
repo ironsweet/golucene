@@ -73,8 +73,12 @@ func (d LZ4Decompressor) Decompress(in DataInput, originalLength, offset, length
 }
 
 func assert(ok bool) {
+	assert2(ok, "assert fail")
+}
+
+func assert2(ok bool, msg string, args ...interface{}) {
 	if !ok {
-		panic("assert fail")
+		panic(fmt.Sprintf(msg, args...))
 	}
 }
 
