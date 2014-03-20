@@ -691,7 +691,25 @@ NOTE: if this method hits a memory issue, you should immediately
 close he write. See above for details.
 */
 func (w *IndexWriter) UpdateDocument(term *Term, doc []IndexableField, analyzer analysis.Analyzer) error {
-	panic("not implemented yet")
+	w.ensureOpen()
+	var success = false
+	defer func() {
+		if !success {
+			if w.infoStream.IsEnabled("IW") {
+				w.infoStream.Message("IW", "hit error updating document")
+			}
+		}
+	}()
+
+	ok, err := w.docWriter.updateDocument(doc, analyzer, term)
+	if err != nil {
+		return err
+	}
+	if ok {
+		w.docWriter.processEvents(w, true, false)
+	}
+	success = true
+	return nil
 }
 
 func (w *IndexWriter) newSegmentName() string {

@@ -2,6 +2,7 @@ package index
 
 import (
 	"container/list"
+	"github.com/balzaczyy/golucene/core/analysis"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
@@ -187,6 +188,13 @@ func (dw *DocumentsWriter) anyChanges() bool {
 func (dw *DocumentsWriter) close() {
 	dw.closed = true
 	dw.flushControl.close()
+}
+
+// L428
+func (dw *DocumentsWriter) updateDocument(doc []IndexableField,
+	analyzer analysis.Analyzer, delTerm *Term) (bool, error) {
+
+	panic("not implemented yet")
 }
 
 func (dw *DocumentsWriter) doFlush(flushingDWPT *DocumentsWriterPerThread) (bool, error) {
