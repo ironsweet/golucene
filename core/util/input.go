@@ -44,16 +44,16 @@ type DataReader interface {
 }
 
 type DataInputImpl struct {
-	DataReader
+	Reader DataReader
 }
 
 func (in *DataInputImpl) ReadBytesBuffered(buf []byte, useBuffer bool) error {
-	return in.ReadBytes(buf)
+	return in.Reader.ReadBytes(buf)
 }
 
 func (in *DataInputImpl) ReadShort() (n int16, err error) {
-	if b1, err := in.ReadByte(); err == nil {
-		if b2, err := in.ReadByte(); err == nil {
+	if b1, err := in.Reader.ReadByte(); err == nil {
+		if b2, err := in.Reader.ReadByte(); err == nil {
 			return (int16(b1) << 8) | int16(b2), nil
 		}
 	}
@@ -61,10 +61,10 @@ func (in *DataInputImpl) ReadShort() (n int16, err error) {
 }
 
 func (in *DataInputImpl) ReadInt() (n int32, err error) {
-	if b1, err := in.ReadByte(); err == nil {
-		if b2, err := in.ReadByte(); err == nil {
-			if b3, err := in.ReadByte(); err == nil {
-				if b4, err := in.ReadByte(); err == nil {
+	if b1, err := in.Reader.ReadByte(); err == nil {
+		if b2, err := in.Reader.ReadByte(); err == nil {
+			if b3, err := in.Reader.ReadByte(); err == nil {
+				if b4, err := in.Reader.ReadByte(); err == nil {
 					return (int32(b1) << 24) | (int32(b2) << 16) | (int32(b3) << 8) | int32(b4), nil
 				}
 			}
@@ -74,27 +74,27 @@ func (in *DataInputImpl) ReadInt() (n int32, err error) {
 }
 
 func (in *DataInputImpl) ReadVInt() (n int32, err error) {
-	if b, err := in.ReadByte(); err == nil {
+	if b, err := in.Reader.ReadByte(); err == nil {
 		n = int32(b) & 0x7F
 		if b < 128 {
 			return n, nil
 		}
-		if b, err = in.ReadByte(); err == nil {
+		if b, err = in.Reader.ReadByte(); err == nil {
 			n |= (int32(b) & 0x7F) << 7
 			if b < 128 {
 				return n, nil
 			}
-			if b, err = in.ReadByte(); err == nil {
+			if b, err = in.Reader.ReadByte(); err == nil {
 				n |= (int32(b) & 0x7F) << 14
 				if b < 128 {
 					return n, nil
 				}
-				if b, err = in.ReadByte(); err == nil {
+				if b, err = in.Reader.ReadByte(); err == nil {
 					n |= (int32(b) & 0x7F) << 21
 					if b < 128 {
 						return n, nil
 					}
-					if b, err = in.ReadByte(); err == nil {
+					if b, err = in.Reader.ReadByte(); err == nil {
 						// Warning: the next ands use 0x0F / 0xF0 - beware copy/paste errors:
 						n |= (int32(b) & 0x0F) << 28
 						if int32(b)&0x0F == 0 {
@@ -122,47 +122,47 @@ func (in *DataInputImpl) ReadLong() (n int64, err error) {
 }
 
 func (in *DataInputImpl) ReadVLong() (n int64, err error) {
-	if b, err := in.ReadByte(); err == nil {
+	if b, err := in.Reader.ReadByte(); err == nil {
 		n = int64(b & 0x7F)
 		if b < 128 {
 			return n, nil
 		}
-		if b, err = in.ReadByte(); err == nil {
+		if b, err = in.Reader.ReadByte(); err == nil {
 			n |= (int64(b&0x7F) << 7)
 			if b < 128 {
 				return n, nil
 			}
-			if b, err = in.ReadByte(); err == nil {
+			if b, err = in.Reader.ReadByte(); err == nil {
 				n |= (int64(b&0x7F) << 14)
 				if b < 128 {
 					return n, nil
 				}
-				if b, err = in.ReadByte(); err == nil {
+				if b, err = in.Reader.ReadByte(); err == nil {
 					n |= (int64(b&0x7F) << 21)
 					if b < 128 {
 						return n, nil
 					}
-					if b, err = in.ReadByte(); err == nil {
+					if b, err = in.Reader.ReadByte(); err == nil {
 						n |= (int64(b&0x7F) << 28)
 						if b < 128 {
 							return n, nil
 						}
-						if b, err = in.ReadByte(); err == nil {
+						if b, err = in.Reader.ReadByte(); err == nil {
 							n |= (int64(b&0x7F) << 35)
 							if b < 128 {
 								return n, nil
 							}
-							if b, err = in.ReadByte(); err == nil {
+							if b, err = in.Reader.ReadByte(); err == nil {
 								n |= (int64(b&0x7F) << 42)
 								if b < 128 {
 									return n, nil
 								}
-								if b, err = in.ReadByte(); err == nil {
+								if b, err = in.Reader.ReadByte(); err == nil {
 									n |= (int64(b&0x7F) << 49)
 									if b < 128 {
 										return n, nil
 									}
-									if b, err = in.ReadByte(); err == nil {
+									if b, err = in.Reader.ReadByte(); err == nil {
 										n |= (int64(b&0x7F) << 56)
 										if b < 128 {
 											return n, nil
@@ -186,7 +186,7 @@ func (in *DataInputImpl) ReadString() (s string, err error) {
 		return "", err
 	}
 	bytes := make([]byte, length)
-	in.ReadBytes(bytes)
+	err = in.Reader.ReadBytes(bytes)
 	return string(bytes), nil
 }
 

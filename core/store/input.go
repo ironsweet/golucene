@@ -11,7 +11,6 @@ import (
 
 type IndexInput interface {
 	io.Closer
-	// util.DataInput
 	util.DataInput
 	ReadBytesBuffered(buf []byte, useBuffer bool) error
 	// IndexInput
@@ -37,10 +36,8 @@ type IndexInputImpl struct {
 }
 
 func newIndexInputImpl(desc string, r util.DataReader) *IndexInputImpl {
-	if desc == "" {
-		panic("resourceDescription must not be null")
-	}
-	super := &util.DataInputImpl{r}
+	assert2(desc != "", "resourceDescription must not be null")
+	super := &util.DataInputImpl{Reader: r}
 	return &IndexInputImpl{DataInputImpl: super, desc: desc}
 }
 

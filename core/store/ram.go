@@ -435,6 +435,14 @@ func (out *RAMOutputStream) Close() error {
 	return out.Flush()
 }
 
+func (out *RAMOutputStream) WriteByte(b byte) error {
+	panic("not implemented yet")
+}
+
+func (out *RAMOutputStream) WriteBytes(buf []byte) error {
+	panic("not implemented yet")
+}
+
 func (out *RAMOutputStream) setFileLength() {
 	if pointer := out.bufferStart + int64(out.bufferPosition); pointer > int64(out.file.length) {
 		out.file.SetLength(pointer)

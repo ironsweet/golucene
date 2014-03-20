@@ -24,12 +24,12 @@ type DataWriter interface {
 }
 
 type DataOutputImpl struct {
-	DataWriter
+	Writer     DataWriter
 	copyBuffer []byte
 }
 
 func NewDataOutput(part DataWriter) *DataOutputImpl {
-	return &DataOutputImpl{DataWriter: part}
+	return &DataOutputImpl{Writer: part}
 }
 
 /*
@@ -38,13 +38,13 @@ Writes an int as four bytes.
 32-bit unsigned integer written as four bytes, high-order bytes first.
 */
 func (out *DataOutputImpl) WriteInt(i int32) error {
-	err := out.WriteByte(byte(i >> 24))
+	err := out.Writer.WriteByte(byte(i >> 24))
 	if err == nil {
-		err = out.WriteByte(byte(i >> 16))
+		err = out.Writer.WriteByte(byte(i >> 16))
 		if err == nil {
-			err = out.WriteByte(byte(i >> 8))
+			err = out.Writer.WriteByte(byte(i >> 8))
 			if err == nil {
-				err = out.WriteByte(byte(i))
+				err = out.Writer.WriteByte(byte(i))
 			}
 		}
 	}
@@ -84,13 +84,13 @@ This provides compression while still being efficient to decode.
 */
 func (out *DataOutputImpl) WriteVInt(i int32) error {
 	for (i & ^0x7F) != 0 {
-		err := out.WriteByte(byte(i&0x7F) | 0x80)
+		err := out.Writer.WriteByte(byte(i&0x7F) | 0x80)
 		if err != nil {
 			return err
 		}
 		i = int32(uint32(i) >> 7)
 	}
-	return out.WriteByte(byte(i))
+	return out.Writer.WriteByte(byte(i))
 }
 
 /*
@@ -116,7 +116,7 @@ func (out *DataOutputImpl) WriteString(s string) error {
 	bytes := []byte(s)
 	err := out.WriteVInt(int32(len(bytes)))
 	if err == nil {
-		err = out.WriteBytes(bytes)
+		err = out.Writer.WriteBytes(bytes)
 	}
 	return err
 }
@@ -140,7 +140,7 @@ func (out *DataOutputImpl) CopyBytes(input DataInput, numBytes int64) error {
 		if err != nil {
 			return err
 		}
-		err = out.WriteBytes(out.copyBuffer[0:toCopy])
+		err = out.Writer.WriteBytes(out.copyBuffer[0:toCopy])
 		if err != nil {
 			return err
 		}

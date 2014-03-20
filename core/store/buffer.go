@@ -325,6 +325,14 @@ func newBufferedIndexOutput(size int, part flushBufferAndLength) *BufferedIndexO
 	return out
 }
 
+func (out *BufferedIndexOutput) WriteByte(b byte) error {
+	panic("not implemented yet")
+}
+
+func (out *BufferedIndexOutput) WriteBytes(buf []byte) error {
+	panic("not implemented yet")
+}
+
 func (out *BufferedIndexOutput) flush() error {
 	err := out.flushBuffer(out.buffer[:out.position])
 	if err == nil {
