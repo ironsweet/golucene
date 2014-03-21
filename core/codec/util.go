@@ -31,6 +31,7 @@ the codec, so this length can be computed at any time with
 HeaderLength().
 */
 func WriteHeader(out DataOutput, codec string, version int) error {
+	assert(out != nil)
 	bytes := []byte(codec)
 	assert2(len(bytes) == len(codec) && len(bytes) < 128,
 		"codec must be simple ASCII, less than 128 characters in length [got %v]", codec)

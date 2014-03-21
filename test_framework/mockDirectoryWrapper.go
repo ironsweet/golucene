@@ -197,7 +197,30 @@ sets the cause of the incoming ioe to be the stack trace when the
 offending file name was opened
 */
 func (w *MockDirectoryWrapper) fillOpenTrace(err error, name string, input bool) error {
-	panic("not implemented yet")
+	w.Lock()
+	defer w.Unlock()
+	for closer, cause := range w.openFileHandles {
+		v, ok := closer.(*MockIndexInputWrapper)
+		if input && ok && v.name == name {
+			err = mergeError(err, cause)
+			break
+		} else {
+			v2, ok := closer.(*MockIndexOutputWrapper)
+			if !input && ok && v2.name == name {
+				err = mergeError(err, cause)
+				break
+			}
+		}
+	}
+	return err
+}
+
+func mergeError(err, err2 error) error {
+	if err == nil {
+		return err2
+	} else {
+		return errors.New(fmt.Sprintf("%v\n  %v", err, err2))
+	}
 }
 
 func (w *MockDirectoryWrapper) maybeYield() {
