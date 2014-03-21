@@ -86,7 +86,7 @@ func (rd *RAMDirectory) SizeInBytes() int64 {
 	return atomic.LoadInt64(&rd.sizeInBytes)
 }
 
-// Removes an existing file in the directory
+/* Removes an existing file in the directory */
 func (rd *RAMDirectory) DeleteFile(name string) error {
 	rd.EnsureOpen()
 	rd.fileMapLock.RLock()

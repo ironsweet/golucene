@@ -219,7 +219,19 @@ func (w *MockDirectoryWrapper) deleteFile(name string, forced bool) error {
 		return errors.New("cannot delete after crash")
 	}
 
-	panic("not implemented yet")
+	if _, ok := w.unSyncedFiles[name]; ok {
+		delete(w.unSyncedFiles, name)
+	}
+	if !forced && w.noDeleteOpenFile {
+		if _, ok := w.openFiles[name]; ok {
+			w.openFilesDeleted[name] = true
+			return w.fillOpenTrace(errors.New(fmt.Sprintf(
+				"MockDirectoryWrapper: file  '%v' is still open: cannot delete",
+				name)), name, true)
+		}
+		delete(w.openFilesDeleted, name)
+	}
+	return w.Directory.DeleteFile(name)
 }
 
 func (w *MockDirectoryWrapper) CreateOutput(name string, context store.IOContext) (out store.IndexOutput, err error) {
