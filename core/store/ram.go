@@ -29,11 +29,12 @@ working diretly on the file system cache of the operating system, so
 copying dat to Java heap space is not useful.
 */
 type RAMDirectory struct {
+	sizeInBytes int64 // synchronized
+
 	*DirectoryImpl
 
 	fileMap     map[string]*RAMFile // synchronized
 	fileMapLock *sync.RWMutex
-	sizeInBytes int64 // synchronized
 }
 
 func NewRAMDirectory() *RAMDirectory {
