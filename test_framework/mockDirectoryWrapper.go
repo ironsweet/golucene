@@ -82,9 +82,6 @@ type MockDirectoryWrapper struct {
 }
 
 func (mdw *MockDirectoryWrapper) init() {
-	mdw.Lock() // synchronized
-	defer mdw.Unlock()
-
 	if mdw.openFiles == nil {
 		mdw.openFiles = make(map[string]int)
 		mdw.openFilesDeleted = make(map[string]bool)
