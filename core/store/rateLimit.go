@@ -104,8 +104,15 @@ func NewRateLimitedDirectoryWrapper(wrapped Directory) *RateLimitedDirectoryWrap
 	}
 }
 
-func (w *RateLimitedDirectoryWrapper) CreateOutput(name string, context IOContext) (in IndexOutput, err error) {
-	panic("not implemented yet")
+func (w *RateLimitedDirectoryWrapper) CreateOutput(name string, ctx IOContext) (IndexOutput, error) {
+	w.EnsureOpen()
+	output, err := w.Directory.CreateOutput(name, ctx)
+	if err == nil {
+		if limiter := w.rateLimiter(ctx.context); limiter != nil {
+			output = newRateLimitedIndexOutput(limiter, output)
+		}
+	}
+	return output, nil
 }
 
 func (w *RateLimitedDirectoryWrapper) Close() error {
@@ -115,6 +122,11 @@ func (w *RateLimitedDirectoryWrapper) Close() error {
 
 func (w *RateLimitedDirectoryWrapper) String() string {
 	return fmt.Sprintf("RateLimitedDirectoryWrapper(%v)", w.Directory)
+}
+
+func (w *RateLimitedDirectoryWrapper) rateLimiter(ctx IOContextType) RateLimiter {
+	assert(int(ctx) != 0)
+	return w.contextRateLimiters[int(ctx)-1]
 }
 
 /*
@@ -169,4 +181,22 @@ func (w *RateLimitedDirectoryWrapper) setRateLimiter(mergeWriteRateLimiter RateL
 
 func (w *RateLimitedDirectoryWrapper) MaxWriteMBPerSec(context int) {
 	panic("not implemented yet")
+}
+
+// store/RateLimitedIndexOutput.java
+
+/* A rate limiting IndexOutput */
+type RateLimitedIndexOutput struct {
+	*BufferedIndexOutput
+	delegate    IndexOutput
+	rateLimiter RateLimiter
+}
+
+func newRateLimitedIndexOutput(rateLimiter RateLimiter, delegate IndexOutput) *RateLimitedIndexOutput {
+	// TODO should we make buffer size configurable
+	ans := &RateLimitedIndexOutput{}
+	ans.BufferedIndexOutput = newBufferedIndexOutput(DEFAULT_BUFFER_SIZE, ans)
+	ans.delegate = delegate
+	ans.rateLimiter = rateLimiter
+	return ans
 }

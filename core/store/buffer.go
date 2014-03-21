@@ -3,7 +3,6 @@ package store
 import (
 	"errors"
 	"fmt"
-	// "github.com/balzaczyy/golucene/core/util"
 )
 
 type SeekReader interface {
@@ -279,17 +278,6 @@ func (in *BufferedIndexInput) Seek(pos int64) error {
 	}
 }
 
-// type BufferedIndexInput struct {
-// 	*IndexInputImpl
-// 	bufferSize     int
-// 	buffer         []byte
-// 	bufferStart    int64
-// 	bufferLength   int
-// 	bufferPosition int
-// 	seekInternal   func(pos int64)
-// 	readInternal   func(buf []byte) error
-// }
-
 func (in *BufferedIndexInput) Clone() IndexInput {
 	ans := &BufferedIndexInput{
 		bufferSize:     in.bufferSize,
@@ -301,6 +289,9 @@ func (in *BufferedIndexInput) Clone() IndexInput {
 	ans.IndexInputImpl = newIndexInputImpl(in.desc, ans)
 	return ans
 }
+
+/* The default buffer size in bytes. */
+const DEFAULT_BUFFER_SIZE = 16384
 
 type flushBufferAndLength interface {
 	flushBuffer(b []byte) error
