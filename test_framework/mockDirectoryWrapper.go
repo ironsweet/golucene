@@ -57,11 +57,11 @@ type MockDirectoryWrapper struct {
 	throttledOutput       *ThrottledIndexOutput
 	throttling            Throttling
 
-	inputCloneCount int // atomic
+	inputCloneCount int32 // atomic
 
 	// use this for tracking files for crash.
 	// additionally: provides debugging information in case you leave one open
-	// openFileHandles map[io.Closeable]error // synchronized
+	openFileHandles map[io.Closer]error // synchronized
 
 	// NOTE: we cannot intialize the map here due to the order in which our
 	// constructor actually does this member initialization vs when it calls
@@ -97,16 +97,16 @@ func (mdw *MockDirectoryWrapper) init() {
 
 func NewMockDirectoryWrapper(random *rand.Rand, delegate store.Directory) *MockDirectoryWrapper {
 	ans := &MockDirectoryWrapper{
-		noDeleteOpenFile:   true,
-		preventDoubleWrite: true,
-		trackDiskUsage:     false,
-		wrapLockFactory:    true,
-		openFilesForWrite:  make(map[string]bool),
-		openLocks:          make(map[string]bool),
-		openLocksLock:      &sync.Mutex{},
-		throttling:         THROTTLING_SOMETIMES,
-		inputCloneCount:    0,
-		// openFileHandles: make(map[io.Closer]error),
+		noDeleteOpenFile:                 true,
+		preventDoubleWrite:               true,
+		trackDiskUsage:                   false,
+		wrapLockFactory:                  true,
+		openFilesForWrite:                make(map[string]bool),
+		openLocks:                        make(map[string]bool),
+		openLocksLock:                    &sync.Mutex{},
+		throttling:                       THROTTLING_SOMETIMES,
+		inputCloneCount:                  0,
+		openFileHandles:                  make(map[io.Closer]error),
 		failOnCreateOutput:               true,
 		failOnOpenInput:                  true,
 		assertNoUnreferencedFilesOnClose: true,
@@ -297,7 +297,7 @@ func (w *MockDirectoryWrapper) CreateOutput(name string, context store.IOContext
 			1+w.randomState.Intn(store.DEFAULT_BUFFER_SIZE), delegateOutput)
 	}
 	io := newMockIndexOutputWrapper(w, name, delegateOutput)
-	w.addFileHandle(io, name, HANDLE_OUTPUT)
+	w._addFileHandle(io, name, HANDLE_OUTPUT)
 	w.openFilesForWrite[name] = true
 
 	// throttling REALLY slows down tests, so don't do it very often for SOMETIMES
@@ -319,11 +319,31 @@ const (
 	HANDLE_SLICE  = Handle(3)
 )
 
+func handleName(handle Handle) string {
+	switch handle {
+	case HANDLE_INPUT:
+		return "Input"
+	case HANDLE_OUTPUT:
+		return "Output"
+	case HANDLE_SLICE:
+		return "Slice"
+	}
+	panic("should not be here")
+}
+
 func (w *MockDirectoryWrapper) addFileHandle(c io.Closer, name string, handle Handle) {
 	w.Lock() // synchronized
 	defer w.Unlock()
+	w._addFileHandle(c, name, handle)
+}
 
-	panic("not implemented yet")
+func (w *MockDirectoryWrapper) _addFileHandle(c io.Closer, name string, handle Handle) {
+	if v, ok := w.openFiles[name]; ok {
+		w.openFiles[name] = v + 1
+	} else {
+		w.openFiles[name] = 1
+	}
+	w.openFileHandles[c] = errors.New(fmt.Sprintf("unclosed Index %v: %v", handleName(handle), name))
 }
 
 func (w *MockDirectoryWrapper) OpenInput(name string, context store.IOContext) (ii store.IndexInput, err error) {
