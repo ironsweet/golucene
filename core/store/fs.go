@@ -291,7 +291,7 @@ func newFSIndexOutput(parent *FSDirectory, name string) (*FSIndexOutput, error) 
 		file:   file,
 		isOpen: true,
 	}
-	out.BufferedIndexOutput = newBufferedIndexOutput(CHUNK_SIZE, out)
+	out.BufferedIndexOutput = NewBufferedIndexOutput(CHUNK_SIZE, out)
 	return out, nil
 }
 

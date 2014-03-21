@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/store"
+	"github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/test_framework/util"
 	"io"
 	"log"
@@ -15,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 // store/MockDirectoryWrapper.java
@@ -72,6 +74,7 @@ type MockDirectoryWrapper struct {
 	// an open file, we entroll it here.
 	openFilesDeleted map[string]bool
 
+	failOnCreateOutput               bool
 	failOnOpenInput                  bool
 	assertNoUnreferencedFilesOnClose bool
 
@@ -107,6 +110,8 @@ func NewMockDirectoryWrapper(random *rand.Rand, delegate store.Directory) *MockD
 		throttling:         THROTTLING_SOMETIMES,
 		inputCloneCount:    0,
 		// openFileHandles: make(map[io.Closer]error),
+		failOnCreateOutput:               true,
+		failOnOpenInput:                  true,
 		assertNoUnreferencedFilesOnClose: true,
 	}
 	ans.BaseDirectoryWrapperImpl = NewBaseDirectoryWrapper(delegate)
@@ -234,11 +239,79 @@ func (w *MockDirectoryWrapper) deleteFile(name string, forced bool) error {
 	return w.Directory.DeleteFile(name)
 }
 
-func (w *MockDirectoryWrapper) CreateOutput(name string, context store.IOContext) (out store.IndexOutput, err error) {
+func (w *MockDirectoryWrapper) CreateOutput(name string, context store.IOContext) (store.IndexOutput, error) {
 	w.Lock() // synchronized
 	defer w.Unlock()
 
-	panic("not implemented yet")
+	err := w.maybeThrowDeterministicException()
+	if err != nil {
+		return nil, err
+	}
+	err = w.maybeThrowIOExceptionOnOpen(name)
+	if err != nil {
+		return nil, err
+	}
+	w.maybeYield()
+	if w.failOnCreateOutput {
+		if err = w.maybeThrowDeterministicException(); err != nil {
+			return nil, err
+		}
+	}
+	if w.crashed {
+		return nil, errors.New("cannot createOutput after crash")
+	}
+	w.init()
+	if _, ok := w.createdFiles[name]; w.preventDoubleWrite && ok && name != "segments.gen" {
+		return nil, errors.New(fmt.Sprintf("file %v was already written to", name))
+	}
+	if _, ok := w.openFiles[name]; w.noDeleteOpenFile && ok {
+		return nil, errors.New(fmt.Sprintf("MockDirectoryWraper: file %v is still open: cannot overwrite", name))
+	}
+
+	if w.crashed {
+		return nil, errors.New("cannot createOutput after crash")
+	}
+	w.unSyncedFiles[name] = true
+	w.createdFiles[name] = true
+
+	if ramdir, ok := w.Directory.(*store.RAMDirectory); ok {
+		file := store.NewRAMFile(ramdir)
+		existing := ramdir.GetRAMFile(name)
+
+		// Enforce write once:
+		if existing != nil && name != "segments.gen" && w.preventDoubleWrite {
+			return nil, errors.New(fmt.Sprintf("file %v already exists", name))
+		} else {
+			if existing != nil {
+				ramdir.ChangeSize(-existing.SizeInBytes())
+				// existing.directory = nil
+			}
+			ramdir.PutRAMFile(name, file)
+		}
+	}
+	log.Printf("MDW: create %v", name)
+	delegateOutput, err := w.Directory.CreateOutput(name, NewIOContext(w.randomState, context))
+	if err != nil {
+		return nil, err
+	}
+	if w.randomState.Intn(10) == 0 {
+		// once ina while wrap the IO in a buffered IO with random buffer sizes
+		delegateOutput = newBufferedIndexOutputWrapper(
+			1+w.randomState.Intn(store.DEFAULT_BUFFER_SIZE), delegateOutput)
+	}
+	io := newMockIndexOutputWrapper(w, name, delegateOutput)
+	w.addFileHandle(io, name, HANDLE_OUTPUT)
+	w.openFilesForWrite[name] = true
+
+	// throttling REALLY slows down tests, so don't do it very often for SOMETIMES
+	if _, ok := w.Directory.(*store.RateLimitedDirectoryWrapper); w.throttling == THROTTLING_ALWAYS ||
+		(w.throttling == THROTTLING_SOMETIMES && w.randomState.Intn(50) == 0) && !ok {
+		if VERBOSE {
+			log.Println(fmt.Sprintf("MockDirectoryWrapper: throttling indexOutpu (%v)", name))
+		}
+		return w.throttledOutput.newFromDelegate(io), nil
+	}
+	return io, nil
 }
 
 type Handle int
@@ -626,30 +699,63 @@ func (w *MockDirectoryWrapper) CreateSlicer(name string, context store.IOContext
 	panic("not implemented yet")
 }
 
+type BufferedIndexOutputWrapper struct {
+	*store.BufferedIndexOutput
+	io store.IndexOutput
+}
+
+func newBufferedIndexOutputWrapper(bufferSize int, io store.IndexOutput) *BufferedIndexOutputWrapper {
+	ans := &BufferedIndexOutputWrapper{}
+	ans.BufferedIndexOutput = store.NewBufferedIndexOutput(bufferSize, ans)
+	ans.io = io
+	return ans
+}
+
 // util/ThrottledIndexOutput.java
 
 const DEFAULT_MIN_WRITTEN_BYTES = 024
 
 // Intentionally slow IndexOutput for testing.
 type ThrottledIndexOutput struct {
+	*store.IndexOutputImpl
 	bytesPerSecond   int
 	delegate         store.IndexOutput
 	flushDelayMillis int64
 	closeDelayMillis int64
 	seekDelayMillis  int64
+	pendingBytes     int64
 	minBytesWritten  int64
+	timeElapsed      int64
+	bytes            []byte
+}
+
+func (out *ThrottledIndexOutput) newFromDelegate(output store.IndexOutput) *ThrottledIndexOutput {
+	ans := &ThrottledIndexOutput{
+		delegate:         output,
+		bytesPerSecond:   out.bytesPerSecond,
+		flushDelayMillis: out.flushDelayMillis,
+		closeDelayMillis: out.closeDelayMillis,
+		seekDelayMillis:  out.seekDelayMillis,
+		minBytesWritten:  out.minBytesWritten,
+		bytes:            make([]byte, 1),
+	}
+	ans.IndexOutputImpl = store.NewIndexOutput(ans)
+	return ans
 }
 
 func newThrottledIndexOutput(bytesPerSecond int, delayInMillis int64, delegate store.IndexOutput) *ThrottledIndexOutput {
 	assert(bytesPerSecond > 0)
-	return &ThrottledIndexOutput{
+	ans := &ThrottledIndexOutput{
 		delegate:         delegate,
 		bytesPerSecond:   bytesPerSecond,
 		flushDelayMillis: delayInMillis,
 		closeDelayMillis: delayInMillis,
 		seekDelayMillis:  delayInMillis,
 		minBytesWritten:  DEFAULT_MIN_WRITTEN_BYTES,
+		bytes:            make([]byte, 1),
 	}
+	ans.IndexOutputImpl = store.NewIndexOutput(ans)
+	return ans
 }
 
 func assert(ok bool) {
@@ -660,6 +766,49 @@ func assert(ok bool) {
 
 func mBitsToBytes(mBits int) int {
 	return mBits * 125000
+}
+
+func (out *ThrottledIndexOutput) Close() error {
+	<-time.After(time.Duration(out.closeDelayMillis + out.delay(true)))
+	return out.delegate.Close()
+}
+
+func (out *ThrottledIndexOutput) WriteByte(b byte) error {
+	out.bytes[0] = b
+	return out.WriteBytes(out.bytes)
+}
+
+func (out *ThrottledIndexOutput) WriteBytes(buf []byte) error {
+	before := time.Now()
+	// TODO: sometimes, write only half the bytes, then sleep, then 2nd
+	// half, then sleep, so we sometimes interrupt having only written
+	// not all bytes
+	err := out.delegate.WriteBytes(buf)
+	if err != nil {
+		return err
+	}
+	out.timeElapsed += int64(time.Now().Sub(before))
+	out.pendingBytes += int64(len(buf))
+	<-time.After(time.Duration(out.delay(false)))
+	return nil
+}
+
+func (out *ThrottledIndexOutput) delay(closing bool) int64 {
+	if out.pendingBytes > 0 && (closing || out.pendingBytes > out.minBytesWritten) {
+		actualBps := (out.timeElapsed / out.pendingBytes) * 1000000000
+		if actualBps > int64(out.bytesPerSecond) {
+			expected := out.pendingBytes * 1000 / int64(out.bytesPerSecond)
+			delay := expected - (out.timeElapsed / 1000000)
+			out.pendingBytes = 0
+			out.timeElapsed = 0
+			return delay
+		}
+	}
+	return 0
+}
+
+func (out *ThrottledIndexOutput) CopyBytes(input util.DataInput, numBytes int64) error {
+	return out.delegate.CopyBytes(input, numBytes)
 }
 
 // store/MockLockFactoryWrapper.java
@@ -772,4 +921,29 @@ func (w *MockIndexInputWrapper) FilePointer() int64 {
 func (w *MockIndexInputWrapper) Seek(pos int64) error {
 	w.ensureOpen()
 	return w.IndexInput.Seek(pos)
+}
+
+// store/MockIndexOutputWrapper.java
+
+/*
+Used by MockRAMDirectory to create an output stream that will throw
+an error on fake disk full, track max disk space actually used, and
+maybe throw random IO errors.
+*/
+type MockIndexOutputWrapper struct {
+	store.IndexOutput // delegate
+	dir               *MockDirectoryWrapper
+	first             bool
+	name              string
+	singleByte        []byte
+}
+
+func newMockIndexOutputWrapper(dir *MockDirectoryWrapper, name string, delegate store.IndexOutput) *MockIndexOutputWrapper {
+	return &MockIndexOutputWrapper{
+		IndexOutput: delegate,
+		name:        name,
+		dir:         dir,
+		first:       true,
+		singleByte:  make([]byte, 1),
+	}
 }

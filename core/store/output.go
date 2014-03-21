@@ -18,7 +18,7 @@ type IndexOutputImpl struct {
 	*util.DataOutputImpl
 }
 
-func newIndexOutput(part util.DataWriter) *IndexOutputImpl {
+func NewIndexOutput(part util.DataWriter) *IndexOutputImpl {
 	return &IndexOutputImpl{util.NewDataOutput(part)}
 }
 

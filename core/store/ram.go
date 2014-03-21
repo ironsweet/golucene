@@ -118,7 +118,7 @@ func (rd *RAMDirectory) CreateOutput(name string, context IOContext) (out IndexO
 // overridden to return different RAMFile impls, that e.g. override
 // RAMFile.newBuffer(int).
 func (rd *RAMDirectory) newRAMFile() *RAMFile {
-	return newRAMFile(rd)
+	return NewRAMFile(rd)
 }
 
 func (rd *RAMDirectory) Sync(names []string) error {
@@ -143,6 +143,25 @@ func (rd *RAMDirectory) Close() error {
 	return nil
 }
 
+/* test-only */
+func (rd *RAMDirectory) GetRAMFile(name string) *RAMFile {
+	rd.fileMapLock.Lock()
+	defer rd.fileMapLock.Unlock()
+	return rd.fileMap[name]
+}
+
+/* test-only */
+func (d *RAMDirectory) PutRAMFile(name string, file *RAMFile) {
+	d.fileMapLock.Lock()
+	defer d.fileMapLock.Unlock()
+	d.fileMap[name] = file
+}
+
+/* test-only */
+func (rd *RAMDirectory) ChangeSize(diff int64) {
+	atomic.AddInt64(&rd.sizeInBytes, diff)
+}
+
 // store/RAMFile.java
 
 // Represents a file in RAM as a list of []byte buffers.
@@ -162,7 +181,7 @@ func newRAMFileBuffer() *RAMFile {
 	}
 }
 
-func newRAMFile(directory *RAMDirectory) *RAMFile {
+func NewRAMFile(directory *RAMDirectory) *RAMFile {
 	return &RAMFile{
 		Locker:    &sync.Mutex{},
 		directory: directory,
@@ -205,6 +224,12 @@ func (rf *RAMFile) numBuffers() int {
 // Subclasses can allocate differently
 func newBuffer(size int) []byte {
 	return make([]byte, size)
+}
+
+func (rf *RAMFile) SizeInBytes() int64 {
+	rf.Lock()
+	defer rf.Unlock()
+	return rf.sizeInBytes
 }
 
 // store/SingleInstanceLockFactory.java
@@ -427,7 +452,7 @@ type RAMOutputStream struct {
 func newRAMOutputStream(f *RAMFile) *RAMOutputStream {
 	// make sure that we switch to the first needed buffer lazily
 	out := &RAMOutputStream{file: f, currentBufferIndex: -1}
-	out.IndexOutputImpl = newIndexOutput(out)
+	out.IndexOutputImpl = NewIndexOutput(out)
 	return out
 }
 

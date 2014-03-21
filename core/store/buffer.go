@@ -309,10 +309,10 @@ type BufferedIndexOutput struct {
 /*
 Creates a new BufferedIndexOutput with the given buffer size.
 */
-func newBufferedIndexOutput(size int, part flushBufferAndLength) *BufferedIndexOutput {
+func NewBufferedIndexOutput(size int, part flushBufferAndLength) *BufferedIndexOutput {
 	assert2(size > 0, fmt.Sprintf("bufferSize must be greater than 0 (got %v)", size))
 	out := &BufferedIndexOutput{flushBufferAndLength: part, buffer: make([]byte, size)}
-	out.IndexOutputImpl = newIndexOutput(out)
+	out.IndexOutputImpl = NewIndexOutput(out)
 	return out
 }
 

@@ -195,7 +195,7 @@ type RateLimitedIndexOutput struct {
 func newRateLimitedIndexOutput(rateLimiter RateLimiter, delegate IndexOutput) *RateLimitedIndexOutput {
 	// TODO should we make buffer size configurable
 	ans := &RateLimitedIndexOutput{}
-	ans.BufferedIndexOutput = newBufferedIndexOutput(DEFAULT_BUFFER_SIZE, ans)
+	ans.BufferedIndexOutput = NewBufferedIndexOutput(DEFAULT_BUFFER_SIZE, ans)
 	ans.delegate = delegate
 	ans.rateLimiter = rateLimiter
 	return ans
