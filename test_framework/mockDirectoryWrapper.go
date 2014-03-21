@@ -199,6 +199,10 @@ offending file name was opened
 func (w *MockDirectoryWrapper) fillOpenTrace(err error, name string, input bool) error {
 	w.Lock()
 	defer w.Unlock()
+	return w._fillOpenTrace(err, name, input)
+}
+
+func (w *MockDirectoryWrapper) _fillOpenTrace(err error, name string, input bool) error {
 	for closer, cause := range w.openFileHandles {
 		v, ok := closer.(*MockIndexInputWrapper)
 		if input && ok && v.name == name {
@@ -250,7 +254,7 @@ func (w *MockDirectoryWrapper) deleteFile(name string, forced bool) error {
 	if !forced && w.noDeleteOpenFile {
 		if _, ok := w.openFiles[name]; ok {
 			w.openFilesDeleted[name] = true
-			return w.fillOpenTrace(errors.New(fmt.Sprintf(
+			return w._fillOpenTrace(errors.New(fmt.Sprintf(
 				"MockDirectoryWrapper: file  '%v' is still open: cannot delete",
 				name)), name, true)
 		}

@@ -443,6 +443,7 @@ type RAMOutputStream struct {
 
 	file *RAMFile
 
+	currentBuffer      []byte
 	currentBufferIndex int
 
 	bufferPosition int
@@ -462,11 +463,44 @@ func (out *RAMOutputStream) Close() error {
 }
 
 func (out *RAMOutputStream) WriteByte(b byte) error {
-	panic("not implemented yet")
+	if out.bufferPosition == out.bufferLength {
+		out.currentBufferIndex++
+		out.switchCurrentBuffer()
+	}
+	out.currentBuffer[out.bufferPosition] = b
+	out.bufferPosition++
+	return nil
 }
 
 func (out *RAMOutputStream) WriteBytes(buf []byte) error {
-	panic("not implemented yet")
+	assert(buf != nil)
+	for len(buf) > 0 {
+		if out.bufferPosition == out.bufferLength {
+			out.currentBufferIndex++
+			out.switchCurrentBuffer()
+		}
+
+		remainInBuffer := len(out.currentBuffer) - out.bufferPosition
+		bytesToCopy := len(buf)
+		if bytesToCopy > remainInBuffer {
+			bytesToCopy = remainInBuffer
+		}
+		copy(buf, out.currentBuffer[out.bufferPosition:out.bufferPosition+bytesToCopy])
+		buf = buf[bytesToCopy:]
+		out.bufferPosition += bytesToCopy
+	}
+	return nil
+}
+
+func (out *RAMOutputStream) switchCurrentBuffer() {
+	if out.currentBufferIndex == out.file.numBuffers() {
+		out.currentBuffer = out.file.addBuffer(BUFFER_SIZE)
+	} else {
+		out.currentBuffer = out.file.Buffer(out.currentBufferIndex)
+	}
+	out.bufferPosition = 0
+	out.bufferStart = BUFFER_SIZE * int64(out.currentBufferIndex)
+	out.bufferLength = len(out.currentBuffer)
 }
 
 func (out *RAMOutputStream) setFileLength() {
