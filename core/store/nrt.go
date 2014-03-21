@@ -131,6 +131,10 @@ func (nrt *NRTCachingDirectory) ListAll() (all []string, err error) {
 func (nrt *NRTCachingDirectory) FileExists(name string) bool {
 	nrt.Lock() // synchronized
 	defer nrt.Unlock()
+	return nrt._fileExists(name)
+}
+
+func (nrt *NRTCachingDirectory) _fileExists(name string) bool {
 	return nrt.cache.FileExists(name) || nrt.Directory.FileExists(name)
 }
 
@@ -138,7 +142,7 @@ func (nrt *NRTCachingDirectory) DeleteFile(name string) error {
 	nrt.Lock() // synchronized
 	defer nrt.Unlock()
 	log.Printf("nrtdir.deleteFile name=%v", name)
-	if nrt.FileExists(name) {
+	if nrt._fileExists(name) {
 		assert2(!nrt.Directory.FileExists(name), fmt.Sprintf("name=%v", name))
 		return nrt.cache.DeleteFile(name)
 	} else {
