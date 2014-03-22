@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"os"
 	"reflect"
 	"runtime"
 	"runtime/debug"
@@ -149,14 +150,41 @@ NRTCachingDirectory requires sync'ing its files because otherwise
 they are cached in an internal RAMDirectory. If other directories
 requires that too, they should be added to this method.
 */
-func (mdw *MockDirectoryWrapper) mustSync() {
+func (mdw *MockDirectoryWrapper) mustSync() bool {
 	panic("not implemented yet")
 }
 
 func (w *MockDirectoryWrapper) Sync(names []string) error {
 	w.Lock() // synchronized
 	defer w.Unlock()
-	panic("not implemented yet")
+	w.maybeYield()
+	err := w.maybeThrowDeterministicException()
+	if err != nil {
+		return err
+	}
+	if w.crashed {
+		return errors.New("cannot sync after crash")
+	}
+	// don't wear out out hardware so much intests.
+	if Rarely(w.randomState) || w.mustSync() {
+		for _, name := range names {
+			// randomly fail with IOE on any file
+			err = w.maybeThrowIOException(name)
+			if err != nil {
+				return err
+			}
+			err = w.Directory.Sync([]string{name})
+			if err != nil {
+				return err
+			}
+			delete(w.unSyncedFiles, name)
+		}
+	} else {
+		for _, name := range names {
+			delete(w.unSyncedFiles, name)
+		}
+	}
+	return nil
 }
 
 func (w *MockDirectoryWrapper) String() string {
@@ -173,6 +201,20 @@ func (w *MockDirectoryWrapper) Crash() error {
 	panic("not implemented yet")
 }
 
+func (w *MockDirectoryWrapper) maybeThrowIOException(message string) error {
+	if w.randomState.Float64() < w.randomErrorRate {
+		if message != "" {
+			message = fmt.Sprintf(" (%v)", message)
+		}
+		if VERBOSE {
+			log.Printf("MockDirectoryWrapper: now return random error%v", message)
+			debug.PrintStack()
+		}
+		return errors.New(fmt.Sprintf("a random IO error%v", message))
+	}
+	return nil
+}
+
 func (w *MockDirectoryWrapper) maybeThrowIOExceptionOnOpen(name string) error {
 	if w.randomState.Float64() < w.randomErrorRateOnOpen {
 		if VERBOSE {
@@ -182,7 +224,7 @@ func (w *MockDirectoryWrapper) maybeThrowIOExceptionOnOpen(name string) error {
 		if w.randomState.Intn(2) == 0 {
 			return errors.New(fmt.Sprintf("a random IO error (%v)", name))
 		}
-		return errors.New(fmt.Sprintf("a random IO error (%v)", name))
+		return os.ErrNotExist
 	}
 	return nil
 }
