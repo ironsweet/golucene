@@ -1072,7 +1072,39 @@ func (w *IndexWriter) commitInternal() error {
 func (w *IndexWriter) finishCommit() error {
 	w.Lock() // synchronized
 	defer w.Unlock()
-	panic("not implemented yet")
+
+	if w.pendingCommit == nil {
+		if w.infoStream.IsEnabled("IW") {
+			w.infoStream.Message("IW", "commit: pendingCommit == nil; skip")
+			w.infoStream.Message("IW", "commit: done")
+		}
+		return nil
+	}
+
+	defer func() {
+		// Matches the incRef done in prepareCommit:
+		w.deleter.decRefFiles(w.filesToCommit)
+		w.filesToCommit = nil
+		w.pendingCommit = nil
+		// TODO check if any wait()
+	}()
+
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "commit: pendingCommit != nil")
+	}
+	err := w.pendingCommit.finishCommit(w.directory)
+	if err != nil {
+		return err
+	}
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "commit: wrote segments file '%v'", w.pendingCommit.SegmentsFileName())
+	}
+	w.segmentInfos.updateGeneration(w.pendingCommit)
+	w.lastCommitChangeCount = w.pendingCommitChangeCount
+	w.rollbackSegments = w.pendingCommit.createBackupSegmentInfos()
+	// NOTE: don't use this.checkpoint() here, because
+	// we do not want to increment changeCount:
+	return w.deleter.checkpoint(w.pendingCommit, true)
 }
 
 /*

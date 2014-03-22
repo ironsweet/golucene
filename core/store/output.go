@@ -3,7 +3,7 @@ package store
 import (
 	"github.com/balzaczyy/golucene/core/util"
 	"hash"
-	"hash/crc32"
+	"hash/crc64"
 	"io"
 )
 
@@ -30,11 +30,11 @@ Note that you cannot use seek().
 */
 type ChecksumIndexOutput struct {
 	IndexOutput
-	digest hash.Hash32
+	digest hash.Hash64
 }
 
 func NewChecksumIndexOutput(main IndexOutput) *ChecksumIndexOutput {
-	return &ChecksumIndexOutput{IndexOutput: main, digest: crc32.NewIEEE()}
+	return &ChecksumIndexOutput{IndexOutput: main, digest: crc64.New(crc64.MakeTable(crc64.ISO))}
 }
 
 func (out *ChecksumIndexOutput) WriteByte(b byte) error {
@@ -47,6 +47,14 @@ func (out *ChecksumIndexOutput) WriteBytes(buf []byte) error {
 	return out.IndexOutput.WriteBytes(buf)
 }
 
-func (out *ChecksumIndexOutput) Seek(pos int64) {
-	panic("not supported")
+func (out *ChecksumIndexOutput) Close() error {
+	err := out.IndexOutput.WriteLong(int64(out.digest.Sum64()))
+	if err == nil {
+		err = out.IndexOutput.Close()
+	}
+	return err
 }
+
+// func (out *ChecksumIndexOutput) Seek(pos int64) {
+// 	panic("not supported")
+// }

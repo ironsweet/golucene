@@ -694,7 +694,6 @@ func (sis *SegmentInfos) prepareCommit(dir store.Directory) error {
 	return sis.write(dir)
 }
 
-// L913
 /*
 Returns all file names referenced by SegmentInfo instances matching
 the provided Directory (ie files associated with any "external"
@@ -721,6 +720,23 @@ func (sis *SegmentInfos) files(dir store.Directory, includeSegmentsFile bool) []
 		res = append(res, file)
 	}
 	return res
+}
+
+func (sis *SegmentInfos) finishCommit(dir store.Directory) error {
+	assert2(sis.pendingSegnOutput != nil, "prepareCommit was not called")
+	var success = false
+	defer func() {
+		if !success {
+			// Closes pendingSegnOutput & delets partial segments_N:
+			sis.rollbackCommit(dir)
+		} else {
+			sis.pendingSegnOutput = nil
+		}
+	}()
+
+	sis.pendingSegnOutput.Close()
+	success = true
+	return nil
 }
 
 // L1041
