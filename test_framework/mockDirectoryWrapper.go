@@ -151,7 +151,18 @@ they are cached in an internal RAMDirectory. If other directories
 requires that too, they should be added to this method.
 */
 func (mdw *MockDirectoryWrapper) mustSync() bool {
-	panic("not implemented yet")
+	var delegate = mdw.Directory
+	for {
+		if v, ok := delegate.(*store.RateLimitedDirectoryWrapper); ok {
+			delegate = v.Directory
+		} else if v, ok := delegate.(*index.TrackingDirectoryWrapper); ok {
+			delegate = v.Directory
+		} else {
+			break
+		}
+	}
+	_, ok := delegate.(*store.NRTCachingDirectory)
+	return ok
 }
 
 func (w *MockDirectoryWrapper) Sync(names []string) error {
