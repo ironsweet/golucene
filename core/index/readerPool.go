@@ -37,7 +37,55 @@ func (pool *ReaderPool) release(rld *ReadersAndLiveDocs) error {
 func (pool *ReaderPool) dropAll(doSave bool) error {
 	pool.Lock() // synchronized
 	defer pool.Unlock()
-	panic("not implemented yet")
+
+	var priorE error
+	for len(pool.readerMap) > 0 {
+		for k, rld := range pool.readerMap {
+			if doSave {
+				ok, err := rld.writeLiveDocs(pool.owner.directory)
+				if err != nil {
+					return err
+				}
+				if ok {
+					// Make sure we only write del docs for a live segment:
+					assert(pool.infoIsLive(rld.info))
+					// Must checkpoint because we just
+					// created new _X_N.del and field updates files;
+					// don't call IW.checkpoint because that also
+					// increments SIS.version, which we do not want to
+					// do here: it was done previously (after we
+					// invoked BDS.applyDeletes), whereas here all we
+					// did was move the state to disk:
+					err = pool.owner.checkpointNoSIS()
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			// Important to remove as-we-go, not with .clear()
+			// in the end, in case we hit an exception;
+			// otherwise we could over-decref if close() is
+			// called again:
+			delete(pool.readerMap, k)
+
+			// NOTE: it is allowed that these decRefs do not
+			// actually close the SRs; this happens when a
+			// near real-time reader is kept open after the
+			// IndexWriter instance is closed:
+			err := rld.dropReaders()
+			if err != nil {
+				if doSave {
+					return err
+				}
+				if priorE == nil {
+					priorE = err
+				}
+			}
+		}
+	}
+	assert(len(pool.readerMap) == 0)
+	return priorE
 }
 
 /* Commit live docs changes for the segment readers for the provided infos. */

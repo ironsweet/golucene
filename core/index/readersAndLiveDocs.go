@@ -5,9 +5,33 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
 	"sync"
+	"sync/atomic"
 )
 
 // index/ReadersAndLiveDocs.java
+
+type refCountMixin struct {
+	// Tracks how many consumers are using this instance:
+	_refCount int32 // atomic, 1
+}
+
+func newRefCountMixin() *refCountMixin {
+	return &refCountMixin{1}
+}
+
+func (rc *refCountMixin) incRef() {
+	assert(atomic.AddInt32(&rc._refCount, 1) > 1)
+}
+
+func (rc *refCountMixin) decRef() {
+	assert(atomic.AddInt32(&rc._refCount, -1) >= 0)
+}
+
+func (rc *refCountMixin) refCount() int {
+	n := atomic.LoadInt32(&rc._refCount)
+	assert(n >= 0)
+	return int(n)
+}
 
 /*
 Used by IndexWriter to hold open SegmentReaders (for searching or
@@ -15,8 +39,20 @@ merging), plus pending deletes, for a given segment.
 */
 type ReadersAndLiveDocs struct {
 	sync.Locker
+	*refCountMixin
 
 	info *SegmentInfoPerCommit
+
+	// Set once (nil, and then maybe set, and never set again)
+	_reader *SegmentReader
+
+	// TODO: it's sometimes wasteful that we hold open two separate SRs
+	// (one for merging one for reading)... maybe just use a single SR?
+	// The gains of not loading the terms index (for merging in the
+	// non-NRT case) are far less now... and if the app has any deletes
+	// it'll open real readers anyway.
+	// Set once (nil, and then maybe set, and never set again)
+	mergeReader *SegmentReader
 
 	// Holds the current shared (readable and writeable liveDocs). This
 	// is nil when there are no deleted docs, and it's copy-on-write
@@ -44,6 +80,41 @@ func (rld *ReadersAndLiveDocs) reader(ctx store.IOContext) (*SegmentReader, erro
 
 func (rld *ReadersAndLiveDocs) release(sr *SegmentReader) error {
 	panic("not implemented yet")
+}
+
+// NOTE: removes callers ref
+func (rld *ReadersAndLiveDocs) dropReaders() error {
+	rld.Lock()
+	defer rld.Unlock()
+
+	// TODO: can we somehow use IOUtils here...?
+	// problem is we are calling .decRef not .close)...
+	err := func() (err error) {
+		defer func() {
+			if rld.mergeReader != nil {
+				log.Printf("  pool.drop info=%v merge rc=%v", rld.info, rld.mergeReader.refCount)
+				defer func() { rld.mergeReader = nil }()
+				err2 := rld.mergeReader.decRef()
+				if err == nil {
+					err = err2
+				} else {
+					log.Printf("Escaped error: %v", err2)
+				}
+			}
+		}()
+
+		if rld._reader != nil {
+			log.Printf("  pool.drop info=%v merge rc=%v", rld.info, rld._reader.refCount)
+			defer func() { rld._reader = nil }()
+			return rld._reader.decRef()
+		}
+		return nil
+	}()
+	if err != nil {
+		return err
+	}
+	rld.decRef()
+	return nil
 }
 
 func (rld *ReadersAndLiveDocs) liveDocs() util.Bits {
