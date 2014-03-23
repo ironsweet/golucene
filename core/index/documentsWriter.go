@@ -195,7 +195,39 @@ func (dw *DocumentsWriter) close() {
 }
 
 func (dw *DocumentsWriter) preUpdate() (bool, error) {
-	panic("not implemented yet")
+	dw.ensureOpen()
+	var hasEvents = false
+	if dw.flushControl.anyStalledThreads() || dw.flushControl.numQueuedFlushes() > 0 {
+		// Help out flushing any queued DWPTs so we can un-stall:
+		if dw.infoStream.IsEnabled("DW") {
+			dw.infoStream.Message("DW", "DocumentsWriter has queued dwpt; will hijack this thread to flush pending segment(s)")
+		}
+		for {
+			// Try pick up pending threads here if possible
+			for flushingDWPT := dw.flushControl.nextPendingFlush(); flushingDWPT != nil; {
+				// Don't push the delete here since the update could fail!
+				ok, err := dw.doFlush(flushingDWPT)
+				if err != nil {
+					return false, err
+				}
+				if ok {
+					hasEvents = true
+				}
+			}
+
+			if dw.infoStream.IsEnabled("DW") {
+				if dw.flushControl.anyStalledThreads() {
+					dw.infoStream.Message("DW", "WARNING DocumentsWriter has stalled threads; waiting")
+				}
+			}
+
+			dw.flushControl.waitIfStalled() // block if stalled
+			if dw.flushControl.numQueuedFlushes() == 0 {
+				break
+			}
+		}
+	}
+	return hasEvents, nil
 }
 
 func (dw *DocumentsWriter) postUpdate(flusingDWPT *DocumentsWriterPerThread, hasEvents bool) (bool, error) {

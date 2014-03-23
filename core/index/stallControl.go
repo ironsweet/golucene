@@ -24,6 +24,7 @@ type DocumentsWriterStallControl struct {
 	*sync.Cond
 
 	stalled    bool // volatile
+	numWaiting int
 	wasStalled bool // assert only
 }
 
@@ -49,4 +50,30 @@ func (sc *DocumentsWriterStallControl) updateStalled(stalled bool) {
 		sc.wasStalled = true
 	}
 	sc.Signal()
+}
+
+/* Blocks if documents writing is currently in a stalled state. */
+func (sc *DocumentsWriterStallControl) waitIfStalled() {
+	sc.Lock()
+	defer sc.Unlock()
+	if sc.stalled { // react on the first wake up call!
+		// don't loop here, higher level logic will re-stall
+		assert(sc.incWaiters())
+		sc.Wait()
+		assert(sc.decWaiters())
+	}
+}
+
+func (sc *DocumentsWriterStallControl) anyStalledThreads() bool {
+	return sc.stalled
+}
+
+func (sc *DocumentsWriterStallControl) incWaiters() bool {
+	sc.numWaiting++
+	return sc.numWaiting > 0
+}
+
+func (sc *DocumentsWriterStallControl) decWaiters() bool {
+	sc.numWaiting--
+	return sc.numWaiting >= 0
 }

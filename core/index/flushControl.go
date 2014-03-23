@@ -24,8 +24,8 @@ type DocumentsWriterFlushControl struct {
 	condFlushWait *sync.Cond
 
 	hardMaxBytesPerDWPT int64
-	activeBytes         int64
-	flushBytes          int64
+	_activeBytes        int64
+	_flushBytes         int64
 	numPending          int // volatile
 	fullFlush           bool
 	flushQueue          *list.List
@@ -33,7 +33,8 @@ type DocumentsWriterFlushControl struct {
 	blockedFlushes  *list.List
 	flushingWriters map[*DocumentsWriterPerThread]int64
 
-	stallControl  *DocumentsWriterStallControl
+	*DocumentsWriterStallControl // mixin
+
 	perThreadPool *DocumentsWriterPerThreadPool
 	flushPolicy   FlushPolicy
 	closed        bool
@@ -49,14 +50,13 @@ type DocumentsWriterFlushControl struct {
 func newDocumentsWriterFlushControl(documentsWriter *DocumentsWriter,
 	config *LiveIndexWriterConfig, bufferedDeletesStream *BufferedDeletesStream) *DocumentsWriterFlushControl {
 	objLock := &sync.Mutex{}
-	return &DocumentsWriterFlushControl{
+	ans := &DocumentsWriterFlushControl{
 		Locker:                objLock,
 		condFlushWait:         sync.NewCond(objLock),
 		flushQueue:            list.New(),
 		blockedFlushes:        list.New(),
 		flushingWriters:       make(map[*DocumentsWriterPerThread]int64),
 		infoStream:            config.infoStream,
-		stallControl:          newDocumentsWriterStallControl(),
 		perThreadPool:         documentsWriter.perThreadPool,
 		flushPolicy:           documentsWriter.flushPolicy,
 		config:                config,
@@ -64,6 +64,26 @@ func newDocumentsWriterFlushControl(documentsWriter *DocumentsWriter,
 		documentsWriter:       documentsWriter,
 		bufferedDeletesStream: bufferedDeletesStream,
 	}
+	ans.DocumentsWriterStallControl = newDocumentsWriterStallControl()
+	return ans
+}
+
+func (fc *DocumentsWriterFlushControl) activeBytes() int64 {
+	fc.Lock()
+	defer fc.Unlock()
+	return fc._activeBytes
+}
+
+func (fc *DocumentsWriterFlushControl) flushBytes() int64 {
+	fc.Lock()
+	defer fc.Unlock()
+	return fc._flushBytes
+}
+
+func (fc *DocumentsWriterFlushControl) netBytes() int64 {
+	fc.Lock()
+	defer fc.Unlock()
+	return fc._activeBytes + fc._flushBytes
 }
 
 func (fc *DocumentsWriterFlushControl) assertMemory() bool {
@@ -89,7 +109,7 @@ func (fc *DocumentsWriterFlushControl) doAfterFlush(dwpt *DocumentsWriterPerThre
 	}()
 
 	delete(fc.flushingWriters, dwpt)
-	fc.flushBytes -= bytes
+	fc._flushBytes -= bytes
 	// fc.perThreadPool.recycle(dwpt)
 	fc.assertMemory()
 }
@@ -104,10 +124,10 @@ func (fc *DocumentsWriterFlushControl) updateStallState() bool {
 	// reach the limit without any ongoing flushes. We need ensure that
 	// we don't stall/block if an ongoing or pending flush can not free
 	// up enough memory to release the stall lock.
-	stall := (fc.activeBytes+fc.flushBytes) > limit &&
-		fc.activeBytes < limit &&
+	stall := (fc._activeBytes+fc._flushBytes) > limit &&
+		fc._activeBytes < limit &&
 		!fc.closed
-	fc.stallControl.updateStalled(stall)
+	fc.updateStalled(stall)
 	return stall
 }
 
@@ -130,8 +150,8 @@ func (fc *DocumentsWriterFlushControl) _setFlushPending(perThread *ThreadState) 
 	if perThread.dwpt.numDocsInRAM > 0 {
 		perThread.flushPending = true // write access synced
 		bytes := perThread.bytesUsed
-		fc.flushBytes += bytes
-		fc.activeBytes -= bytes
+		fc._flushBytes += bytes
+		fc._activeBytes -= bytes
 		fc.numPending++ // write access synced
 		fc.assertMemory()
 	}
@@ -144,9 +164,9 @@ func (fc *DocumentsWriterFlushControl) doOnAbort(state *ThreadState) {
 	defer fc.Unlock()
 	defer fc.updateStallState()
 	if state.flushPending {
-		fc.flushBytes -= state.bytesUsed
+		fc._flushBytes -= state.bytesUsed
 	} else {
-		fc.activeBytes -= state.bytesUsed
+		fc._activeBytes -= state.bytesUsed
 	}
 	fc.assertMemory()
 	// Take it out of the loop this DWPT is stale
@@ -389,7 +409,26 @@ func (fc *DocumentsWriterFlushControl) abortPendingFlushes(newFiles map[string]b
 	}
 }
 
+func (fc *DocumentsWriterFlushControl) numQueuedFlushes() int {
+	fc.Lock()
+	defer fc.Unlock()
+	return fc.flushQueue.Len()
+}
+
 type BlockedFlush struct {
 	dwpt  *DocumentsWriterPerThread
 	bytes int64
+}
+
+/*
+This mehtod will block if too many DWPT are currently flushing and no
+checked out DWPT are available.
+*/
+func (fc *DocumentsWriterFlushControl) waitIfStalled() {
+	if fc.infoStream.IsEnabled("DWFC") {
+		fc.infoStream.Message(
+			"DWFC", "waitIfStalled: numFlushesPending: %v netBytes: %v flushingBytes: %v fullFlush: %v",
+			fc.flushQueue.Len(), fc.netBytes(), fc.flushBytes(), fc.fullFlush)
+	}
+	fc.DocumentsWriterStallControl.waitIfStalled()
 }
