@@ -258,10 +258,16 @@ func (fn *FieldNumbers) addOrGet(name string, preferredNumber int, dv DocValuesT
 }
 
 type FieldInfosBuilder struct {
+	byName             map[string]*FieldInfo
+	globalFieldNumbers *FieldNumbers
 }
 
 func newFieldInfosBuilder(globalFieldNumbers *FieldNumbers) *FieldInfosBuilder {
-	panic("not implemented yet")
+	assert(globalFieldNumbers != nil)
+	return &FieldInfosBuilder{
+		byName:             make(map[string]*FieldInfo),
+		globalFieldNumbers: globalFieldNumbers,
+	}
 }
 
 // index/FieldInfo.java
