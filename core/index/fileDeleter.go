@@ -396,7 +396,14 @@ func (fd *IndexFileDeleter) decRefFile(filename string) {
 	}
 }
 
-// L538
+// 529
+func (del *IndexFileDeleter) exists(filename string) bool {
+	if v, ok := del.refCounts[filename]; ok {
+		return v.count > 0
+	}
+	return false
+}
+
 func (del *IndexFileDeleter) refCount(filename string) *RefCount {
 	// assert Thread.holdsLock(del.writer) TODO GoLucene doesn't have this capability
 	rc, ok := del.refCounts[filename]

@@ -1286,8 +1286,16 @@ func (w *IndexWriter) segString() string {
 }
 
 // called only from assert
-func (w *IndexWriter) filesExist(toSync *SegmentInfos) (ok bool, err error) {
-	panic("not implemented yet")
+func (w *IndexWriter) assertFilesExist(toSync *SegmentInfos) {
+	files := toSync.files(w.directory, false)
+	for _, filename := range files {
+		assertn(w.directory.FileExists(filename), "file %v does not exist", filename)
+		// If this trips it means we are missing a call to checkpoint
+		// somewhere, because by the time we are called, deleter should
+		// know about every file referenced by the current head
+		// segmentInfos:
+		assertn(w.deleter.exists(filename), "IndexFileDeleter doesn't know about file %v", filename)
+	}
 }
 
 // For infoStream output
@@ -1312,7 +1320,7 @@ func (w *IndexWriter) startCommit(toSync *SegmentInfos) error {
 		w.infoStream.Message("IW", "startCommit(): start")
 	}
 
-	err := func() error {
+	func() {
 		w.Lock()
 		defer w.Unlock()
 
@@ -1324,7 +1332,7 @@ func (w *IndexWriter) startCommit(toSync *SegmentInfos) error {
 			}
 			w.deleter.decRefFiles(w.filesToCommit)
 			w.filesToCommit = nil
-			return nil
+			return
 		}
 
 		if w.infoStream.IsEnabled("IW") {
@@ -1332,16 +1340,8 @@ func (w *IndexWriter) startCommit(toSync *SegmentInfos) error {
 				w.readerPool.segmentsToString(toSync.Segments), w.changeCount)
 		}
 
-		ok, err := w.filesExist(toSync)
-		if err != nil {
-			return err
-		}
-		assert(ok)
-		return nil
+		w.assertFilesExist(toSync)
 	}()
-	if err != nil {
-		return err
-	}
 
 	w.testPoint("midStartCommit")
 
@@ -1367,7 +1367,7 @@ func (w *IndexWriter) startCommit(toSync *SegmentInfos) error {
 	}()
 
 	w.testPoint("midStartCommit2")
-	err = func() (err error) {
+	err := func() (err error) {
 		w.Lock()
 		defer w.Unlock()
 
