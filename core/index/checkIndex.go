@@ -21,10 +21,17 @@ As this tool checks every byte in the index, on a large index it can
 take a long time to run.
 */
 type CheckIndex struct {
+	infoStream            io.Writer
+	dir                   store.Directory
+	crossCheckTermVectors bool
 }
 
 func NewCheckIndex(dir store.Directory, crossCheckTermVectors bool, infoStream io.Writer) *CheckIndex {
-	panic("not implemented yet")
+	return &CheckIndex{
+		dir: dir,
+		crossCheckTermVectors: crossCheckTermVectors,
+		infoStream:            infoStream,
+	}
 }
 
 /*
