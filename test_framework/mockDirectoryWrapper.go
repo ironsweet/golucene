@@ -42,6 +42,8 @@ type MockDirectoryWrapper struct {
 	sync.Locker                     // simulate Java's synchronized keyword
 	myLockFactory store.LockFactory // overrides LockFactory
 
+	// Max actual bytes used. This is set by MockRAMOutputStream
+	maxUsedSize           int64
 	randomErrorRate       float64
 	randomErrorRateOnOpen float64
 	randomState           *rand.Rand
@@ -476,6 +478,21 @@ func (w *MockDirectoryWrapper) OpenInput(name string, context store.IOContext) (
 	}
 	w.addFileHandle(ii, name, HANDLE_INPUT)
 	return ii, nil
+}
+
+// L594
+/*
+Like recomputeSizeInBytes(), but uses actual file lengths rather than
+buffer allocations (which are quantized up to nearest
+RAMOutputStream.BUFFER_SIZE (now 1024) bytes).
+*/
+func (w *MockDirectoryWrapper) recomputeActualSizeInBytes() (int64, error) {
+	w.Lock()
+	defer w.Unlock()
+	// if _, ok := w.Directory.(store.RAMDirectory); !ok {
+	// 	return w.sizeInBytes()
+	// }
+	panic("not implemented yet")
 }
 
 func (w *MockDirectoryWrapper) Close() error {
@@ -1028,19 +1045,63 @@ an error on fake disk full, track max disk space actually used, and
 maybe throw random IO errors.
 */
 type MockIndexOutputWrapper struct {
-	store.IndexOutput // delegate
-	dir               *MockDirectoryWrapper
-	first             bool
-	name              string
-	singleByte        []byte
+	*store.IndexOutputImpl
+	dir        *MockDirectoryWrapper
+	delegate   store.IndexOutput
+	first      bool
+	name       string
+	singleByte []byte
 }
 
 func newMockIndexOutputWrapper(dir *MockDirectoryWrapper, name string, delegate store.IndexOutput) *MockIndexOutputWrapper {
-	return &MockIndexOutputWrapper{
-		IndexOutput: delegate,
-		name:        name,
-		dir:         dir,
-		first:       true,
-		singleByte:  make([]byte, 1),
+	ans := &MockIndexOutputWrapper{
+		dir:        dir,
+		name:       name,
+		delegate:   delegate,
+		first:      true,
+		singleByte: make([]byte, 1),
 	}
+	ans.IndexOutputImpl = store.NewIndexOutput(ans)
+	return ans
+}
+
+func (w *MockIndexOutputWrapper) Close() (err error) {
+	defer func() {
+		err2 := w.delegate.Close()
+		if err2 != nil {
+			err = mergeError(err, err2)
+			return
+		}
+		if w.dir.trackDiskUsage {
+			// Now compute actual disk usage & track the maxUsedSize
+			// in the MDW:
+			size, err2 := w.dir.recomputeActualSizeInBytes()
+			if err2 != nil {
+				err = mergeError(err, err2)
+				return
+			}
+			if size > w.dir.maxUsedSize {
+				w.dir.maxUsedSize = size
+			}
+		}
+		w.dir.removeIndexOutput(w, w.name)
+	}()
+	return w.dir.maybeThrowDeterministicException()
+}
+
+func (w *MockIndexOutputWrapper) WriteByte(b byte) error {
+	w.singleByte[0] = b
+	return w.WriteBytes(w.singleByte)
+}
+
+func (w *MockIndexOutputWrapper) WriteBytes(buf []byte) error {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexOutputWrapper) CopyBytes(input util.DataInput, numBytes int64) error {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexOutputWrapper) String() string {
+	return fmt.Sprintf("MockIndexOutputWrapper(%v)", w.delegate)
 }

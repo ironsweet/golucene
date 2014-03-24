@@ -213,7 +213,26 @@ func (fc *DocumentsWriterFlushControl) close() {
 }
 
 func (fc *DocumentsWriterFlushControl) obtainAndLock() *ThreadState {
-	panic("not implemented yet")
+	perThread := fc.perThreadPool.lockAny()
+	var success = false
+	defer func() {
+		if !success {
+			fc.perThreadPool.release(perThread)
+		}
+	}()
+
+	if perThread.isActive &&
+		perThread.dwpt != nil &&
+		perThread.dwpt.deleteQueue != fc.documentsWriter.deleteQueue {
+
+		// Threre is a flush-all in process and this DWPT is now stale --
+		// enroll it for flush and try for another DWPT:
+		fc.addFlushableState(perThread)
+	}
+	success = true
+	// simply return the ThreadState even in a flush all case since we
+	// already hold the lock
+	return perThread
 }
 
 func (fc *DocumentsWriterFlushControl) markForFullFlush() {
