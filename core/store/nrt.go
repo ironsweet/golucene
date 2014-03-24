@@ -143,6 +143,7 @@ func (nrt *NRTCachingDirectory) DeleteFile(name string) error {
 	defer nrt.Unlock()
 	log.Printf("nrtdir.deleteFile name=%v", name)
 	if nrt._fileExists(name) {
+		log.Println("DEBUG ", nrt.Directory)
 		assert2(!nrt.Directory.FileExists(name), fmt.Sprintf("name=%v", name))
 		return nrt.cache.DeleteFile(name)
 	} else {

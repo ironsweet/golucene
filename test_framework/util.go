@@ -1,17 +1,33 @@
 package test_framework
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/test_framework/util"
+	"log"
 )
 
 // util/_TestUtil.java
 
-func CheckIndex(dir store.Directory, crossCheckTermVectors bool) (status index.CheckIndexStatus, err error) {
-	panic("not implemented yet")
+func CheckIndex(dir store.Directory, crossCheckTermVectors bool) (status *index.CheckIndexStatus, err error) {
+	var buf bytes.Buffer
+	checker := index.NewCheckIndex(dir, crossCheckTermVectors, &buf)
+	indexStatus, err := checker.CheckIndex(nil)
+	if err != nil {
+		return nil, err
+	}
+	if indexStatus == nil || !indexStatus.Clean {
+		log.Println("CheckIndex failed")
+		log.Println(buf.String())
+		panic("CheckIndex failed")
+	}
+	if INFOSTREAM {
+		log.Println(buf.String())
+	}
+	return indexStatus, nil
 }
 
 // util/CloseableDirectory.java
