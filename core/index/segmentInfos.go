@@ -749,6 +749,10 @@ func (sis *SegmentInfos) replace(other *SegmentInfos) {
 	sis.lastGeneration = other.lastGeneration
 }
 
+func (sis *SegmentInfos) changed() {
+	sis.version++
+}
+
 func (sis *SegmentInfos) createBackupSegmentInfos() []*SegmentInfoPerCommit {
 	ans := make([]*SegmentInfoPerCommit, len(sis.Segments))
 	for i, info := range sis.Segments {
@@ -786,5 +790,5 @@ Remove the provided SegmentInfoPerCommit.
 WARNING: O(N) cost
 */
 func (sis *SegmentInfos) remove(si *SegmentInfoPerCommit) {
-
+	panic("not implemented yet")
 }

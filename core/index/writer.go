@@ -8,6 +8,7 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
+	"strconv"
 	"sync"
 	"sync/atomic"
 )
@@ -232,9 +233,6 @@ type IndexWriter struct {
 	// Ensures only one flush() is actually flushing segments at a time:
 	fullFlushLock sync.Locker
 
-	// Called internally if any index state has changed.
-	changed chan bool
-
 	keepFullyDeletedSegments bool // test only
 }
 
@@ -267,7 +265,6 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 		doBeforeFlush:   func() error { return nil },
 		commitLock:      &sync.Mutex{},
 		fullFlushLock:   &sync.Mutex{},
-		changed:         make(chan bool),
 
 		config:         newLiveIndexWriterConfigFrom(conf),
 		directory:      d,
@@ -326,17 +323,6 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 	// IndexFormatTooOldError
 	ans.segmentInfos = &SegmentInfos{}
 
-	go func(infos *SegmentInfos) {
-		var changeCount int
-		for {
-			select {
-			case <-ans.changed:
-				changeCount++
-				// infos.changed()
-			}
-		}
-	}(ans.segmentInfos)
-
 	var initialIndexExists bool = true
 
 	if create {
@@ -353,7 +339,7 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 		}
 
 		// Record that we have a change (zero out all segments) pending:
-		ans.changed <- true
+		ans.changed()
 	} else {
 		err = ans.segmentInfos.ReadAll(d)
 		if err != nil {
@@ -369,7 +355,7 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 				"IndexCommit's directory doesn't match my directory")
 			oldInfos := &SegmentInfos{}
 			ans.segmentInfos.replace(oldInfos)
-			ans.changed <- true
+			ans.changed()
 			ans.infoStream.Message("IW", "init: loaded commit '%v'",
 				commit.SegmentsFileName())
 		}
@@ -398,7 +384,7 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 		// Deletion policy deleted the "head" commit point. We have to
 		// mark outsef as changed so that if we are closed w/o any
 		// further changes we write a new segments_N file.
-		ans.changed <- true
+		ans.changed()
 	}
 
 	if ans.infoStream.IsEnabled("IW") {
@@ -713,7 +699,18 @@ func (w *IndexWriter) UpdateDocument(term *Term, doc []IndexableField, analyzer 
 }
 
 func (w *IndexWriter) newSegmentName() string {
-	panic("not implemented yet")
+	// Cannot synchronize on IndexWriter because that causes deadlook
+	// Ian: but why?
+	w.Lock()
+	defer w.Unlock()
+	// Important to increment changeCount so that the segmentInfos is
+	// written on close. Otherwise we could close, re-open and
+	// re-return the same segment name that was previously returned
+	// which can cause problems at least with ConcurrentMergeScheculer.
+	w.changeCount++
+	w.segmentInfos.changed()
+	defer func() { w.segmentInfos.counter++ }()
+	return fmt.Sprintf("_%v", strconv.FormatInt(int64(w.segmentInfos.counter), 36))
 }
 
 /*
@@ -861,10 +858,11 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 Called whenever the SegmentInfos has been updatd and the index files
 referenced exist (correctly) in the index directory.
 */
-func (w *IndexWriter) checkpoint() error {
+func (w *IndexWriter) checkpoint() (err error) {
 	w.Lock() // synchronized
 	defer w.Unlock()
-	w.changed <- true
+	w.changeCount++
+	w.segmentInfos.changed()
 	return w.deleter.checkpoint(w.segmentInfos, false)
 }
 
@@ -873,11 +871,19 @@ Checkpoints with IndexFileDeleter, so it's aware of new files, and
 increments changeCount, so on close/commit we will write a new
 segments file, but does NOT bump segmentInfos.version.
 */
-func (w *IndexWriter) checkpointNoSIS() error {
+func (w *IndexWriter) checkpointNoSIS() (err error) {
 	w.Lock() // synchronized
 	defer w.Unlock()
 	w.changeCount++
 	return w.deleter.checkpoint(w.segmentInfos, false)
+}
+
+/* Called internally if any index state has changed. */
+func (w *IndexWriter) changed() {
+	w.Lock()
+	defer w.Unlock()
+	w.changeCount++
+	w.segmentInfos.changed()
 }
 
 /*
