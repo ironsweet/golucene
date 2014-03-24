@@ -12,6 +12,8 @@ import (
 type IndexOutput interface {
 	io.Closer
 	util.DataOutput
+	// The numer of bytes in the file.
+	Length() int64
 }
 
 type IndexOutputImpl struct {

@@ -462,6 +462,10 @@ func (out *RAMOutputStream) Close() error {
 	return out.Flush()
 }
 
+func (out *RAMOutputStream) Length() int64 {
+	return out.file.length
+}
+
 func (out *RAMOutputStream) WriteByte(b byte) error {
 	if out.bufferPosition == out.bufferLength {
 		out.currentBufferIndex++

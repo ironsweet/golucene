@@ -42,6 +42,8 @@ type MockDirectoryWrapper struct {
 	sync.Locker                     // simulate Java's synchronized keyword
 	myLockFactory store.LockFactory // overrides LockFactory
 
+	maxSize int64
+
 	// Max actual bytes used. This is set by MockRAMOutputStream
 	maxUsedSize           int64
 	randomErrorRate       float64
@@ -205,6 +207,18 @@ func (w *MockDirectoryWrapper) String() string {
 	// can thus (unexpectedly during debugging) change the behavior of
 	// a seed maybeYield()
 	return fmt.Sprintf("MockDirWrapper(%v)", w.Directory)
+}
+
+func (w *MockDirectoryWrapper) sizeInBytes() (int64, error) {
+	w.Lock()
+	defer w.Unlock()
+
+	v, ok := w.Directory.(*store.RAMDirectory)
+	if ok {
+		return v.SizeInBytes(), nil
+	}
+	// hack
+	panic("not implemented yet")
 }
 
 // Simulates a crash of OS or machine by overwriting unsynced files.
@@ -887,6 +901,10 @@ func (out *ThrottledIndexOutput) Close() error {
 	return out.delegate.Close()
 }
 
+func (out *ThrottledIndexOutput) Length() int64 {
+	return out.delegate.Length()
+}
+
 func (out *ThrottledIndexOutput) WriteByte(b byte) error {
 	out.bytes[0] = b
 	return out.WriteBytes(out.bytes)
@@ -1065,6 +1083,67 @@ func newMockIndexOutputWrapper(dir *MockDirectoryWrapper, name string, delegate 
 	return ans
 }
 
+func (w *MockIndexOutputWrapper) checkCrashed() error {
+	// If MockRAMDir crashed since we were opened, then don't write anything
+	if w.dir.crashed {
+		return errors.New(fmt.Sprintf("MockRAMDirectory was crashed; cannot write to %v", w.name))
+	}
+	return nil
+}
+
+func (w *MockIndexOutputWrapper) checkDiskFull(buf []byte, in util.DataInput) (err error) {
+	var freeSpace int64 = 0
+	if w.dir.maxSize > 0 {
+		sizeInBytes, err := w.dir.sizeInBytes()
+		if err != nil {
+			return err
+		}
+		freeSpace = w.dir.maxSize - sizeInBytes
+	}
+	var realUsage int64 = 0
+
+	// Enforce disk full:
+	if w.dir.maxSize > 0 && freeSpace <= int64(len(buf)) {
+		// Compute the real disk free. This will greatly slow down our
+		// test but makes it more accurate:
+		realUsage, err = w.dir.recomputeActualSizeInBytes()
+		if err != nil {
+			return err
+		}
+		freeSpace = w.dir.maxSize - realUsage
+	}
+
+	if w.dir.maxSize > 0 && freeSpace <= int64(len(buf)) {
+		if freeSpace > 0 {
+			realUsage += freeSpace
+			if buf != nil {
+				w.delegate.WriteBytes(buf[:freeSpace])
+			} else {
+				w.CopyBytes(in, int64(len(buf)))
+			}
+		}
+		if realUsage > w.dir.maxUsedSize {
+			w.dir.maxUsedSize = realUsage
+		}
+		n, err := w.dir.recomputeActualSizeInBytes()
+		if err != nil {
+			return err
+		}
+		message := fmt.Sprintf("fake disk full at %v bytes when writing %v (file length=%v",
+			n, w.name, w.delegate.Length())
+		if freeSpace > 0 {
+			message += fmt.Sprintf("; wrote %v of %v bytes", freeSpace, len(buf))
+		}
+		message += ")"
+		if VERBOSE {
+			log.Println("MDW: now throw fake disk full")
+			debug.PrintStack()
+		}
+		return errors.New(message)
+	}
+	return nil
+}
+
 func (w *MockIndexOutputWrapper) Close() (err error) {
 	defer func() {
 		err2 := w.delegate.Close()
@@ -1095,7 +1174,46 @@ func (w *MockIndexOutputWrapper) WriteByte(b byte) error {
 }
 
 func (w *MockIndexOutputWrapper) WriteBytes(buf []byte) error {
-	panic("not implemented yet")
+	err := w.checkCrashed()
+	if err != nil {
+		return err
+	}
+	err = w.checkDiskFull(buf, nil)
+	if err != nil {
+		return err
+	}
+
+	if w.dir.randomState.Intn(200) == 0 {
+		half := len(buf) / 2
+		err = w.delegate.WriteBytes(buf[:half])
+		if err != nil {
+			return err
+		}
+		runtime.Gosched()
+		err = w.delegate.WriteBytes(buf[half:])
+		if err != nil {
+			return err
+		}
+	} else {
+		err = w.delegate.WriteBytes(buf)
+		if err != nil {
+			return err
+		}
+	}
+
+	if w.first {
+		// Maybe throw random error; only do this on first write to a new file:
+		w.first = false
+		err = w.dir.maybeThrowIOException(w.name)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *MockIndexOutputWrapper) Length() int64 {
+	return w.delegate.Length()
 }
 
 func (w *MockIndexOutputWrapper) CopyBytes(input util.DataInput, numBytes int64) error {
