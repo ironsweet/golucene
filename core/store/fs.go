@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -102,6 +103,7 @@ func (d *FSDirectory) ListAll() (paths []string, err error) {
 func (d *FSDirectory) FileExists(name string) bool {
 	d.EnsureOpen()
 	_, err := os.Stat(name)
+	log.Println("DEBUG2 ")
 	return err != nil
 }
 

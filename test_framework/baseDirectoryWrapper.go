@@ -38,11 +38,11 @@ func (dw *BaseDirectoryWrapperImpl) Close() error {
 	dw.isOpen = false
 	if dw.checkIndexOnClose {
 		ok, err := index.IsIndexExists(dw)
-		if err == nil && ok {
-			_, err = CheckIndex(dw, dw.crossCheckTermVectorsOnClose)
-		}
 		if err != nil {
 			return err
+		}
+		if ok {
+			CheckIndex(dw, dw.crossCheckTermVectorsOnClose)
 		}
 	}
 	return dw.Directory.Close()

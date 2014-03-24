@@ -12,13 +12,10 @@ import (
 
 // util/_TestUtil.java
 
-func CheckIndex(dir store.Directory, crossCheckTermVectors bool) (status *index.CheckIndexStatus, err error) {
+func CheckIndex(dir store.Directory, crossCheckTermVectors bool) *index.CheckIndexStatus {
 	var buf bytes.Buffer
 	checker := index.NewCheckIndex(dir, crossCheckTermVectors, &buf)
-	indexStatus, err := checker.CheckIndex(nil)
-	if err != nil {
-		return nil, err
-	}
+	indexStatus := checker.CheckIndex(nil)
 	if indexStatus == nil || !indexStatus.Clean {
 		log.Println("CheckIndex failed")
 		log.Println(buf.String())
@@ -27,7 +24,7 @@ func CheckIndex(dir store.Directory, crossCheckTermVectors bool) (status *index.
 	if INFOSTREAM {
 		log.Println(buf.String())
 	}
-	return indexStatus, nil
+	return indexStatus
 }
 
 // util/CloseableDirectory.java

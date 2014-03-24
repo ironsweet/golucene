@@ -130,12 +130,26 @@ func (r *IndexReaderImpl) reportCloseToParentReaders() {
 	}
 }
 
+/* Returns the number of deleted documents. */
+func (r *IndexReaderImpl) numDeletedDocs() int {
+	return r.MaxDoc() - r.NumDocs()
+}
+
 func (r *IndexReaderImpl) Document(docID int) (doc *Document, err error) {
 	visitor := newDocumentStoredFieldVisitor()
 	if err = r.VisitDocument(docID, visitor); err != nil {
 		return nil, err
 	}
 	return visitor.Document(), nil
+}
+
+/*
+Returns true if any documents have been deleted. Implementers should
+consider overriding this method if maxDoc() or numDocs() are not
+constant-time operations.
+*/
+func (r *IndexReaderImpl) hasDeletions() bool {
+	return r.numDeletedDocs() > 0
 }
 
 func (r *IndexReaderImpl) Close() error {
