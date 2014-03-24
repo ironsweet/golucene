@@ -260,6 +260,10 @@ func (fn *FieldNumbers) addOrGet(name string, preferredNumber int, dv DocValuesT
 type FieldInfosBuilder struct {
 }
 
+func newFieldInfosBuilder(globalFieldNumbers *FieldNumbers) *FieldInfosBuilder {
+	panic("not implemented yet")
+}
+
 // index/FieldInfo.java
 
 type IndexOptions int

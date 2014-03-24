@@ -235,7 +235,11 @@ func (dw *DocumentsWriter) postUpdate(flusingDWPT *DocumentsWriterPerThread, has
 }
 
 func (dw *DocumentsWriter) ensureInitialized(state *ThreadState) {
-	panic("not implemented yet")
+	if state.isActive && state.dwpt == nil {
+		infos := newFieldInfosBuilder(dw.writer.globalFieldNumberMap)
+		state.dwpt = newDocumentsWriterPerThread(dw.writer.newSegmentName(),
+			dw.directory, dw.config, dw.infoStream, dw.deleteQueue, infos)
+	}
 }
 
 // L428
@@ -446,6 +450,12 @@ type DocumentsWriterPerThread struct {
 	deleteQueue  *DocumentsWriterDeleteQueue
 
 	filesToDelete map[string]bool
+}
+
+func newDocumentsWriterPerThread(segmentName string, directory store.Directory,
+	indexWriterConfig *LiveIndexWriterConfig, infoStream util.InfoStream,
+	deleteQueue *DocumentsWriterDeleteQueue, fieldInfos *FieldInfosBuilder) *DocumentsWriterPerThread {
+	panic("not implemented yet")
 }
 
 /*
