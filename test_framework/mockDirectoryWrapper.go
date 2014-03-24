@@ -510,33 +510,41 @@ func (w *MockDirectoryWrapper) recomputeActualSizeInBytes() (int64, error) {
 }
 
 func (w *MockDirectoryWrapper) Close() error {
+	w.Lock()
+	defer w.Unlock()
+
 	// files that we tried to delete, but couldn't because reader were open
 	// all that matters is that we tried! (they will eventually go away)
-	w.Lock()
 	pendingDeletions := make(map[string]bool)
 	for k, v := range w.openFilesDeleted {
 		pendingDeletions[k] = v
 	}
-	w.Unlock()
 
 	w.maybeYield()
 
-	w.Lock()
 	if w.openFiles == nil {
 		w.openFiles = make(map[string]int)
 		w.openFilesDeleted = make(map[string]bool)
 	}
 	nOpenFiles := len(w.openFiles)
-	w.Unlock()
 
 	if w.noDeleteOpenFile && nOpenFiles > 0 {
-		panic("not implemented yet")
+		// print the first one as its very verbose otherwise
+		var cause error
+		for _, v := range w.openFileHandles {
+			cause = v
+			break
+		}
+		panic(mergeError(errors.New(fmt.Sprintf(
+			"MockDirectoryWrapper: cannot close: there are still open files: %v",
+			w.openFiles)), cause).Error())
 	}
 
-	w.openLocksLock.Lock()
-	nOpenLocks := len(w.openLocks)
-	w.openLocksLock.Unlock()
-
+	nOpenLocks := func() int {
+		w.openLocksLock.Lock()
+		defer w.openLocksLock.Unlock()
+		return len(w.openLocks)
+	}()
 	if w.noDeleteOpenFile && nOpenLocks > 0 {
 		panic(fmt.Sprintf("MockDirectoryWrapper: cannot close: there are still open locks: %v", w.openLocks))
 	}
