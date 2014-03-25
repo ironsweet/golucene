@@ -87,6 +87,10 @@ func (dq *DocumentsWriterDeleteQueue) anyChanges() bool {
 		dq.tail.next != nil
 }
 
+func (dq *DocumentsWriterDeleteQueue) newSlice() *DeleteSlice {
+	return newDeleteSlice(dq.tail)
+}
+
 func (dq *DocumentsWriterDeleteQueue) clear() {
 	dq.globalBufferLock.Lock()
 	defer dq.globalBufferLock.Unlock()

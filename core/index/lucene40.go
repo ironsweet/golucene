@@ -127,7 +127,7 @@ var Lucene40SegmentInfoReader = func(dir store.Directory, segment string, contex
 			fileName, input.FilePointer(), input.Length(), input))
 	}
 
-	si = &SegmentInfo{dir, version, segment, docCount, isCompoundFile, nil, diagnostics, attributes, nil}
+	si = &SegmentInfo{dir, version, segment, int(docCount), isCompoundFile, nil, diagnostics, attributes, nil}
 	si.CheckFileNames(files)
 	si.Files = files
 

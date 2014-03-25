@@ -235,12 +235,28 @@ type SegmentInfo struct {
 	dir            store.Directory
 	version        string
 	name           string
-	docCount       int32
+	docCount       int // number of docs in seg
 	isCompoundFile bool
 	codec          Codec
 	diagnostics    map[string]string
 	attributes     map[string]string
 	Files          map[string]bool // must use CheckFileNames()
+}
+
+func newSegmentInfo(dir store.Directory, version, name string, docCount int,
+	isComoundFile bool, codec Codec, diagnostics map[string]string, attributes map[string]string) *SegmentInfo {
+	_, ok := dir.(*TrackingDirectoryWrapper)
+	assert(!ok)
+	return &SegmentInfo{
+		dir:            dir,
+		version:        version,
+		name:           name,
+		docCount:       docCount,
+		isCompoundFile: isComoundFile,
+		codec:          codec,
+		diagnostics:    diagnostics,
+		attributes:     attributes,
+	}
 }
 
 // seprate norms are not supported in >= 4.0
