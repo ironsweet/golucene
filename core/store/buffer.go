@@ -321,7 +321,59 @@ func (out *BufferedIndexOutput) WriteByte(b byte) error {
 }
 
 func (out *BufferedIndexOutput) WriteBytes(buf []byte) error {
-	panic("not implemented yet")
+	bytesLeft := len(out.buffer) - out.position
+	// is there enough space in the buffer?
+	if bytesLeft >= len(buf) {
+		// we add the data to the end of the buffer
+		copy(out.buffer[out.position:], buf)
+		out.position += len(buf)
+		// if the buffer is full, flush it
+		if len(out.buffer) == out.position {
+			return out.flush()
+		}
+		return nil
+	}
+
+	// is data larger than buffer?
+	if len(buf) > len(out.buffer) {
+		// we flush the buffer
+		if out.position > 0 {
+			err := out.flush()
+			if err != nil {
+				return err
+			}
+		}
+		// and write data at once
+		err := out.flushBuffer(buf)
+		if err != nil {
+			return err
+		}
+		out.start += int64(len(buf))
+		return nil
+	}
+
+	// we fill/flush the buffer (until the input is written)
+	var pos = 0 // position in the input data
+	var pieceLength int
+	for pos < len(buf) {
+		pieceLength = len(buf) - pos
+		if bytesLeft < pieceLength {
+			pieceLength = bytesLeft
+		}
+		copy(out.buffer[out.position:], buf[pos:pos+pieceLength])
+		pos += pieceLength
+		out.position += pieceLength
+		// if the buffer is full, flush it
+		bytesLeft = len(out.buffer) - out.position
+		if bytesLeft == 0 {
+			err := out.flush()
+			if err != nil {
+				return err
+			}
+			bytesLeft = len(out.buffer)
+		}
+	}
+	return nil
 }
 
 func (out *BufferedIndexOutput) flush() error {

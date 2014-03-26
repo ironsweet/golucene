@@ -844,6 +844,24 @@ func newBufferedIndexOutputWrapper(bufferSize int, io store.IndexOutput) *Buffer
 	return ans
 }
 
+func (w *BufferedIndexOutputWrapper) Length() int64 {
+	return w.io.Length()
+}
+
+func (w *BufferedIndexOutputWrapper) flushBuffer(buf []byte) error {
+	return w.io.WriteBytes(buf)
+}
+
+// func (w *BufferedIndexOutputWrapper) Flush() error {
+// 	defer w.io.Flush()
+// 	return w.BufferedIndexOutput.Flush()
+// }
+
+func (w *BufferedIndexOutputWrapper) Close() error {
+	defer w.io.Close()
+	return w.BufferedIndexOutput.Close()
+}
+
 // util/ThrottledIndexOutput.java
 
 const DEFAULT_MIN_WRITTEN_BYTES = 024
