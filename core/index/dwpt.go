@@ -18,11 +18,16 @@ var defaultIndexingChain = func(documentsWriterPerThread *DocumentsWriterPerThre
 }
 
 type docState struct {
+	docWriter  *DocumentsWriterPerThread
+	infoStream util.InfoStream
 	similarity Similarity
 }
 
 func newDocState(docWriter *DocumentsWriterPerThread, infoStream util.InfoStream) *docState {
-	panic("not implemented yet")
+	return &docState{
+		docWriter:  docWriter,
+		infoStream: infoStream,
+	}
 }
 
 type DocumentsWriterPerThread struct {
@@ -126,8 +131,9 @@ func (dwpt *DocumentsWriterPerThread) updateDocument(doc []IndexableField, analy
 const MAX_TERM_LENGTH_UTF8 = util.BYTE_BLOCK_SIZE - 2
 
 type IntBlockAllocator struct {
+	bytesUsed util.Counter
 }
 
 func newIntBlockAllocator(bytesUsed util.Counter) *IntBlockAllocator {
-	panic("not implemented yet")
+	return &IntBlockAllocator{bytesUsed}
 }

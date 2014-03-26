@@ -19,10 +19,11 @@ func newBlockAllocator(blockSize int) *blockAllocator {
 
 /* A simple Allocator that never recycles, but tracks how much total RAM is in use. */
 type DirectTrackingAllocator struct {
+	bytesUsed Counter
 }
 
 func NewDirectTrackingAllocator(bytesUsed Counter) *DirectTrackingAllocator {
-	panic("not implemented yet")
+	return &DirectTrackingAllocator{bytesUsed}
 }
 
 type Counter interface {
