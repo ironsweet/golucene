@@ -14,7 +14,40 @@ import (
 type IndexingChain func(documentsWriterPerThread *DocumentsWriterPerThread) DocConsumer
 
 var defaultIndexingChain = func(documentsWriterPerThread *DocumentsWriterPerThread) DocConsumer {
-	panic("not implemented yet")
+	/*
+	   This is the current indexing chain:
+
+	   DocConsumer / DocConsumerPerThread
+	     --> code: DocFieldProcessor
+	       --> DocFieldConsumer / DocFieldConsumerPerField
+	         --> code: DocFieldConsumers / DocFieldConsumersPerField
+	           --> code: DocInverter / DocInverterPerField
+	             --> InvertedDocConsumer / InvertedDocConsumerPerField
+	               --> code: TermsHash / TermsHashPerField
+	                 --> TermsHashConsumer / TermsHashConsumerPerField
+	                   --> code: FreqProxTermsWriter / FreqProxTermsWriterPerField
+	                   --> code: TermVectorsTermsWriter / TermVectorsTermsWriterPerField
+	             --> InvertedDocEndConsumer / InvertedDocConsumerPerField
+	               --> code: NormsConsumer / NormsConsumerPerField
+	       --> StoredFieldsConsumer
+	         --> TwoStoredFieldConsumers
+	           -> code: StoredFieldsProcessor
+	           -> code: DocValuesProcessor
+	*/
+
+	// Build up indexing chain:
+
+	termVectorsWriter := newTermVectorsConsumer(documentsWriterPerThread)
+	freqProxWriter := new(FreqProxTermsWriter)
+
+	termsHash := newTermsHash(documentsWriterPerThread, freqProxWriter, true,
+		newTermsHash(documentsWriterPerThread, termVectorsWriter, false, nil))
+	normsWriter := new(NormsConsumer)
+	docInverter := newDocInverter(documentsWriterPerThread.docState, termsHash, normsWriter)
+	storedFields := newTwoStoredFieldsConsumers(
+		newStoredFieldsProcessor(documentsWriterPerThread),
+		newDocValuesProcessor(documentsWriterPerThread.bytesUsed))
+	return newDocFieldProcessor(documentsWriterPerThread, docInverter, storedFields)
 }
 
 type docState struct {

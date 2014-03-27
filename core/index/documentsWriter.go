@@ -9,15 +9,6 @@ import (
 	"sync/atomic"
 )
 
-// index/DocConsumer.java
-
-type DocConsumer interface {
-	processDocuments(fieldInfos *FieldInfosBuilder) error
-	finishDocument() error
-	flush(state *SegmentWriteState) error
-	abort()
-}
-
 // index/DocumentsWriter.java
 
 /*
