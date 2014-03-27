@@ -1,5 +1,9 @@
 package index
 
+import (
+	"github.com/balzaczyy/golucene/core/util"
+)
+
 type InvertedDocConsumer interface{}
 
 /*
@@ -10,11 +14,41 @@ of this class, e.g., FreqproxTermsWriter and TermVectorsConsumer,
 write their own byte streams under each term.
 */
 type TermsHash struct {
+	consumer      TermsHashConsumer
+	nextTermsHash *TermsHash
+
+	intPool      *util.IntBlockPool
+	bytePool     *util.ByteBlockPool
+	termBytePool *util.ByteBlockPool
+	bytesUsed    util.Counter
+
+	primary  bool
+	docState *docState
+
+	trackAllocations bool
 }
 
 func newTermsHash(docWriter *DocumentsWriterPerThread,
-	consumer TermsHashConsumer, tackAllocations bool,
+	consumer TermsHashConsumer, trackAllocations bool,
 	nextTermsHash *TermsHash) *TermsHash {
 
-	panic("not implemented yet")
+	ans := &TermsHash{
+		docState:         docWriter.docState,
+		consumer:         consumer,
+		trackAllocations: trackAllocations,
+		nextTermsHash:    nextTermsHash,
+		intPool:          util.NewIntBlockPool(docWriter.intBlockAllocator),
+		bytePool:         util.NewByteBlockPool(docWriter.byteBlockAllocator),
+	}
+	if trackAllocations {
+		ans.bytesUsed = docWriter.bytesUsed
+	} else {
+		ans.bytesUsed = util.NewCounter()
+	}
+	ans.primary = nextTermsHash != nil
+	if ans.primary {
+		ans.termBytePool = ans.bytePool
+		nextTermsHash.termBytePool = ans.bytePool
+	}
+	return ans
 }

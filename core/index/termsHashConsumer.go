@@ -8,10 +8,15 @@ type TermsHashConsumer interface {
 // index/TermVectorsConsumer.java
 
 type TermVectorsConsumer struct {
+	docWriter *DocumentsWriterPerThread
+	docState  *docState
 }
 
 func newTermVectorsConsumer(docWriter *DocumentsWriterPerThread) *TermVectorsConsumer {
-	panic("not implemented yet")
+	return &TermVectorsConsumer{
+		docWriter: docWriter,
+		docState:  docWriter.docState,
+	}
 }
 
 // index/FreqProxTermsWriter.java

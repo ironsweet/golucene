@@ -82,8 +82,8 @@ type DocumentsWriterPerThread struct {
 	numDocsInRAM       int // the number of RAM resident documents
 	deleteQueue        *DocumentsWriterDeleteQueue
 	deleteSlice        *DeleteSlice
-	byteBlockAllocator util.Allocator
-	intBlockAllocator  util.Allocator
+	byteBlockAllocator util.ByteAllocator
+	intBlockAllocator  util.IntAllocator
 	indexWriterConfig  *LiveIndexWriterConfig
 
 	filesToDelete map[string]bool
