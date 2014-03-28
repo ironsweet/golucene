@@ -9,27 +9,38 @@ type StoredFieldsConsumer interface {
 
 /* Just switches between two DocFieldConsumers */
 type TwoStoredFieldsConsumers struct {
+	first  StoredFieldsConsumer
+	second StoredFieldsConsumer
 }
 
 func newTwoStoredFieldsConsumers(first, second StoredFieldsConsumer) *TwoStoredFieldsConsumers {
-	panic("Not implemented yet")
+	return &TwoStoredFieldsConsumers{first, second}
 }
 
 // index/StoredFieldsProcessor.java
 
 /* This is a StoredFieldsConsumer that writes stored fields */
 type StoredFieldsProcessor struct {
+	docWriter *DocumentsWriterPerThread
+
+	docState *docState
+	codec    Codec
 }
 
 func newStoredFieldsProcessor(docWriter *DocumentsWriterPerThread) *StoredFieldsProcessor {
-	panic("not implemented yet")
+	return &StoredFieldsProcessor{
+		docWriter: docWriter,
+		docState:  docWriter.docState,
+		codec:     docWriter.codec,
+	}
 }
 
 // index/DocValuesProcessor.java
 
 type DocValuesProcessor struct {
+	bytesUsed util.Counter
 }
 
 func newDocValuesProcessor(bytesUsed util.Counter) *DocValuesProcessor {
-	panic("not implemented yet")
+	return &DocValuesProcessor{bytesUsed: bytesUsed}
 }

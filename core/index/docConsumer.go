@@ -1,5 +1,9 @@
 package index
 
+import (
+	"github.com/balzaczyy/golucene/core/util"
+)
+
 // index/DocConsumer.java
 
 type DocConsumer interface {
@@ -18,12 +22,25 @@ doesn't do any "real" work of its own: it just forwards the fields to
 a DocFieldConsumer.
 */
 type DocFieldProcessor struct {
+	consumer       DocFieldConsumer
+	storedConsumer StoredFieldsConsumer
+	codec          Codec
+
+	docState *docState
+
+	bytesUsed util.Counter
 }
 
 func newDocFieldProcessor(docWriter *DocumentsWriterPerThread,
 	consumer DocFieldConsumer, storedConsumer StoredFieldsConsumer) *DocFieldProcessor {
 
-	panic("not implemented yet")
+	return &DocFieldProcessor{
+		docState:       docWriter.docState,
+		codec:          docWriter.codec,
+		bytesUsed:      docWriter.bytesUsed,
+		consumer:       consumer,
+		storedConsumer: storedConsumer,
+	}
 }
 
 func (p *DocFieldProcessor) abort() {
