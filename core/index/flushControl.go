@@ -27,11 +27,15 @@ type DocumentsWriterFlushControl struct {
 	_activeBytes        int64
 	_flushBytes         int64
 	numPending          int // volatile
+	numDocsSinceStalled int
 	fullFlush           bool
 	flushQueue          *list.List
 	// only for safety reasons if a DWPT is close to the RAM limit
 	blockedFlushes  *list.List
 	flushingWriters map[*DocumentsWriterPerThread]int64
+
+	maxConfiguredRamBuffer float64
+	peakDelta              int64
 
 	*DocumentsWriterStallControl // mixin
 
@@ -86,8 +90,57 @@ func (fc *DocumentsWriterFlushControl) netBytes() int64 {
 	return fc._activeBytes + fc._flushBytes
 }
 
-func (fc *DocumentsWriterFlushControl) assertMemory() bool {
-	panic("not implemented yet")
+func (fc *DocumentsWriterFlushControl) assertMemory() {
+	maxRamMB := fc.config.ramBufferSizeMB
+	if maxRamMB == DISABLE_AUTO_FLUSH {
+		return
+	}
+	// for this assert we must be tolerant to ram buffer changes!
+	if maxRamMB > fc.maxConfiguredRamBuffer {
+		fc.maxConfiguredRamBuffer = maxRamMB
+	}
+	ram := fc._flushBytes + fc._activeBytes
+	ramBufferBytes := int64(fc.maxConfiguredRamBuffer * 1024 * 1024)
+	// take peakDelta into account - worst case is that all flushing,
+	// pending and blocked DWPT had maxMem and the last doc had the
+	// peakDelta
+
+	/*
+		2 * ramBufferBytes
+		 	-> before we stall we need to across the 2xRAM Buffer border
+		 	this is still a valid limit
+		(numPending + numFlusingDWPT() + numBlockedFlushes()) * peakDelta
+		 	-> those are the total number of DWPT that are not active but
+		 	not yet fully flushed. all of them could theoretically be taken
+		 	out of the loop once they crossed the RAM buffer and the last
+		 	document was the peak delta
+		(numDocsSinceStalled * peakDelta)
+		 	-> at any given time, there could be n threads in flight that
+		 	crossed the stall control before we reached the limit and each
+		 	of them could hold a peak document
+	*/
+	expected := 2*ramBufferBytes + int64(fc.numPending+len(fc.flushingWriters)+
+		fc.blockedFlushes.Len())*fc.peakDelta +
+		int64(fc.numDocsSinceStalled)*fc.peakDelta
+
+	// the expected ram consumption is an upper bound at this point and
+	// not really the expected consumption
+	if fc.peakDelta < (ramBufferBytes >> 1) {
+		/*
+			If we are indexing with very low maxRamBuffer, like 0.1MB.
+			Memory can easily overflow if we check out some DWPT based on
+			docCount and have several DWPT in flight indexing large
+			documents (compared to the ram buffer). This means that those
+			DWPT and their threads will not hit the stall control before
+			asserting the memory which would in turn fail. To prevent this
+			we only assert if the largest document seen is smaller tan the
+			1/2 of the maxRamBufferMB
+		*/
+		assertn(ram <= expected,
+			"actual mem: %v, expected mem: %v, flush mem: %v, active mem: %v, pending DWPT: %v, flushing DWPT: %v, blocked DWPT: %v, peakDelta mem: %v",
+			ram, expected, fc._flushBytes, fc._activeBytes, fc.numPending,
+			len(fc.flushingWriters), fc.blockedFlushes.Len(), fc.peakDelta)
+	}
 }
 
 func (fc *DocumentsWriterFlushControl) doAfterDocument(perThread *ThreadState, isUpdate bool) *DocumentsWriterPerThread {
