@@ -174,12 +174,6 @@ func (dwpt *DocumentsWriterPerThread) testPoint(msg string) {
 func (dwpt *DocumentsWriterPerThread) updateDocument(doc []IndexableField,
 	analyzer analysis.Analyzer, delTerm *Term) error {
 
-	panic("not implemented yet")
-}
-
-func (dwpt *DocumentsWriterPerThread) updateDocuments(doc []IndexableField,
-	analyzer analysis.Analyzer, delTerm *Term) error {
-
 	dwpt.testPoint("DocumentsWriterPerThread addDocument start")
 	assert(dwpt.deleteQueue != nil)
 	dwpt.docState.doc = doc
@@ -226,6 +220,13 @@ func (dwpt *DocumentsWriterPerThread) updateDocuments(doc []IndexableField,
 	}
 	dwpt.finishDocument(delTerm)
 	return nil
+}
+
+func (dwpt *DocumentsWriterPerThread) updateDocuments(doc []IndexableField,
+	analyzer analysis.Analyzer, delTerm *Term) error {
+
+	dwpt.testPoint("DocumentsWriterPerThread addDocument start")
+	panic("not implemented yet")
 }
 
 func (dwpt *DocumentsWriterPerThread) finishDocument(delTerm *Term) {
