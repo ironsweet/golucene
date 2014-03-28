@@ -1,6 +1,7 @@
 package index
 
 type DocFieldConsumer interface {
+	finishDocument() error
 }
 
 /*
@@ -17,4 +18,8 @@ func newDocInverter(docState *docState, consumer InvertedDocConsumer,
 	endConsumer InvertedDocEndConsumer) *DocInverter {
 
 	return &DocInverter{consumer, endConsumer, docState}
+}
+
+func (di *DocInverter) finishDocument() error {
+	panic("not implemented yet")
 }

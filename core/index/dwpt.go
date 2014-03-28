@@ -9,6 +9,8 @@ import (
 
 // index/DocumentsWriterPerThread.java
 
+const DWPT_VERBOSE = true
+
 // Returns the DocConsumer that the DocumentsWriter calls to
 // process the documents.
 type IndexingChain func(documentsWriterPerThread *DocumentsWriterPerThread) DocConsumer
@@ -52,8 +54,11 @@ var defaultIndexingChain = func(documentsWriterPerThread *DocumentsWriterPerThre
 
 type docState struct {
 	docWriter  *DocumentsWriterPerThread
+	analyzer   analysis.Analyzer
 	infoStream util.InfoStream
 	similarity Similarity
+	docID      int
+	doc        []IndexableField
 }
 
 func newDocState(docWriter *DocumentsWriterPerThread, infoStream util.InfoStream) *docState {
@@ -61,6 +66,12 @@ func newDocState(docWriter *DocumentsWriterPerThread, infoStream util.InfoStream
 		docWriter:  docWriter,
 		infoStream: infoStream,
 	}
+}
+
+func (ds *docState) clear() {
+	// don't hold onto doc nor analyzer, in case it is largish:
+	ds.doc = nil
+	ds.analyzer = nil
 }
 
 type DocumentsWriterPerThread struct {
@@ -154,8 +165,88 @@ func (dwpt *DocumentsWriterPerThread) checkAndResetHasAborted() (res bool) {
 	return
 }
 
-func (dwpt *DocumentsWriterPerThread) updateDocument(doc []IndexableField, analyzer analysis.Analyzer, delTerm *Term) error {
+func (dwpt *DocumentsWriterPerThread) testPoint(msg string) {
+	if dwpt.infoStream.IsEnabled("TP") {
+		dwpt.infoStream.Message("TP", msg)
+	}
+}
+
+func (dwpt *DocumentsWriterPerThread) updateDocument(doc []IndexableField,
+	analyzer analysis.Analyzer, delTerm *Term) error {
+
 	panic("not implemented yet")
+}
+
+func (dwpt *DocumentsWriterPerThread) updateDocuments(doc []IndexableField,
+	analyzer analysis.Analyzer, delTerm *Term) error {
+
+	dwpt.testPoint("DocumentsWriterPerThread addDocument start")
+	assert(dwpt.deleteQueue != nil)
+	dwpt.docState.doc = doc
+	dwpt.docState.analyzer = analyzer
+	dwpt.docState.docID = dwpt.numDocsInRAM
+	if DWPT_VERBOSE && dwpt.infoStream.IsEnabled("DWPT") {
+		dwpt.infoStream.Message("DWPT", "update delTerm=%v docID=%v seg=%v ",
+			delTerm, dwpt.docState.docID, dwpt.segmentInfo.name)
+	}
+	err := func() error {
+		var success = false
+		defer func() {
+			if !success {
+				if !dwpt.aborting {
+					// mark document as deleted
+					dwpt.deleteDocID(dwpt.docState.docID)
+					dwpt.numDocsInRAM++
+				} else {
+					dwpt.abort(dwpt.filesToDelete)
+				}
+			}
+		}()
+		defer dwpt.docState.clear()
+		err := dwpt.consumer.processDocument(dwpt.fieldInfos)
+		success = err == nil
+		return err
+	}()
+	if err != nil {
+		return err
+	}
+	err = func() error {
+		var success = false
+		defer func() {
+			if !success {
+				dwpt.abort(dwpt.filesToDelete)
+			}
+		}()
+		err := dwpt.consumer.finishDocument()
+		success = err == nil
+		return err
+	}()
+	if err != nil {
+		return err
+	}
+	dwpt.finishDocument(delTerm)
+	return nil
+}
+
+func (dwpt *DocumentsWriterPerThread) finishDocument(delTerm *Term) {
+	panic("not implemented yet")
+}
+
+/*
+Buffer a specific docID for deletion. Currenlty only used when we hit
+an error when adding a document
+*/
+func (dwpt *DocumentsWriterPerThread) deleteDocID(docIDUpto int) {
+	dwpt.pendingDeletes.addDocID(docIDUpto)
+	// NOTE: we do not trigger flush here.  This is
+	// potentially a RAM leak, if you have an app that tries
+	// to add docs but every single doc always hits a
+	// non-aborting exception.  Allowing a flush here gets
+	// very messy because we are only invoked when handling
+	// exceptions so to do this properly, while handling an
+	// exception we'd have to go off and flush new deletes
+	// which is risky (likely would hit some other
+	// confounding exception).
 }
 
 // L600

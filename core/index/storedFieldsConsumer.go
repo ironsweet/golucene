@@ -5,6 +5,7 @@ import (
 )
 
 type StoredFieldsConsumer interface {
+	finishDocument() error
 }
 
 /* Just switches between two DocFieldConsumers */
@@ -15,6 +16,10 @@ type TwoStoredFieldsConsumers struct {
 
 func newTwoStoredFieldsConsumers(first, second StoredFieldsConsumer) *TwoStoredFieldsConsumers {
 	return &TwoStoredFieldsConsumers{first, second}
+}
+
+func (p *TwoStoredFieldsConsumers) finishDocument() error {
+	panic("not implemented yet")
 }
 
 // index/StoredFieldsProcessor.java
@@ -35,6 +40,10 @@ func newStoredFieldsProcessor(docWriter *DocumentsWriterPerThread) *StoredFields
 	}
 }
 
+func (p *StoredFieldsProcessor) finishDocument() error {
+	panic("not implemented yet")
+}
+
 // index/DocValuesProcessor.java
 
 type DocValuesProcessor struct {
@@ -43,4 +52,8 @@ type DocValuesProcessor struct {
 
 func newDocValuesProcessor(bytesUsed util.Counter) *DocValuesProcessor {
 	return &DocValuesProcessor{bytesUsed: bytesUsed}
+}
+
+func (p *DocValuesProcessor) finishDocument() error {
+	panic("not implemented yet")
 }

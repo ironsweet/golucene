@@ -7,8 +7,8 @@ import (
 // index/DocConsumer.java
 
 type DocConsumer interface {
-	// processDocuments(fieldInfos *FieldInfosBuilder) error
-	// finishDocument() error
+	processDocument(fieldInfos *FieldInfosBuilder) error
+	finishDocument() error
 	// flush(state *SegmentWriteState) error
 	abort()
 }
@@ -45,4 +45,15 @@ func newDocFieldProcessor(docWriter *DocumentsWriterPerThread,
 
 func (p *DocFieldProcessor) abort() {
 	panic("not implemented yet")
+}
+
+func (p *DocFieldProcessor) processDocument(fieldInfos *FieldInfosBuilder) error {
+	panic("not implemented yet")
+}
+
+func (p *DocFieldProcessor) finishDocument() (err error) {
+	defer func() {
+		err = mergeError(err, p.consumer.finishDocument())
+	}()
+	return p.storedConsumer.finishDocument()
 }

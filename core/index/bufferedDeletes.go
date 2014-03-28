@@ -3,10 +3,13 @@ package index
 import (
 	"bytes"
 	"fmt"
+	"github.com/balzaczyy/golucene/core/util"
 	"sync/atomic"
 )
 
 // index/BufferedDeletes.java
+
+const BYTES_PER_DEL_DOCID = util.NUM_BYTES_INT
 
 const VERBOSE = true
 
@@ -59,6 +62,11 @@ func (bd *BufferedDeletes) String() string {
 		}
 		return buf.String()
 	}
+}
+
+func (bd *BufferedDeletes) addDocID(docID int) {
+	bd.docIDs = append(bd.docIDs, docID)
+	atomic.AddInt64(&bd.bytesUsed, BYTES_PER_DEL_DOCID)
 }
 
 func (bd *BufferedDeletes) clear() {
