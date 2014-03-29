@@ -1,18 +1,34 @@
 package index
 
+import (
+	"github.com/balzaczyy/golucene/core/store"
+)
+
 /* Prefix codes term instances (prefixes are shared) */
-type PrefixCodedTerms struct{}
+type PrefixCodedTerms struct {
+	buffer *store.RAMFile
+}
+
+func newPrefixCodedTerms(buffer *store.RAMFile) *PrefixCodedTerms {
+	return &PrefixCodedTerms{buffer}
+}
 
 func (terms *PrefixCodedTerms) sizeInBytes() int64 {
-	panic("not implemented yet")
+	return terms.buffer.SizeInBytes()
 }
 
 /* Builds a PrefixCodedTerms: call add repeatedly, then finish. */
 type PrefixCodedTermsBuilder struct {
+	buffer *store.RAMFile
+	output *store.RAMOutputStream
 }
 
 func newPrefixCodedTermsBuilder() *PrefixCodedTermsBuilder {
-	panic("not implemented yet")
+	f := store.NewRAMFileBuffer()
+	return &PrefixCodedTermsBuilder{
+		buffer: f,
+		output: store.NewRAMOutputStream(f),
+	}
 }
 
 func (b *PrefixCodedTermsBuilder) add(term *Term) {
@@ -20,5 +36,9 @@ func (b *PrefixCodedTermsBuilder) add(term *Term) {
 }
 
 func (b *PrefixCodedTermsBuilder) finish() *PrefixCodedTerms {
-	panic("not implemented yet")
+	err := b.output.Close()
+	if err != nil {
+		panic(err)
+	}
+	return newPrefixCodedTerms(b.buffer)
 }

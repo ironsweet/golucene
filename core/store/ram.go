@@ -112,7 +112,7 @@ func (rd *RAMDirectory) CreateOutput(name string, context IOContext) (out IndexO
 		existing.directory = nil
 	}
 	rd.fileMap[name] = file
-	return newRAMOutputStream(file), nil
+	return NewRAMOutputStream(file), nil
 }
 
 // Returns a new RAMFile for storing data. This method can be
@@ -175,7 +175,7 @@ type RAMFile struct {
 	newBuffer   func(size int) []byte
 }
 
-func newRAMFileBuffer() *RAMFile {
+func NewRAMFileBuffer() *RAMFile {
 	return &RAMFile{
 		Locker:    &sync.Mutex{},
 		newBuffer: newBuffer,
@@ -451,7 +451,7 @@ type RAMOutputStream struct {
 	bufferLength   int
 }
 
-func newRAMOutputStream(f *RAMFile) *RAMOutputStream {
+func NewRAMOutputStream(f *RAMFile) *RAMOutputStream {
 	// make sure that we switch to the first needed buffer lazily
 	out := &RAMOutputStream{file: f, currentBufferIndex: -1}
 	out.IndexOutputImpl = NewIndexOutput(out)
