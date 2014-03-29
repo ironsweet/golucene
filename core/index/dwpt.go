@@ -274,7 +274,17 @@ Prepares this DWPT fo flushing. This method will freeze and return
 the DWDQs global buffer and apply all pending deletes to this DWPT.
 */
 func (dwpt *DocumentsWriterPerThread) prepareFlush() *FrozenBufferedDeletes {
-	panic("not implemented yet")
+	assert(dwpt.numDocsInRAM > 0)
+	globalDeletes := dwpt.deleteQueue.freezeGlobalBuffer(dwpt.deleteSlice)
+	// deleteSlice can possibly be nil if we have hit non-aborting
+	// errors during adding a document.
+	if dwpt.deleteSlice != nil {
+		// apply all deletes before we flush and release the delete slice
+		dwpt.deleteSlice.apply(dwpt.pendingDeletes, dwpt.numDocsInRAM)
+		assert(dwpt.deleteSlice.isEmpty())
+		dwpt.deleteSlice.reset()
+	}
+	return globalDeletes
 }
 
 /* Flush all pending docs to a new segment */

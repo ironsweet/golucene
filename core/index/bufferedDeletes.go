@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
+	"math"
 	"sync/atomic"
 )
 
 // index/BufferedDeletes.java
 
 const BYTES_PER_DEL_DOCID = util.NUM_BYTES_INT
+
+const MAX_INT = int(math.MaxInt32)
 
 const VERBOSE = true
 

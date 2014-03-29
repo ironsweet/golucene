@@ -75,6 +75,30 @@ func newDocumentsWriterDeleteQueueWith(globalBufferedDeletes *BufferedDeletes, g
 	}
 }
 
+func (dq *DocumentsWriterDeleteQueue) freezeGlobalBuffer(callerSlice *DeleteSlice) *FrozenBufferedDeletes {
+	dq.globalBufferLock.Lock()
+	defer dq.globalBufferLock.Unlock()
+
+	// Here we freeze the global buffer so we need to lock it, apply
+	// all deletes in the queue and reset the global slice to let the
+	// GC prune the queue.
+	currentTail := dq.tail
+	// take the current tail and make this local. Any changes after
+	// this call are applied later and not relevant here
+	if callerSlice != nil {
+		// update the callers slices so we are on the same page
+		callerSlice.tail = currentTail
+	}
+	if dq.globalSlice.tail != currentTail {
+		dq.globalSlice.tail = currentTail
+		dq.globalSlice.apply(dq.globalBufferedDeletes, MAX_INT)
+	}
+
+	packet := freezeBufferedDeletes(dq.globalBufferedDeletes, false)
+	dq.globalBufferedDeletes.clear()
+	return packet
+}
+
 func (dq *DocumentsWriterDeleteQueue) anyChanges() bool {
 	dq.globalBufferLock.Lock()
 	defer dq.globalBufferLock.Unlock()
@@ -117,6 +141,29 @@ func newDeleteSlice(currentTail *Node) *DeleteSlice {
 	return &DeleteSlice{head: currentTail, tail: currentTail}
 }
 
+func (ds *DeleteSlice) apply(del *BufferedDeletes, docIDUpto int) {
+	if ds.head == ds.tail {
+		// 0 length slice
+		return
+	}
+	// When we apply a slice we take the head and get its next as our
+	// first item to apply and continue until we applied the tail. If
+	// the head and tail in this slice are not equal then there will be
+	// at least one more non-nil node in the slice!
+	for current := ds.head; current != ds.tail; {
+		current = current.next
+		assert2(current != nil,
+			"slice property violated between the head on the tail must not be a null node")
+		current.apply(del, docIDUpto)
+	}
+	ds.reset()
+}
+
+func (ds *DeleteSlice) reset() {
+	// reset to 0 length slice
+	ds.head = ds.tail
+}
+
 func (ds *DeleteSlice) isEmpty() bool {
 	return ds.head == ds.tail
 }
@@ -128,4 +175,8 @@ type Node struct {
 
 func newNode(item interface{}) *Node {
 	return &Node{item: item}
+}
+
+func (node *Node) apply(bufferedDeletes *BufferedDeletes, docIDUpto int) {
+	panic("sentinel item must never be applied")
 }
