@@ -101,6 +101,10 @@ func newFrozenBufferedDeletes() *FrozenBufferedDeletes {
 	return &FrozenBufferedDeletes{gen: -1}
 }
 
+func freezeBufferedDeletes(deletes *BufferedDeletes, isPrivate bool) *FrozenBufferedDeletes {
+	panic("not implemented yet")
+}
+
 func (bd *FrozenBufferedDeletes) queries() []*QueryAndLimit {
 	panic("not implemented yet")
 }

@@ -112,6 +112,10 @@ func newDocumentsWriter(writer *IndexWriter, config *LiveIndexWriterConfig, dire
 	return ans
 }
 
+func (dw *DocumentsWriter) applyAllDeletes(deleteQueue *DocumentsWriterDeleteQueue) (bool, error) {
+	panic("not implemented yet")
+}
+
 func (dw *DocumentsWriter) ensureOpen() {
 	assert2(!dw.closed, "this IndexWriter is closed")
 }
@@ -287,7 +291,134 @@ func (dw *DocumentsWriter) updateDocument(doc []IndexableField,
 }
 
 func (dw *DocumentsWriter) doFlush(flushingDWPT *DocumentsWriterPerThread) (bool, error) {
-	panic("not implemented yet")
+	var hasEvents = false
+	for flushingDWPT != nil {
+		hasEvents = true
+		stop, err := func() (bool, error) {
+			defer func() {
+				dw.flushControl.doAfterFlush(flushingDWPT)
+				flushingDWPT.checkAndResetHasAborted()
+			}()
+
+			assertn(dw.currentFullFlushDelQueue == nil ||
+				flushingDWPT.deleteQueue == dw.currentFullFlushDelQueue,
+				"expected: %v but was %v %v",
+				dw.currentFullFlushDelQueue,
+				flushingDWPT.deleteQueue,
+				dw.flushControl.fullFlush)
+
+			/*
+				Since, with DWPT, the flush process is concurrent and several
+				DWPT could flush at the same time, we must maintain the order
+				or the flushes before we can apply the flushed segment and
+				the frozen global deletes it is buffering. The reason for
+				this is that the global deletes mark a certain point in time
+				where we took a DWPT out of rotation and freeze the global
+				deletes.
+
+				Example: A flush 'A' starts and freezes the global deletes,
+				then flush 'B' starts and freezes all deletes occurred since
+				'A' has started. If 'B' finishes before 'A', we need to wait
+				until 'A' is done, otherwise the deletes frozen by 'B' are
+				not applied to 'A' and we might miss to deletes documents in
+				'A'.
+			*/
+
+			err := func() error {
+				var success = false
+				var ticket *SegmentFlushTicket
+				defer func() {
+					if !success && ticket != nil {
+						// In the case of a failure, make sure we are making
+						// progress and apply all the deletes since the segment
+						// flush failed since the flush ticket could hold global
+						// deletes. See FlushTicket.canPublish().
+						dw.ticketQueue.markTicketFailed(ticket)
+					}
+				}()
+
+				// Each flush is assigned a ticket in the order they acquire the ticketQueue lock
+				ticket = dw.ticketQueue.addFlushTicket(flushingDWPT)
+
+				flushingDocsInRAM := flushingDWPT.numDocsInRAM
+				err := func() error {
+					var dwptSuccess = false
+					defer func() {
+						dw.subtractFlushedNumDocs(flushingDocsInRAM)
+						if len(flushingDWPT.filesToDelete) > 0 {
+							dw.putEvent(newDeleteNewFilesEvent(flushingDWPT.filesToDelete))
+							hasEvents = true
+						}
+						if !dwptSuccess {
+							dw.putEvent(newFlushFailedEvent(flushingDWPT.segmentInfo))
+							hasEvents = true
+						}
+					}()
+
+					// flush concurrently without locking
+					newSegment, err := flushingDWPT.flush()
+					if err != nil {
+						return err
+					}
+					dw.ticketQueue.addSegment(ticket, newSegment)
+					dwptSuccess = true
+					return nil
+				}()
+				if err != nil {
+					return err
+				}
+				// flush was successful once we reached this point - new seg.
+				// has been assigned to the ticket!
+				success = true
+				return nil
+			}()
+			if err != nil {
+				return false, err
+			}
+			// Now we are done and try to flush the ticket queue if the
+			// head of the queue has already finished the flush.
+			if dw.ticketQueue.ticketCount() >= dw.perThreadPool.numActiveThreadState() {
+				// This means there is a backlog: the one thread in
+				// innerPurge can't keep up with all other threads flusing
+				// segments. In this case we forcefully stall the producers.
+				dw.putEvent(forcedPurgeEvent)
+				return true, nil
+			}
+			return false, nil
+		}()
+		if err != nil {
+			return false, err
+		}
+		if stop {
+			break
+		}
+
+		flushingDWPT = dw.flushControl.nextPendingFlush()
+	}
+	if hasEvents {
+		dw.putEvent(mergePendingEvent)
+	}
+	// If deletes alone are consuming > 1/2 our RAM buffer, force them
+	// all to apply now. This is to prevent too-frequent flushing of a
+	// long tail tiny segments:
+	if ramBufferSizeMB := dw.config.ramBufferSizeMB; ramBufferSizeMB != DISABLE_AUTO_FLUSH &&
+		dw.flushControl.deleteBytesUsed() > int64(1024*1024*ramBufferSizeMB/2) {
+
+		if dw.infoStream.IsEnabled("DW") {
+			dw.infoStream.Message("DW", "force apply deletes bytesUsed=%v vs ramBuffer=%v",
+				dw.flushControl.deleteBytesUsed(), 1024*1024*ramBufferSizeMB)
+		}
+		hasEvents = true
+		ok, err := dw.applyAllDeletes(dw.deleteQueue)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			dw.putEvent(applyDeletesEvent)
+		}
+	}
+
+	return hasEvents, nil
 }
 
 func (dw *DocumentsWriter) subtractFlushedNumDocs(numFlushed int) {
@@ -392,25 +523,4 @@ func (dw *DocumentsWriter) processEvents(writer *IndexWriter, triggerMerge, forc
 		e.Value.(Event)(writer, triggerMerge, forcePurge)
 	}
 	return processed
-}
-
-/*
-Interface for internal atomic events. See DocumentsWriter fo details.
-Events are executed concurrently and no order is guaranteed. Each
-event should only rely on the serializeability within its process
-method. All actions that must happen before or after a certain action
-must be encoded inside the process() method.
-*/
-type Event func(writer *IndexWriter, triggerMerge, clearBuffers bool)
-
-func newDeleteNewFilesEvent(files map[string]bool) Event {
-	return Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) {
-		writer.Lock()
-		defer writer.Unlock()
-		var fileList []string
-		for file, _ := range files {
-			fileList = append(fileList, file)
-		}
-		writer.deleter.deleteNewFiles(fileList)
-	})
 }

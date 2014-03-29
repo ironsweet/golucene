@@ -15,8 +15,8 @@ type DocumentsWriterFlushQueue struct {
 	// we track tickets separately since count must be present even
 	// before the ticket is constructed, ie. queue.size would not
 	// reflect it.
-	ticketCount int32 // aomitc
-	purgeLock   sync.Locker
+	_ticketCount int32 // aomitc
+	purgeLock    sync.Locker
 }
 
 func newDocumentsWriterFlushQueue() *DocumentsWriterFlushQueue {
@@ -31,8 +31,20 @@ func (fq *DocumentsWriterFlushQueue) addDeletes(deleteQueue *DocumentsWriterDele
 	panic("not implemented yet")
 }
 
+func (fq *DocumentsWriterFlushQueue) addFlushTicket(dwpt *DocumentsWriterPerThread) *SegmentFlushTicket {
+	panic("not implemented yet")
+}
+
+func (fq *DocumentsWriterFlushQueue) addSegment(ticket *SegmentFlushTicket, segment *FlushedSegment) {
+	panic("not implemented yet")
+}
+
+func (fq *DocumentsWriterFlushQueue) markTicketFailed(ticket *SegmentFlushTicket) {
+	panic("not implemented yet")
+}
+
 func (fq *DocumentsWriterFlushQueue) hasTickets() bool {
-	n := atomic.LoadInt32(&fq.ticketCount)
+	n := atomic.LoadInt32(&fq._ticketCount)
 	assertn(n >= 0, "ticketCount should be >= 0 but was: ", n)
 	return n != 0
 }
@@ -62,7 +74,7 @@ func (fq *DocumentsWriterFlushQueue) _purge(writer *IndexWriter) (numPurged int,
 					// remove the published ticket from the queue
 					e := fq.queue.Front()
 					fq.queue.Remove(e)
-					atomic.AddInt32(&fq.ticketCount, -1)
+					atomic.AddInt32(&fq._ticketCount, -1)
 					assert(e.Value.(FlushTicket) == head)
 				}()
 				// if we block on publish -> lock IW -> lock BufferedDeletes,
@@ -87,6 +99,10 @@ func (fq *DocumentsWriterFlushQueue) forcePurge(writer *IndexWriter) (int, error
 	return fq._purge(writer)
 }
 
+func (fq *DocumentsWriterFlushQueue) ticketCount() int {
+	return int(atomic.LoadInt32(&fq._ticketCount))
+}
+
 type FlushTicket interface {
 	canPublish() bool
 	publish(writer *IndexWriter) error
@@ -96,3 +112,5 @@ type FlushTicketImpl struct {
 	frozenDeletes *FrozenBufferedDeletes
 	published     bool
 }
+
+type SegmentFlushTicket struct{}

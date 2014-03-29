@@ -84,6 +84,10 @@ func NewDocumentsWriterPerThreadPool(maxNumThreadStates int) *DocumentsWriterPer
 	}
 }
 
+func (tp *DocumentsWriterPerThreadPool) numActiveThreadState() int {
+	return len(tp.threadStates)
+}
+
 func (tp *DocumentsWriterPerThreadPool) reset(threadState *ThreadState, closed bool) *DocumentsWriterPerThread {
 	dwpt := threadState.dwpt
 	if !closed {

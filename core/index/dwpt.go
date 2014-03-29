@@ -74,6 +74,25 @@ func (ds *docState) clear() {
 	ds.analyzer = nil
 }
 
+type FlushedSegment struct {
+	segmentInfo    *SegmentInfoPerCommit
+	fieldInfos     *FieldInfos
+	segmentDeletes *FrozenBufferedDeletes
+	// liveDocs       MutableBits
+	delCount int
+}
+
+// func newFlushedSegment(segmentInfo *SegmentInfoPerCommit,
+// 	fieldInfos *FieldInfos, segmentDeletes *BufferedDeletes,
+// 	liveDocs MutableBits, delCount int) *FlushedSegment {
+
+// 	var sd *FrozenBufferedDeletes
+// 	if segmentDeletes != nil && segmentDeletes.any() {
+// 		sd = freezeBufferedDeletes(segmentDeletes, true)
+// 	}
+// 	return &FlushedSegment{segmentInfo, fieldInfos, sd, liveDocs, delCount}
+// }
+
 type DocumentsWriterPerThread struct {
 	codec         Codec
 	directory     *TrackingDirectoryWrapper
@@ -248,6 +267,11 @@ func (dwpt *DocumentsWriterPerThread) deleteDocID(docIDUpto int) {
 	// exception we'd have to go off and flush new deletes
 	// which is risky (likely would hit some other
 	// confounding exception).
+}
+
+/* Flush all pending docs to a new segment */
+func (dwpt *DocumentsWriterPerThread) flush() (*FlushedSegment, error) {
+	panic("not implemented yet")
 }
 
 // L600

@@ -265,6 +265,14 @@ func (fc *DocumentsWriterFlushControl) close() {
 	}
 }
 
+/* Various statistics */
+
+func (fc *DocumentsWriterFlushControl) deleteBytesUsed() int64 {
+	panic("not implemented yet")
+}
+
+// L444
+
 func (fc *DocumentsWriterFlushControl) obtainAndLock() *ThreadState {
 	perThread := fc.perThreadPool.lockAny()
 	var success = false

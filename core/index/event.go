@@ -1,0 +1,40 @@
+package index
+
+/*
+Interface for internal atomic events. See DocumentsWriter fo details.
+Events are executed concurrently and no order is guaranteed. Each
+event should only rely on the serializeability within its process
+method. All actions that must happen before or after a certain action
+must be encoded inside the process() method.
+*/
+type Event func(writer *IndexWriter, triggerMerge, clearBuffers bool)
+
+var applyDeletesEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) {
+	panic("not implemented yet")
+})
+
+var mergePendingEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) {
+	panic("not implemented yet")
+})
+
+var forcedPurgeEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) {
+	panic("not implemented yet")
+})
+
+func newFlushFailedEvent(info *SegmentInfo) Event {
+	return Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) {
+		panic("not implemented yet")
+	})
+}
+
+func newDeleteNewFilesEvent(files map[string]bool) Event {
+	return Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) {
+		writer.Lock()
+		defer writer.Unlock()
+		var fileList []string
+		for file, _ := range files {
+			fileList = append(fileList, file)
+		}
+		writer.deleter.deleteNewFiles(fileList)
+	})
+}
