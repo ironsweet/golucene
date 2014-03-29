@@ -7,28 +7,28 @@ event should only rely on the serializeability within its process
 method. All actions that must happen before or after a certain action
 must be encoded inside the process() method.
 */
-type Event func(writer *IndexWriter, triggerMerge, clearBuffers bool)
+type Event func(writer *IndexWriter, triggerMerge, clearBuffers bool) error
 
-var applyDeletesEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) {
+var applyDeletesEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) error {
 	panic("not implemented yet")
 })
 
-var mergePendingEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) {
+var mergePendingEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) error {
 	panic("not implemented yet")
 })
 
-var forcedPurgeEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) {
+var forcedPurgeEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) error {
 	panic("not implemented yet")
 })
 
 func newFlushFailedEvent(info *SegmentInfo) Event {
-	return Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) {
-		panic("not implemented yet")
+	return Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) error {
+		return writer.flushFailed(info)
 	})
 }
 
 func newDeleteNewFilesEvent(files map[string]bool) Event {
-	return Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) {
+	return Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) error {
 		writer.Lock()
 		defer writer.Unlock()
 		var fileList []string
@@ -36,5 +36,6 @@ func newDeleteNewFilesEvent(files map[string]bool) Event {
 			fileList = append(fileList, file)
 		}
 		writer.deleter.deleteNewFiles(fileList)
+		return nil
 	})
 }

@@ -1458,6 +1458,13 @@ func (w *IndexWriter) deleteNewFiles(files []string) error {
 	panic("not implemented yet")
 }
 
+/* Cleans up residuals from a segment that could not be entirely flushed due to an error */
+func (w *IndexWriter) flushFailed(info *SegmentInfo) error {
+	w.Lock()
+	defer w.Unlock()
+	return w.deleter.refresh(info.name)
+}
+
 func (w *IndexWriter) purge(forced bool) (n int, err error) {
 	panic("not implemented yet")
 }

@@ -262,6 +262,16 @@ func (fd *IndexFileDeleter) deleteCommits() error {
 	return nil
 }
 
+/*
+Writer calls this when it has hit an error and had to roll back, to
+tell us that there may now be unreferenced files in the filesystem.
+So we re-list the filesystem and delete such files. If segmentName is
+non-empty, we only delete files correspoding to that segment.
+*/
+func (fd *IndexFileDeleter) refresh(segmentName string) error {
+	panic("not implemented yet")
+}
+
 func (fd *IndexFileDeleter) Close() error {
 	// DecRef old files from the last checkpoint, if any:
 	// assert locked
