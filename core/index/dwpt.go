@@ -269,6 +269,14 @@ func (dwpt *DocumentsWriterPerThread) deleteDocID(docIDUpto int) {
 	// confounding exception).
 }
 
+/*
+Prepares this DWPT fo flushing. This method will freeze and return
+the DWDQs global buffer and apply all pending deletes to this DWPT.
+*/
+func (dwpt *DocumentsWriterPerThread) prepareFlush() *FrozenBufferedDeletes {
+	panic("not implemented yet")
+}
+
 /* Flush all pending docs to a new segment */
 func (dwpt *DocumentsWriterPerThread) flush() (*FlushedSegment, error) {
 	panic("not implemented yet")

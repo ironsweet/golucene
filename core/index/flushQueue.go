@@ -31,8 +31,32 @@ func (fq *DocumentsWriterFlushQueue) addDeletes(deleteQueue *DocumentsWriterDele
 	panic("not implemented yet")
 }
 
+func (fq *DocumentsWriterFlushQueue) incTickets() {
+	assert(atomic.AddInt32(&fq._ticketCount, 1) > 0)
+}
+
+func (fq *DocumentsWriterFlushQueue) decTickets() {
+	assert(atomic.AddInt32(&fq._ticketCount, -1) >= 0)
+}
+
 func (fq *DocumentsWriterFlushQueue) addFlushTicket(dwpt *DocumentsWriterPerThread) *SegmentFlushTicket {
-	panic("not implemented yet")
+	fq.Lock()
+	defer fq.Unlock()
+
+	// Each flush is assigned a ticket in the order they acquire the ticketQueue lock
+	fq.incTickets()
+	var success = false
+	defer func() {
+		if !success {
+			fq.decTickets()
+		}
+	}()
+
+	// prepare flush freezes the global deletes - do in synced block!
+	ticket := newSegmentFlushTicket(dwpt.prepareFlush())
+	fq.queue.PushBack(ticket)
+	success = true
+	return ticket
 }
 
 func (fq *DocumentsWriterFlushQueue) addSegment(ticket *SegmentFlushTicket, segment *FlushedSegment) {
@@ -114,3 +138,7 @@ type FlushTicketImpl struct {
 }
 
 type SegmentFlushTicket struct{}
+
+func newSegmentFlushTicket(frozenDeletes *FrozenBufferedDeletes) *SegmentFlushTicket {
+	panic("not implemented yet")
+}
