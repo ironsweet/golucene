@@ -137,8 +137,17 @@ type FlushTicketImpl struct {
 	published     bool
 }
 
-type SegmentFlushTicket struct{}
+func newFlushTicket(frozenDeletes *FrozenBufferedDeletes) *FlushTicketImpl {
+	assert(frozenDeletes != nil)
+	return &FlushTicketImpl{frozenDeletes: frozenDeletes}
+}
+
+type SegmentFlushTicket struct {
+	*FlushTicketImpl
+}
 
 func newSegmentFlushTicket(frozenDeletes *FrozenBufferedDeletes) *SegmentFlushTicket {
-	panic("not implemented yet")
+	return &SegmentFlushTicket{
+		FlushTicketImpl: newFlushTicket(frozenDeletes),
+	}
 }
