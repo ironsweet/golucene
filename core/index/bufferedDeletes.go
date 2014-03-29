@@ -10,7 +10,11 @@ import (
 
 // index/BufferedDeletes.java
 
-const BYTES_PER_DEL_DOCID = util.NUM_BYTES_INT
+/* Go slice consumes two int for an extra doc ID, assuming 50% pre-allocation. */
+const BYTES_PER_DEL_DOCID = 2 * util.NUM_BYTES_INT
+
+/* Go map (amd64) consumes about 40 bytes for an extra entry. */
+const BYTES_PER_DEL_QUERY = 40 + util.NUM_BYTES_OBJECT_REF + util.NUM_BYTES_INT
 
 const MAX_INT = int(math.MaxInt32)
 
@@ -92,7 +96,14 @@ are write-once, so we shift to more memory efficient data structure
 to hold them. We don't hold docIDs because these are applied on flush.
 */
 type FrozenBufferedDeletes struct {
-	bytesUsed      int
+	// Terms, in sorted order:
+	terms     *PrefixCodedTerms
+	termCount int // just for debugging
+
+	// Parallel array of deleted query, and the docIDUpto for each
+	_queries       []Query
+	queryLimits    []int
+	bytesUsed      int64
 	numTermDeletes int
 	gen            int64 // -1, assigned by BufferedDeletesStream once pushed
 	// true iff this frozen packet represents a segment private deletes
@@ -100,12 +111,39 @@ type FrozenBufferedDeletes struct {
 	isSegmentPrivate bool
 }
 
-func newFrozenBufferedDeletes() *FrozenBufferedDeletes {
-	return &FrozenBufferedDeletes{gen: -1}
-}
-
 func freezeBufferedDeletes(deletes *BufferedDeletes, isPrivate bool) *FrozenBufferedDeletes {
-	panic("not implemented yet")
+	assert2(!isPrivate || len(deletes.terms) == 0,
+		"segment private package should only have del queries")
+	var termsArray []*Term
+	for k, _ := range deletes.terms {
+		termsArray = append(termsArray, k)
+	}
+	util.TimSort(TermSorter(termsArray))
+	builder := newPrefixCodedTermsBuilder()
+	for _, term := range termsArray {
+		builder.add(term)
+	}
+	terms := builder.finish()
+
+	queries := make([]Query, len(deletes.queries))
+	queryLimits := make([]int, len(deletes.queries))
+	var upto = 0
+	for k, v := range deletes.queries {
+		queries[upto] = k
+		queryLimits[upto] = v
+		upto++
+	}
+
+	return &FrozenBufferedDeletes{
+		gen:              -1,
+		isSegmentPrivate: isPrivate,
+		termCount:        len(termsArray),
+		terms:            terms,
+		_queries:         queries,
+		queryLimits:      queryLimits,
+		bytesUsed:        terms.sizeInBytes() + int64(len(queries))*BYTES_PER_DEL_QUERY,
+		numTermDeletes:   int(atomic.LoadInt32(&deletes.numTermDeletes)),
+	}
 }
 
 func (bd *FrozenBufferedDeletes) queries() []*QueryAndLimit {

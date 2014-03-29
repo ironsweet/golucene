@@ -7,6 +7,16 @@ import (
 	"sort"
 )
 
+// index/Term.java
+
+/*
+A Term represents a word from text. This is the unit of search. It is
+composed of two elements, the text of the word, as a string, and the
+name of the field that the text occurred in.
+
+Note that terms may represents more than words from text fields, but
+also things like dates, email addresses, urls, etc.
+*/
 type Term struct {
 	Field string
 	Bytes []byte
@@ -14,6 +24,21 @@ type Term struct {
 
 func NewTerm(fld string, text string) Term {
 	return Term{fld, []byte(text)}
+}
+
+type TermSorter []*Term
+
+func (s TermSorter) Len() int      { return len(s) }
+func (s TermSorter) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s TermSorter) Less(i, j int) bool {
+	if s[i].Field == s[j].Field {
+		return util.UTF8SortedAsUnicodeLess(s[i].Bytes, s[j].Bytes)
+	}
+	return s[i].Field < s[j].Field
+}
+
+func (t *Term) String() string {
+	return fmt.Sprintf("%v:%v", t.Field, string(t.Bytes))
 }
 
 type Terms interface {

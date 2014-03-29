@@ -1,13 +1,8 @@
 package util
 
-type BytesRefs [][]byte
+// util/BytesRef.java
 
-func (br BytesRefs) Len() int {
-	return len(br)
-}
-
-func (br BytesRefs) Less(i, j int) bool {
-	aBytes, bBytes := br[i], br[j]
+func UTF8SortedAsUnicodeLess(aBytes, bBytes []byte) bool {
 	aLen, bLen := len(aBytes), len(bBytes)
 
 	for i, _ := range aBytes {
@@ -21,6 +16,17 @@ func (br BytesRefs) Less(i, j int) bool {
 
 	// One is a prefix of the other, or, they are equal:
 	return aLen < bLen
+}
+
+type BytesRefs [][]byte
+
+func (br BytesRefs) Len() int {
+	return len(br)
+}
+
+func (br BytesRefs) Less(i, j int) bool {
+	aBytes, bBytes := br[i], br[j]
+	return UTF8SortedAsUnicodeLess(aBytes, bBytes)
 }
 
 func (br BytesRefs) Swap(i, j int) {
