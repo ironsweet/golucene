@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	. "github.com/balzaczyy/golucene/core/codec/lucene40"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 )
@@ -194,8 +195,10 @@ cleared, DGaps would be used:
 type Lucene40LiveDocsFormat struct {
 }
 
-func (format *Lucene40LiveDocsFormat) NewLiveDocs(size int) (util.MutableBits, error) {
-	panic("not implemented yet")
+func (format *Lucene40LiveDocsFormat) NewLiveDocs(size int) util.MutableBits {
+	ans := NewBitVector(size)
+	ans.InvertAll()
+	return ans
 }
 
 func (format *Lucene40LiveDocsFormat) WriteLiveDocs(bits util.MutableBits,

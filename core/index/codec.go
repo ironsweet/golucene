@@ -431,7 +431,7 @@ type DocValuesProducer interface {
 /* Format for live/deleted documents */
 type LiveDocsFormat interface {
 	// Creates a new MutableBits, with all bits set, for the specified size.
-	NewLiveDocs(size int) (util.MutableBits, error)
+	NewLiveDocs(size int) util.MutableBits
 	// Creates a new MutableBits of the same bits set and size of existing.
 	// NewLiveDocs(existing util.Bits) (util.MutableBits, error)
 	// Persist live docs bits. Use SegmentInfoPerCommit.nextDelGen() to

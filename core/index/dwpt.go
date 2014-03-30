@@ -304,10 +304,7 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 	// error is hit processing that doc, e.g., if analyzer has some
 	// problem with the text):
 	if delCount := len(dwpt.pendingDeletes.docIDs); delCount > 0 {
-		flushState.liveDocs, err = dwpt.codec.LiveDocsFormat().NewLiveDocs(dwpt.numDocsInRAM)
-		if err != nil {
-			return nil, err
-		}
+		flushState.liveDocs = dwpt.codec.LiveDocsFormat().NewLiveDocs(dwpt.numDocsInRAM)
 		for _, delDocID := range dwpt.pendingDeletes.docIDs {
 			flushState.liveDocs.Clear(delDocID)
 		}
