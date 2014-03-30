@@ -23,7 +23,7 @@ var Lucene45Codec = &CodecImpl{
 	vectorsFormat:    newLucene42TermVectorsFormat(),
 	fieldInfosFormat: newLucene42FieldInfosFormat(),
 	infosFormat:      newLucene40SegmentInfoFormat(),
-	// liveDocsFormat: newLucene40LiveDocsFormat(),
+	liveDocsFormat:   new(Lucene40LiveDocsFormat),
 	postingsFormat: newPerFieldPostingsFormat(func(field string) PostingsFormat {
 		panic("not implemented yet")
 	}),
