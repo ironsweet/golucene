@@ -28,7 +28,7 @@ type SegmentWriteState struct {
 	infoStream        util.InfoStream
 	directory         store.Directory
 	segmentInfo       *SegmentInfo
-	fieldInfos        *FieldInfos
+	fieldInfos        FieldInfos
 	delCountOnFlush   int
 	segDeletes        *BufferedDeletes
 	liveDocs          util.MutableBits
@@ -38,7 +38,7 @@ type SegmentWriteState struct {
 }
 
 func newSegmentWriteState(infoStream util.InfoStream, dir store.Directory,
-	segmentInfo *SegmentInfo, fieldInfos *FieldInfos, termIndexInterval int,
+	segmentInfo *SegmentInfo, fieldInfos FieldInfos, termIndexInterval int,
 	segDeletes *BufferedDeletes, ctx store.IOContext) SegmentWriteState {
 
 	return SegmentWriteState{

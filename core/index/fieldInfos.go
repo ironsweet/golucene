@@ -123,18 +123,22 @@ func (fn *FieldNumbers) addOrGet(name string, preferredNumber int, dv DocValuesT
 }
 
 type FieldInfosBuilder struct {
-	byName             map[string]*FieldInfo
+	byName             map[string]FieldInfo
 	globalFieldNumbers *FieldNumbers
 }
 
 func newFieldInfosBuilder(globalFieldNumbers *FieldNumbers) *FieldInfosBuilder {
 	assert(globalFieldNumbers != nil)
 	return &FieldInfosBuilder{
-		byName:             make(map[string]*FieldInfo),
+		byName:             make(map[string]FieldInfo),
 		globalFieldNumbers: globalFieldNumbers,
 	}
 }
 
-func (b *FieldInfosBuilder) finish() *FieldInfos {
-	panic("not implemented yet")
+func (b *FieldInfosBuilder) finish() FieldInfos {
+	var infos []FieldInfo
+	for _, v := range b.byName {
+		infos = append(infos, v)
+	}
+	return NewFieldInfos(infos)
 }

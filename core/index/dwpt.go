@@ -77,14 +77,14 @@ func (ds *docState) clear() {
 
 type FlushedSegment struct {
 	segmentInfo    *SegmentInfoPerCommit
-	fieldInfos     *FieldInfos
+	fieldInfos     FieldInfos
 	segmentDeletes *FrozenBufferedDeletes
 	liveDocs       util.MutableBits
 	delCount       int
 }
 
 func newFlushedSegment(segmentInfo *SegmentInfoPerCommit,
-	fieldInfos *FieldInfos, segmentDeletes *BufferedDeletes,
+	fieldInfos FieldInfos, segmentDeletes *BufferedDeletes,
 	liveDocs util.MutableBits, delCount int) *FlushedSegment {
 
 	var sd *FrozenBufferedDeletes
@@ -291,8 +291,7 @@ func (dwpt *DocumentsWriterPerThread) prepareFlush() *FrozenBufferedDeletes {
 /* Flush all pending docs to a new segment */
 func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 	assert(dwpt.numDocsInRAM > 0)
-	assert2(dwpt.deleteSlice.isEmpty(),
-		"all deletes must be applied in prepareFlush")
+	assert2(dwpt.deleteSlice.isEmpty(), "all deletes must be applied in prepareFlush")
 	dwpt.segmentInfo.docCount.Set(dwpt.numDocsInRAM)
 	numBytesUsed := dwpt.bytesUsed()
 	flushState := newSegmentWriteState(dwpt.infoStream, dwpt.directory,
