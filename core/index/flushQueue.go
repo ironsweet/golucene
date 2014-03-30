@@ -64,7 +64,10 @@ func (fq *DocumentsWriterFlushQueue) addSegment(ticket *SegmentFlushTicket, segm
 }
 
 func (fq *DocumentsWriterFlushQueue) markTicketFailed(ticket *SegmentFlushTicket) {
-	panic("not implemented yet")
+	fq.Lock()
+	defer fq.Unlock()
+	// to free the queue we mark tickets as failed just to clean up the queue.
+	ticket.fail()
 }
 
 func (fq *DocumentsWriterFlushQueue) hasTickets() bool {
@@ -144,10 +147,17 @@ func newFlushTicket(frozenDeletes *FrozenBufferedDeletes) *FlushTicketImpl {
 
 type SegmentFlushTicket struct {
 	*FlushTicketImpl
+	segment *FlushedSegment
+	failed  bool
 }
 
 func newSegmentFlushTicket(frozenDeletes *FrozenBufferedDeletes) *SegmentFlushTicket {
 	return &SegmentFlushTicket{
 		FlushTicketImpl: newFlushTicket(frozenDeletes),
 	}
+}
+
+func (ticket *SegmentFlushTicket) fail() {
+	assert(ticket.segment == nil)
+	ticket.failed = true
 }
