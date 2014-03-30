@@ -269,7 +269,37 @@ So we re-list the filesystem and delete such files. If segmentName is
 non-empty, we only delete files correspoding to that segment.
 */
 func (fd *IndexFileDeleter) refresh(segmentName string) error {
-	panic("not implemented yet")
+	// assert locked()
+
+	var prefix1, prefix2 string
+	if segmentName != "" {
+		prefix1 = segmentName + "."
+		prefix2 = segmentName + "_"
+	}
+
+	m := CODEC_FILE_PATTERN
+	files, err := fd.directory.ListAll()
+	if err != nil {
+		return err
+	}
+	for _, filename := range files {
+		_, hasRef := fd.refCounts[filename]
+		if (segmentName == "" || strings.HasPrefix(filename, prefix1) ||
+			strings.HasPrefix(filename, prefix2)) &&
+			!strings.HasSuffix(filename, "write.lock") &&
+			!hasRef && filename != INDEX_FILENAME_SEGMENTS_GEN &&
+			(m.MatchString(filename) || strings.HasPrefix(filename, INDEX_FILENAME_SEGMENTS)) {
+
+			// Unreferenced file, so remove it
+			if fd.infoStream.IsEnabled("IFD") {
+				fd.infoStream.Message("IFD",
+					"refresh [prefix=%v]: removing newly created unreferenced file '%v'",
+					segmentName, filename)
+			}
+			fd.deleteFile(filename)
+		}
+	}
+	return nil
 }
 
 func (fd *IndexFileDeleter) Close() error {
