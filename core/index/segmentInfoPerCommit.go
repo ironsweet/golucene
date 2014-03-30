@@ -78,7 +78,7 @@ func (si *SegmentInfoPerCommit) SizeInBytes() (sum int64, err error) {
 func (si *SegmentInfoPerCommit) Files() []string {
 	// Start from the wrapped info's files:
 	files := make(map[string]bool)
-	for name, _ := range si.info.Files {
+	for name, _ := range si.info.Files() {
 		files[name] = true
 	}
 

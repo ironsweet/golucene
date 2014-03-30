@@ -47,7 +47,7 @@ func newLucene42DocValuesProducer(state SegmentReadState,
 	dvp = &Lucene42DocValuesProducer{
 		numericInstances: make(map[int]NumericDocValues),
 	}
-	dvp.maxDoc = int(state.segmentInfo.docCount)
+	dvp.maxDoc = state.segmentInfo.docCount.Get().(int)
 	metaName := util.SegmentFileName(state.segmentInfo.name, state.segmentSuffix, metaExtension)
 	// read in the entries from the metadata file.
 	in, err := state.dir.OpenInput(metaName, state.context)

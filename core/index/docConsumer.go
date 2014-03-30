@@ -9,7 +9,7 @@ import (
 type DocConsumer interface {
 	processDocument(fieldInfos *FieldInfosBuilder) error
 	finishDocument() error
-	// flush(state *SegmentWriteState) error
+	flush(state SegmentWriteState) error
 	abort()
 }
 
@@ -37,10 +37,14 @@ func newDocFieldProcessor(docWriter *DocumentsWriterPerThread,
 	return &DocFieldProcessor{
 		docState:       docWriter.docState,
 		codec:          docWriter.codec,
-		bytesUsed:      docWriter.bytesUsed,
+		bytesUsed:      docWriter._bytesUsed,
 		consumer:       consumer,
 		storedConsumer: storedConsumer,
 	}
+}
+
+func (p *DocFieldProcessor) flush(state SegmentWriteState) error {
+	panic("not implemented yet")
 }
 
 func (p *DocFieldProcessor) abort() {

@@ -161,7 +161,7 @@ func newMergePolicyImpl(self MergeSpecifier, defaultNoCFSRatio, defaultMaxCFSSeg
 		if err != nil {
 			return 0, err
 		}
-		docCount := info.info.docCount
+		docCount := info.info.docCount.Get().(int)
 		if docCount <= 0 {
 			return byteSize, nil
 		}
@@ -545,12 +545,13 @@ pro-rated by percentage of non-deleted documents if
 SetCalibrateSizeByDeletes() is set.
 */
 func (mp *LogMergePolicy) sizeDocs(info *SegmentInfoPerCommit) (n int64, err error) {
+	infoDocCount := info.info.docCount.Get().(int)
 	if mp.calibrateSizeByDeletes {
 		delCount := mp.writer.Get().(*IndexWriter).readerPool.numDeletedDocs(info)
-		assert(delCount <= int(info.info.docCount))
-		return int64(int(info.info.docCount) - delCount), nil
+		assert(delCount <= infoDocCount)
+		return int64(infoDocCount - delCount), nil
 	}
-	return int64(info.info.docCount), nil
+	return int64(infoDocCount), nil
 }
 
 /*

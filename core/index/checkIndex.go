@@ -279,17 +279,18 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 		}
 		segInfoStat := new(SegmentInfoStatus)
 		result.segmentInfos = append(result.segmentInfos, segInfoStat)
+		infoDocCount := info.info.docCount.Get().(int)
 		ch.msg("  %v of %v: name=%v docCount=%v ",
-			1+i, numSegments, info.info.name, info.info.docCount)
+			1+i, numSegments, info.info.name, infoDocCount)
 		segInfoStat.name = info.info.name
-		segInfoStat.docCount = int(info.info.docCount)
+		segInfoStat.docCount = infoDocCount
 
 		version := info.info.version
-		if info.info.docCount <= 0 && version != "" && !versionLess(version, "4.5") {
-			panic(fmt.Sprintf("illegal number of documents: maxDoc=%v", info.info.docCount))
+		if infoDocCount <= 0 && version != "" && !versionLess(version, "4.5") {
+			panic(fmt.Sprintf("illegal number of documents: maxDoc=%v", infoDocCount))
 		}
 
-		toLoseDocCount := int(info.info.docCount)
+		toLoseDocCount := infoDocCount
 		err = func() error {
 			codec := info.info.codec
 			ch.msg("    codec = %v", codec)
@@ -340,17 +341,17 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 			numDocs := reader.NumDocs()
 			toLoseDocCount = numDocs
 			if reader.hasDeletions() {
-				if n := int(info.info.docCount) - info.delCount; n != reader.NumDocs() {
+				if n := infoDocCount - info.delCount; n != reader.NumDocs() {
 					return errors.New(fmt.Sprintf(
 						"delete count mismatch: info=%v vs reader=%v",
 						n, reader.NumDocs()))
 				}
-				if n := int(info.info.docCount) - reader.NumDocs(); n > reader.MaxDoc() {
+				if n := infoDocCount - reader.NumDocs(); n > reader.MaxDoc() {
 					return errors.New(fmt.Sprintf(
 						"too many deleted docs: maxDoc()=%v vs del count=%v",
 						reader.MaxDoc(), n))
 				}
-				if n := int(info.info.docCount) - numDocs; n != info.delCount {
+				if n := infoDocCount - numDocs; n != info.delCount {
 					return errors.New(fmt.Sprintf(
 						"delete count mismatch: info=%v vs reader=%v",
 						info.delCount, n))
@@ -372,13 +373,13 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 					}
 				}
 
-				segInfoStat.numDeleted = int(info.info.docCount) - numDocs
+				segInfoStat.numDeleted = infoDocCount - numDocs
 				ch.msg("OK [%v deleted docs]", segInfoStat.numDeleted)
 			} else {
 				if info.delCount != 0 {
 					return errors.New(fmt.Sprintf(
 						"delete count mismatch: info=%v vs reader=%v",
-						info.delCount, int(info.info.docCount)-numDocs))
+						info.delCount, infoDocCount-numDocs))
 				}
 				liveDocs := reader.LiveDocs()
 				if liveDocs != nil {
@@ -392,10 +393,10 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 				}
 				ch.msg("OK")
 			}
-			if reader.MaxDoc() != int(info.info.docCount) {
+			if reader.MaxDoc() != infoDocCount {
 				return errors.New(fmt.Sprintf(
 					"SegmentReader.maxDoc() %v != SegmentInfos.docCount %v",
-					reader.MaxDoc(), info.info.docCount))
+					reader.MaxDoc(), infoDocCount))
 			}
 
 			// Test getFieldInfos()

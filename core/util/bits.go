@@ -25,4 +25,6 @@ type Bits interface {
 /* Extension of Bits for live documents. */
 type MutableBits interface {
 	Bits
+	// Sets the bit specified by index to false.
+	Clear(index int)
 }

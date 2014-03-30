@@ -41,7 +41,7 @@ func newTermsHash(docWriter *DocumentsWriterPerThread,
 		bytePool:         util.NewByteBlockPool(docWriter.byteBlockAllocator),
 	}
 	if trackAllocations {
-		ans.bytesUsed = docWriter.bytesUsed
+		ans.bytesUsed = docWriter._bytesUsed
 	} else {
 		ans.bytesUsed = util.NewCounter()
 	}

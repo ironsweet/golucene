@@ -1,14 +1,12 @@
 package index
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -223,92 +221,6 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 	}
 }
 
-const (
-	INDEX_FILENAME_SEGMENTS     = "segments"
-	INDEX_FILENAME_SEGMENTS_GEN = "segments.gen"
-	COMOPUND_FILE_EXTENSION     = "cfs"
-	VERSION_40                  = 0
-	FORMAT_SEGMENTS_GEN_CURRENT = -2
-)
-
-type SegmentInfo struct {
-	dir            store.Directory
-	version        string
-	name           string
-	docCount       int // number of docs in seg
-	isCompoundFile bool
-	codec          Codec
-	diagnostics    map[string]string
-	attributes     map[string]string
-	Files          map[string]bool // must use CheckFileNames()
-}
-
-func newSegmentInfo(dir store.Directory, version, name string, docCount int,
-	isComoundFile bool, codec Codec, diagnostics map[string]string, attributes map[string]string) *SegmentInfo {
-	_, ok := dir.(*TrackingDirectoryWrapper)
-	assert(!ok)
-	return &SegmentInfo{
-		dir:            dir,
-		version:        version,
-		name:           name,
-		docCount:       docCount,
-		isCompoundFile: isComoundFile,
-		codec:          codec,
-		diagnostics:    diagnostics,
-		attributes:     attributes,
-	}
-}
-
-// seprate norms are not supported in >= 4.0
-func (si *SegmentInfo) hasSeparateNorms() bool {
-	return false
-}
-
-func (si *SegmentInfo) String() string {
-	return si.StringOf(si.dir, 0)
-}
-
-func (si *SegmentInfo) StringOf(dir store.Directory, delCount int) string {
-	var buf bytes.Buffer
-	buf.WriteString(si.name)
-	buf.WriteString("(")
-	if si.version == "" {
-		buf.WriteString("?")
-	} else {
-		buf.WriteString(si.version)
-	}
-	buf.WriteString("):")
-	if si.isCompoundFile {
-		buf.WriteString("c")
-	} else {
-		buf.WriteString("C")
-	}
-
-	if si.dir != dir {
-		buf.WriteString("x")
-	}
-	buf.WriteString(strconv.Itoa(int(si.docCount)))
-
-	if delCount != 0 {
-		buf.WriteString("/")
-		buf.WriteString(strconv.Itoa(delCount))
-	}
-
-	// TODO: we could append toString of attributes() here?
-
-	return buf.String()
-}
-
-var CODEC_FILE_PATTERN = regexp.MustCompile("_[a-z0-9]+(_.*)?\\..*")
-
-func (si *SegmentInfo) CheckFileNames(files map[string]bool) {
-	for file, _ := range files {
-		if !CODEC_FILE_PATTERN.MatchString(file) {
-			panic(fmt.Sprintf("invalid codec filename '%v', must match: %v", file, CODEC_FILE_PATTERN))
-		}
-	}
-}
-
 // index/SegmentInfos.java
 
 /*
@@ -507,7 +419,7 @@ func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string)
 			if err != nil {
 				return err
 			}
-			if delCount < 0 || delCount > int(info.docCount) {
+			if delCount < 0 || delCount > info.docCount.Get().(int) {
 				return errors.New(fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input))
 			}
 			sis.Segments = append(sis.Segments, NewSegmentInfoPerCommit(info, delCount, delGen))
@@ -608,7 +520,7 @@ func (sis *SegmentInfos) write(directory store.Directory) error {
 		}
 		assert(si.dir == directory)
 
-		assert(siPerCommit.delCount <= int(si.docCount))
+		assert(siPerCommit.delCount <= si.docCount.Get().(int))
 
 		// If this segment is pre-4.x, perform a one-time "upgrade" to
 		// write the .si file for it:

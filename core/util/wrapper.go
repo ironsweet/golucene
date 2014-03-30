@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -41,4 +42,11 @@ func (so *SetOnce) Clone() *SetOnce {
 		return NewSetOnce()
 	}
 	return NewSetOnceOf(so.obj)
+}
+
+func (so *SetOnce) String() string {
+	if so.obj == nil {
+		return "undefined"
+	}
+	return fmt.Sprintf("%v", so.obj)
 }

@@ -706,7 +706,7 @@ func newCompressingStoredFieldsReader(d store.Directory, si *SegmentInfo, segmen
 	r.compressionMode = compressionMode
 	segment := si.name
 	r.fieldInfos = fn
-	r.numDocs = int(si.docCount)
+	r.numDocs = si.docCount.Get().(int)
 
 	var indexStream store.IndexInput
 	success := false
@@ -973,7 +973,7 @@ type CompressingStoredFieldsIndexReader struct {
 
 func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput, si *SegmentInfo) (r *CompressingStoredFieldsIndexReader, err error) {
 	r = &CompressingStoredFieldsIndexReader{}
-	r.maxDoc = int(si.docCount)
+	r.maxDoc = si.docCount.Get().(int)
 	r.docBases = make([]int, 0, 16)
 	r.startPointers = make([]int64, 0, 16)
 	r.avgChunkDocs = make([]int, 0, 16)

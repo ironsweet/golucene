@@ -68,7 +68,7 @@ func NewSegmentReader(si *SegmentInfoPerCommit, termInfosIndexDivisor int, conte
 		// assert si.getDelCount() == 0
 		// r.liveDocs = nil
 	}
-	r.numDocs = int(si.info.docCount) - si.delCount
+	r.numDocs = si.info.docCount.Get().(int) - si.delCount
 	success = true
 	return r, nil
 }
@@ -111,7 +111,7 @@ func (r *SegmentReader) NumDocs() int {
 
 func (r *SegmentReader) MaxDoc() int {
 	// Don't call ensureOpen() here (it could affect performance)
-	return int(r.si.info.docCount)
+	return r.si.info.docCount.Get().(int)
 }
 
 func (r *SegmentReader) TermVectorsReader() TermVectorsReader {
@@ -132,7 +132,7 @@ func (r *SegmentReader) checkBounds(docID int) {
 func (r *SegmentReader) String() string {
 	// SegmentInfo.toString takes dir and number of
 	// *pending* deletions; so we reverse compute that here:
-	return r.si.StringOf(r.si.info.dir, int(r.si.info.docCount)-r.numDocs-r.si.delCount)
+	return r.si.StringOf(r.si.info.dir, r.si.info.docCount.Get().(int)-r.numDocs-r.si.delCount)
 }
 
 func (r *SegmentReader) SegmentName() string {
@@ -393,26 +393,6 @@ func (r *SegmentCoreReaders) decRef() {
 			r.cfsReader, r.normsProducer)
 		r.notifyListener <- r.owner
 	}
-}
-
-type SegmentReadState struct {
-	dir               store.Directory
-	segmentInfo       *SegmentInfo
-	fieldInfos        FieldInfos
-	context           store.IOContext
-	termsIndexDivisor int
-	segmentSuffix     string
-}
-
-func newSegmentReadState(dir store.Directory, info *SegmentInfo, fieldInfos FieldInfos,
-	context store.IOContext, termsIndexDivisor int) SegmentReadState {
-	return SegmentReadState{dir, info, fieldInfos, context, termsIndexDivisor, ""}
-}
-
-// index/SegmentWriteState.java
-
-// Holder class for common parameters used during write.
-type SegmentWriteState struct {
 }
 
 // type NumericDocValues interface {

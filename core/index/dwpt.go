@@ -5,6 +5,7 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
+	"sync/atomic"
 )
 
 // index/DocumentsWriterPerThread.java
@@ -48,7 +49,7 @@ var defaultIndexingChain = func(documentsWriterPerThread *DocumentsWriterPerThre
 	docInverter := newDocInverter(documentsWriterPerThread.docState, termsHash, normsWriter)
 	storedFields := newTwoStoredFieldsConsumers(
 		newStoredFieldsProcessor(documentsWriterPerThread),
-		newDocValuesProcessor(documentsWriterPerThread.bytesUsed))
+		newDocValuesProcessor(documentsWriterPerThread._bytesUsed))
 	return newDocFieldProcessor(documentsWriterPerThread, docInverter, storedFields)
 }
 
@@ -78,20 +79,20 @@ type FlushedSegment struct {
 	segmentInfo    *SegmentInfoPerCommit
 	fieldInfos     *FieldInfos
 	segmentDeletes *FrozenBufferedDeletes
-	// liveDocs       MutableBits
-	delCount int
+	liveDocs       util.MutableBits
+	delCount       int
 }
 
-// func newFlushedSegment(segmentInfo *SegmentInfoPerCommit,
-// 	fieldInfos *FieldInfos, segmentDeletes *BufferedDeletes,
-// 	liveDocs MutableBits, delCount int) *FlushedSegment {
+func newFlushedSegment(segmentInfo *SegmentInfoPerCommit,
+	fieldInfos *FieldInfos, segmentDeletes *BufferedDeletes,
+	liveDocs util.MutableBits, delCount int) *FlushedSegment {
 
-// 	var sd *FrozenBufferedDeletes
-// 	if segmentDeletes != nil && segmentDeletes.any() {
-// 		sd = freezeBufferedDeletes(segmentDeletes, true)
-// 	}
-// 	return &FlushedSegment{segmentInfo, fieldInfos, sd, liveDocs, delCount}
-// }
+	var sd *FrozenBufferedDeletes
+	if segmentDeletes != nil && segmentDeletes.any() {
+		sd = freezeBufferedDeletes(segmentDeletes, true)
+	}
+	return &FlushedSegment{segmentInfo, fieldInfos, sd, liveDocs, delCount}
+}
 
 type DocumentsWriterPerThread struct {
 	codec         Codec
@@ -99,7 +100,7 @@ type DocumentsWriterPerThread struct {
 	directoryOrig store.Directory
 	docState      *docState
 	consumer      DocConsumer
-	bytesUsed     util.Counter
+	_bytesUsed    util.Counter
 
 	// Deletes for our still-in-RAM (to be flushed next) segment
 	pendingDeletes *BufferedDeletes
@@ -131,7 +132,7 @@ func newDocumentsWriterPerThread(segmentName string, directory store.Directory,
 		indexWriterConfig:  indexWriterConfig,
 		infoStream:         infoStream,
 		codec:              indexWriterConfig.codec,
-		bytesUsed:          counter,
+		_bytesUsed:         counter,
 		byteBlockAllocator: util.NewDirectTrackingAllocator(counter),
 		pendingDeletes:     newBufferedDeletes(),
 		intBlockAllocator:  newIntBlockAllocator(counter),
@@ -288,8 +289,125 @@ func (dwpt *DocumentsWriterPerThread) prepareFlush() *FrozenBufferedDeletes {
 }
 
 /* Flush all pending docs to a new segment */
-func (dwpt *DocumentsWriterPerThread) flush() (*FlushedSegment, error) {
+func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
+	assert(dwpt.numDocsInRAM > 0)
+	assert2(dwpt.deleteSlice.isEmpty(),
+		"all deletes must be applied in prepareFlush")
+	dwpt.segmentInfo.docCount.Set(dwpt.numDocsInRAM)
+	numBytesUsed := dwpt.bytesUsed()
+	flushState := newSegmentWriteState(dwpt.infoStream, dwpt.directory,
+		dwpt.segmentInfo, dwpt.fieldInfos.finish(),
+		dwpt.indexWriterConfig.termIndexInterval, dwpt.pendingDeletes,
+		store.NewIOContextForFlush(&store.FlushInfo{dwpt.numDocsInRAM, numBytesUsed}))
+	startMBUsed := float64(numBytesUsed) / 1024 / 1024
+
+	// Apply delete-by-docID now (delete-byDocID only happens when an
+	// error is hit processing that doc, e.g., if analyzer has some
+	// problem with the text):
+	if delCount := len(dwpt.pendingDeletes.docIDs); delCount > 0 {
+		flushState.liveDocs, err = dwpt.codec.LiveDocsFormat().NewLiveDocs(dwpt.numDocsInRAM)
+		if err != nil {
+			return nil, err
+		}
+		for _, delDocID := range dwpt.pendingDeletes.docIDs {
+			flushState.liveDocs.Clear(delDocID)
+		}
+		flushState.delCountOnFlush = delCount
+		atomic.AddInt64(&dwpt.pendingDeletes.bytesUsed, -int64(delCount)*BYTES_PER_DEL_DOCID)
+		dwpt.pendingDeletes.docIDs = nil
+	}
+
+	if dwpt.aborting {
+		if dwpt.infoStream.IsEnabled("DWPT") {
+			dwpt.infoStream.Message("DWPT", "flush: skip because aborting is set")
+		}
+		return nil, nil
+	}
+
+	if dwpt.infoStream.IsEnabled("DWPT") {
+		dwpt.infoStream.Message("DWPT", "flush postings as segment %v numDocs=%v",
+			flushState.segmentInfo.name, dwpt.numDocsInRAM)
+	}
+
+	var success = false
+	defer func() {
+		if !success {
+			dwpt.abort(dwpt.filesToDelete)
+		}
+	}()
+
+	err = dwpt.consumer.flush(flushState)
+	if err != nil {
+		return nil, err
+	}
+	dwpt.pendingDeletes.terms = make(map[*Term]int)
+	files := make(map[string]bool)
+	for k, v := range dwpt.directory.createdFilenames {
+		files[k] = v
+	}
+	dwpt.segmentInfo.setFiles(files)
+
+	info := NewSegmentInfoPerCommit(dwpt.segmentInfo, 0, -1)
+	if dwpt.infoStream.IsEnabled("DWPT") {
+		dwpt.infoStream.Message("DWPT", "new segment has %v deleted docs",
+			check(flushState.liveDocs == nil, 0,
+				flushState.segmentInfo.docCount.Get().(int)-flushState.delCountOnFlush))
+		dwpt.infoStream.Message("DWPT", "new segment has %v; %v; %v; %v; %v",
+			check(flushState.fieldInfos.hasVectors, "vectors", "no vectors"),
+			check(flushState.fieldInfos.hasNorms, "norms", "no norms"),
+			check(flushState.fieldInfos.hasDocValues, "docValues", "no docValues"),
+			check(flushState.fieldInfos.hasProx, "prox", "no prox"),
+			check(flushState.fieldInfos.hasFreq, "freqs", "no freqs"))
+		dwpt.infoStream.Message("DWPT", "flushedFiles=%v", info.Files())
+		dwpt.infoStream.Message("DWPT", "flushed coded=%v", dwpt.codec)
+	}
+
+	var segmentDeletes *BufferedDeletes
+	if len(dwpt.pendingDeletes.queries) > 0 {
+		segmentDeletes = dwpt.pendingDeletes
+	}
+
+	if dwpt.infoStream.IsEnabled("DWPT") {
+		numBytes, err := info.SizeInBytes()
+		if err != nil {
+			return nil, err
+		}
+		newSegmentSize := float64(numBytes) / 1024 / 1024
+		dwpt.infoStream.Message("DWPT",
+			"flushed: segment=%v ramUsed=%v MB newFlushedSize(includes docstores)=%v MB docs/MB=%v",
+			startMBUsed, newSegmentSize, float64(flushState.segmentInfo.docCount.Get().(int))/newSegmentSize)
+	}
+
+	assert(dwpt.segmentInfo != nil)
+
+	fs = newFlushedSegment(info, flushState.fieldInfos, segmentDeletes,
+		flushState.liveDocs, flushState.delCountOnFlush)
+	err = dwpt.sealFlushedSegment(fs)
+	if err != nil {
+		return nil, err
+	}
+	success = true
+
+	return fs, nil
+}
+
+func check(ok bool, v1, v2 interface{}) interface{} {
+	if ok {
+		return v1
+	}
+	return v2
+}
+
+/*
+Seals the SegmentInfo for the new flushed segment and persists the
+deleted documents MutableBits
+*/
+func (dwpt *DocumentsWriterPerThread) sealFlushedSegment(flushedSegment *FlushedSegment) error {
 	panic("not implemented yet")
+}
+
+func (dwpt *DocumentsWriterPerThread) bytesUsed() int64 {
+	return dwpt._bytesUsed.Get() + atomic.LoadInt64(&dwpt.pendingDeletes.bytesUsed)
 }
 
 // L600

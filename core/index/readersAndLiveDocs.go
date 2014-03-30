@@ -135,7 +135,7 @@ func (rld *ReadersAndLiveDocs) writeLiveDocs(dir store.Directory) (bool, error) 
 	log.Printf("rld.writeLiveDocs seg=%v pendingDelCount=%v", rld.info, rld._pendingDeleteCount)
 	if rld._pendingDeleteCount != 0 {
 		// We have new deletes
-		assert(rld._liveDocs.Length() == int(rld.info.info.docCount))
+		assert(rld._liveDocs.Length() == rld.info.info.docCount.Get().(int))
 
 		// Do this so we can delete any created files on error; this
 		// saves all codecs from having to do it:
@@ -170,7 +170,7 @@ func (rld *ReadersAndLiveDocs) writeLiveDocs(dir store.Directory) (bool, error) 
 		// written) del docs:
 		rld.info.advanceDelGen()
 		rld.info.delCount += rld._pendingDeleteCount
-		assert(rld.info.delCount <= int(rld.info.info.docCount))
+		assert(rld.info.delCount <= rld.info.info.docCount.Get().(int))
 
 		rld._pendingDeleteCount = 0
 		return true, nil
