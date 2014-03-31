@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/store"
+	"github.com/balzaczyy/golucene/core/util"
 )
 
 // compressing/CompressingStoredFieldsFormat.java
@@ -70,8 +71,10 @@ func (format *CompressingStoredFieldsFormat) FieldsReader(d store.Directory, si 
 }
 
 func (format *CompressingStoredFieldsFormat) FieldsWriter(d store.Directory, si *SegmentInfo,
-	context store.IOContext) (w StoredFieldsWriter, err error) {
-	panic("not implemented yet")
+	ctx store.IOContext) (w StoredFieldsWriter, err error) {
+
+	return newCompressingStoredFieldsWriter(d, si, format.segmentSuffix, ctx,
+		format.formatName, format.compressionMode, format.chunkSize)
 }
 
 func (format *CompressingStoredFieldsFormat) String() string {
@@ -126,5 +129,48 @@ func (vf *CompressingTermVectorsFormat) VectorsReader(d store.Directory,
 
 func (vf *CompressingTermVectorsFormat) VectorsWriter(d store.Directory,
 	segmentInfo *SegmentInfo, context store.IOContext) (w TermVectorsWriter, err error) {
+	panic("not implemented yet")
+}
+
+// codecs/compressing/CompressingStoredFieldsWriter.java
+
+/* StoredFieldsWriter impl for CompressingStoredFieldsFormat */
+type CompressingStoredFieldsWriter struct {
+	indexWriter  *CompressingStoredFieldsWriter
+	fieldsStream store.IndexOutput
+}
+
+func newCompressingStoredFieldsWriter(dir store.Directory, si *SegmentInfo,
+	segmentSuffix string, ctx store.IOContext, formatName string,
+	compressionMode codec.CompressionMode, chunkSize int) (*CompressingStoredFieldsWriter, error) {
+
+	panic("not implemented yet")
+}
+
+func (w *CompressingStoredFieldsWriter) Close() error {
+	defer func() {
+		w.fieldsStream = nil
+		w.indexWriter = nil
+	}()
+	return util.Close(w.fieldsStream, w.indexWriter)
+}
+
+func (w *CompressingStoredFieldsWriter) startDocument(numStoredFields int) error {
+	panic("not implemented yet")
+}
+
+func (w *CompressingStoredFieldsWriter) finishDocument() error {
+	panic("not implemented yet")
+}
+
+func (w *CompressingStoredFieldsWriter) abort() {
+	// util.CloseWhileSuppressingError(w)
+	// util.DeleteFilesIgnoringErrors(w.directory,
+	// 	SegmentFileName(w.segment, w.segmentSuffix, FIELDS_EXTENSION),
+	// 	SegmentFileName(w.segment, w.segmentSuffix, FIELDS_INDEX_EXTENSION))
+	panic("not implemented yet")
+}
+
+func (w *CompressingStoredFieldsWriter) finish(fis FieldInfos, numDocs int) error {
 	panic("not implemented yet")
 }
