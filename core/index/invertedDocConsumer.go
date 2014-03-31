@@ -4,7 +4,10 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 )
 
-type InvertedDocConsumer interface{}
+type InvertedDocConsumer interface {
+	// Abort (called after hitting abort error)
+	abort()
+}
 
 /*
 This class implements InvertedDocConsumer, which is passed each token
@@ -51,4 +54,21 @@ func newTermsHash(docWriter *DocumentsWriterPerThread,
 		nextTermsHash.termBytePool = ans.bytePool
 	}
 	return ans
+}
+
+func (hash *TermsHash) abort() {
+	hash.reset()
+	defer func() {
+		if hash.nextTermsHash != nil {
+			hash.nextTermsHash.abort()
+		}
+	}()
+	hash.consumer.abort()
+}
+
+/* Clear all state */
+func (hash *TermsHash) reset() {
+	// we don't reuse so we drop everything and don't fill with 0
+	hash.intPool.Reset(false, false)
+	hash.bytePool.Reset(false, false)
 }

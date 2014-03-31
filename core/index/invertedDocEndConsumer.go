@@ -1,6 +1,7 @@
 package index
 
 type InvertedDocEndConsumer interface {
+	abort()
 }
 
 /*
@@ -10,3 +11,5 @@ doc/fields it saw, then the flush method below merges all of these
 */
 type NormsConsumer struct {
 }
+
+func (nc *NormsConsumer) abort() {}

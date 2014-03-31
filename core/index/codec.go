@@ -317,7 +317,11 @@ how many fields will be written.
 verification/sanity-checks.
 4. Finally the writer is closed.
 */
-type StoredFieldsWriter interface{}
+type StoredFieldsWriter interface {
+	// Aborts writing entirely, implementation should remove any
+	// partially-written files, etc.
+	abort()
+}
 
 // codecs/TermVectorsFormat.java
 
@@ -354,7 +358,11 @@ be called for each term occurrence.
 verification/sanity-checks.
 6. Finally the writer is closed.
 */
-type TermVectorsWriter interface{}
+type TermVectorsWriter interface {
+	// Aborts writing entirely, implementation should remove any
+	// partially-written files, etc.
+	abort()
+}
 
 // codecs/FieldInfosFormat.java
 

@@ -28,6 +28,11 @@ func NewByteBlockPool(allocator ByteAllocator) *ByteBlockPool {
 	return &ByteBlockPool{allocator}
 }
 
+/* Expert: Resets the pool to its initial state reusing the first buffer. */
+func (pool *ByteBlockPool) Reset(zeroFillBuffers, reuseFirst bool) {
+	panic("not implemented yet")
+}
+
 type ByteAllocator interface {
 	// Allocate() interface{}
 	// Recycle([]interface{})

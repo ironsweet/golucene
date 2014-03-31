@@ -26,10 +26,12 @@ func newDocInverter(docState *docState, consumer InvertedDocConsumer,
 	return &DocInverter{consumer, endConsumer, docState}
 }
 
-func (di *DocInverter) abort() {
+func (di *DocInverter) finishDocument() error {
 	panic("not implemented yet")
 }
 
-func (di *DocInverter) finishDocument() error {
-	panic("not implemented yet")
+func (di *DocInverter) abort() {
+	defer di.endConsumer.abort()
+	di.consumer.abort()
+
 }

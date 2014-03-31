@@ -23,7 +23,8 @@ func newTwoStoredFieldsConsumers(first, second StoredFieldsConsumer) *TwoStoredF
 }
 
 func (p *TwoStoredFieldsConsumers) abort() {
-	panic("not implemented yet")
+	p.first.abort()
+	p.second.abort()
 }
 
 func (p *TwoStoredFieldsConsumers) finishDocument() error {
@@ -34,10 +35,17 @@ func (p *TwoStoredFieldsConsumers) finishDocument() error {
 
 /* This is a StoredFieldsConsumer that writes stored fields */
 type StoredFieldsProcessor struct {
+	fieldsWriter StoredFieldsWriter
+	lastDocId    int
+
 	docWriter *DocumentsWriterPerThread
 
 	docState *docState
 	codec    Codec
+
+	numStoredFields int
+	storedFields    []IndexableField
+	fieldInfos      []FieldInfo
 }
 
 func newStoredFieldsProcessor(docWriter *DocumentsWriterPerThread) *StoredFieldsProcessor {
@@ -48,8 +56,20 @@ func newStoredFieldsProcessor(docWriter *DocumentsWriterPerThread) *StoredFields
 	}
 }
 
+func (p *StoredFieldsProcessor) reset() {
+	p.numStoredFields = 0
+	p.storedFields = nil
+	p.fieldInfos = nil
+}
+
 func (p *StoredFieldsProcessor) abort() {
-	panic("not implemented yet")
+	p.reset()
+
+	if p.fieldsWriter != nil {
+		p.fieldsWriter.abort()
+		p.fieldsWriter = nil
+		p.lastDocId = 0
+	}
 }
 
 func (p *StoredFieldsProcessor) finishDocument() error {
@@ -59,17 +79,21 @@ func (p *StoredFieldsProcessor) finishDocument() error {
 // index/DocValuesProcessor.java
 
 type DocValuesProcessor struct {
+	writers   map[string]DocValuesWriter
 	bytesUsed util.Counter
 }
 
 func newDocValuesProcessor(bytesUsed util.Counter) *DocValuesProcessor {
-	return &DocValuesProcessor{bytesUsed: bytesUsed}
-}
-
-func (p *DocValuesProcessor) abort() {
-	panic("not implemented yet")
+	return &DocValuesProcessor{make(map[string]DocValuesWriter), bytesUsed}
 }
 
 func (p *DocValuesProcessor) finishDocument() error {
 	panic("not implemented yet")
+}
+
+func (p *DocValuesProcessor) abort() {
+	for _, writer := range p.writers {
+		writer.abort()
+	}
+	p.writers = make(map[string]DocValuesWriter)
 }
