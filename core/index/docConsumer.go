@@ -26,6 +26,9 @@ type DocFieldProcessor struct {
 	storedConsumer StoredFieldsConsumer
 	codec          Codec
 
+	// Hash table for all fields ever seen
+	fieldHash []*DocFieldProcessorPerField
+
 	docState *docState
 
 	bytesUsed util.Counter
@@ -35,6 +38,7 @@ func newDocFieldProcessor(docWriter *DocumentsWriterPerThread,
 	consumer DocFieldConsumer, storedConsumer StoredFieldsConsumer) *DocFieldProcessor {
 
 	return &DocFieldProcessor{
+		fieldHash:      make([]*DocFieldProcessorPerField, 2),
 		docState:       docWriter.docState,
 		codec:          docWriter.codec,
 		bytesUsed:      docWriter._bytesUsed,
@@ -48,7 +52,16 @@ func (p *DocFieldProcessor) flush(state SegmentWriteState) error {
 }
 
 func (p *DocFieldProcessor) abort() {
-	panic("not implemented yet")
+	for _, field := range p.fieldHash {
+		for field != nil {
+			next := field.next
+			field.abort()
+			field = next
+		}
+	}
+	p.storedConsumer.abort()
+	p.consumer.abort()
+	// assert2(err == nil, err.Error())
 }
 
 func (p *DocFieldProcessor) processDocument(fieldInfos *FieldInfosBuilder) error {
@@ -60,4 +73,17 @@ func (p *DocFieldProcessor) finishDocument() (err error) {
 		err = mergeError(err, p.consumer.finishDocument())
 	}()
 	return p.storedConsumer.finishDocument()
+}
+
+// index/DocFieldProcessorPerField.java
+
+/* Holds all per thread, per field state. */
+type DocFieldProcessorPerField struct {
+	consumer DocFieldConsumerPerField
+
+	next *DocFieldProcessorPerField
+}
+
+func (f *DocFieldProcessorPerField) abort() {
+	f.consumer.abort()
 }

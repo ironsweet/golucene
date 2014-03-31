@@ -5,6 +5,10 @@ import (
 )
 
 type StoredFieldsConsumer interface {
+	// addField(docId int, field IndexableField, fieldInfo FieldInfo) error
+	// flush(state SegmentWriteState) error
+	abort()
+	// startDocument() error
 	finishDocument() error
 }
 
@@ -16,6 +20,10 @@ type TwoStoredFieldsConsumers struct {
 
 func newTwoStoredFieldsConsumers(first, second StoredFieldsConsumer) *TwoStoredFieldsConsumers {
 	return &TwoStoredFieldsConsumers{first, second}
+}
+
+func (p *TwoStoredFieldsConsumers) abort() {
+	panic("not implemented yet")
 }
 
 func (p *TwoStoredFieldsConsumers) finishDocument() error {
@@ -40,6 +48,10 @@ func newStoredFieldsProcessor(docWriter *DocumentsWriterPerThread) *StoredFields
 	}
 }
 
+func (p *StoredFieldsProcessor) abort() {
+	panic("not implemented yet")
+}
+
 func (p *StoredFieldsProcessor) finishDocument() error {
 	panic("not implemented yet")
 }
@@ -52,6 +64,10 @@ type DocValuesProcessor struct {
 
 func newDocValuesProcessor(bytesUsed util.Counter) *DocValuesProcessor {
 	return &DocValuesProcessor{bytesUsed: bytesUsed}
+}
+
+func (p *DocValuesProcessor) abort() {
+	panic("not implemented yet")
 }
 
 func (p *DocValuesProcessor) finishDocument() error {
