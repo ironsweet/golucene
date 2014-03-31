@@ -175,9 +175,9 @@ func (dwpt *DocumentsWriterPerThread) abort(createdFiles map[string]bool) {
 	dwpt.consumer.abort()
 
 	dwpt.pendingDeletes.clear()
-	for file, _ := range dwpt.directory.createdFiles() {
+	dwpt.directory.eachCreatedFiles(func(file string) {
 		createdFiles[file] = true
-	}
+	})
 }
 
 func (dwpt *DocumentsWriterPerThread) checkAndResetHasAborted() (res bool) {
@@ -338,9 +338,9 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 	}
 	dwpt.pendingDeletes.terms = make(map[*Term]int)
 	files := make(map[string]bool)
-	for k, v := range dwpt.directory.createdFilenames {
-		files[k] = v
-	}
+	dwpt.directory.eachCreatedFiles(func(name string) {
+		files[name] = true
+	})
 	dwpt.segmentInfo.setFiles(files)
 
 	info := NewSegmentInfoPerCommit(dwpt.segmentInfo, 0, -1)

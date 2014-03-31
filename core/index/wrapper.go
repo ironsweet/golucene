@@ -56,6 +56,17 @@ func (w *TrackingDirectoryWrapper) Copy(to store.Directory, src, dest string, ct
 	return w.Directory.Copy(to, src, dest, ctx)
 }
 
-func (w *TrackingDirectoryWrapper) createdFiles() map[string]bool {
-	panic("not implemented yet")
+func (w *TrackingDirectoryWrapper) eachCreatedFiles(f func(name string)) {
+	w.Lock()
+	defer w.Unlock()
+	for name, _ := range w.createdFilenames {
+		f(name)
+	}
+}
+
+func (w *TrackingDirectoryWrapper) containsFile(name string) bool {
+	w.Lock()
+	defer w.Unlock()
+	_, ok := w.createdFilenames[name]
+	return ok
 }

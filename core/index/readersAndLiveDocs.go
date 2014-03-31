@@ -152,9 +152,9 @@ func (rld *ReadersAndLiveDocs) writeLiveDocs(dir store.Directory) (bool, error) 
 				rld.info.advanceNextWriteDelGen()
 
 				// Dleete any prtially created files(s):
-				for filename, _ := range trackingDir.createdFiles() {
+				trackingDir.eachCreatedFiles(func(filename string) {
 					dir.DeleteFile(filename) // ignore error
-				}
+				})
 			}
 		}()
 
