@@ -1,7 +1,9 @@
 package index
 
 import (
+	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"sync"
 )
 
 type StoredFieldsConsumer interface {
@@ -43,6 +45,8 @@ func (p *TwoStoredFieldsConsumers) finishDocument() error {
 
 /* This is a StoredFieldsConsumer that writes stored fields */
 type StoredFieldsProcessor struct {
+	sync.Locker
+
 	fieldsWriter StoredFieldsWriter
 	lastDocId    int
 
@@ -58,6 +62,7 @@ type StoredFieldsProcessor struct {
 
 func newStoredFieldsProcessor(docWriter *DocumentsWriterPerThread) *StoredFieldsProcessor {
 	return &StoredFieldsProcessor{
+		Locker:    &sync.Mutex{},
 		docWriter: docWriter,
 		docState:  docWriter.docState,
 		codec:     docWriter.codec,
@@ -70,8 +75,49 @@ func (p *StoredFieldsProcessor) reset() {
 	p.fieldInfos = nil
 }
 
-func (p *StoredFieldsProcessor) flush(state SegmentWriteState) error {
-	panic("not implemented yet")
+func (p *StoredFieldsProcessor) flush(state SegmentWriteState) (err error) {
+	numDocs := state.segmentInfo.docCount.Get().(int)
+	if numDocs > 0 {
+		// It's possible that all documents seen in this segment hit
+		// non-aborting errors, in which case we will not have yet init'd
+		// the FieldsWriter:
+		err = p.initFieldsWriter(state.context)
+		if err == nil {
+			err = p.fill(numDocs)
+		}
+	}
+	if p.fieldsWriter != nil {
+		var success = false
+		defer func() {
+			if success {
+				err = util.CloseWhileHandlingError(err, p.fieldsWriter)
+			} else {
+				util.CloseWhileSuppressingError(p.fieldsWriter)
+			}
+		}()
+
+		err = p.fieldsWriter.finish(state.fieldInfos, numDocs)
+		if err != nil {
+			return err
+		}
+		success = true
+	}
+	return
+}
+
+func (p *StoredFieldsProcessor) initFieldsWriter(ctx store.IOContext) error {
+	p.Lock()
+	defer p.Unlock()
+	if p.fieldsWriter == nil {
+		var err error
+		p.fieldsWriter, err = p.codec.StoredFieldsFormat().FieldsWriter(
+			p.docWriter.directory, p.docWriter.segmentInfo, ctx)
+		if err != nil {
+			return err
+		}
+		p.lastDocId = 0
+	}
+	return nil
 }
 
 func (p *StoredFieldsProcessor) abort() {
@@ -82,6 +128,23 @@ func (p *StoredFieldsProcessor) abort() {
 		p.fieldsWriter = nil
 		p.lastDocId = 0
 	}
+}
+
+/* Fills in any hold in the docIDs */
+func (p *StoredFieldsProcessor) fill(docId int) error {
+	// We must "catch up" for all docs before us that had no stored fields:
+	for p.lastDocId < docId {
+		err := p.fieldsWriter.startDocument(0)
+		if err != nil {
+			return err
+		}
+		p.lastDocId++
+		err = p.fieldsWriter.finishDocument()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (p *StoredFieldsProcessor) finishDocument() error {

@@ -318,9 +318,23 @@ verification/sanity-checks.
 4. Finally the writer is closed.
 */
 type StoredFieldsWriter interface {
+	io.Closer
+	// Called before writing the stored fields of te document.
+	// WriteField() will be called numStoredFields times. Note that
+	// this is called even if the document has no stored fields, in
+	// this case numStoredFields will be zero.
+	startDocument(numStoredFields int) error
+	// Called when a document and all its fields have been added.
+	finishDocument() error
 	// Aborts writing entirely, implementation should remove any
 	// partially-written files, etc.
 	abort()
+	// Called before Close(), passing in the number of documents that
+	// were written. Note that this is intentionally redundant
+	// (equivalent to the number of calls to startDocument(int)), but a
+	// Codec should check that this is the case to detect the JRE bug
+	// described in LUCENE-1282.
+	finish(fis FieldInfos, numDocs int) error
 }
 
 // codecs/TermVectorsFormat.java
