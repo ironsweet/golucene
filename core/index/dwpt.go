@@ -412,9 +412,20 @@ func (dwpt *DocumentsWriterPerThread) bytesUsed() int64 {
 const MAX_TERM_LENGTH_UTF8 = util.BYTE_BLOCK_SIZE - 2
 
 type IntBlockAllocator struct {
+	blockSize int
 	bytesUsed util.Counter
 }
 
 func newIntBlockAllocator(bytesUsed util.Counter) *IntBlockAllocator {
-	return &IntBlockAllocator{bytesUsed}
+	return &IntBlockAllocator{
+		blockSize: util.INT_BLOCK_SIZE,
+		bytesUsed: bytesUsed,
+	}
+}
+
+func (alloc *IntBlockAllocator) Recycle(blocks [][]int) {
+	alloc.bytesUsed.AddAndGet(int64(-len(blocks) * alloc.blockSize * util.NUM_BYTES_INT))
+	for i, _ := range blocks {
+		blocks[i] = nil
+	}
 }

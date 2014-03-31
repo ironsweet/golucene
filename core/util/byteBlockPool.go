@@ -21,21 +21,56 @@ don't need to record its length and instead allocate a new slice once
 they hit a non-zero byte.
 */
 type ByteBlockPool struct {
-	allocator ByteAllocator
+	buffers    [][]byte
+	bufferUpto int
+	byteUpto   int
+	buffer     []int
+	byteOffset int
+	allocator  ByteAllocator
 }
 
 func NewByteBlockPool(allocator ByteAllocator) *ByteBlockPool {
-	return &ByteBlockPool{allocator}
+	return &ByteBlockPool{
+		bufferUpto: -1,
+		byteUpto:   BYTE_BLOCK_SIZE,
+		byteOffset: -BYTE_BLOCK_SIZE,
+		allocator:  allocator,
+	}
 }
 
 /* Expert: Resets the pool to its initial state reusing the first buffer. */
 func (pool *ByteBlockPool) Reset(zeroFillBuffers, reuseFirst bool) {
-	panic("not implemented yet")
+	// TODO consolidate with IntBlockPool.Reset()
+	if pool.bufferUpto != -1 {
+		// We allocated at least one buffer
+		if zeroFillBuffers {
+			panic("not implemented yet")
+		}
+
+		if pool.bufferUpto > 0 || !reuseFirst {
+			offset := 0
+			if reuseFirst {
+				offset = 1
+			}
+			// Recycle all but the first buffer
+			pool.allocator.recycle(pool.buffers[offset : 1+pool.bufferUpto])
+			for i := offset; i <= pool.bufferUpto; i++ {
+				pool.buffers[i] = nil
+			}
+		}
+		if reuseFirst {
+			panic("not implemented yet")
+		} else {
+			pool.bufferUpto = -1
+			pool.byteUpto = BYTE_BLOCK_SIZE
+			pool.byteOffset = -BYTE_BLOCK_SIZE
+			pool.buffer = nil
+		}
+	}
 }
 
 type ByteAllocator interface {
-	// Allocate() interface{}
-	// Recycle([]interface{})
+	recycle(blocks [][]byte)
 }
 
 type ByteAllocatorImpl struct {
@@ -48,11 +83,22 @@ func newByteAllocator(blockSize int) *ByteAllocatorImpl {
 
 /* A simple Allocator that never recycles, but tracks how much total RAM is in use. */
 type DirectTrackingAllocator struct {
+	*ByteAllocatorImpl
 	bytesUsed Counter
 }
 
 func NewDirectTrackingAllocator(bytesUsed Counter) *DirectTrackingAllocator {
-	return &DirectTrackingAllocator{bytesUsed}
+	return &DirectTrackingAllocator{
+		ByteAllocatorImpl: newByteAllocator(BYTE_BLOCK_SIZE),
+		bytesUsed:         bytesUsed,
+	}
+}
+
+func (alloc *DirectTrackingAllocator) recycle(blocks [][]byte) {
+	alloc.bytesUsed.AddAndGet(int64(-len(blocks) * alloc.blockSize))
+	for i, _ := range blocks {
+		blocks[i] = nil
+	}
 }
 
 // util/Counter.java
