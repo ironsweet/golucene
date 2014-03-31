@@ -1,6 +1,7 @@
 package index
 
 import (
+	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -27,7 +28,8 @@ type DocFieldProcessor struct {
 	codec          Codec
 
 	// Hash table for all fields ever seen
-	fieldHash []*DocFieldProcessorPerField
+	fieldHash       []*DocFieldProcessorPerField
+	totalFieldCount int
 
 	docState *docState
 
@@ -48,7 +50,26 @@ func newDocFieldProcessor(docWriter *DocumentsWriterPerThread,
 }
 
 func (p *DocFieldProcessor) flush(state SegmentWriteState) error {
-	panic("not implemented yet")
+	childFields := make(map[string]DocFieldConsumerPerField)
+	for _, f := range p.fields() {
+		childFields[f.fieldInfo().name] = f
+	}
+
+	err := p.storedConsumer.flush(state)
+	if err != nil {
+		return err
+	}
+	err = p.consumer.flush(childFields, state)
+	if err != nil {
+		return err
+	}
+
+	// Impotant to save after asking consumer to flush so consumer can
+	// alter the FieldInfo if necessary. E.g., FreqProxTermsWriter does
+	// this with FieldInfo.storePayload.
+	infosWriter := p.codec.FieldInfosFormat().FieldInfosWriter()
+	return infosWriter(state.directory, state.segmentInfo.name,
+		state.fieldInfos, store.IO_CONTEXT_DEFAULT)
 }
 
 func (p *DocFieldProcessor) abort() {
@@ -62,6 +83,18 @@ func (p *DocFieldProcessor) abort() {
 	p.storedConsumer.abort()
 	p.consumer.abort()
 	// assert2(err == nil, err.Error())
+}
+
+func (p *DocFieldProcessor) fields() []DocFieldConsumerPerField {
+	var fields []DocFieldConsumerPerField
+	for _, field := range p.fieldHash {
+		for field != nil {
+			fields = append(fields, field.consumer)
+			field = field.next
+		}
+	}
+	assert(len(fields) == p.totalFieldCount)
+	return fields
 }
 
 func (p *DocFieldProcessor) processDocument(fieldInfos *FieldInfosBuilder) error {

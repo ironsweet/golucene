@@ -2,7 +2,7 @@ package index
 
 type DocFieldConsumer interface {
 	// Called when DWPT decides to create a new segment
-	// flush(fieldsToFlush map[string]DocFieldConsumerPerField, state SegmentWriteState) error
+	flush(fieldsToFlush map[string]DocFieldConsumerPerField, state SegmentWriteState) error
 	// Called when an aborting error is hit
 	abort()
 	// startDocument() error
@@ -24,6 +24,10 @@ func newDocInverter(docState *docState, consumer InvertedDocConsumer,
 	endConsumer InvertedDocEndConsumer) *DocInverter {
 
 	return &DocInverter{consumer, endConsumer, docState}
+}
+
+func (di *DocInverter) flush(fieldsToFlush map[string]DocFieldConsumerPerField, state SegmentWriteState) error {
+	panic("not implemented yet")
 }
 
 func (di *DocInverter) finishDocument() error {
