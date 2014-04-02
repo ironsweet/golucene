@@ -3,8 +3,10 @@ package index
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	"github.com/balzaczyy/golucene/core/codec/compressing"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"github.com/balzaczyy/golucene/core/util/packed"
 )
 
 // compressing/CompressingStoredFieldsFormat.java
@@ -134,17 +136,96 @@ func (vf *CompressingTermVectorsFormat) VectorsWriter(d store.Directory,
 
 // codecs/compressing/CompressingStoredFieldsWriter.java
 
+const CP_VERSION_BIG_CHUNKS = 1
+const CP_VERSION_CURRENT = CP_VERSION_BIG_CHUNKS
+
 /* StoredFieldsWriter impl for CompressingStoredFieldsFormat */
 type CompressingStoredFieldsWriter struct {
-	indexWriter  *CompressingStoredFieldsWriter
-	fieldsStream store.IndexOutput
+	directory     store.Directory
+	segment       string
+	segmentSuffix string
+	indexWriter   *compressing.StoredFieldsIndexWriter
+	fieldsStream  store.IndexOutput
+
+	compressionMode codec.CompressionMode
+	compressor      codec.Compressor
+	chunkSize       int
+
+	bufferedDocs    *GrowableByteArrayDataOutput
+	numStoredFields []int // number of stored fields
+	endOffsets      []int // ned offsets in bufferedDocs
+	docBase         int   // doc ID at the beginning of the chunk
+	numBufferedDocs int   // docBase + numBufferedDocs == current doc ID
 }
 
 func newCompressingStoredFieldsWriter(dir store.Directory, si *SegmentInfo,
 	segmentSuffix string, ctx store.IOContext, formatName string,
 	compressionMode codec.CompressionMode, chunkSize int) (*CompressingStoredFieldsWriter, error) {
 
-	panic("not implemented yet")
+	assert(dir != nil)
+	ans := &CompressingStoredFieldsWriter{
+		directory:       dir,
+		segment:         si.name,
+		segmentSuffix:   segmentSuffix,
+		compressionMode: compressionMode,
+		compressor:      compressionMode.NewCompressor(),
+		chunkSize:       chunkSize,
+		docBase:         0,
+		bufferedDocs:    newGrowableByteArrayDataOutput(chunkSize),
+		numStoredFields: make([]int, 16),
+		endOffsets:      make([]int, 16),
+		numBufferedDocs: 0,
+	}
+
+	var success = false
+	indexStream, err := dir.CreateOutput(util.SegmentFileName(si.name, segmentSuffix,
+		LUCENE40_SF_FIELDS_INDEX_EXTENSION), ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if !success {
+			util.CloseWhileSuppressingError(indexStream)
+			ans.abort()
+		}
+	}()
+
+	ans.fieldsStream, err = dir.CreateOutput(util.SegmentFileName(si.name, segmentSuffix,
+		LUCENE40_SF_FIELDS_EXTENSION), ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	codecNameIdx := formatName + CODEC_SFX_IDX
+	codecNameDat := formatName + CODEC_SFX_DAT
+	err = codec.WriteHeader(indexStream, codecNameIdx, CP_VERSION_CURRENT)
+	if err != nil {
+		return nil, err
+	}
+	err = codec.WriteHeader(ans.fieldsStream, codecNameDat, CP_VERSION_CURRENT)
+	if err != nil {
+		return nil, err
+	}
+	assert(int64(codec.HeaderLength(codecNameIdx)) == indexStream.FilePointer())
+	assert(int64(codec.HeaderLength(codecNameDat)) == ans.fieldsStream.FilePointer())
+
+	ans.indexWriter, err = compressing.NewStoredFieldsIndexWriter(indexStream)
+	if err != nil {
+		return nil, err
+	}
+	indexStream = nil
+
+	err = ans.fieldsStream.WriteVInt(int32(chunkSize))
+	if err != nil {
+		return nil, err
+	}
+	err = ans.fieldsStream.WriteVInt(packed.PACKED_VERSION_CURRENT)
+	if err != nil {
+		return nil, err
+	}
+
+	success = true
+	return ans, nil
 }
 
 func (w *CompressingStoredFieldsWriter) Close() error {
@@ -172,5 +253,14 @@ func (w *CompressingStoredFieldsWriter) abort() {
 }
 
 func (w *CompressingStoredFieldsWriter) finish(fis FieldInfos, numDocs int) error {
+	panic("not implemented yet")
+}
+
+// util/GrowableByteArrayDataOutput.java
+
+type GrowableByteArrayDataOutput struct {
+}
+
+func newGrowableByteArrayDataOutput(cp int) *GrowableByteArrayDataOutput {
 	panic("not implemented yet")
 }

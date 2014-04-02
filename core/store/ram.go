@@ -517,3 +517,10 @@ func (out *RAMOutputStream) Flush() error {
 	out.setFileLength()
 	return nil
 }
+
+func (out *RAMOutputStream) FilePointer() int64 {
+	if out.currentBufferIndex < 0 {
+		return 0
+	}
+	return out.bufferStart + int64(out.bufferPosition)
+}

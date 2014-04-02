@@ -31,17 +31,17 @@ func newBufferedIndexInputBySize(desc string, bufferSize int) *BufferedIndexInpu
 	return ans
 }
 
+func (in *BufferedIndexInput) newBuffer(newBuffer []byte) {
+	// Subclasses can do something here
+	in.buffer = newBuffer
+}
+
 func (in *BufferedIndexInput) ReadByte() (b byte, err error) {
 	if in.bufferPosition >= in.bufferLength {
 		in.refill()
 	}
 	in.bufferPosition++
 	return in.buffer[in.bufferPosition-1], nil
-}
-
-func (in *BufferedIndexInput) newBuffer(newBuffer []byte) {
-	// Subclasses can do something here
-	in.buffer = newBuffer
 }
 
 func checkBufferSize(bufferSize int) {
@@ -385,6 +385,10 @@ func (out *BufferedIndexOutput) flush() error {
 	return err
 }
 
-func (out BufferedIndexOutput) Close() error {
+func (out *BufferedIndexOutput) Close() error {
 	return out.flush()
+}
+
+func (out *BufferedIndexOutput) FilePointer() int64 {
+	return out.start + int64(out.position)
 }

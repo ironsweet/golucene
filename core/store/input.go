@@ -15,9 +15,7 @@ type IndexInput interface {
 	ReadBytesBuffered(buf []byte, useBuffer bool) error
 	// IndexInput
 	FilePointer() int64
-	/** Sets current position in this file, where the next read will occur.
-	 * @see #getFilePointer()
-	 */
+	// Sets current position in this file, where the next read will occur.
 	Seek(pos int64) error
 	Length() int64
 	// Clone

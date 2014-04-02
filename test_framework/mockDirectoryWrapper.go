@@ -924,6 +924,10 @@ func (out *ThrottledIndexOutput) Close() error {
 	return out.delegate.Close()
 }
 
+func (out *ThrottledIndexOutput) FilePointer() int64 {
+	return out.delegate.FilePointer()
+}
+
 func (out *ThrottledIndexOutput) Length() int64 {
 	return out.delegate.Length()
 }
@@ -1233,6 +1237,10 @@ func (w *MockIndexOutputWrapper) WriteBytes(buf []byte) error {
 		}
 	}
 	return nil
+}
+
+func (w *MockIndexOutputWrapper) FilePointer() int64 {
+	return w.delegate.FilePointer()
 }
 
 func (w *MockIndexOutputWrapper) Length() int64 {

@@ -12,6 +12,8 @@ import (
 type IndexOutput interface {
 	io.Closer
 	util.DataOutput
+	// Returns the current position in this file, where the next write will occur.
+	FilePointer() int64
 	// The numer of bytes in the file.
 	Length() int64
 }

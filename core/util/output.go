@@ -12,6 +12,7 @@ safe (it keeps internal state like file position).
 type DataOutput interface {
 	DataWriter
 	WriteInt(i int32) error
+	WriteVInt(i int32) error
 	WriteLong(i int64) error
 	WriteString(s string) error
 	CopyBytes(input DataInput, numBytes int64) error
