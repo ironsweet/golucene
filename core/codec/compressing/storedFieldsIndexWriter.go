@@ -2,7 +2,11 @@ package compressing
 
 import (
 	"github.com/balzaczyy/golucene/core/store"
+	"github.com/balzaczyy/golucene/core/util/packed"
 )
+
+/* number of chunks to serialize at once */
+const BLOCK_SIZE = 1024
 
 /*
 Efficient index format for block-based Codecs.
@@ -49,11 +53,30 @@ inside the block based on DocBaseDeltas (by reconstructing the doc
 bases for every chunk).
 */
 type StoredFieldsIndexWriter struct {
-	fieldsIndexOut store.IndexOutput
+	fieldsIndexOut     store.IndexOutput
+	totalDocs          int
+	blockDocs          int
+	blockChunks        int
+	firstStartPointer  int64
+	maxStartPointer    int64
+	docBaseDeltas      []int
+	startPointerDeltas []int64
 }
 
 func NewStoredFieldsIndexWriter(indexOutput store.IndexOutput) (*StoredFieldsIndexWriter, error) {
-	panic("not implemented yet")
+	err := indexOutput.WriteVInt(packed.VERSION_CURRENT)
+	if err != nil {
+		return nil, err
+	}
+	return &StoredFieldsIndexWriter{
+		fieldsIndexOut:     indexOutput,
+		blockChunks:        0,
+		blockDocs:          0,
+		firstStartPointer:  -1,
+		totalDocs:          0,
+		docBaseDeltas:      make([]int, BLOCK_SIZE),
+		startPointerDeltas: make([]int64, BLOCK_SIZE),
+	}, nil
 }
 
 func (w *StoredFieldsIndexWriter) Close() error {
