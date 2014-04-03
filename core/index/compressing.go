@@ -258,9 +258,11 @@ func (w *CompressingStoredFieldsWriter) finish(fis FieldInfos, numDocs int) erro
 
 // util/GrowableByteArrayDataOutput.java
 
+/* A DataOutput that can be used to build a []byte */
 type GrowableByteArrayDataOutput struct {
+	bytes []byte
 }
 
 func newGrowableByteArrayDataOutput(cp int) *GrowableByteArrayDataOutput {
-	panic("not implemented yet")
+	return &GrowableByteArrayDataOutput{make([]byte, 0, util.Oversize(cp, 1))}
 }
