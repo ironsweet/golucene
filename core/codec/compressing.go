@@ -17,8 +17,7 @@ const (
 type CompressionModeDefaults int
 
 func (m CompressionModeDefaults) NewCompressor() Compressor {
-	panic("not supported yet")
-	return nil
+	return newLZ4FastCompressor()
 }
 
 func (m CompressionModeDefaults) NewDecompressor() Decompressor {
@@ -84,4 +83,11 @@ func assert2(ok bool, msg string, args ...interface{}) {
 
 func (d LZ4Decompressor) Clone() Decompressor {
 	return d
+}
+
+type LZ4FastCompressor struct {
+}
+
+func newLZ4FastCompressor() *LZ4FastCompressor {
+	panic("not implemented yet")
 }
