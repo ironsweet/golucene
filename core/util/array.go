@@ -1,7 +1,6 @@
 package util
 
 import (
-	"fmt"
 	"math"
 	"sort"
 )
@@ -27,10 +26,8 @@ import (
  * @lucene.internal
  */
 func Oversize(minTargetSize int, bytesPerElement int) int {
-	if minTargetSize < 0 {
-		// catch usage that accidentally overflows int
-		panic(fmt.Sprintf("invalid array size %v", minTargetSize))
-	}
+	// catch usage that accidentally overflows int
+	assert2(minTargetSize >= 0, "invalid array size %v", minTargetSize)
 
 	if minTargetSize == 0 {
 		// wait until at least one element is requested
@@ -50,7 +47,7 @@ func Oversize(minTargetSize int, bytesPerElement int) int {
 
 	newSize := minTargetSize + extra
 	// add 7 to allow for worst case byte alignment addition below:
-	if newSize+7 < 0 {
+	if int32(newSize+7) < 0 {
 		// int overflowed -- return max allowed array size
 		return int(math.MaxInt32)
 	}

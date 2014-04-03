@@ -22,9 +22,9 @@ func (sorter *Sorter) checkRange(from, to int) {
 	assert2(from <= to, fmt.Sprintf("'to' must be >= 'from', got from=%v, and to=%v", from, to))
 }
 
-func assert2(ok bool, msg string) {
+func assert2(ok bool, msg string, args ...interface{}) {
 	if !ok {
-		panic(msg)
+		panic(fmt.Sprintf(msg, args...))
 	}
 }
 
