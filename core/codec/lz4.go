@@ -93,3 +93,5 @@ func LZ4Decompress(compressed DataInput, decompressedLen int, dest []byte) (leng
 func asInt(b byte, err error) (n int, err2 error) {
 	return int(b), err
 }
+
+type LZ4HashTable struct{}

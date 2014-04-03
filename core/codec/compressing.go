@@ -86,8 +86,9 @@ func (d LZ4Decompressor) Clone() Decompressor {
 }
 
 type LZ4FastCompressor struct {
+	ht *LZ4HashTable
 }
 
 func newLZ4FastCompressor() *LZ4FastCompressor {
-	panic("not implemented yet")
+	return &LZ4FastCompressor{new(LZ4HashTable)}
 }
