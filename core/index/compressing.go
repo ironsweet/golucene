@@ -245,11 +245,10 @@ func (w *CompressingStoredFieldsWriter) finishDocument() error {
 }
 
 func (w *CompressingStoredFieldsWriter) abort() {
-	// util.CloseWhileSuppressingError(w)
-	// util.DeleteFilesIgnoringErrors(w.directory,
-	// 	SegmentFileName(w.segment, w.segmentSuffix, FIELDS_EXTENSION),
-	// 	SegmentFileName(w.segment, w.segmentSuffix, FIELDS_INDEX_EXTENSION))
-	panic("not implemented yet")
+	util.CloseWhileSuppressingError(w)
+	util.DeleteFilesIgnoringErrors(w.directory,
+		util.SegmentFileName(w.segment, w.segmentSuffix, LUCENE40_SF_FIELDS_EXTENSION),
+		util.SegmentFileName(w.segment, w.segmentSuffix, LUCENE40_SF_FIELDS_INDEX_EXTENSION))
 }
 
 func (w *CompressingStoredFieldsWriter) finish(fis FieldInfos, numDocs int) error {
