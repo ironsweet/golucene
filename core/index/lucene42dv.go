@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"sync"
@@ -47,8 +48,8 @@ func newLucene42DocValuesProducer(state SegmentReadState,
 	dvp = &Lucene42DocValuesProducer{
 		numericInstances: make(map[int]NumericDocValues),
 	}
-	dvp.maxDoc = state.segmentInfo.docCount.Get().(int)
-	metaName := util.SegmentFileName(state.segmentInfo.name, state.segmentSuffix, metaExtension)
+	dvp.maxDoc = state.segmentInfo.DocCount()
+	metaName := util.SegmentFileName(state.segmentInfo.Name, state.segmentSuffix, metaExtension)
 	// read in the entries from the metadata file.
 	in, err := state.dir.OpenInput(metaName, state.context)
 	if err != nil {
@@ -77,7 +78,7 @@ func newLucene42DocValuesProducer(state SegmentReadState,
 	success = true
 
 	success = false
-	dataName := util.SegmentFileName(state.segmentInfo.name, state.segmentSuffix, dataExtension)
+	dataName := util.SegmentFileName(state.segmentInfo.Name, state.segmentSuffix, dataExtension)
 	dvp.data, err = state.dir.OpenInput(dataName, state.context)
 	if err != nil {
 		return dvp, err
@@ -143,21 +144,21 @@ func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput) (err err
 	return
 }
 
-func (dvp *Lucene42DocValuesProducer) Numeric(field FieldInfo) (v NumericDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) Numeric(field model.FieldInfo) (v NumericDocValues, err error) {
 	dvp.lock.Lock()
 	defer dvp.lock.Unlock()
 
-	v, exists := dvp.numericInstances[int(field.number)]
+	v, exists := dvp.numericInstances[int(field.Number)]
 	if !exists {
 		if v, err = dvp.loadNumeric(field); err == nil {
-			dvp.numericInstances[int(field.number)] = v
+			dvp.numericInstances[int(field.Number)] = v
 		}
 	}
 	return
 }
 
-func (dvp *Lucene42DocValuesProducer) loadNumeric(field FieldInfo) (v NumericDocValues, err error) {
-	entry := dvp.numerics[int(field.number)]
+func (dvp *Lucene42DocValuesProducer) loadNumeric(field model.FieldInfo) (v NumericDocValues, err error) {
+	entry := dvp.numerics[int(field.Number)]
 	if err = dvp.data.Seek(entry.offset); err != nil {
 		return
 	}
@@ -182,17 +183,17 @@ func (dvp *Lucene42DocValuesProducer) loadNumeric(field FieldInfo) (v NumericDoc
 	return
 }
 
-func (dvp *Lucene42DocValuesProducer) Binary(field FieldInfo) (v BinaryDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) Binary(field model.FieldInfo) (v BinaryDocValues, err error) {
 	panic("not implemented yet")
 	return nil, nil
 }
 
-func (dvp *Lucene42DocValuesProducer) Sorted(field FieldInfo) (v SortedDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) Sorted(field model.FieldInfo) (v SortedDocValues, err error) {
 	panic("not implemented yet")
 	return nil, nil
 }
 
-func (dvp *Lucene42DocValuesProducer) SortedSet(field FieldInfo) (v SortedSetDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) SortedSet(field model.FieldInfo) (v SortedSetDocValues, err error) {
 	panic("not implemented yet")
 	return nil, nil
 }

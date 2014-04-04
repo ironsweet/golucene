@@ -212,7 +212,7 @@ func (ds *BufferedDeletesStream) applyDeletes(readerPool *ReaderPool, infos []*S
 				delta, err := applyQueryDeletes(packet.queries(), rld, reader)
 				delCount += delta
 				fullDelCount := rld.info.delCount + rld.pendingDeleteCount()
-				infoDocCount := rld.info.info.docCount.Get().(int)
+				infoDocCount := rld.info.info.DocCount()
 				assert(fullDelCount <= infoDocCount)
 				return delCount, fullDelCount == infoDocCount, nil
 			}()
@@ -272,7 +272,7 @@ func (ds *BufferedDeletesStream) applyDeletes(readerPool *ReaderPool, infos []*S
 					}
 					delCount += delta
 					fullDelCount := rld.info.delCount + rld.pendingDeleteCount()
-					infoDocCount := rld.info.info.docCount.Get().(int)
+					infoDocCount := rld.info.info.DocCount()
 					assert(fullDelCount <= infoDocCount)
 					return delCount, fullDelCount == infoDocCount, nil
 				}()

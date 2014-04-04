@@ -157,5 +157,5 @@ Returns a string description of the specified segment, for debugging.
 */
 func (pool *ReaderPool) segmentToString(info *SegmentInfoPerCommit) string {
 	// TODO synchronized
-	return info.StringOf(info.info.dir, pool.numDeletedDocs(info)-info.delCount)
+	return info.StringOf(info.info.Dir, pool.numDeletedDocs(info)-info.delCount)
 }

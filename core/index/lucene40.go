@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	. "github.com/balzaczyy/golucene/core/codec/lucene40"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 )
@@ -72,8 +73,10 @@ const (
 
 // lucene40/Lucene40SegmentInfoReader.java
 
-var Lucene40SegmentInfoReader = func(dir store.Directory, segment string, context store.IOContext) (si *SegmentInfo, err error) {
-	si = &SegmentInfo{}
+var Lucene40SegmentInfoReader = func(dir store.Directory,
+	segment string, context store.IOContext) (si *model.SegmentInfo, err error) {
+
+	si = new(model.SegmentInfo)
 	fileName := util.SegmentFileName(segment, "", LUCENE40_SI_EXTENSION)
 	input, err := dir.OpenInput(fileName, context)
 	if err != nil {
@@ -128,9 +131,9 @@ var Lucene40SegmentInfoReader = func(dir store.Directory, segment string, contex
 			fileName, input.FilePointer(), input.Length(), input))
 	}
 
-	si = newSegmentInfo(dir, version, segment, int(docCount), isCompoundFile,
+	si = model.NewSegmentInfo(dir, version, segment, int(docCount), isCompoundFile,
 		nil, diagnostics, attributes)
-	si.setFiles(files)
+	si.SetFiles(files)
 
 	success = true
 	return si, nil
@@ -139,15 +142,11 @@ var Lucene40SegmentInfoReader = func(dir store.Directory, segment string, contex
 // lucene40/Lucne40SegmentInfoWriter.java
 
 // Lucene 4.0 implementation of SegmentInfoWriter
-var Lucene40SegmentInfoWriter = func(dir store.Directory, si *SegmentInfo, fis FieldInfos, ctx store.IOContext) error {
+var Lucene40SegmentInfoWriter = func(dir store.Directory,
+	si *model.SegmentInfo, fis model.FieldInfos, ctx store.IOContext) error {
+
 	panic("not implemented yet")
 }
-
-// Lucene40StoredFieldsWriter.java
-const (
-	LUCENE40_SF_FIELDS_EXTENSION       = "fdt"
-	LUCENE40_SF_FIELDS_INDEX_EXTENSION = "fdx"
-)
 
 // codecs/lucene40/Lucene40LiveDocsFormat.java
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
 	"log"
@@ -90,42 +91,42 @@ func newDocumentStoredFieldVisitor() *DocumentStoredFieldVisitor {
 	}
 }
 
-func (visitor *DocumentStoredFieldVisitor) binaryField(fi FieldInfo, value []byte) error {
+func (visitor *DocumentStoredFieldVisitor) binaryField(fi model.FieldInfo, value []byte) error {
 	panic("not implemented yet")
 	// visitor.doc.add(newStoredField(fieldInfo.name, value))
 	// return nil
 }
 
-func (visitor *DocumentStoredFieldVisitor) stringField(fi FieldInfo, value string) error {
+func (visitor *DocumentStoredFieldVisitor) stringField(fi model.FieldInfo, value string) error {
 	ft := NewFieldTypeFrom(TEXT_FIELD_TYPE_STORED)
-	ft.storeTermVectors = fi.storeTermVector
-	ft.indexed = fi.indexed
-	ft._omitNorms = fi.omitNorms
-	ft._indexOptions = fi.indexOptions
-	visitor.doc.Add(NewStringField(fi.name, value, ft))
+	ft.storeTermVectors = fi.HasVectors()
+	ft.indexed = fi.IsIndexed()
+	ft._omitNorms = fi.OmitsNorms()
+	ft._indexOptions = fi.IndexOptions()
+	visitor.doc.Add(NewStringField(fi.Name, value, ft))
 	return nil
 }
 
-func (visitor *DocumentStoredFieldVisitor) intField(fi FieldInfo, value int) error {
+func (visitor *DocumentStoredFieldVisitor) intField(fi model.FieldInfo, value int) error {
 	panic("not implemented yet")
 }
 
-func (visitor *DocumentStoredFieldVisitor) longField(fi FieldInfo, value int64) error {
+func (visitor *DocumentStoredFieldVisitor) longField(fi model.FieldInfo, value int64) error {
 	panic("not implemented yet")
 }
 
-func (visitor *DocumentStoredFieldVisitor) floatField(fi FieldInfo, value float32) error {
+func (visitor *DocumentStoredFieldVisitor) floatField(fi model.FieldInfo, value float32) error {
 	panic("not implemented yet")
 }
 
-func (visitor *DocumentStoredFieldVisitor) doubleField(fi FieldInfo, value float64) error {
+func (visitor *DocumentStoredFieldVisitor) doubleField(fi model.FieldInfo, value float64) error {
 	panic("not implemented yet")
 }
 
-func (visitor *DocumentStoredFieldVisitor) needsField(fi FieldInfo) (status StoredFieldVisitorStatus, err error) {
+func (visitor *DocumentStoredFieldVisitor) needsField(fi model.FieldInfo) (status StoredFieldVisitorStatus, err error) {
 	if visitor.fieldsToAdd == nil {
 		status = STORED_FIELD_VISITOR_STATUS_YES
-	} else if _, ok := visitor.fieldsToAdd[fi.name]; ok {
+	} else if _, ok := visitor.fieldsToAdd[fi.Name]; ok {
 		status = STORED_FIELD_VISITOR_STATUS_YES
 	} else {
 		status = STORED_FIELD_VISITOR_STATUS_NO
@@ -159,11 +160,11 @@ type FieldType struct {
 	storeTermVectorPositions bool
 	storeTermVectorPayloads  bool
 	_omitNorms               bool
-	_indexOptions            IndexOptions
+	_indexOptions            model.IndexOptions
 	numericType              NumericType
 	frozen                   bool
 	numericPrecisionStep     int
-	_docValueType            DocValuesType
+	_docValueType            model.DocValuesType
 }
 
 // Create a new mutable FieldType with all of the properties from <code>ref</code>
@@ -188,7 +189,7 @@ func NewFieldTypeFrom(ref *FieldType) *FieldType {
 func newFieldType() *FieldType {
 	return &FieldType{
 		_tokenized:           true,
-		_indexOptions:        INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS,
+		_indexOptions:        model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS,
 		numericPrecisionStep: util.NUMERIC_PRECISION_STEP_DEFAULT,
 	}
 }
@@ -221,9 +222,9 @@ func (ft *FieldType) SetStoreTermVectorPayloads(v bool) {
 	ft.storeTermVectorPayloads = v
 }
 
-func (ft *FieldType) omitNorms() bool             { return ft._omitNorms }
-func (ft *FieldType) indexOptions() IndexOptions  { return ft._indexOptions }
-func (ft *FieldType) docValueType() DocValuesType { return ft._docValueType }
+func (ft *FieldType) omitNorms() bool                   { return ft._omitNorms }
+func (ft *FieldType) indexOptions() model.IndexOptions  { return ft._indexOptions }
+func (ft *FieldType) docValueType() model.DocValuesType { return ft._docValueType }
 
 // Prints a Field for human consumption.
 func (ft *FieldType) String() string {
@@ -254,7 +255,7 @@ func (ft *FieldType) String() string {
 		if ft.omitNorms() {
 			buf.WriteString(",omitNorms")
 		}
-		if ft.indexOptions() != INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS {
+		if ft.indexOptions() != model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS {
 			fmt.Fprintf(&buf, ",indexOptions=%v", ft.indexOptions())
 		}
 		if ft.numericType != 0 {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
@@ -179,7 +180,7 @@ type IndexWriter struct {
 	filesToCommit []string
 
 	segmentInfos         *SegmentInfos // the segments
-	globalFieldNumberMap *FieldNumbers
+	globalFieldNumberMap *model.FieldNumbers
 
 	docWriter  *DocumentsWriter
 	eventQueue *list.List
@@ -396,7 +397,7 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 	return ans, nil
 }
 
-func (w *IndexWriter) fieldInfos(info *SegmentInfo) (infos FieldInfos, err error) {
+func (w *IndexWriter) fieldInfos(info *model.SegmentInfo) (infos model.FieldInfos, err error) {
 	panic("not implemented yet")
 }
 
@@ -405,15 +406,15 @@ Loads or returns the alread loaded the global field number map for
 this SegmentInfos. If this SegmentInfos has no global field number
 map the returned instance is empty.
 */
-func (w *IndexWriter) fieldNumberMap() (m *FieldNumbers, err error) {
-	m = newFieldNumbers()
+func (w *IndexWriter) fieldNumberMap() (m *model.FieldNumbers, err error) {
+	m = model.NewFieldNumbers()
 	for _, info := range w.segmentInfos.Segments {
 		fis, err := w.fieldInfos(info.info)
 		if err != nil {
 			return nil, err
 		}
-		for _, fi := range fis.values {
-			m.addOrGet(fi.name, int(fi.number), fi.docValueType)
+		for _, fi := range fis.Values {
+			m.AddOrGet(fi)
 		}
 	}
 	return m, nil
@@ -1271,11 +1272,11 @@ func (w *IndexWriter) merge(merge *OneMerge) error {
 	panic("not implemented yet")
 }
 
-func setDiagnostics(info *SegmentInfo, source string) {
+func setDiagnostics(info *model.SegmentInfo, source string) {
 	setDiagnosticsAndDetails(info, source, nil)
 }
 
-func setDiagnosticsAndDetails(info *SegmentInfo, source string, details map[string]string) {
+func setDiagnosticsAndDetails(info *model.SegmentInfo, source string, details map[string]string) {
 	panic("not implemented yet")
 }
 
@@ -1446,7 +1447,7 @@ file.
 func createCompoundFile(infoStream util.InfoStream,
 	directory store.Directory,
 	checkAbort *CheckAbort,
-	info *SegmentInfo,
+	info *model.SegmentInfo,
 	context store.IOContext) (names []string, err error) {
 	panic("not implemented yet")
 }
@@ -1459,10 +1460,10 @@ func (w *IndexWriter) deleteNewFiles(files []string) error {
 }
 
 /* Cleans up residuals from a segment that could not be entirely flushed due to an error */
-func (w *IndexWriter) flushFailed(info *SegmentInfo) error {
+func (w *IndexWriter) flushFailed(info *model.SegmentInfo) error {
 	w.Lock()
 	defer w.Unlock()
-	return w.deleter.refresh(info.name)
+	return w.deleter.refresh(info.Name)
 }
 
 func (w *IndexWriter) purge(forced bool) (n int, err error) {

@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 )
 
@@ -10,7 +11,7 @@ import (
 // Embeds a [read-only] SegmentInfo and adds per-commit fields.
 type SegmentInfoPerCommit struct {
 	// The SegmentInfo that we wrap.
-	info *SegmentInfo
+	info *model.SegmentInfo
 	// How many deleted docs in the segment:
 	delCount int
 	// Generation number of the live docs file (-1 if there are no deletes yet)
@@ -25,7 +26,9 @@ type SegmentInfoPerCommit struct {
 	bufferedDeletesGen int64
 }
 
-func NewSegmentInfoPerCommit(info *SegmentInfo, delCount int, delGen int64) *SegmentInfoPerCommit {
+func NewSegmentInfoPerCommit(info *model.SegmentInfo,
+	delCount int, delGen int64) *SegmentInfoPerCommit {
+
 	nextWriteDelGen := int64(1)
 	if delGen != -1 {
 		nextWriteDelGen = delGen + 1
@@ -63,7 +66,7 @@ func (si *SegmentInfoPerCommit) SizeInBytes() (sum int64, err error) {
 	if si.sizeInBytes == -1 {
 		sum = 0
 		for _, fileName := range si.Files() {
-			d, err := si.info.dir.FileLength(fileName)
+			d, err := si.info.Dir.FileLength(fileName)
 			if err != nil {
 				return 0, err
 			}
@@ -109,7 +112,7 @@ func (si *SegmentInfoPerCommit) StringOf(dir store.Directory, pendingDelCount in
 }
 
 func (si *SegmentInfoPerCommit) String() string {
-	s := si.info.StringOf(si.info.dir, si.delCount)
+	s := si.info.StringOf(si.info.Dir, si.delCount)
 	if si.delGen != -1 {
 		s = fmt.Sprintf("%v:delGen=%v", s, si.delGen)
 	}

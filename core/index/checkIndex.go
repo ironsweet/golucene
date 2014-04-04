@@ -3,6 +3,7 @@ package index
 import (
 	"errors"
 	"fmt"
+	// "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"io"
 	"math"
@@ -186,7 +187,7 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 	var oldSegs string
 	var foundNonNilVersion = false
 	for _, si := range sis.Segments {
-		if version := si.info.version; version != "" {
+		if version := si.info.Version(); version != "" {
 			foundNonNilVersion = true
 			if versionLess(version, oldest) {
 				oldest = version
@@ -267,36 +268,36 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 	result.maxSegmentName = -1
 
 	for i, info := range sis.Segments {
-		segmentName, err := strconv.ParseInt(info.info.name[1:], 36, 32)
+		segmentName, err := strconv.ParseInt(info.info.Name[1:], 36, 32)
 		if err != nil {
 			panic(err) // impossible
 		}
 		if int(segmentName) > result.maxSegmentName {
 			result.maxSegmentName = int(segmentName)
 		}
-		if _, ok := names[info.info.name]; !ok {
+		if _, ok := names[info.info.Name]; !ok {
 			continue
 		}
 		segInfoStat := new(SegmentInfoStatus)
 		result.segmentInfos = append(result.segmentInfos, segInfoStat)
-		infoDocCount := info.info.docCount.Get().(int)
+		infoDocCount := info.info.DocCount()
 		ch.msg("  %v of %v: name=%v docCount=%v ",
-			1+i, numSegments, info.info.name, infoDocCount)
-		segInfoStat.name = info.info.name
+			1+i, numSegments, info.info.Name, infoDocCount)
+		segInfoStat.name = info.info.Name
 		segInfoStat.docCount = infoDocCount
 
-		version := info.info.version
+		version := info.info.Version()
 		if infoDocCount <= 0 && version != "" && !versionLess(version, "4.5") {
 			panic(fmt.Sprintf("illegal number of documents: maxDoc=%v", infoDocCount))
 		}
 
 		toLoseDocCount := infoDocCount
 		err = func() error {
-			codec := info.info.codec
+			codec := info.info.Codec().(Codec)
 			ch.msg("    codec = %v", codec)
 			segInfoStat.codec = codec
-			ch.msg("    compound = %v", info.info.isCompoundFile)
-			segInfoStat.compound = info.info.isCompoundFile
+			ch.msg("    compound = %v", info.info.IsCompoundFile())
+			segInfoStat.compound = info.info.IsCompoundFile()
 			ch.msg("    numFiles = %v", len(info.Files()))
 			segInfoStat.numFiles = len(info.Files())
 			n, err := info.SizeInBytes()
@@ -304,18 +305,18 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 				return err
 			}
 			segInfoStat.sizeMB = float64(n) / (1024 * 1024)
-			if _, ok := info.info.attributes["Lucene3xSegmentInfoFormat.dsoffset"]; !ok {
+			if v := info.info.Attribute("Lucene3xSegmentInfoFormat.dsoffset"); v == "" {
 				// don't print size in bytes if it's a 3.0 segment iwht shared docstores
 				ch.msg("    size (MB) = %v", segInfoStat.sizeMB)
 			}
 
-			diagnostics := info.info.diagnostics
+			diagnostics := info.info.Diagnostics()
 			segInfoStat.diagnostics = diagnostics
 			if len(diagnostics) > 0 {
 				ch.msg("    diagnostics = %v", diagnostics)
 			}
 
-			atts := info.info.attributes
+			atts := info.info.Attributes()
 			if len(atts) > 0 {
 				ch.msg("    attributes = %v", atts)
 			}
@@ -402,8 +403,8 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 			// Test getFieldInfos()
 			ch.msg("    test: fields..............")
 			fieldInfos := reader.FieldInfos()
-			ch.msg("OK [%v fields]", len(fieldInfos.byNumber))
-			segInfoStat.numFields = len(fieldInfos.byNumber)
+			ch.msg("OK [%v fields]", fieldInfos.Size())
+			segInfoStat.numFields = fieldInfos.Size()
 
 			segInfoStat.fieldNormStatus = ch.testFieldNorms(reader)
 			segInfoStat.termIndexStatus = ch.testPostings(reader)

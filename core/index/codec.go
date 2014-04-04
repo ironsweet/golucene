@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
@@ -292,9 +293,9 @@ type DocValuesConsumer interface{}
 // Controls the format of stored fields
 type StoredFieldsFormat interface {
 	// Returns a StoredFieldsReader to load stored fields.
-	FieldsReader(d store.Directory, si *SegmentInfo, fn FieldInfos, context store.IOContext) (r StoredFieldsReader, err error)
+	FieldsReader(d store.Directory, si *model.SegmentInfo, fn model.FieldInfos, context store.IOContext) (r StoredFieldsReader, err error)
 	// Returns a StoredFieldsWriter to write stored fields.
-	FieldsWriter(d store.Directory, si *SegmentInfo, context store.IOContext) (w StoredFieldsWriter, err error)
+	FieldsWriter(d store.Directory, si *model.SegmentInfo, context store.IOContext) (w StoredFieldsWriter, err error)
 }
 
 // codecs/StoredFieldsReader.java
@@ -323,18 +324,18 @@ type StoredFieldsWriter interface {
 	// WriteField() will be called numStoredFields times. Note that
 	// this is called even if the document has no stored fields, in
 	// this case numStoredFields will be zero.
-	startDocument(numStoredFields int) error
+	StartDocument(numStoredFields int) error
 	// Called when a document and all its fields have been added.
-	finishDocument() error
+	FinishDocument() error
 	// Aborts writing entirely, implementation should remove any
 	// partially-written files, etc.
-	abort()
+	Abort()
 	// Called before Close(), passing in the number of documents that
 	// were written. Note that this is intentionally redundant
 	// (equivalent to the number of calls to startDocument(int)), but a
 	// Codec should check that this is the case to detect the JRE bug
 	// described in LUCENE-1282.
-	finish(fis FieldInfos, numDocs int) error
+	Finish(fis model.FieldInfos, numDocs int) error
 }
 
 // codecs/TermVectorsFormat.java
@@ -342,9 +343,9 @@ type StoredFieldsWriter interface {
 // Controls the format of term vectors
 type TermVectorsFormat interface {
 	// Returns a TermVectorsReader to read term vectors.
-	VectorsReader(d store.Directory, si *SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
+	VectorsReader(d store.Directory, si *model.SegmentInfo, fn model.FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
 	// Returns a TermVectorsWriter to write term vectors.
-	VectorsWriter(d store.Directory, si *SegmentInfo, ctx store.IOContext) (w TermVectorsWriter, err error)
+	VectorsWriter(d store.Directory, si *model.SegmentInfo, ctx store.IOContext) (w TermVectorsWriter, err error)
 }
 
 // codecs/TermVectorsReader.java
@@ -391,10 +392,10 @@ type FieldInfosFormat interface {
 // codecs/FieldInfosReader.java
 
 // Codec API for reading FieldInfos.
-type FieldInfosReader func(d store.Directory, name string, ctx store.IOContext) (infos FieldInfos, err error)
+type FieldInfosReader func(d store.Directory, name string, ctx store.IOContext) (infos model.FieldInfos, err error)
 
 // Codec API for writing FieldInfos.
-type FieldInfosWriter func(d store.Directory, name string, infos FieldInfos, ctx store.IOContext) error
+type FieldInfosWriter func(d store.Directory, name string, infos model.FieldInfos, ctx store.IOContext) error
 
 // codecs/SegmentInfoFormat.java
 
@@ -409,14 +410,12 @@ type SegmentInfoFormat interface {
 // codecs/SegmentInfoReader.java
 
 // Read SegmentInfo data from a directory.
-type SegmentInfoReader func(d store.Directory, name string,
-	ctx store.IOContext) (info *SegmentInfo, err error)
+type SegmentInfoReader func(d store.Directory, name string, ctx store.IOContext) (info *model.SegmentInfo, err error)
 
 // codecs/SegmentInfoWriter.java
 
 // Write SegmentInfo data.
-type SegmentInfoWriter func(d store.Directory, info *SegmentInfo,
-	infos FieldInfos, ctx store.IOContext) error
+type SegmentInfoWriter func(d store.Directory, info *model.SegmentInfo, infos model.FieldInfos, ctx store.IOContext) error
 
 // codecs/NormsFormat.java
 
@@ -442,10 +441,10 @@ type NormsFormat interface {
 // Abstract API that produces numeric, binary and sorted docvalues.
 type DocValuesProducer interface {
 	io.Closer
-	Numeric(field FieldInfo) (v NumericDocValues, err error)
-	Binary(field FieldInfo) (v BinaryDocValues, err error)
-	Sorted(field FieldInfo) (v SortedDocValues, err error)
-	SortedSet(field FieldInfo) (v SortedSetDocValues, err error)
+	Numeric(field model.FieldInfo) (v NumericDocValues, err error)
+	Binary(field model.FieldInfo) (v BinaryDocValues, err error)
+	Sorted(field model.FieldInfo) (v SortedDocValues, err error)
+	SortedSet(field model.FieldInfo) (v SortedSetDocValues, err error)
 }
 
 // codecs/LiveDocsFormat.java

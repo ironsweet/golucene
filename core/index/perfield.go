@@ -1,6 +1,7 @@
 package index
 
 import (
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
 	"log"
@@ -74,15 +75,15 @@ func newPerFieldPostingsReader(state SegmentReadState) (fp FieldsProducer, err e
 		}
 	}()
 	// Read field name -> format name
-	for _, fi := range state.fieldInfos.values {
+	for _, fi := range state.fieldInfos.Values {
 		log.Printf("Processing %v...", fi)
-		if fi.indexed {
-			fieldName := fi.name
+		if fi.IsIndexed() {
+			fieldName := fi.Name
 			log.Printf("Name: %v", fieldName)
-			if formatName, ok := fi.attributes[PER_FIELD_FORMAT_KEY]; ok {
+			if formatName := fi.Attribute(PER_FIELD_FORMAT_KEY); formatName != "" {
 				log.Printf("Format: %v", formatName)
 				// null formatName means the field is in fieldInfos, but has no postings!
-				suffix := fi.attributes[PER_FIELD_SUFFIX_KEY]
+				suffix := fi.Attribute(PER_FIELD_SUFFIX_KEY)
 				log.Printf("Suffix: %v", suffix)
 				// assert suffix != nil
 				segmentSuffix := formatName + "_" + suffix
@@ -181,12 +182,12 @@ func newPerFieldDocValuesReader(state SegmentReadState) (dvp DocValuesProducer, 
 		}
 	}()
 	// Read field name -> format name
-	for _, fi := range state.fieldInfos.values {
-		if fi.docValueType != 0 {
-			fieldName := fi.name
-			if formatName, ok := fi.attributes[PER_FIELD_FORMAT_KEY]; ok {
+	for _, fi := range state.fieldInfos.Values {
+		if fi.HasDocValues() {
+			fieldName := fi.Name
+			if formatName := fi.Attribute(PER_FIELD_FORMAT_KEY); formatName != "" {
 				// null formatName means the field is in fieldInfos, but has no docvalues!
-				suffix := fi.attributes[PER_FIELD_SUFFIX_KEY]
+				suffix := fi.Attribute(PER_FIELD_SUFFIX_KEY)
 				// assert suffix != nil
 				segmentSuffix := formatName + "_" + suffix
 				if _, ok := ans.formats[segmentSuffix]; !ok {
@@ -204,29 +205,29 @@ func newPerFieldDocValuesReader(state SegmentReadState) (dvp DocValuesProducer, 
 	return &ans, nil
 }
 
-func (dvp *PerFieldDocValuesReader) Numeric(field FieldInfo) (v NumericDocValues, err error) {
-	if p, ok := dvp.fields[field.name]; ok {
+func (dvp *PerFieldDocValuesReader) Numeric(field model.FieldInfo) (v NumericDocValues, err error) {
+	if p, ok := dvp.fields[field.Name]; ok {
 		return p.Numeric(field)
 	}
 	return nil, nil
 }
 
-func (dvp *PerFieldDocValuesReader) Binary(field FieldInfo) (v BinaryDocValues, err error) {
-	if p, ok := dvp.fields[field.name]; ok {
+func (dvp *PerFieldDocValuesReader) Binary(field model.FieldInfo) (v BinaryDocValues, err error) {
+	if p, ok := dvp.fields[field.Name]; ok {
 		return p.Binary(field)
 	}
 	return nil, nil
 }
 
-func (dvp *PerFieldDocValuesReader) Sorted(field FieldInfo) (v SortedDocValues, err error) {
-	if p, ok := dvp.fields[field.name]; ok {
+func (dvp *PerFieldDocValuesReader) Sorted(field model.FieldInfo) (v SortedDocValues, err error) {
+	if p, ok := dvp.fields[field.Name]; ok {
 		return p.Sorted(field)
 	}
 	return nil, nil
 }
 
-func (dvp *PerFieldDocValuesReader) SortedSet(field FieldInfo) (v SortedSetDocValues, err error) {
-	if p, ok := dvp.fields[field.name]; ok {
+func (dvp *PerFieldDocValuesReader) SortedSet(field model.FieldInfo) (v SortedSetDocValues, err error) {
+	if p, ok := dvp.fields[field.Name]; ok {
 		return p.SortedSet(field)
 	}
 	return nil, nil

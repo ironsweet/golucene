@@ -1,7 +1,6 @@
 package index
 
 import (
-	"fmt"
 	"log"
 )
 
@@ -90,70 +89,3 @@ func GetMultiTerms(r IndexReader, field string) Terms {
 	}
 	return fields.Terms(field)
 }
-
-type FieldInfo struct {
-	// Field's name
-	name string
-	// Internal field number
-	number int32
-
-	indexed      bool
-	docValueType DocValuesType
-
-	// True if any document indexed term vectors
-	storeTermVector bool
-
-	normType      DocValuesType
-	omitNorms     bool
-	indexOptions  IndexOptions
-	storePayloads bool
-
-	attributes map[string]string
-}
-
-func NewFieldInfo(name string, indexed bool, number int32, storeTermVector, omitNorms, storePayloads bool,
-	indexOptions IndexOptions, docValues, normsType DocValuesType, attributes map[string]string) FieldInfo {
-	fi := FieldInfo{name: name, indexed: indexed, number: number, docValueType: docValues, attributes: attributes}
-	if indexed {
-		fi.storeTermVector = storeTermVector
-		fi.storePayloads = storePayloads
-		fi.omitNorms = omitNorms
-		fi.indexOptions = indexOptions
-		if !omitNorms {
-			fi.normType = normsType
-		}
-	} // for non-indexed fields, leave defaults
-	// assert checkConsistency()
-	return fi
-}
-
-func (fi FieldInfo) String() string {
-	return fmt.Sprintf("%v-%v, isIndexed=%v, docValueType=%v, hasVectors=%v, normType=%v, omitNorms=%v, indexOptions=%v, hasPayloads=%v, attributes=%v",
-		fi.number, fi.name, fi.indexed, fi.docValueType, fi.storeTermVector, fi.normType, fi.omitNorms, fi.indexOptions, fi.storePayloads, fi.attributes)
-}
-
-type Int32Slice []int32
-
-func (p Int32Slice) Len() int           { return len(p) }
-func (p Int32Slice) Less(i, j int) bool { return p[i] < p[j] }
-func (p Int32Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
-// index/FieldInfo.java
-
-type IndexOptions int
-
-const (
-	INDEX_OPT_DOCS_ONLY                                = IndexOptions(1)
-	INDEX_OPT_DOCS_AND_FREQS                           = IndexOptions(2)
-	INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS             = IndexOptions(3)
-	INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS = IndexOptions(4)
-)
-
-type DocValuesType int
-
-const (
-	DOC_VALUES_TYPE_NUMERIC    = DocValuesType(1)
-	DOC_VALUES_TYPE_BINARY     = DocValuesType(2)
-	DOC_VALUES_TYPE_SORTED     = DocValuesType(3)
-	DOC_VALUES_TYPE_SORTED_SET = DocValuesType(4)
-)

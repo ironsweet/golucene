@@ -2,6 +2,7 @@ package index
 
 import (
 	"github.com/balzaczyy/golucene/core/analysis"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"io"
 )
 
@@ -132,11 +133,11 @@ type IndexableFieldType interface {
 
 	/** {@link IndexOptions}, describing what should be
 	 * recorded into the inverted index */
-	indexOptions() IndexOptions
+	indexOptions() model.IndexOptions
 
 	/**
 	 * DocValues {@link DocValuesType}: if non-null then the field's value
 	 * will be indexed into docValues.
 	 */
-	docValueType() DocValuesType
+	docValueType() model.DocValuesType
 }

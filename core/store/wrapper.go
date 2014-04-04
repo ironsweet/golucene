@@ -1,10 +1,9 @@
-package index
+package store
 
 // store/TrackingDirectoryWrapper.java
 
 import (
 	"fmt"
-	"github.com/balzaczyy/golucene/core/store"
 	"sync"
 )
 
@@ -13,11 +12,11 @@ A delegating Directory that records which files were written to and deleted.
 */
 type TrackingDirectoryWrapper struct {
 	sync.Locker
-	store.Directory
+	Directory
 	createdFilenames map[string]bool // synchronized
 }
 
-func newTrackingDirectoryWrapper(other store.Directory) *TrackingDirectoryWrapper {
+func NewTrackingDirectoryWrapper(other Directory) *TrackingDirectoryWrapper {
 	return &TrackingDirectoryWrapper{
 		Locker:           &sync.Mutex{},
 		Directory:        other,
@@ -34,7 +33,7 @@ func (w *TrackingDirectoryWrapper) DeleteFile(name string) error {
 	return w.Directory.DeleteFile(name)
 }
 
-func (w *TrackingDirectoryWrapper) CreateOutput(name string, ctx store.IOContext) (store.IndexOutput, error) {
+func (w *TrackingDirectoryWrapper) CreateOutput(name string, ctx IOContext) (IndexOutput, error) {
 	func() {
 		w.Lock()
 		defer w.Unlock()
@@ -47,7 +46,7 @@ func (w *TrackingDirectoryWrapper) String() string {
 	return fmt.Sprintf("TrackingDirectoryWrapper(%v)", w.Directory)
 }
 
-func (w *TrackingDirectoryWrapper) Copy(to store.Directory, src, dest string, ctx store.IOContext) error {
+func (w *TrackingDirectoryWrapper) Copy(to Directory, src, dest string, ctx IOContext) error {
 	func() {
 		w.Lock()
 		defer w.Unlock()
@@ -56,7 +55,7 @@ func (w *TrackingDirectoryWrapper) Copy(to store.Directory, src, dest string, ct
 	return w.Directory.Copy(to, src, dest, ctx)
 }
 
-func (w *TrackingDirectoryWrapper) eachCreatedFiles(f func(name string)) {
+func (w *TrackingDirectoryWrapper) EachCreatedFiles(f func(name string)) {
 	w.Lock()
 	defer w.Unlock()
 	for name, _ := range w.createdFilenames {
@@ -64,7 +63,7 @@ func (w *TrackingDirectoryWrapper) eachCreatedFiles(f func(name string)) {
 	}
 }
 
-func (w *TrackingDirectoryWrapper) containsFile(name string) bool {
+func (w *TrackingDirectoryWrapper) ContainsFile(name string) bool {
 	w.Lock()
 	defer w.Unlock()
 	_, ok := w.createdFilenames[name]

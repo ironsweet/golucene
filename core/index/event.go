@@ -1,5 +1,9 @@
 package index
 
+import (
+	"github.com/balzaczyy/golucene/core/index/model"
+)
+
 /*
 Interface for internal atomic events. See DocumentsWriter fo details.
 Events are executed concurrently and no order is guaranteed. Each
@@ -21,7 +25,7 @@ var forcedPurgeEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge 
 	panic("not implemented yet")
 })
 
-func newFlushFailedEvent(info *SegmentInfo) Event {
+func newFlushFailedEvent(info *model.SegmentInfo) Event {
 	return Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) error {
 		return writer.flushFailed(info)
 	})

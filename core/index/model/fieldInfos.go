@@ -1,24 +1,25 @@
-package index
+package model
 
 import (
 	"fmt"
 	"log"
 	"sort"
+	"sync"
 )
 
 // Collection of FieldInfo(s) (accessible by number of by name)
 type FieldInfos struct {
-	hasFreq      bool
-	hasProx      bool
-	hasPayloads  bool
-	hasOffsets   bool
-	hasVectors   bool
-	hasNorms     bool
-	hasDocValues bool
+	HasFreq      bool
+	HasProx      bool
+	HasPayloads  bool
+	HasOffsets   bool
+	HasVectors   bool
+	HasNorms     bool
+	HasDocValues bool
 
 	byNumber map[int32]FieldInfo
 	byName   map[string]FieldInfo
-	values   []FieldInfo // sorted by ID
+	Values   []FieldInfo // sorted by ID
 }
 
 func NewFieldInfos(infos []FieldInfo) FieldInfos {
@@ -26,32 +27,49 @@ func NewFieldInfos(infos []FieldInfo) FieldInfos {
 
 	numbers := make([]int32, 0)
 	for _, info := range infos {
-		if prev, ok := self.byNumber[info.number]; ok {
-			panic(fmt.Sprintf("duplicate field numbers: %v and %v have: %v", prev.name, info.name, info.number))
+		if prev, ok := self.byNumber[info.Number]; ok {
+			panic(fmt.Sprintf("duplicate field numbers: %v and %v have: %v", prev.Name, info.Name, info.Number))
 		}
-		self.byNumber[info.number] = info
-		numbers = append(numbers, info.number)
-		if prev, ok := self.byName[info.name]; ok {
-			panic(fmt.Sprintf("duplicate field names: %v and %v have: %v", prev.number, info.number, info.name))
+		self.byNumber[info.Number] = info
+		numbers = append(numbers, info.Number)
+		if prev, ok := self.byName[info.Name]; ok {
+			panic(fmt.Sprintf("duplicate field names: %v and %v have: %v", prev.Number, info.Number, info.Name))
 		}
-		self.byName[info.name] = info
+		self.byName[info.Name] = info
 
-		self.hasVectors = self.hasVectors || info.storeTermVector
-		self.hasProx = self.hasProx || info.indexed && info.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
-		self.hasFreq = self.hasFreq || info.indexed && info.indexOptions != INDEX_OPT_DOCS_ONLY
-		self.hasOffsets = self.hasOffsets || info.indexed && info.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
-		self.hasNorms = self.hasNorms || info.normType != 0
-		self.hasDocValues = self.hasDocValues || info.docValueType != 0
-		self.hasPayloads = self.hasPayloads || info.storePayloads
+		self.HasVectors = self.HasVectors || info.storeTermVector
+		self.HasProx = self.HasProx || info.indexed && info.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
+		self.HasFreq = self.HasFreq || info.indexed && info.indexOptions != INDEX_OPT_DOCS_ONLY
+		self.HasOffsets = self.HasOffsets || info.indexed && info.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
+		self.HasNorms = self.HasNorms || info.normType != 0
+		self.HasDocValues = self.HasDocValues || info.docValueType != 0
+		self.HasPayloads = self.HasPayloads || info.storePayloads
 	}
 
 	sort.Sort(Int32Slice(numbers))
-	self.values = make([]FieldInfo, len(infos))
+	self.Values = make([]FieldInfo, len(infos))
 	for i, v := range numbers {
-		self.values[int32(i)] = self.byNumber[v]
+		self.Values[int32(i)] = self.byNumber[v]
 	}
 
 	return self
+}
+
+/* Returns the number of fields */
+func (infos FieldInfos) Size() int {
+	assert(len(infos.byNumber) == len(infos.byName))
+	return len(infos.byNumber)
+}
+
+/* Return the FieldInfo object referenced by the field name */
+func (infos FieldInfos) FieldInfoByName(fieldName string) FieldInfo {
+	return infos.byName[fieldName]
+}
+
+/* Return the FieldInfo object referenced by the fieldNumber. */
+func (infos FieldInfos) FieldInfoByNumber(fieldNumber int) FieldInfo {
+	assert(fieldNumber >= 0)
+	return infos.byNumber[int32(fieldNumber)]
 }
 
 func (fis FieldInfos) String() string {
@@ -63,10 +81,12 @@ hasOffsets = %v
 hasVectors = %v
 hasNorms = %v
 hasDocValues = %v
-%v`, fis.hasFreq, fis.hasProx, fis.hasPayloads, fis.hasOffsets, fis.hasVectors, fis.hasNorms, fis.hasDocValues, fis.values)
+%v`, fis.HasFreq, fis.HasProx, fis.HasPayloads, fis.HasOffsets,
+		fis.HasVectors, fis.HasNorms, fis.HasDocValues, fis.Values)
 }
 
 type FieldNumbers struct {
+	sync.Locker
 	numberToName map[int]string
 	nameToNumber map[string]int
 	// We use this to enforce that a given field never changes DV type,
@@ -78,12 +98,17 @@ type FieldNumbers struct {
 	lowestUnassignedFieldNumber int
 }
 
-func newFieldNumbers() *FieldNumbers {
+func NewFieldNumbers() *FieldNumbers {
 	return &FieldNumbers{
+		Locker:        &sync.Mutex{},
 		nameToNumber:  make(map[string]int),
 		numberToName:  make(map[int]string),
 		docValuesType: make(map[string]DocValuesType),
 	}
+}
+
+func (fn *FieldNumbers) AddOrGet(info FieldInfo) int {
+	return fn.addOrGet(info.Name, int(info.Number), info.docValueType)
 }
 
 /*
@@ -93,6 +118,9 @@ number assigned if possible otherwise the first unassigned field
 number is used as the field number.
 */
 func (fn *FieldNumbers) addOrGet(name string, preferredNumber int, dv DocValuesType) int {
+	fn.Lock()
+	defer fn.Unlock()
+
 	if dv != 0 {
 		currentDv, ok := fn.docValuesType[name]
 		if !ok || currentDv == 0 {
@@ -127,7 +155,7 @@ type FieldInfosBuilder struct {
 	globalFieldNumbers *FieldNumbers
 }
 
-func newFieldInfosBuilder(globalFieldNumbers *FieldNumbers) *FieldInfosBuilder {
+func NewFieldInfosBuilder(globalFieldNumbers *FieldNumbers) *FieldInfosBuilder {
 	assert(globalFieldNumbers != nil)
 	return &FieldInfosBuilder{
 		byName:             make(map[string]FieldInfo),
@@ -135,7 +163,17 @@ func newFieldInfosBuilder(globalFieldNumbers *FieldNumbers) *FieldInfosBuilder {
 	}
 }
 
-func (b *FieldInfosBuilder) finish() FieldInfos {
+func assert(ok bool) {
+	assert2(ok, "assert fail")
+}
+
+func assert2(ok bool, msg string, args ...interface{}) {
+	if !ok {
+		panic(fmt.Sprintf(msg, args...))
+	}
+}
+
+func (b *FieldInfosBuilder) Finish() FieldInfos {
 	var infos []FieldInfo
 	for _, v := range b.byName {
 		infos = append(infos, v)

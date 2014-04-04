@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
@@ -146,9 +147,11 @@ const (
 	LUCENE42_FI_OMIT_POSITIONS               = 0x80
 )
 
-var Lucene42FieldInfosReader = func(dir store.Directory, segment string, context store.IOContext) (fi FieldInfos, err error) {
+var Lucene42FieldInfosReader = func(dir store.Directory,
+	segment string, context store.IOContext) (fi model.FieldInfos, err error) {
+
 	log.Printf("Reading FieldInfos from %v...", dir)
-	fi = FieldInfos{}
+	fi = model.FieldInfos{}
 	fileName := util.SegmentFileName(segment, "", LUCENE42_FI_EXTENSION)
 	log.Printf("Segment: %v", fileName)
 	input, err := dir.OpenInput(fileName, context)
@@ -180,7 +183,7 @@ var Lucene42FieldInfosReader = func(dir store.Directory, segment string, context
 	}
 	log.Printf("Found %v FieldInfos.", size)
 
-	infos := make([]FieldInfo, size)
+	infos := make([]model.FieldInfo, size)
 	for i, _ := range infos {
 		name, err := input.ReadString()
 		if err != nil {
@@ -198,18 +201,18 @@ var Lucene42FieldInfosReader = func(dir store.Directory, segment string, context
 		storeTermVector := (bits & LUCENE42_FI_STORE_TERMVECTOR) != 0
 		omitNorms := (bits & LUCENE42_FI_OMIT_NORMS) != 0
 		storePayloads := (bits & LUCENE42_FI_STORE_PAYLOADS) != 0
-		var indexOptions IndexOptions
+		var indexOptions model.IndexOptions
 		switch {
 		case !isIndexed:
-			indexOptions = IndexOptions(0)
+			indexOptions = model.IndexOptions(0)
 		case (bits & LUCENE42_FI_OMIT_TERM_FREQ_AND_POSITIONS) != 0:
-			indexOptions = INDEX_OPT_DOCS_ONLY
+			indexOptions = model.INDEX_OPT_DOCS_ONLY
 		case (bits & LUCENE42_FI_OMIT_POSITIONS) != 0:
-			indexOptions = INDEX_OPT_DOCS_AND_FREQS
+			indexOptions = model.INDEX_OPT_DOCS_AND_FREQS
 		case (bits & LUCENE42_FI_STORE_OFFSETS_IN_POSTINGS) != 0:
-			indexOptions = INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
+			indexOptions = model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
 		default:
-			indexOptions = INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
+			indexOptions = model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
 		}
 
 		// DV Types are packed in one byte
@@ -229,7 +232,7 @@ var Lucene42FieldInfosReader = func(dir store.Directory, segment string, context
 		if err != nil {
 			return fi, err
 		}
-		infos[i] = NewFieldInfo(name, isIndexed, fieldNumber, storeTermVector,
+		infos[i] = model.NewFieldInfo(name, isIndexed, fieldNumber, storeTermVector,
 			omitNorms, storePayloads, indexOptions, docValuesType, normsType, attributes)
 	}
 
@@ -238,25 +241,25 @@ var Lucene42FieldInfosReader = func(dir store.Directory, segment string, context
 			"did not read all bytes from file '%v': read %v vs size %v (resource: %v)",
 			fileName, input.FilePointer(), input.Length(), input))
 	}
-	fi = NewFieldInfos(infos)
+	fi = model.NewFieldInfos(infos)
 	success = true
 	return fi, nil
 }
 
-func getDocValuesType(input store.IndexInput, b byte) (t DocValuesType, err error) {
+func getDocValuesType(input store.IndexInput, b byte) (t model.DocValuesType, err error) {
 	switch b {
 	case 0:
-		return DocValuesType(0), nil
+		return model.DocValuesType(0), nil
 	case 1:
-		return DOC_VALUES_TYPE_NUMERIC, nil
+		return model.DOC_VALUES_TYPE_NUMERIC, nil
 	case 2:
-		return DOC_VALUES_TYPE_BINARY, nil
+		return model.DOC_VALUES_TYPE_BINARY, nil
 	case 3:
-		return DOC_VALUES_TYPE_SORTED, nil
+		return model.DOC_VALUES_TYPE_SORTED, nil
 	case 4:
-		return DOC_VALUES_TYPE_SORTED_SET, nil
+		return model.DOC_VALUES_TYPE_SORTED_SET, nil
 	default:
-		return DocValuesType(0), errors.New(
+		return model.DocValuesType(0), errors.New(
 			fmt.Sprintf("invalid docvalues byte: %v (resource=%v)", b, input))
 	}
 }
@@ -378,7 +381,10 @@ type Lucene42TermVectorsReader struct {
 	*CompressingTermVectorsReader
 }
 
-func newLucene42TermVectorsReader(d store.Directory, si *SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error) {
+func newLucene42TermVectorsReader(d store.Directory,
+	si *model.SegmentInfo, fn model.FieldInfos,
+	ctx store.IOContext) (r TermVectorsReader, err error) {
+
 	formatName := "Lucene41StoredFields"
 	compressionMode := codec.COMPRESSION_MODE_FAST
 	// chunkSize := 1 << 12
@@ -394,10 +400,12 @@ type CompressingTermVectorsReader struct {
 	closed        bool
 }
 
-func newCompressingTermVectorsReader(d store.Directory, si *SegmentInfo, segmentSuffix string, fn FieldInfos,
-	ctx store.IOContext, formatName string, compressionMode codec.CompressionMode) (r *CompressingTermVectorsReader, err error) {
+func newCompressingTermVectorsReader(d store.Directory,
+	si *model.SegmentInfo, segmentSuffix string,
+	fn model.FieldInfos, ctx store.IOContext, formatName string,
+	compressionMode codec.CompressionMode) (r *CompressingTermVectorsReader, err error) {
+
 	panic("not implemented yet")
-	return nil, nil
 }
 
 func (r *CompressingTermVectorsReader) Close() (err error) {

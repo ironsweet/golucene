@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/fst"
@@ -77,16 +78,18 @@ type BlockTreeTermsReader struct {
 	version        int
 }
 
-func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info *SegmentInfo,
+func newBlockTreeTermsReader(dir store.Directory,
+	fieldInfos model.FieldInfos, info *model.SegmentInfo,
 	postingsReader PostingsReaderBase, ctx store.IOContext,
 	segmentSuffix string, indexDivisor int) (p FieldsProducer, err error) {
+
 	log.Print("Initializing BlockTreeTermsReader...")
 	fp := &BlockTreeTermsReader{
 		postingsReader: postingsReader,
 		fields:         make(map[string]FieldReader),
-		segment:        info.name,
+		segment:        info.Name,
 	}
-	fp.in, err = dir.OpenInput(util.SegmentFileName(info.name, segmentSuffix, BTT_EXTENSION), ctx)
+	fp.in, err = dir.OpenInput(util.SegmentFileName(info.Name, segmentSuffix, BTT_EXTENSION), ctx)
 	if err != nil {
 		return fp, err
 	}
@@ -111,7 +114,7 @@ func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info *S
 	log.Printf("Version: %v", fp.version)
 
 	if indexDivisor != -1 {
-		indexIn, err = dir.OpenInput(util.SegmentFileName(info.name, segmentSuffix, BTT_INDEX_EXTENSION), ctx)
+		indexIn, err = dir.OpenInput(util.SegmentFileName(info.Name, segmentSuffix, BTT_INDEX_EXTENSION), ctx)
 		if err != nil {
 			return fp, err
 		}
@@ -170,10 +173,10 @@ func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info *S
 		if err != nil {
 			return fp, err
 		}
-		fieldInfo := fieldInfos.byNumber[field]
+		fieldInfo := fieldInfos.FieldInfoByNumber(int(field))
 		// assert fieldInfo != nil
 		var sumTotalTermFreq int64
-		if fieldInfo.indexOptions == INDEX_OPT_DOCS_ONLY {
+		if fieldInfo.IndexOptions() == model.INDEX_OPT_DOCS_ONLY {
 			sumTotalTermFreq = -1
 		} else {
 			sumTotalTermFreq, err = fp.in.ReadVLong()
@@ -190,10 +193,10 @@ func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info *S
 			return fp, err
 		}
 		log.Printf("DocCount: %v", docCount)
-		if docCount < 0 || int(docCount) > info.docCount.Get().(int) { // #docs with field must be <= #docs
+		if docCount < 0 || int(docCount) > info.DocCount() { // #docs with field must be <= #docs
 			return fp, errors.New(fmt.Sprintf(
 				"invalid docCount: %v maxDoc: %v (resource=%v)",
-				docCount, info.docCount, fp.in))
+				docCount, info.DocCount(), fp.in))
 		}
 		if sumDocFreq < int64(docCount) { // #postings must be >= #docs with field
 			return fp, errors.New(fmt.Sprintf(
@@ -214,11 +217,11 @@ func newBlockTreeTermsReader(dir store.Directory, fieldInfos FieldInfos, info *S
 			}
 		}
 		log.Printf("indexStartFP: %v", indexStartFP)
-		if _, ok := fp.fields[fieldInfo.name]; ok {
+		if _, ok := fp.fields[fieldInfo.Name]; ok {
 			return fp, errors.New(fmt.Sprintf(
-				"duplicate field: %v (resource=%v)", fieldInfo.name, fp.in))
+				"duplicate field: %v (resource=%v)", fieldInfo.Name, fp.in))
 		}
-		fp.fields[fieldInfo.name], err = newFieldReader(fp,
+		fp.fields[fieldInfo.Name], err = newFieldReader(fp,
 			fieldInfo, numTerms, rootCode, sumTotalTermFreq,
 			sumDocFreq, docCount, indexStartFP, indexIn)
 		if err != nil {
@@ -301,7 +304,7 @@ type FieldReader struct {
 	*BlockTreeTermsReader // inner class
 
 	numTerms         int64
-	fieldInfo        FieldInfo
+	fieldInfo        model.FieldInfo
 	sumTotalTermFreq int64
 	sumDocFreq       int64
 	docCount         int32
@@ -312,7 +315,7 @@ type FieldReader struct {
 }
 
 func newFieldReader(owner *BlockTreeTermsReader,
-	fieldInfo FieldInfo, numTerms int64, rootCode []byte,
+	fieldInfo model.FieldInfo, numTerms int64, rootCode []byte,
 	sumTotalTermFreq, sumDocFreq int64, docCount int32, indexStartFP int64,
 	indexIn store.IndexInput) (r FieldReader, err error) {
 	log.Print("Initializing FieldReader...")
@@ -331,7 +334,7 @@ func newFieldReader(owner *BlockTreeTermsReader,
 		rootCode:             rootCode,
 	}
 	log.Printf("BTTR: seg=%v field=%v rootBlockCode=%v divisor=",
-		owner.segment, fieldInfo.name, rootCode)
+		owner.segment, fieldInfo.Name, rootCode)
 
 	in := store.NewByteArrayDataInput(rootCode)
 	n, err := in.ReadVLong()
@@ -342,7 +345,7 @@ func newFieldReader(owner *BlockTreeTermsReader,
 
 	if indexIn != nil {
 		clone := indexIn.Clone()
-		log.Printf("start=%v field=%v", indexStartFP, fieldInfo.name)
+		log.Printf("start=%v field=%v", indexStartFP, fieldInfo.Name)
 		clone.Seek(indexStartFP)
 		r.index, err = fst.LoadFST(clone, fst.ByteSequenceOutputsSingleton())
 	}
@@ -544,7 +547,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 	e.eof = false
 	log.Printf("BTTR.seekExact seg=%v target=%v:%v current=%v (exists?=%v) validIndexPrefix=%v",
-		e.segment, e.fieldInfo.name, brToString(target), e.term, e.termExists, e.validIndexPrefix)
+		e.segment, e.fieldInfo.Name, brToString(target), e.term, e.termExists, e.validIndexPrefix)
 	e.printSeekState()
 
 	var arc *fst.Arc
@@ -1450,7 +1453,7 @@ func (f *segmentTermsEnumFrame) decodeMetaData() (err error) {
 			return err
 		}
 		log.Printf("    dF=%v", f.state.docFreq)
-		if f.fieldInfo.indexOptions != INDEX_OPT_DOCS_ONLY {
+		if f.fieldInfo.IndexOptions() != model.INDEX_OPT_DOCS_ONLY {
 			n, err := f.statsReader.ReadVLong()
 			if err != nil {
 				return err

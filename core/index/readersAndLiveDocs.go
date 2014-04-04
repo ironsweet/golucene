@@ -135,11 +135,11 @@ func (rld *ReadersAndLiveDocs) writeLiveDocs(dir store.Directory) (bool, error) 
 	log.Printf("rld.writeLiveDocs seg=%v pendingDelCount=%v", rld.info, rld._pendingDeleteCount)
 	if rld._pendingDeleteCount != 0 {
 		// We have new deletes
-		assert(rld._liveDocs.Length() == rld.info.info.docCount.Get().(int))
+		assert(rld._liveDocs.Length() == rld.info.info.DocCount())
 
 		// Do this so we can delete any created files on error; this
 		// saves all codecs from having to do it:
-		trackingDir := newTrackingDirectoryWrapper(dir)
+		trackingDir := store.NewTrackingDirectoryWrapper(dir)
 
 		// We can write directly to the actual name (vs to a .tmp &
 		// renaming it) becaues the file is not live until segments file
@@ -152,13 +152,13 @@ func (rld *ReadersAndLiveDocs) writeLiveDocs(dir store.Directory) (bool, error) 
 				rld.info.advanceNextWriteDelGen()
 
 				// Dleete any prtially created files(s):
-				trackingDir.eachCreatedFiles(func(filename string) {
+				trackingDir.EachCreatedFiles(func(filename string) {
 					dir.DeleteFile(filename) // ignore error
 				})
 			}
 		}()
 
-		err := rld.info.info.codec.LiveDocsFormat().WriteLiveDocs(rld._liveDocs.(util.MutableBits),
+		err := rld.info.info.Codec().(Codec).LiveDocsFormat().WriteLiveDocs(rld._liveDocs.(util.MutableBits),
 			trackingDir, rld.info, rld._pendingDeleteCount, store.IO_CONTEXT_DEFAULT)
 		if err != nil {
 			return false, err
@@ -170,7 +170,7 @@ func (rld *ReadersAndLiveDocs) writeLiveDocs(dir store.Directory) (bool, error) 
 		// written) del docs:
 		rld.info.advanceDelGen()
 		rld.info.delCount += rld._pendingDeleteCount
-		assert(rld.info.delCount <= rld.info.info.docCount.Get().(int))
+		assert(rld.info.delCount <= rld.info.info.DocCount())
 
 		rld._pendingDeleteCount = 0
 		return true, nil

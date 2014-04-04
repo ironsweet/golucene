@@ -3,6 +3,7 @@ package index
 import (
 	"errors"
 	"fmt"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"os"
@@ -111,7 +112,7 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 	}
 
 	if currentSegmentsFile != "" {
-		m := CODEC_FILE_PATTERN
+		m := model.CODEC_FILE_PATTERN
 		for _, filename := range files {
 			if !strings.HasSuffix(filename, "write.lock") &&
 				filename != INDEX_FILENAME_SEGMENTS_GEN &&
@@ -277,7 +278,7 @@ func (fd *IndexFileDeleter) refresh(segmentName string) error {
 		prefix2 = segmentName + "_"
 	}
 
-	m := CODEC_FILE_PATTERN
+	m := model.CODEC_FILE_PATTERN
 	files, err := fd.directory.ListAll()
 	if err != nil {
 		return err

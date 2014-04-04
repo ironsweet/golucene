@@ -1,6 +1,7 @@
 package index
 
 import (
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 )
@@ -8,7 +9,7 @@ import (
 // index/DocConsumer.java
 
 type DocConsumer interface {
-	processDocument(fieldInfos *FieldInfosBuilder) error
+	processDocument(fieldInfos *model.FieldInfosBuilder) error
 	finishDocument() error
 	flush(state SegmentWriteState) error
 	abort()
@@ -52,7 +53,7 @@ func newDocFieldProcessor(docWriter *DocumentsWriterPerThread,
 func (p *DocFieldProcessor) flush(state SegmentWriteState) error {
 	childFields := make(map[string]DocFieldConsumerPerField)
 	for _, f := range p.fields() {
-		childFields[f.fieldInfo().name] = f
+		childFields[f.fieldInfo().Name] = f
 	}
 
 	err := p.storedConsumer.flush(state)
@@ -68,7 +69,7 @@ func (p *DocFieldProcessor) flush(state SegmentWriteState) error {
 	// alter the FieldInfo if necessary. E.g., FreqProxTermsWriter does
 	// this with FieldInfo.storePayload.
 	infosWriter := p.codec.FieldInfosFormat().FieldInfosWriter()
-	return infosWriter(state.directory, state.segmentInfo.name,
+	return infosWriter(state.directory, state.segmentInfo.Name,
 		state.fieldInfos, store.IO_CONTEXT_DEFAULT)
 }
 
@@ -97,7 +98,7 @@ func (p *DocFieldProcessor) fields() []DocFieldConsumerPerField {
 	return fields
 }
 
-func (p *DocFieldProcessor) processDocument(fieldInfos *FieldInfosBuilder) error {
+func (p *DocFieldProcessor) processDocument(fieldInfos *model.FieldInfosBuilder) error {
 	panic("not implemented yet")
 }
 

@@ -120,7 +120,8 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 						}
 					}
 				} else {
-					return nil, codec.NewIndexFormatTooNewError(genInput, version, FORMAT_SEGMENTS_GEN_CURRENT, FORMAT_SEGMENTS_GEN_CURRENT)
+					return nil, codec.NewIndexFormatTooNewError(genInput, version,
+						FORMAT_SEGMENTS_GEN_CURRENT, FORMAT_SEGMENTS_GEN_CURRENT)
 				}
 			}
 
@@ -222,6 +223,11 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 }
 
 // index/SegmentInfos.java
+
+const (
+	VERSION_40                  = 0
+	FORMAT_SEGMENTS_GEN_CURRENT = -2
+)
 
 /*
 A collection of segmentInfo objects with methods for operating on
@@ -410,7 +416,7 @@ func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string)
 				return err
 			}
 			// info.codec = method
-			info.codec = fCodec
+			info.SetCodec(fCodec)
 			delGen, err := input.ReadLong()
 			if err != nil {
 				return err
@@ -419,7 +425,7 @@ func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string)
 			if err != nil {
 				return err
 			}
-			if delCount < 0 || delCount > info.docCount.Get().(int) {
+			if delCount < 0 || delCount > info.DocCount() {
 				return errors.New(fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input))
 			}
 			sis.Segments = append(sis.Segments, NewSegmentInfoPerCommit(info, delCount, delGen))
@@ -505,9 +511,9 @@ func (sis *SegmentInfos) write(directory store.Directory) error {
 	}
 	for _, siPerCommit := range sis.Segments {
 		si := siPerCommit.info
-		err = segnOutput.WriteString(si.name)
+		err = segnOutput.WriteString(si.Name)
 		if err == nil {
-			err = segnOutput.WriteString(si.codec.Name())
+			err = segnOutput.WriteString(si.Codec().(Codec).Name())
 			if err == nil {
 				err = segnOutput.WriteLong(siPerCommit.delGen)
 				if err == nil {
@@ -518,13 +524,13 @@ func (sis *SegmentInfos) write(directory store.Directory) error {
 		if err != nil {
 			return err
 		}
-		assert(si.dir == directory)
+		assert(si.Dir == directory)
 
-		assert(siPerCommit.delCount <= si.docCount.Get().(int))
+		assert(siPerCommit.delCount <= si.DocCount())
 
 		// If this segment is pre-4.x, perform a one-time "upgrade" to
 		// write the .si file for it:
-		if version := si.version; version == "" || versionLess(version, "4.0") {
+		if version := si.Version(); version == "" || versionLess(version, "4.0") {
 			panic("not implemented yet")
 		}
 	}
@@ -577,7 +583,7 @@ func (sis *SegmentInfos) Clone() *SegmentInfos {
 		Segments:       nil,
 	}
 	for _, info := range sis.Segments {
-		assert(info.info.codec != nil)
+		assert(info.info.Codec() != nil)
 		clone.Segments = append(clone.Segments, info.Clone())
 	}
 	for k, v := range sis.userData {
@@ -636,7 +642,7 @@ func (sis *SegmentInfos) files(dir store.Directory, includeSegmentsFile bool) []
 		}
 	}
 	for _, info := range sis.Segments {
-		assert(info.info.dir == dir)
+		assert(info.info.Dir == dir)
 		// if info.info.dir == dir {
 		for _, file := range info.Files() {
 			files[file] = true
@@ -684,7 +690,7 @@ func (sis *SegmentInfos) changed() {
 func (sis *SegmentInfos) createBackupSegmentInfos() []*SegmentInfoPerCommit {
 	ans := make([]*SegmentInfoPerCommit, len(sis.Segments))
 	for i, info := range sis.Segments {
-		assert(info.info.codec != nil)
+		assert(info.info.Codec() != nil)
 		ans[i] = info.Clone()
 	}
 	return ans

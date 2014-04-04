@@ -3,6 +3,7 @@ package index
 import (
 	"container/list"
 	"github.com/balzaczyy/golucene/core/analysis"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"sync"
@@ -230,7 +231,7 @@ func (dw *DocumentsWriter) postUpdate(flusingDWPT *DocumentsWriterPerThread, has
 
 func (dw *DocumentsWriter) ensureInitialized(state *ThreadState) {
 	if state.isActive && state.dwpt == nil {
-		infos := newFieldInfosBuilder(dw.writer.globalFieldNumberMap)
+		infos := model.NewFieldInfosBuilder(dw.writer.globalFieldNumberMap)
 		state.dwpt = newDocumentsWriterPerThread(dw.writer.newSegmentName(),
 			dw.directory, dw.config, dw.infoStream, dw.deleteQueue, infos)
 	}

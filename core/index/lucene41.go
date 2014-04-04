@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	"github.com/balzaczyy/golucene/core/codec/lucene40"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
@@ -40,8 +42,10 @@ type Lucene41PostingsReader struct {
 	forUtil ForUtil
 }
 
-func NewLucene41PostingsReader(dir store.Directory, fis FieldInfos, si *SegmentInfo,
+func NewLucene41PostingsReader(dir store.Directory,
+	fis model.FieldInfos, si *model.SegmentInfo,
 	ctx store.IOContext, segmentSuffix string) (r PostingsReaderBase, err error) {
+
 	log.Print("Initializing Lucene41PostingsReader...")
 	success := false
 	var docIn, posIn, payIn store.IndexInput = nil, nil, nil
@@ -55,7 +59,7 @@ func NewLucene41PostingsReader(dir store.Directory, fis FieldInfos, si *SegmentI
 		}
 	}()
 
-	docIn, err = dir.OpenInput(util.SegmentFileName(si.name, segmentSuffix, LUCENE41_DOC_EXTENSION), ctx)
+	docIn, err = dir.OpenInput(util.SegmentFileName(si.Name, segmentSuffix, LUCENE41_DOC_EXTENSION), ctx)
 	if err != nil {
 		return r, err
 	}
@@ -68,8 +72,8 @@ func NewLucene41PostingsReader(dir store.Directory, fis FieldInfos, si *SegmentI
 		return r, err
 	}
 
-	if fis.hasProx {
-		posIn, err = dir.OpenInput(util.SegmentFileName(si.name, segmentSuffix, LUCENE41_POS_EXTENSION), ctx)
+	if fis.HasProx {
+		posIn, err = dir.OpenInput(util.SegmentFileName(si.Name, segmentSuffix, LUCENE41_POS_EXTENSION), ctx)
 		if err != nil {
 			return r, err
 		}
@@ -78,8 +82,8 @@ func NewLucene41PostingsReader(dir store.Directory, fis FieldInfos, si *SegmentI
 			return r, err
 		}
 
-		if fis.hasPayloads || fis.hasOffsets {
-			payIn, err = dir.OpenInput(util.SegmentFileName(si.name, segmentSuffix, LUCENE41_PAY_EXTENSION), ctx)
+		if fis.HasPayloads || fis.HasOffsets {
+			payIn, err = dir.OpenInput(util.SegmentFileName(si.Name, segmentSuffix, LUCENE41_PAY_EXTENSION), ctx)
 			if err != nil {
 				return r, err
 			}
@@ -154,7 +158,9 @@ func (r *Lucene41PostingsReader) Close() error {
 
 /* Reads but does not decode the byte[] blob holding
    metadata for the current terms block */
-func (r *Lucene41PostingsReader) ReadTermsBlock(termsIn store.IndexInput, fieldInfo FieldInfo, _termState *BlockTermState) (err error) {
+func (r *Lucene41PostingsReader) ReadTermsBlock(termsIn store.IndexInput,
+	fieldInfo model.FieldInfo, _termState *BlockTermState) (err error) {
+
 	termState := _termState.Self.(*intBlockTermState)
 	numBytes, err := asInt(termsIn.ReadVInt())
 	if err != nil {
@@ -178,12 +184,14 @@ func (r *Lucene41PostingsReader) ReadTermsBlock(termsIn store.IndexInput, fieldI
 	return nil
 }
 
-func (r *Lucene41PostingsReader) nextTerm(fieldInfo FieldInfo, _termState *BlockTermState) (err error) {
+func (r *Lucene41PostingsReader) nextTerm(fieldInfo model.FieldInfo,
+	_termState *BlockTermState) (err error) {
+
 	termState := _termState.Self.(*intBlockTermState)
 	isFirstTerm := termState.termBlockOrd == 0
-	fieldHasPositions := fieldInfo.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
-	fieldHasOffsets := fieldInfo.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
-	fieldHasPayloads := fieldInfo.storePayloads
+	fieldHasPositions := fieldInfo.IndexOptions() >= model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
+	fieldHasOffsets := fieldInfo.IndexOptions() >= model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
+	fieldHasPayloads := fieldInfo.HasPayloads()
 
 	in := termState.bytesReader
 	if isFirstTerm {
@@ -276,7 +284,10 @@ func (r *Lucene41PostingsReader) nextTerm(fieldInfo FieldInfo, _termState *Block
 	return nil
 }
 
-func (r *Lucene41PostingsReader) docs(fieldInfo FieldInfo, termState *BlockTermState, liveDocs util.Bits, reuse DocsEnum, flags int) (de DocsEnum, err error) {
+func (r *Lucene41PostingsReader) docs(fieldInfo model.FieldInfo,
+	termState *BlockTermState, liveDocs util.Bits,
+	reuse DocsEnum, flags int) (de DocsEnum, err error) {
+
 	var docsEnum *blockDocsEnum
 	if v, ok := reuse.(*blockDocsEnum); ok {
 		docsEnum = v
@@ -335,26 +346,28 @@ type blockDocsEnum struct {
 	singletonDocID int
 }
 
-func newBlockDocsEnum(owner *Lucene41PostingsReader, fieldInfo FieldInfo) *blockDocsEnum {
+func newBlockDocsEnum(owner *Lucene41PostingsReader,
+	fieldInfo model.FieldInfo) *blockDocsEnum {
+
 	return &blockDocsEnum{
 		Lucene41PostingsReader: owner,
 		docDeltaBuffer:         make([]int, MAX_DATA_SIZE),
 		freqBuffer:             make([]int, MAX_DATA_SIZE),
 		startDocIn:             owner.docIn,
 		docIn:                  nil,
-		indexHasFreq:           fieldInfo.indexOptions >= INDEX_OPT_DOCS_AND_FREQS,
-		indexHasPos:            fieldInfo.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS,
-		indexHasOffsets:        fieldInfo.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS,
-		indexHasPayloads:       fieldInfo.storePayloads,
+		indexHasFreq:           fieldInfo.IndexOptions() >= model.INDEX_OPT_DOCS_AND_FREQS,
+		indexHasPos:            fieldInfo.IndexOptions() >= model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS,
+		indexHasOffsets:        fieldInfo.IndexOptions() >= model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS,
+		indexHasPayloads:       fieldInfo.HasPayloads(),
 		encoded:                make([]byte, MAX_ENCODED_SIZE),
 	}
 }
 
-func (de *blockDocsEnum) canReuse(docIn store.IndexInput, fieldInfo FieldInfo) bool {
+func (de *blockDocsEnum) canReuse(docIn store.IndexInput, fieldInfo model.FieldInfo) bool {
 	return docIn == de.startDocIn &&
-		de.indexHasFreq == (fieldInfo.indexOptions >= INDEX_OPT_DOCS_AND_FREQS) &&
-		de.indexHasPos == (fieldInfo.indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS) &&
-		de.indexHasPayloads == fieldInfo.storePayloads
+		de.indexHasFreq == (fieldInfo.IndexOptions() >= model.INDEX_OPT_DOCS_AND_FREQS) &&
+		de.indexHasPos == (fieldInfo.IndexOptions() >= model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS) &&
+		de.indexHasPayloads == fieldInfo.HasPayloads()
 }
 
 func (de *blockDocsEnum) reset(liveDocs util.Bits, termState *intBlockTermState, flags int) (ret DocsEnum, err error) {
@@ -626,7 +639,10 @@ type Lucene41StoredFieldsReader struct {
 	*CompressingStoredFieldsReader
 }
 
-func newLucene41StoredFieldsReader(d store.Directory, si *SegmentInfo, fn FieldInfos, ctx store.IOContext) (r StoredFieldsReader, err error) {
+func newLucene41StoredFieldsReader(d store.Directory,
+	si *model.SegmentInfo, fn model.FieldInfos,
+	ctx store.IOContext) (r StoredFieldsReader, err error) {
+
 	formatName := "Lucene41StoredFields"
 	compressionMode := codec.COMPRESSION_MODE_FAST
 	// chunkSize := 1 << 14
@@ -670,7 +686,7 @@ const (
 // StoredFieldsReader impl for CompressingStoredFieldsFormat
 type CompressingStoredFieldsReader struct {
 	version           int
-	fieldInfos        FieldInfos
+	fieldInfos        model.FieldInfos
 	indexReader       *CompressingStoredFieldsIndexReader
 	fieldsStream      store.IndexInput
 	chunkSize         int
@@ -700,13 +716,16 @@ func newCompressingStoredFieldsReaderFrom(reader *CompressingStoredFieldsReader)
 }
 
 // Sole constructor
-func newCompressingStoredFieldsReader(d store.Directory, si *SegmentInfo, segmentSuffix string, fn FieldInfos,
-	ctx store.IOContext, formatName string, compressionMode codec.CompressionMode) (r *CompressingStoredFieldsReader, err error) {
+func newCompressingStoredFieldsReader(d store.Directory,
+	si *model.SegmentInfo, segmentSuffix string,
+	fn model.FieldInfos, ctx store.IOContext, formatName string,
+	compressionMode codec.CompressionMode) (r *CompressingStoredFieldsReader, err error) {
+
 	r = &CompressingStoredFieldsReader{}
 	r.compressionMode = compressionMode
-	segment := si.name
+	segment := si.Name
 	r.fieldInfos = fn
-	r.numDocs = si.docCount.Get().(int)
+	r.numDocs = si.DocCount()
 
 	var indexStream store.IndexInput
 	success := false
@@ -721,7 +740,7 @@ func newCompressingStoredFieldsReader(d store.Directory, si *SegmentInfo, segmen
 	}()
 
 	// Load the index into memory
-	indexStreamFN := util.SegmentFileName(segment, segmentSuffix, LUCENE40_SF_FIELDS_INDEX_EXTENSION)
+	indexStreamFN := util.SegmentFileName(segment, segmentSuffix, lucene40.FIELDS_INDEX_EXTENSION)
 	indexStream, err = d.OpenInput(indexStreamFN, ctx)
 	if err != nil {
 		return nil, err
@@ -742,7 +761,7 @@ func newCompressingStoredFieldsReader(d store.Directory, si *SegmentInfo, segmen
 	indexStream = nil
 
 	// Open the data file and read metadata
-	fieldsStreamFN := util.SegmentFileName(segment, segmentSuffix, LUCENE40_SF_FIELDS_EXTENSION)
+	fieldsStreamFN := util.SegmentFileName(segment, segmentSuffix, lucene40.FIELDS_EXTENSION)
 	r.fieldsStream, err = d.OpenInput(fieldsStreamFN, ctx)
 	if err != nil {
 		return nil, err
@@ -779,7 +798,8 @@ func (r *CompressingStoredFieldsReader) Close() (err error) {
 	return
 }
 
-func (r *CompressingStoredFieldsReader) readField(in util.DataInput, visitor StoredFieldVisitor, info FieldInfo, bits int) error {
+func (r *CompressingStoredFieldsReader) readField(in util.DataInput,
+	visitor StoredFieldVisitor, info model.FieldInfo, bits int) error {
 	switch bits & TYPE_MASK {
 	case BYTE_ARR:
 		panic("not implemented yet")
@@ -920,8 +940,8 @@ func (r *CompressingStoredFieldsReader) visitDocument(docID int, visitor StoredF
 		if err != nil {
 			return err
 		}
-		fieldNumber := int32(uint64(infoAndBits) >> uint64(TYPE_BITS))
-		fieldInfo := r.fieldInfos.byNumber[fieldNumber]
+		fieldNumber := int(uint64(infoAndBits) >> uint64(TYPE_BITS))
+		fieldInfo := r.fieldInfos.FieldInfoByNumber(fieldNumber)
 
 		bits := int(infoAndBits & int64(TYPE_MASK))
 		assertWithMessage(bits <= NUMERIC_DOUBLE, fmt.Sprintf("bits=%x", bits))
@@ -971,9 +991,11 @@ type CompressingStoredFieldsIndexReader struct {
 	startPointersDeltas []packed.PackedIntsReader
 }
 
-func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput, si *SegmentInfo) (r *CompressingStoredFieldsIndexReader, err error) {
+func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput,
+	si *model.SegmentInfo) (r *CompressingStoredFieldsIndexReader, err error) {
+
 	r = &CompressingStoredFieldsIndexReader{}
-	r.maxDoc = si.docCount.Get().(int)
+	r.maxDoc = si.DocCount()
 	r.docBases = make([]int, 0, 16)
 	r.startPointers = make([]int64, 0, 16)
 	r.avgChunkDocs = make([]int, 0, 16)

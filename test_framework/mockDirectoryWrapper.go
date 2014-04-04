@@ -159,7 +159,7 @@ func (mdw *MockDirectoryWrapper) mustSync() bool {
 	for {
 		if v, ok := delegate.(*store.RateLimitedDirectoryWrapper); ok {
 			delegate = v.Directory
-		} else if v, ok := delegate.(*index.TrackingDirectoryWrapper); ok {
+		} else if v, ok := delegate.(*store.TrackingDirectoryWrapper); ok {
 			delegate = v.Directory
 		} else {
 			break

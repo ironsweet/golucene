@@ -1,6 +1,7 @@
 package index
 
 import (
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"sync"
@@ -57,7 +58,7 @@ type StoredFieldsProcessor struct {
 
 	numStoredFields int
 	storedFields    []IndexableField
-	fieldInfos      []FieldInfo
+	fieldInfos      []model.FieldInfo
 }
 
 func newStoredFieldsProcessor(docWriter *DocumentsWriterPerThread) *StoredFieldsProcessor {
@@ -76,7 +77,7 @@ func (p *StoredFieldsProcessor) reset() {
 }
 
 func (p *StoredFieldsProcessor) flush(state SegmentWriteState) (err error) {
-	numDocs := state.segmentInfo.docCount.Get().(int)
+	numDocs := state.segmentInfo.DocCount()
 	if numDocs > 0 {
 		// It's possible that all documents seen in this segment hit
 		// non-aborting errors, in which case we will not have yet init'd
@@ -96,7 +97,7 @@ func (p *StoredFieldsProcessor) flush(state SegmentWriteState) (err error) {
 			}
 		}()
 
-		err = p.fieldsWriter.finish(state.fieldInfos, numDocs)
+		err = p.fieldsWriter.Finish(state.fieldInfos, numDocs)
 		if err != nil {
 			return err
 		}
@@ -124,7 +125,7 @@ func (p *StoredFieldsProcessor) abort() {
 	p.reset()
 
 	if p.fieldsWriter != nil {
-		p.fieldsWriter.abort()
+		p.fieldsWriter.Abort()
 		p.fieldsWriter = nil
 		p.lastDocId = 0
 	}
@@ -134,12 +135,12 @@ func (p *StoredFieldsProcessor) abort() {
 func (p *StoredFieldsProcessor) fill(docId int) error {
 	// We must "catch up" for all docs before us that had no stored fields:
 	for p.lastDocId < docId {
-		err := p.fieldsWriter.startDocument(0)
+		err := p.fieldsWriter.StartDocument(0)
 		if err != nil {
 			return err
 		}
 		p.lastDocId++
-		err = p.fieldsWriter.finishDocument()
+		err = p.fieldsWriter.FinishDocument()
 		if err != nil {
 			return err
 		}

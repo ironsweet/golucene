@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
@@ -42,7 +43,7 @@ func NewSegmentReader(si *SegmentInfoPerCommit, termInfosIndexDivisor int, conte
 	r.ARFieldsReader = r
 	r.si = si
 	log.Print("Obtaining SegmentCoreReaders...")
-	r.core, err = newSegmentCoreReaders(r, si.info.dir, si, context, termInfosIndexDivisor)
+	r.core, err = newSegmentCoreReaders(r, si.info.Dir, si, context, termInfosIndexDivisor)
 	if err != nil {
 		return r, err
 	}
@@ -68,7 +69,7 @@ func NewSegmentReader(si *SegmentInfoPerCommit, termInfosIndexDivisor int, conte
 		// assert si.getDelCount() == 0
 		// r.liveDocs = nil
 	}
-	r.numDocs = si.info.docCount.Get().(int) - si.delCount
+	r.numDocs = si.info.DocCount() - si.delCount
 	success = true
 	return r, nil
 }
@@ -83,7 +84,7 @@ func (r *SegmentReader) doClose() error {
 	return nil
 }
 
-func (r *SegmentReader) FieldInfos() FieldInfos {
+func (r *SegmentReader) FieldInfos() model.FieldInfos {
 	r.ensureOpen()
 	return r.core.fieldInfos
 }
@@ -111,7 +112,7 @@ func (r *SegmentReader) NumDocs() int {
 
 func (r *SegmentReader) MaxDoc() int {
 	// Don't call ensureOpen() here (it could affect performance)
-	return r.si.info.docCount.Get().(int)
+	return r.si.info.DocCount()
 }
 
 func (r *SegmentReader) TermVectorsReader() TermVectorsReader {
@@ -132,11 +133,11 @@ func (r *SegmentReader) checkBounds(docID int) {
 func (r *SegmentReader) String() string {
 	// SegmentInfo.toString takes dir and number of
 	// *pending* deletions; so we reverse compute that here:
-	return r.si.StringOf(r.si.info.dir, r.si.info.docCount.Get().(int)-r.numDocs-r.si.delCount)
+	return r.si.StringOf(r.si.info.Dir, r.si.info.DocCount()-r.numDocs-r.si.delCount)
 }
 
 func (r *SegmentReader) SegmentName() string {
-	return r.si.info.name
+	return r.si.info.Name
 }
 
 func (r *SegmentReader) SegmentInfos() *SegmentInfoPerCommit {
@@ -147,7 +148,7 @@ func (r *SegmentReader) Directory() store.Directory {
 	// Don't ensureOpen here -- in certain cases, when a
 	// cloned/reopened reader needs to commit, it may call
 	// this method on the closed original reader
-	return r.si.info.dir
+	return r.si.info.Dir
 }
 
 func (r *SegmentReader) CoreCacheKey() interface{} {
@@ -194,7 +195,7 @@ type CoreClosedListener interface {
 type SegmentCoreReaders struct {
 	refCount int32 // synchronized
 
-	fieldInfos FieldInfos
+	fieldInfos model.FieldInfos
 
 	fields        FieldsProducer
 	dvProducer    DocValuesProducer
@@ -284,12 +285,12 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 		}
 	}()
 
-	codec := si.info.codec
+	codec := si.info.Codec().(Codec)
 	log.Print("Obtaining CFS Directory...")
 	var cfsDir store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
-	if si.info.isCompoundFile {
+	if si.info.IsCompoundFile() {
 		log.Print("Detected CompoundFile.")
-		name := util.SegmentFileName(si.info.name, "", store.COMPOUND_FILE_EXTENSION)
+		name := util.SegmentFileName(si.info.Name, "", store.COMPOUND_FILE_EXTENSION)
 		self.cfsReader, err = store.NewCompoundFileDirectory(dir, name, context, false)
 		if err != nil {
 			return self, err
@@ -301,7 +302,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 	}
 	log.Printf("CFS Directory: %v", cfsDir)
 	log.Print("Reading FieldInfos...")
-	self.fieldInfos, err = codec.FieldInfosFormat().FieldInfosReader()(cfsDir, si.info.name, store.IO_CONTEXT_READONCE)
+	self.fieldInfos, err = codec.FieldInfosFormat().FieldInfosReader()(cfsDir, si.info.Name, store.IO_CONTEXT_READONCE)
 	if err != nil {
 		return self, err
 	}
@@ -322,7 +323,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 	// TODO: since we don't write any norms file if there are no norms,
 	// kinda jaky to assume the codec handles the case of no norms file at all gracefully?!
 
-	if self.fieldInfos.hasDocValues {
+	if self.fieldInfos.HasDocValues {
 		log.Print("Obtaining DocValuesProducer...")
 		self.dvProducer, err = codec.DocValuesFormat().FieldsProducer(segmentReadState)
 		if err != nil {
@@ -333,7 +334,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 		// self.dvProducer = nil
 	}
 
-	if self.fieldInfos.hasNorms {
+	if self.fieldInfos.HasNorms {
 		log.Print("Obtaining NormsDocValuesProducer...")
 		self.normsProducer, err = codec.NormsFormat().NormsProducer(segmentReadState)
 		if err != nil {
@@ -345,14 +346,14 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 	}
 
 	log.Print("Obtaining StoredFieldsReader...")
-	self.fieldsReaderOrig, err = si.info.codec.StoredFieldsFormat().FieldsReader(cfsDir, si.info, self.fieldInfos, context)
+	self.fieldsReaderOrig, err = si.info.Codec().(Codec).StoredFieldsFormat().FieldsReader(cfsDir, si.info, self.fieldInfos, context)
 	if err != nil {
 		return self, err
 	}
 
-	if self.fieldInfos.hasVectors { // open term vector files only as needed
+	if self.fieldInfos.HasVectors { // open term vector files only as needed
 		log.Print("Obtaining TermVectorsReader...")
-		self.termVectorsReaderOrig, err = si.info.codec.TermVectorsFormat().VectorsReader(cfsDir, si.info, self.fieldInfos, context)
+		self.termVectorsReaderOrig, err = si.info.Codec().(Codec).TermVectorsFormat().VectorsReader(cfsDir, si.info, self.fieldInfos, context)
 		if err != nil {
 			return self, err
 		}
@@ -372,8 +373,8 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 }
 
 func (r *SegmentCoreReaders) normValues(field string) (ndv NumericDocValues, err error) {
-	if fi, ok := r.fieldInfos.byName[field]; ok {
-		if fi.normType != 0 {
+	if fi := r.fieldInfos.FieldInfoByName(field); fi.Name != "" {
+		if fi.HasNorms() {
 			assert(r.normsProducer != nil)
 
 			if norms, ok := r.normsLocal()[field]; ok {
@@ -417,23 +418,23 @@ type SortedSetDocValues interface {
 }
 
 type StoredFieldVisitor interface {
-	binaryField(fi FieldInfo, value []byte) error
-	stringField(fi FieldInfo, value string) error
-	intField(fi FieldInfo, value int) error
-	longField(fi FieldInfo, value int64) error
-	floatField(fi FieldInfo, value float32) error
-	doubleField(fi FieldInfo, value float64) error
-	needsField(fi FieldInfo) (status StoredFieldVisitorStatus, err error)
+	binaryField(fi model.FieldInfo, value []byte) error
+	stringField(fi model.FieldInfo, value string) error
+	intField(fi model.FieldInfo, value int) error
+	longField(fi model.FieldInfo, value int64) error
+	floatField(fi model.FieldInfo, value float32) error
+	doubleField(fi model.FieldInfo, value float64) error
+	needsField(fi model.FieldInfo) (StoredFieldVisitorStatus, error)
 }
 
 type StoredFieldVisitorAdapter struct{}
 
-func (va *StoredFieldVisitorAdapter) binaryField(fi FieldInfo, value []byte) error  { return nil }
-func (va *StoredFieldVisitorAdapter) stringField(fi FieldInfo, value string) error  { return nil }
-func (va *StoredFieldVisitorAdapter) intField(fi FieldInfo, value int) error        { return nil }
-func (va *StoredFieldVisitorAdapter) longField(fi FieldInfo, value int64) error     { return nil }
-func (va *StoredFieldVisitorAdapter) floatField(fi FieldInfo, value float32) error  { return nil }
-func (va *StoredFieldVisitorAdapter) doubleField(fi FieldInfo, value float64) error { return nil }
+func (va *StoredFieldVisitorAdapter) binaryField(fi model.FieldInfo, value []byte) error  { return nil }
+func (va *StoredFieldVisitorAdapter) stringField(fi model.FieldInfo, value string) error  { return nil }
+func (va *StoredFieldVisitorAdapter) intField(fi model.FieldInfo, value int) error        { return nil }
+func (va *StoredFieldVisitorAdapter) longField(fi model.FieldInfo, value int64) error     { return nil }
+func (va *StoredFieldVisitorAdapter) floatField(fi model.FieldInfo, value float32) error  { return nil }
+func (va *StoredFieldVisitorAdapter) doubleField(fi model.FieldInfo, value float64) error { return nil }
 
 type StoredFieldVisitorStatus int
 
