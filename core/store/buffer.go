@@ -294,13 +294,13 @@ func (in *BufferedIndexInput) Clone() IndexInput {
 const DEFAULT_BUFFER_SIZE = 16384
 
 type flushBufferAndLength interface {
-	flushBuffer(b []byte) error
-	Length() int64
+	FlushBuffer(b []byte) error
+	Length() (int64, error)
 }
 
 type BufferedIndexOutput struct {
 	*IndexOutputImpl
-	flushBufferAndLength
+	spi      flushBufferAndLength
 	buffer   []byte
 	start    int64 // position in file of buffer
 	position int   // position in buffer
@@ -311,7 +311,7 @@ Creates a new BufferedIndexOutput with the given buffer size.
 */
 func NewBufferedIndexOutput(size int, part flushBufferAndLength) *BufferedIndexOutput {
 	assert2(size > 0, fmt.Sprintf("bufferSize must be greater than 0 (got %v)", size))
-	out := &BufferedIndexOutput{flushBufferAndLength: part, buffer: make([]byte, size)}
+	out := &BufferedIndexOutput{spi: part, buffer: make([]byte, size)}
 	out.IndexOutputImpl = NewIndexOutput(out)
 	return out
 }
@@ -344,7 +344,7 @@ func (out *BufferedIndexOutput) WriteBytes(buf []byte) error {
 			}
 		}
 		// and write data at once
-		err := out.flushBuffer(buf)
+		err := out.spi.FlushBuffer(buf)
 		if err != nil {
 			return err
 		}
@@ -377,7 +377,7 @@ func (out *BufferedIndexOutput) WriteBytes(buf []byte) error {
 }
 
 func (out *BufferedIndexOutput) flush() error {
-	err := out.flushBuffer(out.buffer[:out.position])
+	err := out.spi.FlushBuffer(out.buffer[:out.position])
 	if err == nil {
 		out.start += int64(out.position)
 		out.position = 0

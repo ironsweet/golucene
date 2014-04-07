@@ -297,7 +297,7 @@ func newFSIndexOutput(parent *FSDirectory, name string) (*FSIndexOutput, error) 
 	return out, nil
 }
 
-func (out *FSIndexOutput) flushBuffer(b []byte) error {
+func (out *FSIndexOutput) FlushBuffer(b []byte) error {
 	assert(out.isOpen)
 	offset, size := 0, len(b)
 	for size > 0 {
@@ -328,4 +328,12 @@ func (out *FSIndexOutput) Close() error {
 		err = out.BufferedIndexOutput.Close()
 	}
 	return nil
+}
+
+func (out *FSIndexOutput) Length() (int64, error) {
+	info, err := out.file.Stat()
+	if err != nil {
+		return 0, err
+	}
+	return info.Size(), nil
 }

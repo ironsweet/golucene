@@ -200,3 +200,11 @@ func newRateLimitedIndexOutput(rateLimiter RateLimiter, delegate IndexOutput) *R
 	ans.rateLimiter = rateLimiter
 	return ans
 }
+
+func (out *RateLimitedIndexOutput) FlushBuffer(buf []byte) error {
+	panic("not implemented yet")
+}
+
+func (out *RateLimitedIndexOutput) Length() (int64, error) {
+	return out.delegate.Length()
+}

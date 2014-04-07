@@ -15,7 +15,7 @@ type IndexOutput interface {
 	// Returns the current position in this file, where the next write will occur.
 	FilePointer() int64
 	// The numer of bytes in the file.
-	Length() int64
+	Length() (int64, error)
 }
 
 type IndexOutputImpl struct {

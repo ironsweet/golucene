@@ -462,8 +462,8 @@ func (out *RAMOutputStream) Close() error {
 	return out.Flush()
 }
 
-func (out *RAMOutputStream) Length() int64 {
-	return out.file.length
+func (out *RAMOutputStream) Length() (int64, error) {
+	return out.file.length, nil
 }
 
 func (out *RAMOutputStream) WriteByte(b byte) error {

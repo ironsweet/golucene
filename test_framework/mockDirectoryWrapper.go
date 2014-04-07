@@ -844,11 +844,11 @@ func newBufferedIndexOutputWrapper(bufferSize int, io store.IndexOutput) *Buffer
 	return ans
 }
 
-func (w *BufferedIndexOutputWrapper) Length() int64 {
+func (w *BufferedIndexOutputWrapper) Length() (int64, error) {
 	return w.io.Length()
 }
 
-func (w *BufferedIndexOutputWrapper) flushBuffer(buf []byte) error {
+func (w *BufferedIndexOutputWrapper) FlushBuffer(buf []byte) error {
 	return w.io.WriteBytes(buf)
 }
 
@@ -928,7 +928,7 @@ func (out *ThrottledIndexOutput) FilePointer() int64 {
 	return out.delegate.FilePointer()
 }
 
-func (out *ThrottledIndexOutput) Length() int64 {
+func (out *ThrottledIndexOutput) Length() (int64, error) {
 	return out.delegate.Length()
 }
 
@@ -1156,8 +1156,12 @@ func (w *MockIndexOutputWrapper) checkDiskFull(buf []byte, in util.DataInput) (e
 		if err != nil {
 			return err
 		}
+		fLen, err := w.delegate.Length()
+		if err != nil {
+			return err
+		}
 		message := fmt.Sprintf("fake disk full at %v bytes when writing %v (file length=%v",
-			n, w.name, w.delegate.Length())
+			n, w.name, fLen)
 		if freeSpace > 0 {
 			message += fmt.Sprintf("; wrote %v of %v bytes", freeSpace, len(buf))
 		}
@@ -1243,7 +1247,7 @@ func (w *MockIndexOutputWrapper) FilePointer() int64 {
 	return w.delegate.FilePointer()
 }
 
-func (w *MockIndexOutputWrapper) Length() int64 {
+func (w *MockIndexOutputWrapper) Length() (int64, error) {
 	return w.delegate.Length()
 }
 
