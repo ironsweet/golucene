@@ -165,7 +165,22 @@ func (w *CompressingStoredFieldsWriter) Abort() {
 }
 
 func (w *CompressingStoredFieldsWriter) Finish(fis model.FieldInfos, numDocs int) error {
-	panic("not implemented yet")
+	if w.numBufferedDocs > 0 {
+		err := w.flush()
+		if err != nil {
+			return err
+		}
+	} else {
+		assert(w.bufferedDocs.length == 0)
+	}
+	assert2(w.docBase == numDocs,
+		"Wrote %v docs, finish called with numDocs=%v", w.docBase, numDocs)
+	err := w.indexWriter.finish(numDocs)
+	if err != nil {
+		return err
+	}
+	assert(w.bufferedDocs.length == 0)
+	return nil
 }
 
 // util/GrowableByteArrayDataOutput.java

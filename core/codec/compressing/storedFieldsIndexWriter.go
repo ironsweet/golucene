@@ -79,6 +79,21 @@ func NewStoredFieldsIndexWriter(indexOutput store.IndexOutput) (*StoredFieldsInd
 	}, nil
 }
 
+func (w *StoredFieldsIndexWriter) writeBlock() error {
+	panic("not implemented yet")
+}
+
+func (w *StoredFieldsIndexWriter) finish(numDocs int) error {
+	assert2(numDocs == w.totalDocs, "Expected %v docs, but got %v", numDocs, w.totalDocs)
+	if w.blockChunks > 0 {
+		err := w.writeBlock()
+		if err != nil {
+			return err
+		}
+	}
+	return w.fieldsIndexOut.WriteVInt(0) // end marker
+}
+
 func (w *StoredFieldsIndexWriter) Close() error {
 	return w.fieldsIndexOut.Close()
 }
