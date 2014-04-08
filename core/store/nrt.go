@@ -7,6 +7,8 @@ import (
 	"sync"
 )
 
+const NRT_VERBOSE = true
+
 // TODO
 // - let subclass dictate policy...?
 // - rename to MergeCachingDir? NRTCachingDIR
@@ -141,19 +143,21 @@ func (nrt *NRTCachingDirectory) _fileExists(name string) bool {
 func (nrt *NRTCachingDirectory) DeleteFile(name string) error {
 	nrt.Lock() // synchronized
 	defer nrt.Unlock()
-	log.Printf("nrtdir.deleteFile name=%v", name)
-	if nrt._fileExists(name) {
-		log.Println("DEBUG ", nrt.Directory)
-		assert2(!nrt.Directory.FileExists(name), fmt.Sprintf("name=%v", name))
+
+	if NRT_VERBOSE {
+		log.Printf("nrtdir.deleteFile name=%v", name)
+	}
+	if nrt.cache.FileExists(name) {
+		assert2(!nrt.Directory.FileExists(name), "name=%v", name)
 		return nrt.cache.DeleteFile(name)
 	} else {
 		return nrt.Directory.DeleteFile(name)
 	}
 }
 
-func assert2(ok bool, msg string) {
+func assert2(ok bool, msg string, args ...interface{}) {
 	if !ok {
-		panic(msg)
+		panic(fmt.Sprintf(msg, args...))
 	}
 }
 
