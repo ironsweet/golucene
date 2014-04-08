@@ -1226,6 +1226,7 @@ func (w *MockIndexOutputWrapper) WriteBytes(buf []byte) error {
 			return err
 		}
 	} else {
+		assert(w.delegate != nil)
 		err = w.delegate.WriteBytes(buf)
 		if err != nil {
 			return err

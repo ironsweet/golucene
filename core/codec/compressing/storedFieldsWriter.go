@@ -147,13 +147,63 @@ func (w *CompressingStoredFieldsWriter) FinishDocument() error {
 	return nil
 }
 
+func (w *CompressingStoredFieldsWriter) writeHeader(docBase,
+	numBufferedDocs int, numStoredFields, lengths []int) error {
+
+	// save docBase and numBufferedDocs
+	// err := w.fieldsStream.WriteVInt(docBase)
+	// if err != nil
+
+	panic("not implemented yet")
+}
+
 func (w *CompressingStoredFieldsWriter) triggerFlush() bool {
 	return w.bufferedDocs.length >= w.chunkSize || // chunks of at least chunkSize bytes
 		w.numBufferedDocs >= MAX_DOCUMENTS_PER_CHUNK
 }
 
 func (w *CompressingStoredFieldsWriter) flush() error {
-	panic("not implemented yet")
+	err := w.indexWriter.writeIndex(w.numBufferedDocs, w.fieldsStream.FilePointer())
+	if err != nil {
+		return err
+	}
+
+	// transform end offsets into lengths
+	lengths := w.endOffsets
+	for i := w.numBufferedDocs - 1; i > 0; i-- {
+		lengths[i] = w.endOffsets[i] - w.endOffsets[i-1]
+		assert(lengths[i] >= 0)
+	}
+	err = w.writeHeader(w.docBase, w.numBufferedDocs, w.numStoredFields, lengths)
+	if err != nil {
+		return err
+	}
+
+	// compress stored fields to fieldsStream
+	if w.bufferedDocs.length >= 2*w.chunkSize {
+		// big chunk, slice it
+		for compressed := 0; compressed < w.bufferedDocs.length; compressed += w.chunkSize {
+			size := w.bufferedDocs.length - compressed
+			if w.chunkSize < size {
+				size = w.chunkSize
+			}
+			err = w.compressor(w.bufferedDocs.bytes, compressed, size, w.fieldsStream)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		err = w.compressor(w.bufferedDocs.bytes, 0, w.bufferedDocs.length, w.fieldsStream)
+		if err != nil {
+			return err
+		}
+	}
+
+	// reset
+	w.docBase += w.numBufferedDocs
+	w.numBufferedDocs = 0
+	w.bufferedDocs.length = 0
+	return nil
 }
 
 func (w *CompressingStoredFieldsWriter) Abort() {

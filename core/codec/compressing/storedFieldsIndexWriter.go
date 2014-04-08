@@ -83,6 +83,10 @@ func (w *StoredFieldsIndexWriter) writeBlock() error {
 	panic("not implemented yet")
 }
 
+func (w *StoredFieldsIndexWriter) writeIndex(numDocs int, startPointer int64) error {
+	panic("not implemented yet")
+}
+
 func (w *StoredFieldsIndexWriter) finish(numDocs int) error {
 	assert2(numDocs == w.totalDocs, "Expected %v docs, but got %v", numDocs, w.totalDocs)
 	if w.blockChunks > 0 {
