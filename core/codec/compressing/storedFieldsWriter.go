@@ -123,7 +123,17 @@ func (w *CompressingStoredFieldsWriter) Close() error {
 }
 
 func (w *CompressingStoredFieldsWriter) StartDocument(numStoredFields int) error {
-	panic("not implemented yet")
+	if w.numBufferedDocs == len(w.numStoredFields) {
+		newLength := util.Oversize(w.numBufferedDocs+1, 4)
+		oldArray := w.endOffsets
+		w.numStoredFields = make([]int, newLength)
+		w.endOffsets = make([]int, newLength)
+		copy(w.numStoredFields, oldArray)
+		copy(w.endOffsets, oldArray)
+	}
+	w.numStoredFields[w.numBufferedDocs] = numStoredFields
+	w.numBufferedDocs++
+	return nil
 }
 
 func (w *CompressingStoredFieldsWriter) FinishDocument() error {
