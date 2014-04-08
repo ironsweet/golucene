@@ -124,8 +124,8 @@ func (p *StoredFieldsProcessor) initFieldsWriter(ctx store.IOContext) error {
 func (p *StoredFieldsProcessor) abort() {
 	p.reset()
 
-	if p.fieldsWriter != nil {
-		p.fieldsWriter.Abort()
+	if w := p.fieldsWriter; w != nil {
+		w.Abort()
 		p.fieldsWriter = nil
 		p.lastDocId = 0
 	}

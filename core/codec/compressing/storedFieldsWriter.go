@@ -10,6 +10,9 @@ import (
 	"github.com/balzaczyy/golucene/core/util/packed"
 )
 
+/* hard limit on the maximum number of documents per chunk */
+const MAX_DOCUMENTS_PER_CHUNK = 128
+
 const CODEC_SFX_IDX = "Index"
 const CODEC_SFX_DAT = "Data"
 const CP_VERSION_BIG_CHUNKS = 1
@@ -137,6 +140,19 @@ func (w *CompressingStoredFieldsWriter) StartDocument(numStoredFields int) error
 }
 
 func (w *CompressingStoredFieldsWriter) FinishDocument() error {
+	w.endOffsets[w.numBufferedDocs-1] = w.bufferedDocs.length
+	if w.triggerFlush() {
+		return w.flush()
+	}
+	return nil
+}
+
+func (w *CompressingStoredFieldsWriter) triggerFlush() bool {
+	return w.bufferedDocs.length >= w.chunkSize || // chunks of at least chunkSize bytes
+		w.numBufferedDocs >= MAX_DOCUMENTS_PER_CHUNK
+}
+
+func (w *CompressingStoredFieldsWriter) flush() error {
 	panic("not implemented yet")
 }
 
@@ -156,9 +172,10 @@ func (w *CompressingStoredFieldsWriter) Finish(fis model.FieldInfos, numDocs int
 
 /* A DataOutput that can be used to build a []byte */
 type GrowableByteArrayDataOutput struct {
-	bytes []byte
+	bytes  []byte
+	length int
 }
 
 func newGrowableByteArrayDataOutput(cp int) *GrowableByteArrayDataOutput {
-	return &GrowableByteArrayDataOutput{make([]byte, 0, util.Oversize(cp, 1))}
+	return &GrowableByteArrayDataOutput{make([]byte, 0, util.Oversize(cp, 1)), 0}
 }
