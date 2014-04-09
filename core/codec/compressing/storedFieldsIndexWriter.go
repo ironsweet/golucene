@@ -79,12 +79,38 @@ func NewStoredFieldsIndexWriter(indexOutput store.IndexOutput) (*StoredFieldsInd
 	}, nil
 }
 
+func (w *StoredFieldsIndexWriter) reset() {
+	w.blockChunks = 0
+	w.blockDocs = 0
+	w.firstStartPointer = -1 // means unset
+}
+
 func (w *StoredFieldsIndexWriter) writeBlock() error {
 	panic("not implemented yet")
 }
 
 func (w *StoredFieldsIndexWriter) writeIndex(numDocs int, startPointer int64) error {
-	panic("not implemented yet")
+	if w.blockChunks == BLOCK_SIZE {
+		err := w.writeBlock()
+		if err != nil {
+			return err
+		}
+		w.reset()
+	}
+
+	if w.firstStartPointer == -1 {
+		w.firstStartPointer, w.maxStartPointer = startPointer, startPointer
+	}
+	assert(w.firstStartPointer > 0 && startPointer >= w.firstStartPointer)
+
+	w.docBaseDeltas[w.blockChunks] = numDocs
+	w.startPointerDeltas[w.blockChunks] = startPointer - w.maxStartPointer
+
+	w.blockChunks++
+	w.blockDocs += numDocs
+	w.totalDocs += numDocs
+	w.maxStartPointer = startPointer
+	return nil
 }
 
 func (w *StoredFieldsIndexWriter) finish(numDocs int) error {
