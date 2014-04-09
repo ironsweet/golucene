@@ -8,10 +8,10 @@ import (
 )
 
 type StoredFieldsConsumer interface {
-	// addField(docId int, field IndexableField, fieldInfo FieldInfo) error
+	addField(docId int, field IndexableField, fieldInfo model.FieldInfo)
 	flush(state SegmentWriteState) error
 	abort()
-	// startDocument() error
+	startDocument()
 	finishDocument() error
 }
 
@@ -25,6 +25,16 @@ func newTwoStoredFieldsConsumers(first, second StoredFieldsConsumer) *TwoStoredF
 	return &TwoStoredFieldsConsumers{first, second}
 }
 
+func (p *TwoStoredFieldsConsumers) addField(docId int, field IndexableField, fieldInfo model.FieldInfo) {
+	// err := p.first.addField(docId, field, fieldInfo)
+	// if err == nil {
+	// 	err = p.second.addField(docId, field, fieldInfo)
+	// }
+	// return err
+	p.first.addField(docId, field, fieldInfo)
+	p.second.addField(docId, field, fieldInfo)
+}
+
 func (p *TwoStoredFieldsConsumers) flush(state SegmentWriteState) error {
 	err := p.first.flush(state)
 	if err == nil {
@@ -36,6 +46,15 @@ func (p *TwoStoredFieldsConsumers) flush(state SegmentWriteState) error {
 func (p *TwoStoredFieldsConsumers) abort() {
 	p.first.abort()
 	p.second.abort()
+}
+
+func (p *TwoStoredFieldsConsumers) startDocument() {
+	// err := p.first.startDocument()
+	// if err == nil {
+	// 	err = p.second.startDocument()
+	// }
+	// return err
+	panic("not implemented yet")
 }
 
 func (p *TwoStoredFieldsConsumers) finishDocument() error {
@@ -74,6 +93,10 @@ func (p *StoredFieldsProcessor) reset() {
 	p.numStoredFields = 0
 	p.storedFields = nil
 	p.fieldInfos = nil
+}
+
+func (p *StoredFieldsProcessor) startDocument() {
+	p.reset()
 }
 
 func (p *StoredFieldsProcessor) flush(state SegmentWriteState) (err error) {
@@ -152,6 +175,10 @@ func (p *StoredFieldsProcessor) finishDocument() error {
 	panic("not implemented yet")
 }
 
+func (p *StoredFieldsProcessor) addField(docId int, field IndexableField, fieldInfo model.FieldInfo) {
+	panic("not implemented yet")
+}
+
 // index/DocValuesProcessor.java
 
 type DocValuesProcessor struct {
@@ -163,7 +190,11 @@ func newDocValuesProcessor(bytesUsed util.Counter) *DocValuesProcessor {
 	return &DocValuesProcessor{make(map[string]DocValuesWriter), bytesUsed}
 }
 
-func (p *DocValuesProcessor) finishDocument() error {
+func (p *DocValuesProcessor) startDocument() {}
+
+func (p *DocValuesProcessor) finishDocument() error { return nil }
+
+func (p *DocValuesProcessor) addField(docId int, field IndexableField, fieldInfo model.FieldInfo) {
 	panic("not implemented yet")
 }
 

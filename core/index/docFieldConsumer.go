@@ -5,7 +5,7 @@ type DocFieldConsumer interface {
 	flush(fieldsToFlush map[string]DocFieldConsumerPerField, state SegmentWriteState) error
 	// Called when an aborting error is hit
 	abort()
-	// startDocument() error
+	startDocument()
 	// addField(fi FieldInfo) DocFieldConsumerPerField
 	finishDocument() error
 }
@@ -27,6 +27,12 @@ func newDocInverter(docState *docState, consumer InvertedDocConsumer,
 }
 
 func (di *DocInverter) flush(fieldsToFlush map[string]DocFieldConsumerPerField, state SegmentWriteState) error {
+	panic("not implemented yet")
+}
+
+func (di *DocInverter) startDocument() {
+	// di.consumer.startDocument()
+	// di.endConsumer.startDocument()
 	panic("not implemented yet")
 }
 

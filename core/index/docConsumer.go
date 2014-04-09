@@ -28,9 +28,15 @@ type DocFieldProcessor struct {
 	storedConsumer StoredFieldsConsumer
 	codec          Codec
 
+	// Holds all fields seen in current doc
+	_fields    []*DocFieldProcessorPerField
+	fieldCount int
+
 	// Hash table for all fields ever seen
 	fieldHash       []*DocFieldProcessorPerField
 	totalFieldCount int
+
+	fieldGen int
 
 	docState *docState
 
@@ -99,7 +105,43 @@ func (p *DocFieldProcessor) fields() []DocFieldConsumerPerField {
 }
 
 func (p *DocFieldProcessor) processDocument(fieldInfos *model.FieldInfosBuilder) error {
-	panic("not implemented yet")
+	p.consumer.startDocument()
+	p.storedConsumer.startDocument()
+
+	p.fieldCount = 0
+
+	thisFieldGen := p.fieldGen
+	p.fieldGen++
+
+	// Absorb any new fields first seen in this document. Also absort
+	// any changes to fields we had already seen before (e.g. suddenly
+	// turning on norms or vectors, etc.)
+
+	for _, field := range p.docState.doc {
+		fieldName := field.name()
+
+		// Make sure we have a PerField allocated
+		// TODO need a better hash code algorithm here
+		hashPos := len(fieldName) / 2
+		fp := p.fieldHash[hashPos]
+		for fp != nil && fp.fieldInfo.Name != fieldName {
+			fp = fp.next
+		}
+
+		if fp == nil {
+			panic("not implemented yet")
+		} else {
+			panic("not implemented yet")
+		}
+
+		if thisFieldGen != fp.lastGen {
+			panic("not implemented yet")
+		}
+
+		fp.addField(field)
+		p.storedConsumer.addField(p.docState.docID, field, fp.fieldInfo)
+	}
+	return nil
 }
 
 func (p *DocFieldProcessor) finishDocument() (err error) {
@@ -113,9 +155,22 @@ func (p *DocFieldProcessor) finishDocument() (err error) {
 
 /* Holds all per thread, per field state. */
 type DocFieldProcessorPerField struct {
-	consumer DocFieldConsumerPerField
+	consumer  DocFieldConsumerPerField
+	fieldInfo model.FieldInfo
 
-	next *DocFieldProcessorPerField
+	next    *DocFieldProcessorPerField
+	lastGen int // -1
+}
+
+// func newDocFieldProcessorPerField(docFieldProcessor *DocFieldProcessor,
+// 	fieldInfo model.FieldInfo) *DocFieldProcessorPerField {
+// 	return &DocFieldProcessorPerField{
+// 		consumer: docFieldProcessor.consumer.addField()
+// 	}
+// }
+
+func (f *DocFieldProcessorPerField) addField(field IndexableField) {
+	panic("not implemented yet")
 }
 
 func (f *DocFieldProcessorPerField) abort() {
