@@ -147,14 +147,27 @@ func (w *CompressingStoredFieldsWriter) FinishDocument() error {
 	return nil
 }
 
+func saveInts(values []int, length int, out util.DataOutput) error {
+	panic("not implemented yet")
+}
+
 func (w *CompressingStoredFieldsWriter) writeHeader(docBase,
 	numBufferedDocs int, numStoredFields, lengths []int) error {
 
 	// save docBase and numBufferedDocs
-	// err := w.fieldsStream.WriteVInt(docBase)
-	// if err != nil
-
-	panic("not implemented yet")
+	err := w.fieldsStream.WriteVInt(int32(docBase)) // TODO precision loss risk
+	if err == nil {
+		err = w.fieldsStream.WriteVInt(int32(numBufferedDocs)) // TODO precision loss risk
+		if err == nil {
+			// save numStoredFields
+			err = saveInts(numStoredFields, numBufferedDocs, w.fieldsStream)
+			if err == nil {
+				// save lengths
+				err = saveInts(lengths, numBufferedDocs, w.fieldsStream)
+			}
+		}
+	}
+	return err
 }
 
 func (w *CompressingStoredFieldsWriter) triggerFlush() bool {
