@@ -708,7 +708,7 @@ func newCompressingStoredFieldsReaderFrom(reader *CompressingStoredFieldsReader)
 		chunkSize:         reader.chunkSize,
 		packedIntsVersion: reader.packedIntsVersion,
 		compressionMode:   reader.compressionMode,
-		decompressor:      reader.decompressor.Clone(),
+		decompressor:      reader.compressionMode.NewDecompressor(),
 		numDocs:           reader.numDocs,
 		bytes:             make([]byte, len(reader.bytes)),
 		closed:            false,

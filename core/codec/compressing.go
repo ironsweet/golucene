@@ -58,7 +58,6 @@ type Decompressor interface {
 		on their needs.
 	*/
 	Decompress(in DataInput, originalLength, offset, length int, bytes []byte) (buf []byte, err error)
-	Clone() Decompressor
 }
 
 var (
