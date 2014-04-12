@@ -927,7 +927,7 @@ func (r *CompressingStoredFieldsReader) visitDocument(docID int, visitor StoredF
 		} else {
 			bytes = make([]byte, 0)
 		}
-		bytes, err = r.decompressor.Decompress(r.fieldsStream, totalLength, offset, length, bytes)
+		bytes, err = r.decompressor(r.fieldsStream, totalLength, offset, length, bytes)
 		if err != nil {
 			return err
 		}
