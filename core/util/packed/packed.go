@@ -262,6 +262,42 @@ func ReaderIteratorNoHeader(in util.DataInput, format PackedFormat, version,
 	return newPackedReaderIterator(format, version, valueCount, bitsPerValue, in, mem)
 }
 
+/*
+Expert: Create a packed integer array writer for the given output,
+format, value count, and number of bits per value.
+
+The resulting stream will be long-aligned. This means that depending
+on the format which is used, up to 63 bits will be wasted. An easy
+way to make sure tha tno space is lost is to always use a valueCount
+that is a multiple of 64.
+
+This method does not write any metadata to the stream, meaning that
+it is your responsibility to store it somewhere else in order to be
+able to recover data from the stream later on:
+
+- format (using Format.Id()),
+- valueCount,
+- bitsPerValue,
+- VERSION_CURRENT.
+
+It is possible to start writing values without knowing how many of
+them you are actually going to write. To do this, just pass -1 as
+valueCount. On the other hand, for any positive value of valueCount,
+the returned writer will make sure that you don't write more values
+than expected and pad the end of stream with zeros in case you have
+writen less than valueCount when calling Writer.Finish().
+
+The mem parameter lets your control how much memory can be used to
+buffer changes in memory before finishing to disk. High values of mem
+are likely to improve throughput. On the other hand, if speed is not
+that important to you, a value of 0 will use as little memory as
+possible and should already offer reasonble throughput.
+*/
+func WriterNoHeader(out util.DataOutput, format PackedFormat,
+	valueCount, bitsPerValue, mem int) Writer {
+	return newPackedWriter(format, out, valueCount, bitsPerValue, mem)
+}
+
 // Returns how many bits are required to hold values up to and including maxValue
 func BitsRequired(maxValue int64) int {
 	assert2(maxValue >= 0, fmt.Sprintf("maxValue must be non-negative (got: %v)", maxValue))

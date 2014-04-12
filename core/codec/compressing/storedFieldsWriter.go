@@ -148,7 +148,45 @@ func (w *CompressingStoredFieldsWriter) FinishDocument() error {
 }
 
 func saveInts(values []int, length int, out util.DataOutput) error {
-	panic("not implemented yet")
+	assert(length > 0)
+	if length == 1 {
+		return out.WriteVInt(int32(values[0]))
+	}
+
+	var allEqual = true
+	var sentinel = values[0]
+	for _, v := range values {
+		if v != sentinel {
+			allEqual = false
+			break
+		}
+	}
+	if allEqual {
+		err := out.WriteInt(0)
+		if err == nil {
+			err = out.WriteVInt(int32(values[0]))
+		}
+		return err
+	}
+
+	var max int64 = 0
+	for _, v := range values {
+		max |= int64(v)
+	}
+	var bitsRequired = packed.BitsRequired(max)
+	err := out.WriteVInt(int32(bitsRequired))
+	if err != nil {
+		return err
+	}
+
+	w := packed.WriterNoHeader(out, packed.PackedFormat(packed.PACKED), length, bitsRequired, 1)
+	for _, v := range values {
+		err = w.Add(int64(v))
+		if err != nil {
+			return err
+		}
+	}
+	return w.Finish()
 }
 
 func (w *CompressingStoredFieldsWriter) writeHeader(docBase,
