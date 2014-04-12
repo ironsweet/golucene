@@ -17,7 +17,15 @@ const (
 type CompressionModeDefaults int
 
 func (m CompressionModeDefaults) NewCompressor() Compressor {
-	return newLZ4FastCompressor().Compress
+	switch int(m) {
+	case 1:
+		var ht = new(LZ4HashTable)
+		return Compressor(func(bytes []byte, out DataOutput) error {
+			return LZ4Compress(bytes, out, ht)
+		})
+	default:
+		panic("not implemented yet")
+	}
 }
 
 func (m CompressionModeDefaults) NewDecompressor() Decompressor {
@@ -36,7 +44,7 @@ Compress bytes into out. It is the responsibility of the compressor
 to add all necessary information so that a Decompressor will know
 when to stop decompressing bytes from the stream.
 */
-type Compressor func(bytes []byte, offset, length int, out DataOutput) error
+type Compressor func(bytes []byte, out DataOutput) error
 
 // codec/compressing/Decompressor.java
 
@@ -90,16 +98,4 @@ func assert2(ok bool, msg string, args ...interface{}) {
 
 func (d LZ4Decompressor) Clone() Decompressor {
 	return d
-}
-
-type LZ4FastCompressor struct {
-	ht *LZ4HashTable
-}
-
-func newLZ4FastCompressor() *LZ4FastCompressor {
-	return &LZ4FastCompressor{new(LZ4HashTable)}
-}
-
-func (c *LZ4FastCompressor) Compress(bytes []byte, offset, length int, out DataOutput) error {
-	panic("not implemented yet")
 }

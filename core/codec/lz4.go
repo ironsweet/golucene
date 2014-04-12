@@ -95,3 +95,11 @@ func asInt(b byte, err error) (n int, err2 error) {
 }
 
 type LZ4HashTable struct{}
+
+/*
+Compress bytes into out using at most 16KB of memory. ht shouldn't be
+shared across threads but can safely be reused.
+*/
+func LZ4Compress(bytes []byte, out DataOutput, ht *LZ4HashTable) error {
+	panic("not implemented yet")
+}

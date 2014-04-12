@@ -238,13 +238,13 @@ func (w *CompressingStoredFieldsWriter) flush() error {
 			if w.chunkSize < size {
 				size = w.chunkSize
 			}
-			err = w.compressor(w.bufferedDocs.bytes, compressed, size, w.fieldsStream)
+			err = w.compressor(w.bufferedDocs.bytes[compressed:compressed+size], w.fieldsStream)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
-		err = w.compressor(w.bufferedDocs.bytes, 0, w.bufferedDocs.length, w.fieldsStream)
+		err = w.compressor(w.bufferedDocs.bytes[:w.bufferedDocs.length], w.fieldsStream)
 		if err != nil {
 			return err
 		}
