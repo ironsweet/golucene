@@ -1,4 +1,4 @@
-package codec
+package compressing
 
 import (
 	"errors"
@@ -74,14 +74,4 @@ func LZ4Decompressor(in DataInput, originalLength, offset, length int, bytes []b
 		return nil, errors.New(fmt.Sprintf("Corrupted: lengths mismatch: %v > %v (resource=%v)", decompressedLength, originalLength, in))
 	}
 	return res[offset : offset+length], nil
-}
-
-func assert(ok bool) {
-	assert2(ok, "assert fail")
-}
-
-func assert2(ok bool, msg string, args ...interface{}) {
-	if !ok {
-		panic(fmt.Sprintf(msg, args...))
-	}
 }

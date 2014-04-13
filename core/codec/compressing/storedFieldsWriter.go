@@ -26,8 +26,8 @@ type CompressingStoredFieldsWriter struct {
 	indexWriter   *StoredFieldsIndexWriter
 	fieldsStream  store.IndexOutput
 
-	compressionMode codec.CompressionMode
-	compressor      codec.Compressor
+	compressionMode CompressionMode
+	compressor      Compressor
 	chunkSize       int
 
 	bufferedDocs    *GrowableByteArrayDataOutput
@@ -39,7 +39,7 @@ type CompressingStoredFieldsWriter struct {
 
 func NewCompressingStoredFieldsWriter(dir store.Directory, si *model.SegmentInfo,
 	segmentSuffix string, ctx store.IOContext, formatName string,
-	compressionMode codec.CompressionMode, chunkSize int) (*CompressingStoredFieldsWriter, error) {
+	compressionMode CompressionMode, chunkSize int) (*CompressingStoredFieldsWriter, error) {
 
 	assert(dir != nil)
 	ans := &CompressingStoredFieldsWriter{
@@ -147,7 +147,7 @@ func (w *CompressingStoredFieldsWriter) FinishDocument() error {
 	return nil
 }
 
-func saveInts(values []int, length int, out util.DataOutput) error {
+func saveInts(values []int, length int, out DataOutput) error {
 	assert(length > 0)
 	if length == 1 {
 		return out.WriteVInt(int32(values[0]))

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	"github.com/balzaczyy/golucene/core/codec/compressing"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -373,7 +374,7 @@ type Lucene42TermVectorsFormat struct {
 
 func newLucene42TermVectorsFormat() *Lucene42TermVectorsFormat {
 	return &Lucene42TermVectorsFormat{
-		newCompressingTermVectorsFormat("Lucene41StoredFields", "", codec.COMPRESSION_MODE_FAST, 1<<12),
+		newCompressingTermVectorsFormat("Lucene41StoredFields", "", compressing.COMPRESSION_MODE_FAST, 1<<12),
 	}
 }
 
@@ -386,7 +387,7 @@ func newLucene42TermVectorsReader(d store.Directory,
 	ctx store.IOContext) (r TermVectorsReader, err error) {
 
 	formatName := "Lucene41StoredFields"
-	compressionMode := codec.COMPRESSION_MODE_FAST
+	compressionMode := compressing.COMPRESSION_MODE_FAST
 	// chunkSize := 1 << 12
 	p, err := newCompressingTermVectorsReader(d, si, "", fn, ctx, formatName, compressionMode)
 	if err == nil {
@@ -403,7 +404,7 @@ type CompressingTermVectorsReader struct {
 func newCompressingTermVectorsReader(d store.Directory,
 	si *model.SegmentInfo, segmentSuffix string,
 	fn model.FieldInfos, ctx store.IOContext, formatName string,
-	compressionMode codec.CompressionMode) (r *CompressingTermVectorsReader, err error) {
+	compressionMode compressing.CompressionMode) (r *CompressingTermVectorsReader, err error) {
 
 	panic("not implemented yet")
 }

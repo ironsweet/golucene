@@ -1,10 +1,17 @@
-package codec
+package compressing
 
 // codec/compressing/LZ4.java
 
 const (
-	MIN_MATCH = 4 // minimum length of a match
+	MIN_MATCH     = 4       // minimum length of a match
+	MAX_DISTANCE  = 1 << 16 // maximum distance of a reference
+	LAST_LITERALS = 5       // the last 5 bytes mus tbe encoded as literals
 )
+
+type DataInput interface {
+	ReadByte() (b byte, err error)
+	ReadBytes(buf []byte) error
+}
 
 /*
 Decompress at least decompressedLen bytes into dest[]. Please
@@ -92,14 +99,4 @@ func LZ4Decompress(compressed DataInput, decompressedLen int, dest []byte) (leng
 
 func asInt(b byte, err error) (n int, err2 error) {
 	return int(b), err
-}
-
-type LZ4HashTable struct{}
-
-/*
-Compress bytes into out using at most 16KB of memory. ht shouldn't be
-shared across threads but can safely be reused.
-*/
-func LZ4Compress(bytes []byte, out DataOutput, ht *LZ4HashTable) error {
-	panic("not implemented yet")
 }

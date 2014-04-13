@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	"github.com/balzaczyy/golucene/core/codec/compressing"
 	"github.com/balzaczyy/golucene/core/codec/lucene40"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
@@ -631,7 +632,7 @@ type Lucene41StoredFieldsFormat struct {
 
 func newLucene41StoredFieldsFormat() *Lucene41StoredFieldsFormat {
 	return &Lucene41StoredFieldsFormat{
-		newCompressingStoredFieldsFormat("Lucene41StoredFields", "", codec.COMPRESSION_MODE_FAST, 1<<14),
+		newCompressingStoredFieldsFormat("Lucene41StoredFields", "", compressing.COMPRESSION_MODE_FAST, 1<<14),
 	}
 }
 
@@ -644,7 +645,7 @@ func newLucene41StoredFieldsReader(d store.Directory,
 	ctx store.IOContext) (r StoredFieldsReader, err error) {
 
 	formatName := "Lucene41StoredFields"
-	compressionMode := codec.COMPRESSION_MODE_FAST
+	compressionMode := compressing.COMPRESSION_MODE_FAST
 	// chunkSize := 1 << 14
 	p, err := newCompressingStoredFieldsReader(d, si, "", fn, ctx, formatName, compressionMode)
 	if err == nil {
@@ -691,8 +692,8 @@ type CompressingStoredFieldsReader struct {
 	fieldsStream      store.IndexInput
 	chunkSize         int
 	packedIntsVersion int
-	compressionMode   codec.CompressionMode
-	decompressor      codec.Decompressor
+	compressionMode   compressing.CompressionMode
+	decompressor      compressing.Decompressor
 	bytes             []byte
 	numDocs           int
 	closed            bool
@@ -719,7 +720,7 @@ func newCompressingStoredFieldsReaderFrom(reader *CompressingStoredFieldsReader)
 func newCompressingStoredFieldsReader(d store.Directory,
 	si *model.SegmentInfo, segmentSuffix string,
 	fn model.FieldInfos, ctx store.IOContext, formatName string,
-	compressionMode codec.CompressionMode) (r *CompressingStoredFieldsReader, err error) {
+	compressionMode compressing.CompressionMode) (r *CompressingStoredFieldsReader, err error) {
 
 	r = &CompressingStoredFieldsReader{}
 	r.compressionMode = compressionMode

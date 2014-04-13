@@ -45,16 +45,24 @@ func WriteHeader(out DataOutput, codec string, version int) error {
 	return err
 }
 
+func assert(ok bool) {
+	assert2(ok, "assert fail")
+}
+
+func assert2(ok bool, msg string, args ...interface{}) {
+	if !ok {
+		panic(fmt.Sprintf(msg, args...))
+	}
+}
+
 /* Computes the length of a codec header */
 func HeaderLength(codec string) int {
 	return 9 + len(codec)
 }
 
 type DataInput interface {
-	ReadInt() (n int32, err error)
-	ReadString() (s string, err error)
-	ReadByte() (b byte, err error)
-	ReadBytes(buf []byte) error
+	ReadInt() (int32, error)
+	ReadString() (string, error)
 }
 
 func CheckHeader(in DataInput, codec string, minVersion, maxVersion int32) (v int32, err error) {

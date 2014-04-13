@@ -2,7 +2,6 @@ package index
 
 import (
 	"fmt"
-	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/codec/compressing"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
@@ -25,7 +24,7 @@ segments that have the biggest byte size first.
 type CompressingStoredFieldsFormat struct {
 	formatName      string
 	segmentSuffix   string
-	compressionMode codec.CompressionMode
+	compressionMode compressing.CompressionMode
 	chunkSize       int
 }
 
@@ -55,7 +54,7 @@ segmentSuffix is the segment suffix. This suffix is added to the result
  to the size of your index).
 */
 func newCompressingStoredFieldsFormat(formatName, segmentSuffix string,
-	compressionMode codec.CompressionMode, chunkSize int) *CompressingStoredFieldsFormat {
+	compressionMode compressing.CompressionMode, chunkSize int) *CompressingStoredFieldsFormat {
 	assert2(chunkSize >= 1, "chunkSize must be >= 1")
 	return &CompressingStoredFieldsFormat{
 		formatName:      formatName,
@@ -91,7 +90,7 @@ func (format *CompressingStoredFieldsFormat) String() string {
 type CompressingTermVectorsFormat struct {
 	formatName      string
 	segmentSuffix   string
-	compressionMode codec.CompressionMode
+	compressionMode compressing.CompressionMode
 	chunkSize       int
 }
 
@@ -114,7 +113,7 @@ a little slower (depending on the size of your OS cache compared to
 the size of your index).
 */
 func newCompressingTermVectorsFormat(formatName, segmentSuffix string,
-	compressionMode codec.CompressionMode, chunkSize int) *CompressingTermVectorsFormat {
+	compressionMode compressing.CompressionMode, chunkSize int) *CompressingTermVectorsFormat {
 	assert2(chunkSize >= 1, "chunkSize must be >= 1")
 	return &CompressingTermVectorsFormat{
 		formatName:      formatName,

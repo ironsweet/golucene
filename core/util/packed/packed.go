@@ -137,8 +137,14 @@ func GetPackedIntsDecoder(format PackedFormat, version int32, bitsPerValue uint3
 	return newBulkOperation(format, bitsPerValue)
 }
 
+/* A read-only random access array of positive integers. */
 type PackedIntsReader interface {
 	Get(index int) int64
+	// Returns the number of bits used to store any given value. Note:
+	// this does not imply that memory usage is bpv * values() as
+	// implementations are free to use non-space-optimal packing of
+	// bits.
+	BitsPerValue() int
 	Size() int32
 }
 
@@ -192,8 +198,33 @@ func assert(ok bool) {
 	assert2(ok, "assert fail")
 }
 
-type PackedIntsMutable interface {
+/* A packed integer array that can be modified. */
+type Mutable interface {
 	PackedIntsReader
+	// Set the value at the given index in the array.
+	Set(index int, value int64)
+}
+
+type PackedIntsReaderImpl struct {
+	bitsPerValue int
+	valueCount   int32
+}
+
+func newPackedIntsReaderImpl(valueCount int, bitsPerValue int) PackedIntsReaderImpl {
+	assert(bitsPerValue > 0 && bitsPerValue <= 64)
+	return PackedIntsReaderImpl{bitsPerValue, int32(valueCount)}
+}
+
+func (p PackedIntsReaderImpl) BitsPerValue() int {
+	return p.bitsPerValue
+}
+
+func (p PackedIntsReaderImpl) Size() int32 {
+	return p.valueCount
+}
+
+type MutableImpl struct {
+	PackedIntsReaderImpl
 }
 
 func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
@@ -325,23 +356,6 @@ func NewPackedReader(in DataInput) (r PackedIntsReader, err error) {
 		}
 	}
 	return
-}
-
-type PackedIntsReaderImpl struct {
-	bitsPerValue uint32
-	valueCount   int32
-}
-
-func newPackedIntsReaderImpl(valueCount int, bitsPerValue int) PackedIntsReaderImpl {
-	assert(bitsPerValue > 0 && bitsPerValue <= 64)
-	return PackedIntsReaderImpl{uint32(bitsPerValue), int32(valueCount)}
-}
-
-func (p PackedIntsReaderImpl) Size() int32 {
-	return p.valueCount
-}
-
-type PackedIntsMutableImpl struct {
 }
 
 /*
@@ -647,7 +661,7 @@ func (p *Packed64) Get(index int) int64 {
 }
 
 type GrowableWriter struct {
-	current PackedIntsMutable
+	current Mutable
 }
 
 func (w *GrowableWriter) Get(index int) int64 {
