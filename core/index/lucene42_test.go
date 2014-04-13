@@ -20,7 +20,7 @@ func TestReadFieldInfos(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !fis.hasNorms || fis.hasDocValues {
+	if !fis.HasNorms || fis.HasDocValues {
 		t.Errorf("hasNorms must be true and hasDocValues must be false, but found %v", fis)
 	}
 }

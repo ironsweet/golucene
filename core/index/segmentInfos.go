@@ -445,7 +445,9 @@ func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string)
 		return err
 	}
 	if checksumNow != checksumThen {
-		return errors.New(fmt.Sprintf("checksum mismatch in segments file (resource: %v)", input))
+		return errors.New(fmt.Sprintf(
+			"checksum mismatch in segments file: %v vs %v (resource: %v)",
+			checksumNow, checksumThen, input))
 	}
 
 	success = true

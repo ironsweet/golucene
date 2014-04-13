@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 	"hash"
-	"hash/crc64"
+	"hash/crc32"
 	"io"
 )
 
@@ -66,11 +66,11 @@ func bufferSize(context IOContext) int {
 type ChecksumIndexInput struct {
 	*IndexInputImpl
 	main   IndexInput
-	digest hash.Hash64
+	digest hash.Hash32
 }
 
 func NewChecksumIndexInput(main IndexInput) *ChecksumIndexInput {
-	ans := &ChecksumIndexInput{main: main, digest: crc64.New(crc64.MakeTable(crc64.ISO))}
+	ans := &ChecksumIndexInput{main: main, digest: crc32.NewIEEE()}
 	ans.IndexInputImpl = newIndexInputImpl(fmt.Sprintf("ChecksumIndexInput(%v)", main), ans)
 	return ans
 }
@@ -91,7 +91,7 @@ func (in *ChecksumIndexInput) ReadBytes(buf []byte) error {
 }
 
 func (in *ChecksumIndexInput) Checksum() int64 {
-	return int64(in.digest.Sum64())
+	return int64(in.digest.Sum32())
 }
 
 func (in *ChecksumIndexInput) Close() error {
