@@ -253,7 +253,7 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 
 func (t *FST) getNodeAddress(node int64) int64 {
 	if t.nodeAddress != nil { // Deref
-		return t.nodeAddress.Get(int32(node))
+		return t.nodeAddress.Get(int(node))
 	} else { // Straight
 		return node
 	}
@@ -540,7 +540,7 @@ func (t *FST) readNextRealArc(arc *Arc, in BytesReader) (ans *Arc, err error) {
 			if arc.flag(FST_BIT_TARGET_DELTA) { // Address is delta-coded from current address:
 				arc.target = pos + code
 			} else if code < int64(t.nodeRefToAddress.Size()) { // Deref
-				arc.target = t.nodeRefToAddress.Get(int32(code))
+				arc.target = t.nodeRefToAddress.Get(int(code))
 			} else { // Absolute
 				arc.target = code
 			}

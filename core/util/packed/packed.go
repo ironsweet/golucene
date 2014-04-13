@@ -4,12 +4,23 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
-	"github.com/balzaczyy/golucene/core/util"
 	"math"
 	"strconv"
 )
 
 // util/packed/PackedInts.java
+
+type DataInput interface {
+	ReadByte() (byte, error)
+	ReadBytes(buf []byte) error
+	ReadShort() (int16, error)
+	ReadInt() (int32, error)
+	ReadVInt() (int32, error)
+	ReadLong() (int64, error)
+	ReadString() (string, error)
+}
+
+type DataOutput interface{}
 
 /*
 Simplistic compression for arrays of unsinged int64 values. Each value
@@ -127,7 +138,7 @@ func GetPackedIntsDecoder(format PackedFormat, version int32, bitsPerValue uint3
 }
 
 type PackedIntsReader interface {
-	Get(index int32) int64
+	Get(index int) int64
 	Size() int32
 }
 
@@ -146,12 +157,12 @@ type nextNAction interface {
 
 type ReaderIteratorImpl struct {
 	nextNAction
-	in            util.DataInput
+	in            DataInput
 	_bitsPerValue int
 	valueCount    int
 }
 
-func newReaderIteratorImpl(sub nextNAction, valueCount, bitsPerValue int, in util.DataInput) *ReaderIteratorImpl {
+func newReaderIteratorImpl(sub nextNAction, valueCount, bitsPerValue int, in DataInput) *ReaderIteratorImpl {
 	return &ReaderIteratorImpl{sub, in, bitsPerValue, valueCount}
 }
 
@@ -185,21 +196,103 @@ type PackedIntsMutable interface {
 	PackedIntsReader
 }
 
-func NewPackedReaderNoHeader(in util.DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
+func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
 	CheckVersion(version)
 	switch format {
 	case PACKED_SINGLE_BLOCK:
 		return newPacked64SingleBlockFromInput(in, valueCount, bitsPerValue)
 	case PACKED:
 		switch bitsPerValue {
+		/* [[[gocog
+		package main
+
+		import (
+			"fmt"
+			"os"
+		)
+
+		const HEADER = `// This file has been automatically generated, DO NOT EDIT
+
+		package packed
+
+		import (
+		)
+
+		`
+
+		var (
+			TYPES = map[int]string{8: "byte", 16: "int16", 32: "int32", 64: "int64"}
+			NAMES = map[int]string{8: "Byte", 16: "Short", 32: "Int", 64: "Long"}
+			MASKS = map[int]string{8: " & 0xFF", 16: " & 0xFFFF", 32: " & 0xFFFFFFFF", 64: ""}
+			CASTS = map[int]string{8: "byte(", 16: "int16(", 32: "int32(", 64: "("}
+		)
+
+		func main() {
+			w := fmt.Fprintf
+			for bpv, typ := range TYPES {
+				f, err := os.Create(fmt.Sprintf("direct%d.go", bpv))
+				if err != nil {
+					panic(err)
+				}
+				defer f.Close()
+
+				w(f, HEADER)
+				w(f, "// Direct wrapping of %d-bits values to a backing array.\n", bpv)
+				w(f, "type Direct%d struct {\n", bpv)
+				w(f, "	PackedIntsReaderImpl\n")
+				w(f, "	values []%v\n", typ)
+				w(f, "}\n\n")
+
+				w(f, "func newDirect%d(valueCount int) *Direct%d {\n", bpv, bpv)
+				w(f, "	return &Direct%d{\n", bpv)
+				w(f, "		PackedIntsReaderImpl: newPackedIntsReaderImpl(valueCount, %v),\n", bpv)
+				w(f, "		values: make([]%v, valueCount),\n", typ)
+				w(f, "	}\n")
+				w(f, "}\n\n")
+
+				w(f, "func newDirect%dFromInput(version int32, in DataInput, valueCount int) (r PackedIntsReader, err error) {\n", bpv)
+				w(f, "	ans := newDirect%v(valueCount)\n", bpv)
+				if bpv == 8 {
+					w(f, "	if err = in.ReadBytes(ans.values[:valueCount]); err == nil {\n")
+				} else {
+					w(f, "	for i, _ := range ans.values {\n")
+					w(f, " 		if ans.values[i], err = in.Read%v(); err != nil {\n", NAMES[bpv])
+					w(f, "			break\n")
+					w(f, "		}\n")
+					w(f, "	}\n")
+					w(f, "	if err == nil {\n")
+				}
+				if bpv != 64 {
+					w(f, "		// because packed ints have not always been byte-aligned\n")
+					w(f, "		remaining := PackedFormat(PACKED).ByteCount(version, int32(valueCount), %v) - %v*int64(valueCount)\n", bpv, bpv/8)
+					w(f, "		for i := int64(0); i < remaining; i++ {\n")
+					w(f, "			if _, err = in.ReadByte(); err != nil {\n")
+					w(f, "				break\n")
+					w(f, "			}\n")
+					w(f, "		}\n")
+				}
+				w(f, "	}\n")
+				w(f, "	return ans, err\n")
+				w(f, "}\n\n")
+
+				w(f, "func (d *Direct%v) Get(index int) int64 {\n", bpv)
+				w(f, "	return int64(d.values[index])%s\n", MASKS[bpv])
+				w(f, "}\n")
+
+				fmt.Printf("		case %v:\n", bpv)
+				fmt.Printf("			return newDirect%vFromInput(version, in, int(valueCount))\n", bpv)
+			}
+		}
+				gocog]]] */
 		case 8:
-			return newDirect8FromInput(version, in, valueCount)
+			return newDirect8FromInput(version, in, int(valueCount))
 		case 16:
-			return newDirect16FromInput(version, in, valueCount)
+			return newDirect16FromInput(version, in, int(valueCount))
 		case 32:
-			return newDirect32FromInput(version, in, valueCount)
+			return newDirect32FromInput(version, in, int(valueCount))
 		case 64:
-			return newDirect64FromInput(version, in, valueCount)
+			return newDirect64FromInput(version, in, int(valueCount))
+		// [[[end]]]
 		case 24:
 			if valueCount <= PACKED8_THREE_BLOCKS_MAX_SIZE {
 				return newPacked8ThreeBlocksFromInput(version, in, valueCount)
@@ -219,7 +312,7 @@ func asUint32(n int32, err error) (n2 uint32, err2 error) {
 	return uint32(n), err
 }
 
-func NewPackedReader(in util.DataInput) (r PackedIntsReader, err error) {
+func NewPackedReader(in DataInput) (r PackedIntsReader, err error) {
 	if version, err := codec.CheckHeader(in, PACKED_CODEC_NAME, PACKED_VERSION_START, PACKED_VERSION_CURRENT); err == nil {
 		if bitsPerValue, err := asUint32(in.ReadVInt()); err == nil {
 			// assert bitsPerValue > 0 && bitsPerValue <= 64
@@ -239,9 +332,9 @@ type PackedIntsReaderImpl struct {
 	valueCount   int32
 }
 
-func newPackedIntsReaderImpl(valueCount int32, bitsPerValue uint32) PackedIntsReaderImpl {
-	// assert bitsPerValue > 0 && bitsPerValue <= 64
-	return PackedIntsReaderImpl{bitsPerValue, valueCount}
+func newPackedIntsReaderImpl(valueCount int, bitsPerValue int) PackedIntsReaderImpl {
+	assert(bitsPerValue > 0 && bitsPerValue <= 64)
+	return PackedIntsReaderImpl{uint32(bitsPerValue), int32(valueCount)}
 }
 
 func (p PackedIntsReaderImpl) Size() int32 {
@@ -256,7 +349,7 @@ Expert: Restore a ReaderIterator from a stream without reading metadata at the
 beginning of the stream. This method is useful to restore data from streams
 which have been created using WriterNoHeader().
 */
-func ReaderIteratorNoHeader(in util.DataInput, format PackedFormat, version,
+func ReaderIteratorNoHeader(in DataInput, format PackedFormat, version,
 	valueCount, bitsPerValue, mem int) ReaderIterator {
 	CheckVersion(int32(version))
 	return newPackedReaderIterator(format, version, valueCount, bitsPerValue, in, mem)
@@ -293,7 +386,7 @@ are likely to improve throughput. On the other hand, if speed is not
 that important to you, a value of 0 will use as little memory as
 possible and should already offer reasonble throughput.
 */
-func WriterNoHeader(out util.DataOutput, format PackedFormat,
+func WriterNoHeader(out DataOutput, format PackedFormat,
 	valueCount, bitsPerValue, mem int) Writer {
 	return newPackedWriter(format, out, valueCount, bitsPerValue, mem)
 }
@@ -333,7 +426,7 @@ type PackedReaderIterator struct {
 	position          int
 }
 
-func newPackedReaderIterator(format PackedFormat, packedIntsVersion, valueCount, bitsPerValue int, in util.DataInput, mem int) *PackedReaderIterator {
+func newPackedReaderIterator(format PackedFormat, packedIntsVersion, valueCount, bitsPerValue int, in DataInput, mem int) *PackedReaderIterator {
 	it := &PackedReaderIterator{
 		format:            format,
 		packedIntsVersion: packedIntsVersion,
@@ -408,130 +501,6 @@ func (it *PackedReaderIterator) ord() int {
 	return it.position
 }
 
-// util/packed/Direct8.java
-
-type Direct8 struct {
-	PackedIntsReaderImpl
-	values []byte
-}
-
-func newDirect8(valueCount int32) Direct8 {
-	ans := Direct8{values: make([]byte, valueCount)}
-	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, 8)
-	return ans
-}
-
-func newDirect8FromInput(version int32, in util.DataInput, valueCount int32) (r PackedIntsReader, err error) {
-	ans := newDirect8(valueCount)
-	if err = in.ReadBytes(ans.values[0:valueCount]); err == nil {
-		// because packed ints have not always been byte-aligned
-		remaining := PackedFormat(PACKED).ByteCount(version, valueCount, 8) - int64(valueCount)
-		for i := int64(0); i < remaining; i++ {
-			if _, err = in.ReadByte(); err != nil {
-				break
-			}
-		}
-	}
-	return &ans, err
-}
-
-func (d *Direct8) Get(index int32) int64 {
-	return int64(d.values[index])
-}
-
-type Direct16 struct {
-	PackedIntsReaderImpl
-	values []int16
-}
-
-func newDirect16(valueCount int32) Direct16 {
-	ans := Direct16{values: make([]int16, valueCount)}
-	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, 16)
-	return ans
-}
-
-func newDirect16FromInput(version int32, in util.DataInput, valueCount int32) (r PackedIntsReader, err error) {
-	ans := newDirect16(valueCount)
-	for i, _ := range ans.values {
-		if ans.values[i], err = in.ReadShort(); err != nil {
-			break
-		}
-	}
-	if err == nil {
-		// because packed ints have not always been byte-aligned
-		remaining := PackedFormat(PACKED).ByteCount(version, valueCount, 16) - 2*int64(valueCount)
-		for i := int64(0); i < remaining; i++ {
-			if _, err = in.ReadByte(); err != nil {
-				break
-			}
-		}
-	}
-	return &ans, err
-}
-
-func (d *Direct16) Get(index int32) int64 {
-	return int64(d.values[index])
-}
-
-type Direct32 struct {
-	PackedIntsReaderImpl
-	values []int32
-}
-
-func newDirect32(valueCount int32) Direct32 {
-	ans := Direct32{values: make([]int32, valueCount)}
-	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, 32)
-	return ans
-}
-
-func newDirect32FromInput(version int32, in util.DataInput, valueCount int32) (r PackedIntsReader, err error) {
-	ans := newDirect32(valueCount)
-	for i, _ := range ans.values {
-		if ans.values[i], err = in.ReadInt(); err != nil {
-			break
-		}
-	}
-	if err == nil {
-		// because packed ints have not always been byte-aligned
-		remaining := PackedFormat(PACKED).ByteCount(version, valueCount, 32) - 4*int64(valueCount)
-		for i := int64(0); i < remaining; i++ {
-			if _, err = in.ReadByte(); err != nil {
-				break
-			}
-		}
-	}
-	return &ans, err
-}
-
-func (d *Direct32) Get(index int32) int64 {
-	return int64(d.values[index])
-}
-
-type Direct64 struct {
-	PackedIntsReaderImpl
-	values []int64
-}
-
-func newDirect64(valueCount int32) Direct64 {
-	ans := Direct64{values: make([]int64, valueCount)}
-	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, 64)
-	return ans
-}
-
-func newDirect64FromInput(version int32, in util.DataInput, valueCount int32) (r PackedIntsReader, err error) {
-	ans := newDirect64(valueCount)
-	for i, _ := range ans.values {
-		if ans.values[i], err = in.ReadLong(); err != nil {
-			break
-		}
-	}
-	return &ans, err
-}
-
-func (d *Direct64) Get(index int32) int64 {
-	return d.values[index]
-}
-
 var PACKED8_THREE_BLOCKS_MAX_SIZE = int32(math.MaxInt32 / 3)
 
 type Packed8ThreeBlocks struct {
@@ -539,16 +508,16 @@ type Packed8ThreeBlocks struct {
 	blocks []byte
 }
 
-func newPacked8ThreeBlocks(valueCount int32) Packed8ThreeBlocks {
+func newPacked8ThreeBlocks(valueCount int32) *Packed8ThreeBlocks {
 	if valueCount > PACKED8_THREE_BLOCKS_MAX_SIZE {
 		panic("MAX_SIZE exceeded")
 	}
-	ans := Packed8ThreeBlocks{blocks: make([]byte, valueCount*3)}
-	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, 24)
+	ans := &Packed8ThreeBlocks{blocks: make([]byte, valueCount*3)}
+	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(int(valueCount), 24)
 	return ans
 }
 
-func newPacked8ThreeBlocksFromInput(version int32, in util.DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newPacked8ThreeBlocksFromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newPacked8ThreeBlocks(valueCount)
 	if err = in.ReadBytes(ans.blocks); err == nil {
 		// because packed ints have not always been byte-aligned
@@ -559,10 +528,10 @@ func newPacked8ThreeBlocksFromInput(version int32, in util.DataInput, valueCount
 			}
 		}
 	}
-	return &ans, err
+	return ans, err
 }
 
-func (r *Packed8ThreeBlocks) Get(index int32) int64 {
+func (r *Packed8ThreeBlocks) Get(index int) int64 {
 	o := index * 3
 	return int64(r.blocks[o])<<16 | int64(r.blocks[o+1])<<8 | int64(r.blocks[o+2])
 }
@@ -574,16 +543,16 @@ type Packed16ThreeBlocks struct {
 	blocks []int16
 }
 
-func newPacked16ThreeBlocks(valueCount int32) Packed16ThreeBlocks {
+func newPacked16ThreeBlocks(valueCount int32) *Packed16ThreeBlocks {
 	if valueCount > PACKED16_THREE_BLOCKS_MAX_SIZE {
 		panic("MAX_SIZE exceeded")
 	}
-	ans := Packed16ThreeBlocks{blocks: make([]int16, valueCount*3)}
-	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, 48)
+	ans := &Packed16ThreeBlocks{blocks: make([]int16, valueCount*3)}
+	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(int(valueCount), 48)
 	return ans
 }
 
-func newPacked16ThreeBlocksFromInput(version int32, in util.DataInput, valueCount int32) (r PackedIntsReader, err error) {
+func newPacked16ThreeBlocksFromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
 	ans := newPacked16ThreeBlocks(valueCount)
 	for i, _ := range ans.blocks {
 		if ans.blocks[i], err = in.ReadShort(); err != nil {
@@ -599,10 +568,10 @@ func newPacked16ThreeBlocksFromInput(version int32, in util.DataInput, valueCoun
 			}
 		}
 	}
-	return &ans, err
+	return ans, err
 }
 
-func (p *Packed16ThreeBlocks) Get(index int32) int64 {
+func (p *Packed16ThreeBlocks) Get(index int) int64 {
 	o := index * 3
 	return int64(p.blocks[o])<<32 | int64(p.blocks[o+1])<<16 | int64(p.blocks[o])
 }
@@ -620,17 +589,17 @@ type Packed64 struct {
 	bpvMinusBlockSize int32
 }
 
-func newPacked64(valueCount int32, bitsPerValue uint32) Packed64 {
+func newPacked64(valueCount int32, bitsPerValue uint32) *Packed64 {
 	longCount := PackedFormat(PACKED).longCount(PACKED_VERSION_CURRENT, valueCount, bitsPerValue)
-	ans := Packed64{
+	ans := &Packed64{
 		blocks:            make([]int64, longCount),
 		maskRight:         uint64(^(int64(0))<<(PACKED64_BLOCK_SIZE-bitsPerValue)) >> (PACKED64_BLOCK_SIZE - bitsPerValue),
 		bpvMinusBlockSize: int32(bitsPerValue) - PACKED64_BLOCK_SIZE}
-	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, bitsPerValue)
+	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(int(valueCount), int(bitsPerValue))
 	return ans
 }
 
-func newPacked64FromInput(version int32, in util.DataInput, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
+func newPacked64FromInput(version int32, in DataInput, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
 	ans := newPacked64(valueCount, bitsPerValue)
 	byteCount := PackedFormat(PACKED).ByteCount(version, valueCount, bitsPerValue)
 	longCount := PackedFormat(PACKED).longCount(PACKED_VERSION_CURRENT, valueCount, bitsPerValue)
@@ -657,10 +626,10 @@ func newPacked64FromInput(version int32, in util.DataInput, valueCount int32, bi
 			}
 		}
 	}
-	return &ans, err
+	return ans, err
 }
 
-func (p *Packed64) Get(index int32) int64 {
+func (p *Packed64) Get(index int) int64 {
 	// The abstract index in a bit stream
 	majorBitPos := int64(index) * int64(p.bitsPerValue)
 	// The index in the backing long-array
@@ -681,7 +650,7 @@ type GrowableWriter struct {
 	current PackedIntsMutable
 }
 
-func (w *GrowableWriter) Get(index int32) int64 {
+func (w *GrowableWriter) Get(index int) int64 {
 	return w.current.Get(index)
 }
 

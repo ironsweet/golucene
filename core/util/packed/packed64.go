@@ -2,7 +2,6 @@ package packed
 
 import (
 	"fmt"
-	"github.com/balzaczyy/golucene/core/util"
 )
 
 func is64Supported(bitsPerValue uint32) bool {
@@ -12,19 +11,19 @@ func is64Supported(bitsPerValue uint32) bool {
 
 type Packed64SingleBlock struct {
 	PackedIntsReaderImpl
-	get    func(index int32) int64
+	get    func(index int) int64
 	blocks []int64
 }
 
-func (p *Packed64SingleBlock) Get(index int32) int64 {
+func (p *Packed64SingleBlock) Get(index int) int64 {
 	return p.get(index)
 }
 
-func newPacked64SingleBlock(valueCount int32, bitsPerValue uint32) Packed64SingleBlock {
+func newPacked64SingleBlock(valueCount int32, bitsPerValue uint32) *Packed64SingleBlock {
 	// assert isSupported(bitsPerValue)
 	valuesPerBlock := int32(64 / bitsPerValue)
-	ans := Packed64SingleBlock{blocks: make([]int64, requiredCapacity(valueCount, valuesPerBlock))}
-	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(valueCount, bitsPerValue)
+	ans := &Packed64SingleBlock{blocks: make([]int64, requiredCapacity(valueCount, valuesPerBlock))}
+	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(int(valueCount), int(bitsPerValue))
 	return ans
 }
 
@@ -37,17 +36,17 @@ func requiredCapacity(valueCount, valuesPerBlock int32) int32 {
 	return ans
 }
 
-func newPacked64SingleBlockFromInput(in util.DataInput, valueCount int32, bitsPerValue uint32) (reader PackedIntsReader, err error) {
+func newPacked64SingleBlockFromInput(in DataInput, valueCount int32, bitsPerValue uint32) (reader PackedIntsReader, err error) {
 	ans := newPacked64SingleBlockBy(valueCount, bitsPerValue)
 	for i, _ := range ans.blocks {
 		if ans.blocks[i], err = in.ReadLong(); err != nil {
 			break
 		}
 	}
-	return &ans, err
+	return ans, err
 }
 
-func newPacked64SingleBlockBy(valueCount int32, bitsPerValue uint32) Packed64SingleBlock {
+func newPacked64SingleBlockBy(valueCount int32, bitsPerValue uint32) *Packed64SingleBlock {
 	switch bitsPerValue {
 	case 1:
 		return newPacked64SingleBlock1(valueCount)
@@ -82,9 +81,9 @@ func newPacked64SingleBlockBy(valueCount int32, bitsPerValue uint32) Packed64Sin
 	}
 }
 
-func newPacked64SingleBlock1(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock1(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 1)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := uint32(index) >> 6
 		b := index & 63
 		shift := uint32(b << 0)
@@ -99,9 +98,9 @@ func newPacked64SingleBlock1(valueCount int32) Packed64SingleBlock {
 	return ans
 }
 
-func newPacked64SingleBlock2(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock2(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 2)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := uint32(index) >> 5
 		b := index & 31
 		shift := uint32(b << 1)
@@ -116,9 +115,9 @@ func newPacked64SingleBlock2(valueCount int32) Packed64SingleBlock {
 	return ans
 }
 
-func newPacked64SingleBlock3(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock3(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 3)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := index / 21
 		b := index % 21
 		shift := uint32(b * 3)
@@ -133,9 +132,9 @@ func newPacked64SingleBlock3(valueCount int32) Packed64SingleBlock {
 	return ans
 }
 
-func newPacked64SingleBlock4(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock4(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 4)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := uint32(index) >> 4
 		b := index & 15
 		shift := uint32(b << 2)
@@ -150,9 +149,9 @@ func newPacked64SingleBlock4(valueCount int32) Packed64SingleBlock {
 	return ans
 }
 
-func newPacked64SingleBlock5(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock5(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 5)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := index / 12
 		b := index % 12
 		shift := uint32(b * 5)
@@ -167,9 +166,9 @@ func newPacked64SingleBlock5(valueCount int32) Packed64SingleBlock {
 	return ans
 }
 
-func newPacked64SingleBlock6(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock6(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 6)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := index / 10
 		b := index % 10
 		shift := uint32(b * 6)
@@ -184,9 +183,9 @@ func newPacked64SingleBlock6(valueCount int32) Packed64SingleBlock {
 	return ans
 }
 
-func newPacked64SingleBlock7(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock7(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 7)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := index / 9
 		b := index % 9
 		shift := uint32(b * 7)
@@ -201,9 +200,9 @@ func newPacked64SingleBlock7(valueCount int32) Packed64SingleBlock {
 	return ans
 }
 
-func newPacked64SingleBlock8(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock8(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 8)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := uint32(index) >> 3
 		b := index & 7
 		shift := uint32(b << 3)
@@ -218,9 +217,9 @@ func newPacked64SingleBlock8(valueCount int32) Packed64SingleBlock {
 	return ans
 }
 
-func newPacked64SingleBlock9(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock9(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 9)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := index / 7
 		b := index % 7
 		shift := uint32(b * 9)
@@ -235,9 +234,9 @@ func newPacked64SingleBlock9(valueCount int32) Packed64SingleBlock {
 	return ans
 }
 
-func newPacked64SingleBlock10(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock10(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 10)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := index / 6
 		b := index % 6
 		shift := uint32(b * 10)
@@ -251,9 +250,9 @@ func newPacked64SingleBlock10(valueCount int32) Packed64SingleBlock {
 	// }
 	return ans
 }
-func newPacked64SingleBlock12(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock12(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 12)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := index / 5
 		b := index % 5
 		shift := uint32(b * 12)
@@ -268,9 +267,9 @@ func newPacked64SingleBlock12(valueCount int32) Packed64SingleBlock {
 	return ans
 }
 
-func newPacked64SingleBlock16(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock16(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 16)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := uint32(index) >> 2
 		b := index & 3
 		shift := uint32(b << 4)
@@ -285,9 +284,9 @@ func newPacked64SingleBlock16(valueCount int32) Packed64SingleBlock {
 	return ans
 }
 
-func newPacked64SingleBlock21(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock21(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 21)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := index / 3
 		b := index % 3
 		shift := uint32(b * 21)
@@ -302,9 +301,9 @@ func newPacked64SingleBlock21(valueCount int32) Packed64SingleBlock {
 	return ans
 }
 
-func newPacked64SingleBlock32(valueCount int32) Packed64SingleBlock {
+func newPacked64SingleBlock32(valueCount int32) *Packed64SingleBlock {
 	ans := newPacked64SingleBlock(valueCount, 32)
-	ans.get = func(index int32) int64 {
+	ans.get = func(index int) int64 {
 		o := uint32(index) >> 1
 		b := index & 1
 		shift := uint32(b << 5)

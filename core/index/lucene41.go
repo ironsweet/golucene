@@ -1089,13 +1089,13 @@ func (r *CompressingStoredFieldsIndexReader) block(docID int) int {
 
 func (r *CompressingStoredFieldsIndexReader) relativeDocBase(block, relativeChunk int) int {
 	expected := r.avgChunkDocs[block] * relativeChunk
-	delta := moveLowOrderBitsToSign(r.docBasesDeltas[block].Get(int32(relativeChunk)))
+	delta := moveLowOrderBitsToSign(r.docBasesDeltas[block].Get(relativeChunk))
 	return expected + int(delta)
 }
 
 func (r *CompressingStoredFieldsIndexReader) relativeStartPointer(block, relativeChunk int) int64 {
 	expected := r.avgChunkSizes[block] * int64(relativeChunk)
-	delta := moveLowOrderBitsToSign(r.startPointersDeltas[block].Get(int32(relativeChunk)))
+	delta := moveLowOrderBitsToSign(r.startPointersDeltas[block].Get(relativeChunk))
 	return expected + delta
 }
 

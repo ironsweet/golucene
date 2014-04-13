@@ -1,9 +1,5 @@
 package packed
 
-import (
-	"github.com/balzaczyy/golucene/core/util"
-)
-
 // util/packed/PackedInts.java#Writer
 
 /* A write-once Writer. */
@@ -19,7 +15,7 @@ type Writer interface {
 type PackedWriter struct {
 }
 
-func newPackedWriter(format PackedFormat, out util.DataOutput,
+func newPackedWriter(format PackedFormat, out DataOutput,
 	valueCount, bitsPerValue, mem int) *PackedWriter {
 	panic("not implemented yet")
 }
