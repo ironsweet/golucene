@@ -266,6 +266,7 @@ func (w *CompressingStoredFieldsWriter) Abort() {
 }
 
 func (w *CompressingStoredFieldsWriter) Finish(fis model.FieldInfos, numDocs int) error {
+	assert(w != nil)
 	if w.numBufferedDocs > 0 {
 		err := w.flush()
 		if err != nil {

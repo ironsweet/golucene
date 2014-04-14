@@ -110,17 +110,17 @@ func (p *StoredFieldsProcessor) flush(state SegmentWriteState) (err error) {
 			err = p.fill(numDocs)
 		}
 	}
-	if p.fieldsWriter != nil {
+	if w := p.fieldsWriter; w != nil {
 		var success = false
 		defer func() {
 			if success {
-				err = util.CloseWhileHandlingError(err, p.fieldsWriter)
+				err = util.CloseWhileHandlingError(err, w)
 			} else {
-				util.CloseWhileSuppressingError(p.fieldsWriter)
+				util.CloseWhileSuppressingError(w)
 			}
 		}()
 
-		err = p.fieldsWriter.Finish(state.fieldInfos, numDocs)
+		err = w.Finish(state.fieldInfos, numDocs)
 		if err != nil {
 			return err
 		}

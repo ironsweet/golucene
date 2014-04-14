@@ -6,6 +6,8 @@ package packed
 type Writer interface {
 	// Add a value to the stream.
 	Add(v int64) error
+	// The number of bits per value.
+	BitsPerValue() int
 	// Perform end-of-stream operations.
 	Finish() error
 }
@@ -13,6 +15,7 @@ type Writer interface {
 // util/packed/PackedWriter.java
 
 type PackedWriter struct {
+	bitsPerValue int
 }
 
 func newPackedWriter(format PackedFormat, out DataOutput,
@@ -22,6 +25,10 @@ func newPackedWriter(format PackedFormat, out DataOutput,
 
 func (w *PackedWriter) Add(v int64) error {
 	panic("not implemented yet")
+}
+
+func (w *PackedWriter) BitsPerValue() int {
+	return w.bitsPerValue
 }
 
 func (w *PackedWriter) Finish() error {

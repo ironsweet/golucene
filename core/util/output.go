@@ -14,6 +14,7 @@ type DataOutput interface {
 	WriteInt(i int32) error
 	WriteVInt(i int32) error
 	WriteLong(i int64) error
+	WriteVLong(i int64) error
 	WriteString(s string) error
 	CopyBytes(input DataInput, numBytes int64) error
 	WriteStringStringMap(m map[string]string) error
@@ -105,6 +106,25 @@ func (out *DataOutputImpl) WriteLong(i int64) error {
 		err = out.WriteInt(int32(i))
 	}
 	return err
+}
+
+/*
+Writes an long in a variable-length format. Writes between one and
+none bytes. Smaller values take fewer bytes. Negative number are not
+supported.
+
+The format is described further in WriteVInt().
+*/
+func (out *DataOutputImpl) WriteVLong(i int64) error {
+	assert(i >= 0)
+	for (i & ^0x7F) != 0 {
+		err := out.Writer.WriteByte(byte((i & 0x7F) | 0x80))
+		if err != nil {
+			return err
+		}
+		i = int64(uint64(i) >> 7)
+	}
+	return out.Writer.WriteByte(byte(i))
 }
 
 /*

@@ -3,10 +3,15 @@ package compressing
 import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util/packed"
+	"math"
 )
 
 /* number of chunks to serialize at once */
 const BLOCK_SIZE = 1024
+
+func moveSignToLowOrderBit(n int64) int64 {
+	return (n >> 64) ^ (n << 1)
+}
 
 /*
 Efficient index format for block-based Codecs.
@@ -86,7 +91,101 @@ func (w *StoredFieldsIndexWriter) reset() {
 }
 
 func (w *StoredFieldsIndexWriter) writeBlock() error {
-	panic("not implemented yet")
+	assert(w.blockChunks > 0)
+	err := w.fieldsIndexOut.WriteVInt(int32(w.blockChunks))
+	if err != nil {
+		return err
+	}
+
+	// The trick here is that we only store the difference from the
+	// average start pointer or doc base, this helps save bits per
+	// value. And in order to prevent a few chunks that would be far
+	// from the average to raise the number of bits per value for all
+	// of them, we only encode blocks of 1024 chunks at once.
+	// See LUCENE-4512
+
+	// doc bases
+	var avgChunkDocs int
+	if w.blockChunks == 1 {
+		avgChunkDocs = 0
+	} else {
+		avgChunkDocs = int(math.Floor(float64(w.blockDocs-w.docBaseDeltas[w.blockChunks-1])/float64(w.blockChunks-1) + 0.5))
+	}
+	err = w.fieldsIndexOut.WriteVInt(int32(w.totalDocs - w.blockDocs)) // doc base
+	if err == nil {
+		err = w.fieldsIndexOut.WriteVInt(int32(avgChunkDocs))
+	}
+	if err != nil {
+		return err
+	}
+	var docBase int = 0
+	var maxDelta int64 = 0
+	for i := 0; i < w.blockChunks; i++ {
+		delta := docBase - avgChunkDocs*i
+		maxDelta |= moveSignToLowOrderBit(int64(delta))
+		docBase += w.docBaseDeltas[i]
+	}
+
+	bitsPerDocbase := packed.BitsRequired(maxDelta)
+	err = w.fieldsIndexOut.WriteVInt(int32(bitsPerDocbase))
+	if err != nil {
+		return err
+	}
+	writer := packed.WriterNoHeader(w.fieldsIndexOut,
+		packed.PackedFormat(packed.PACKED), w.blockChunks, bitsPerDocbase, 1)
+	docBase = 0
+	for i := 0; i < w.blockChunks; i++ {
+		delta := docBase - avgChunkDocs*i
+		assert(packed.BitsRequired(moveSignToLowOrderBit(int64(delta))) <= writer.BitsPerValue())
+		err = writer.Add(moveSignToLowOrderBit(int64(delta)))
+		if err != nil {
+			return err
+		}
+		docBase += w.docBaseDeltas[i]
+	}
+	err = writer.Finish()
+	if err != nil {
+		return err
+	}
+
+	// start pointers
+	w.fieldsIndexOut.WriteVLong(w.firstStartPointer)
+	var avgChunkSize int64
+	if w.blockChunks == 1 {
+		avgChunkSize = 0
+	} else {
+		avgChunkSize = (w.maxStartPointer - w.firstStartPointer) / int64(w.blockChunks-1)
+	}
+	err = w.fieldsIndexOut.WriteVLong(avgChunkSize)
+	if err != nil {
+		return err
+	}
+	var startPointer int64 = 0
+	maxDelta = 0
+	for i := 0; i < w.blockChunks; i++ {
+		startPointer += w.startPointerDeltas[i]
+		delta := startPointer - avgChunkSize*int64(i)
+		maxDelta |= moveSignToLowOrderBit(delta)
+	}
+
+	bitsPerStartPointer := packed.BitsRequired(maxDelta)
+	err = w.fieldsIndexOut.WriteVInt(int32(bitsPerStartPointer))
+	if err != nil {
+		return err
+	}
+	writer = packed.WriterNoHeader(w.fieldsIndexOut,
+		packed.PackedFormat(packed.PACKED), w.blockChunks, bitsPerStartPointer, 1)
+	startPointer = 0
+	for i := 0; i < w.blockChunks; i++ {
+		startPointer += w.startPointerDeltas[i]
+		delta := startPointer - avgChunkSize*int64(i)
+		assert(packed.BitsRequired(moveSignToLowOrderBit(delta)) <= writer.BitsPerValue())
+		err = writer.Add(moveSignToLowOrderBit(delta))
+		if err != nil {
+			return err
+		}
+	}
+	return writer.Finish()
 }
 
 func (w *StoredFieldsIndexWriter) writeIndex(numDocs int, startPointer int64) error {
