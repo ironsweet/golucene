@@ -20,7 +20,9 @@ type DataInput interface {
 	ReadString() (string, error)
 }
 
-type DataOutput interface{}
+type DataOutput interface {
+	WriteBytes(buf []byte) error
+}
 
 /*
 Simplistic compression for arrays of unsinged int64 values. Each value
@@ -112,6 +114,12 @@ func (f PackedFormat) IsSupported(bitsPerValue uint32) bool {
 }
 
 type PackedIntsEncoder interface {
+	// Read iterations * valueCount() values from values, encode them
+	// and write iterations * blockCount() blocks into blocks.
+	// encodeLongToLong(values, blocks []int64, iterations int)
+	// Read iterations * valueCount() values from values, encode them
+	// and write 8 * iterations * blockCount() blocks into blocks.
+	encodeLongToByte(values []int64, blocks []byte, iterations int)
 }
 
 type PackedIntsDecoder interface {
@@ -412,9 +420,9 @@ func BitsRequired(maxValue int64) int {
 	return len(strconv.FormatInt(maxValue, 2))
 }
 
-func assert2(ok bool, msg string) {
+func assert2(ok bool, msg string, args ...interface{}) {
 	if !ok {
-		panic(msg)
+		panic(fmt.Sprintf(msg, args...))
 	}
 }
 

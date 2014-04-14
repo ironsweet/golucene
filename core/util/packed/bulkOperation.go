@@ -8,7 +8,7 @@ import (
 
 // Efficient sequential read/write of packed integers.
 type BulkOperation interface {
-	// PackedIntsEncoder
+	PackedIntsEncoder
 	PackedIntsDecoder
 	/*
 		For every number of bits per value, there is a minumum number of
