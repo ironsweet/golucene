@@ -79,12 +79,13 @@ type PrintStreamInfoStream struct {
 }
 
 func NewPrintStreamInfoStream(w io.Writer) *PrintStreamInfoStream {
-	return &PrintStreamInfoStream{w, atomic.AddInt32(&MESSAGE_ID, 1)}
+	return &PrintStreamInfoStream{w, atomic.AddInt32(&MESSAGE_ID, 1) - 1}
 }
 
-func (is *PrintStreamInfoStream) Message(component, message string, args ...interface{}) {
-	fmt.Fprintf(is.stream, "%v [%3v] %v\n", time.Now().Format(FORMAT), component,
-		fmt.Sprintf(message, args...))
+func (is *PrintStreamInfoStream) Message(component,
+	message string, args ...interface{}) {
+	fmt.Fprintf(is.stream, "%3v %v [%v] %v\n", component, is.messageId,
+		time.Now().Format(FORMAT), fmt.Sprintf(message, args...))
 }
 
 func (is *PrintStreamInfoStream) IsEnabled(component string) bool {

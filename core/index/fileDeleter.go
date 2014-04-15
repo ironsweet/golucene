@@ -73,6 +73,8 @@ type IndexFileDeleter struct {
 
 	startingCommitDeleted bool
 	lastSegmentInfos      *SegmentInfos
+
+	writer *IndexWriter
 }
 
 /*
@@ -93,9 +95,9 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 
 	fd := &IndexFileDeleter{
 		infoStream: infoStream,
-		// writer:     writer,
-		policy:    policy,
-		directory: directory,
+		writer:     writer,
+		policy:     policy,
+		directory:  directory,
 	}
 
 	// First pass: walk the files and initialize our ref counts:
@@ -355,6 +357,11 @@ func (fd *IndexFileDeleter) checkpoint(segmentInfos *SegmentInfos, isCommit bool
 			fd.infoStream.Message("IFD", "%v to checkpoint", elapsed)
 		}
 	}()
+	if fd.infoStream.IsEnabled("IFD") {
+		fd.infoStream.Message("IFD", "now checkpoint '%v' [%v segments; isCommit = %v]",
+			fd.writer.readerPool.segmentsToString(fd.writer.toLiveInfos(segmentInfos).Segments),
+			len(segmentInfos.Segments), isCommit)
+	}
 
 	// Try again now to delete any previously un-deletable files (
 	// because they were in use, on Windows):
