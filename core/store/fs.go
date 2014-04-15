@@ -206,6 +206,10 @@ func (d *FSDirectory) fsync(name string) error {
 	panic("not implemented yet")
 }
 
+func (d *FSDirectory) String() string {
+	return fmt.Sprintf("FSDirectory@%v", d.DirectoryImpl.String())
+}
+
 type FSIndexInput struct {
 	*BufferedIndexInput
 	file      *os.File

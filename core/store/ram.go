@@ -163,6 +163,10 @@ func (rd *RAMDirectory) ChangeSize(diff int64) {
 	atomic.AddInt64(&rd.sizeInBytes, diff)
 }
 
+func (rd *RAMDirectory) String() string {
+	return fmt.Sprintf("RAMDirectory@%v", rd.DirectoryImpl.String())
+}
+
 // store/RAMFile.java
 
 // Represents a file in RAM as a list of []byte buffers.
