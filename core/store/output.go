@@ -33,32 +33,33 @@ Writes bytes through to  a primary IndexOutput, computing checksum.
 Note that you cannot use seek().
 */
 type ChecksumIndexOutput struct {
-	IndexOutput
+	*IndexOutputImpl
+	main   IndexOutput
 	digest hash.Hash64
 }
 
 func NewChecksumIndexOutput(main IndexOutput) *ChecksumIndexOutput {
-	return &ChecksumIndexOutput{IndexOutput: main, digest: crc64.New(crc64.MakeTable(crc64.ISO))}
+	return &ChecksumIndexOutput{
+		IndexOutputImpl: NewIndexOutput(main),
+		main:            main,
+		digest:          crc64.New(crc64.MakeTable(crc64.ISO)),
+	}
 }
 
 func (out *ChecksumIndexOutput) WriteByte(b byte) error {
 	out.digest.Write([]byte{b})
-	return out.IndexOutput.WriteByte(b)
+	return out.main.WriteByte(b)
 }
 
 func (out *ChecksumIndexOutput) WriteBytes(buf []byte) error {
 	out.digest.Write(buf)
-	return out.IndexOutput.WriteBytes(buf)
+	return out.main.WriteBytes(buf)
 }
 
 func (out *ChecksumIndexOutput) Close() error {
-	err := out.IndexOutput.WriteLong(int64(out.digest.Sum64()))
+	err := out.main.WriteLong(int64(out.digest.Sum64()))
 	if err == nil {
-		err = out.IndexOutput.Close()
+		err = out.main.Close()
 	}
 	return err
 }
-
-// func (out *ChecksumIndexOutput) Seek(pos int64) {
-// 	panic("not supported")
-// }

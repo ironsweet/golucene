@@ -81,8 +81,7 @@ func (p *BulkOperationPacked) encodeLongToLong(values, blocks []int64, iteration
 func (p *BulkOperationPacked) encodeLongToByte(values []int64, blocks []byte, iterations int) {
 	var nextBlock int = 0
 	var bitsLeft int = 0
-	valuesOffset := 0
-	// valuesOffset, blocksOffset := 0, 0
+	valuesOffset, blocksOffset := 0, 0
 	for i, limit := 0, p.byteValueCount*iterations; i < limit; i++ {
 		v := values[valuesOffset]
 		valuesOffset++
@@ -91,7 +90,17 @@ func (p *BulkOperationPacked) encodeLongToByte(values []int64, blocks []byte, it
 			nextBlock |= int(v << uint(bitsLeft-p.bitsPerValue))
 			bitsLeft -= p.bitsPerValue
 		} else { // flush as many blocks as possible
-			panic("not implemented yet")
+			bits := uint(p.bitsPerValue - bitsLeft)
+			blocks[blocksOffset] = byte(nextBlock | int(uint64(v)>>bits))
+			blocksOffset++
+			for bits >= 8 {
+				bits -= 8
+				blocks[blocksOffset] = byte(uint64(v) >> bits)
+				blocksOffset++
+			}
+			// then buffer
+			bitsLeft = int(8 - bits)
+			nextBlock = int((v & ((1 << bits) - 1)) << uint(bitsLeft))
 		}
 	}
 	assert(bitsLeft == 8)
