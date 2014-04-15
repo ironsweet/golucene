@@ -64,19 +64,25 @@ func IsIndexExists(directory store.Directory) (ok bool, err error) {
 	if _, ok := err.(*store.NoSuchDirectoryError); ok {
 		// Directory does not exist --> no index exists
 		return false, nil
+	} else if err != nil {
+		return false, err
 	}
+	return IsIndexFileExists(files), nil
+}
 
+/* No lock is required */
+func IsIndexFileExists(files []string) bool {
 	// Defensive: maybe a Directory impl returns null
 	// instead of throwing NoSuchDirectoryException:
 	if files != nil {
 		prefix := INDEX_FILENAME_SEGMENTS + "_"
 		for _, file := range files {
 			if strings.HasPrefix(file, prefix) || file == INDEX_FILENAME_SEGMENTS_GEN {
-				return true, nil
+				return true
 			}
 		}
 	}
-	return false, nil
+	return false
 }
 
 type StandardDirectoryReader struct {

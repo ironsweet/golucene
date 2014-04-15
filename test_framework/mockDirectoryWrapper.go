@@ -552,9 +552,11 @@ func (w *MockDirectoryWrapper) Close() error {
 	if w.checkIndexOnClose {
 		w.randomErrorRate = 0
 		w.randomErrorRateOnOpen = 0
-		if ok, err := index.IsIndexExists(w); err != nil {
+		files, err := w.listAll()
+		if err != nil {
 			return err
-		} else if ok {
+		}
+		if index.IsIndexFileExists(files) {
 			log.Println("\nNOTE: MockDirectoryWrapper: now crash")
 			err = w.Crash() // corrupt any unsynced-files
 			if err != nil {
@@ -743,10 +745,13 @@ func (w *MockDirectoryWrapper) maybeThrowDeterministicException() error {
 	return nil
 }
 
-func (w *MockDirectoryWrapper) ListAll() (names []string, err error) {
+func (w *MockDirectoryWrapper) ListAll() ([]string, error) {
 	w.Lock() // synchronized
 	defer w.Unlock()
+	return w.listAll()
+}
 
+func (w *MockDirectoryWrapper) listAll() ([]string, error) {
 	w.maybeYield()
 	return w.Directory.ListAll()
 }

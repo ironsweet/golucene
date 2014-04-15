@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	fmt.Printf("tests.codec: %v\n", os.Getenv("tests.codec"))
+	fmt.Printf("tests_codec: %v\n", os.Getenv("tests_codec"))
 
 	index.DefaultSimilarity = func() index.Similarity {
 		return search.NewDefaultSimilarity()
