@@ -85,14 +85,15 @@ func newPerFieldPostingsReader(state SegmentReadState) (fp FieldsProducer, err e
 				// null formatName means the field is in fieldInfos, but has no postings!
 				suffix := fi.Attribute(PER_FIELD_SUFFIX_KEY)
 				log.Printf("Suffix: %v", suffix)
-				// assert suffix != nil
+				assert(suffix != "")
+				format := LoadPostingsFormat(formatName)
 				segmentSuffix := formatName + "_" + suffix
 				log.Printf("Segment suffix: %v", segmentSuffix)
 				if _, ok := ans.formats[segmentSuffix]; !ok {
 					log.Printf("Loading fields producer: %v", segmentSuffix)
 					newReadState := state // clone
 					newReadState.segmentSuffix = formatName + "_" + suffix
-					fp, err = LoadFieldsProducer(formatName, newReadState)
+					fp, err = format.FieldsProducer(newReadState)
 					if err != nil {
 						return fp, err
 					}

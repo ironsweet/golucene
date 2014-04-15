@@ -403,10 +403,14 @@ func (rule *TestRuleSetupAndRestoreClassEnv) Before() error {
 	// if verbose: print some debugging stuff about which codecs are loaded.
 	if VERBOSE {
 		for _, codec := range index.AvailableCodecs() {
-			log.Printf("Loaded codec: '%v': %v", codec, reflect.TypeOf(index.LoadCodec(codec)).Name())
+			log.Printf("Loaded codec: '%v': %v", codec,
+				reflect.TypeOf(index.LoadCodec(codec)))
 		}
 
-		panic("not implemented yet")
+		for _, postingFormat := range index.AvailablePostingsFormats() {
+			log.Printf("Loaded postingsFormat: '%v': %v", postingFormat,
+				reflect.TypeOf(index.LoadPostingsFormat(postingFormat)))
+		}
 	}
 
 	rule.savedInfoStream = util.DefaultInfoStream()

@@ -14,6 +14,58 @@ import (
 	"reflect"
 )
 
+// codecs/lucene41/Lucene41PostingsFormat.java
+
+type Lucene41PostingsFormat struct {
+}
+
+func (f *Lucene41PostingsFormat) Name() string {
+	return "Lucene41"
+}
+
+func (f *Lucene41PostingsFormat) String() {
+	panic("not implemented yet")
+}
+
+func (f *Lucene41PostingsFormat) FieldsConsumer(state SegmentWriteState) (FieldsConsumer, error) {
+	panic("not implemented yet")
+}
+
+func (f *Lucene41PostingsFormat) FieldsProducer(state SegmentReadState) (FieldsProducer, error) {
+	postingsReader, err := NewLucene41PostingsReader(state.dir,
+		state.fieldInfos,
+		state.segmentInfo,
+		state.context,
+		state.segmentSuffix)
+	if err != nil {
+		return nil, err
+	}
+	success := false
+	defer func() {
+		if !success {
+			log.Printf("Failed to load FieldsProducer for %v.", f.Name())
+			if err != nil {
+				log.Print("DEBUG ", err)
+			}
+			util.CloseWhileSuppressingError(postingsReader)
+		}
+	}()
+
+	fp, err := newBlockTreeTermsReader(state.dir,
+		state.fieldInfos,
+		state.segmentInfo,
+		postingsReader,
+		state.context,
+		state.segmentSuffix,
+		state.termsIndexDivisor)
+	if err != nil {
+		log.Print("DEBUG: ", err)
+		return fp, err
+	}
+	success = true
+	return fp, nil
+}
+
 // Lucene41PostingsReader.java
 
 const (

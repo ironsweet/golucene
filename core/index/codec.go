@@ -6,7 +6,6 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
-	"log"
 )
 
 // codecs/Codec.java
@@ -146,7 +145,7 @@ type PostingsFormat interface {
 	// Returns this posting format's name
 	Name() string
 	// Writes a new segment
-	FieldsConsumer(state SegmentWriteState) (w FieldsConsumer, err error)
+	FieldsConsumer(state SegmentWriteState) (FieldsConsumer, error)
 	// Reads a segment. NOTE: by the time this call returns, it must
 	// hold open any files it will need to use; else, those files may
 	// be deleted. Additionally, required fiels may be deleted during
@@ -155,7 +154,7 @@ type PostingsFormat interface {
 	// implementation. IO errors are expected and will automatically
 	// cause a retry of the segment opening logic with the newly
 	// revised segments.
-	FieldsProducer(state SegmentReadState) (r FieldsProducer, err error)
+	FieldsProducer(state SegmentReadState) (FieldsProducer, error)
 }
 
 type PostingsFormatImpl struct {
@@ -171,43 +170,31 @@ func (pf *PostingsFormatImpl) String() string {
 	return fmt.Sprintf("PostingsFormat(name=%v)", pf.name)
 }
 
-func LoadFieldsProducer(name string, state SegmentReadState) (fp FieldsProducer, err error) {
-	switch name {
-	case "Lucene41":
-		postingsReader, err := NewLucene41PostingsReader(state.dir,
-			state.fieldInfos,
-			state.segmentInfo,
-			state.context,
-			state.segmentSuffix)
-		if err != nil {
-			return nil, err
-		}
-		success := false
-		defer func() {
-			if !success {
-				log.Printf("Failed to load FieldsProducer for %v.", name)
-				if err != nil {
-					log.Print("DEBUG ", err)
-				}
-				util.CloseWhileSuppressingError(postingsReader)
-			}
-		}()
+var allPostingsFormats = map[string]PostingsFormat{
+	"Lucene41": new(Lucene41PostingsFormat),
+}
 
-		fp, err := newBlockTreeTermsReader(state.dir,
-			state.fieldInfos,
-			state.segmentInfo,
-			postingsReader,
-			state.context,
-			state.segmentSuffix,
-			state.termsIndexDivisor)
-		if err != nil {
-			log.Print("DEBUG: ", err)
-			return fp, err
-		}
-		success = true
-		return fp, nil
+// workaround Lucene Java's SPI mechanism
+func RegisterPostingsFormat(formats ...PostingsFormat) {
+	for _, format := range formats {
+		allPostingsFormats[format.Name()] = format
 	}
-	panic(fmt.Sprintf("Service '%v' not found.", name))
+}
+
+/* looks up a format by name */
+func LoadPostingsFormat(name string) PostingsFormat {
+	v, ok := allPostingsFormats[name]
+	assertn(ok, "Service '%v' not found.", name)
+	return v
+}
+
+/* Returns a list of all available format names. */
+func AvailablePostingsFormats() []string {
+	ans := make([]string, 0, len(allPostingsFormats))
+	for name, _ := range allPostingsFormats {
+		ans = append(ans, name)
+	}
+	return ans
 }
 
 // codecs/FieldsConsumer.java
