@@ -81,6 +81,19 @@ func (conf *IndexWriterConfig) setIndexWriter(writer *IndexWriter) *IndexWriterC
 	return conf
 }
 
+// L523
+/*
+Information about merges, deletes and a message when maxFieldLength
+is reached will be printed to this. Must not be nil, but NO_OUTPUT
+may be used to surpress output.
+*/
+func (conf *IndexWriterConfig) SetInfoStream(infoStream util.InfoStream) *IndexWriterConfig {
+	assert2(infoStream != nil, "Cannot set InfoStream implementation to null. "+
+		"To disable logging use InfoStream.NO_OUTPUT")
+	conf.infoStream = infoStream
+	return conf
+}
+
 /*
 Creates a new config that with defaults that match the specified
 Version as well as the default Analyzer. If matchVersion is >= 3.2,

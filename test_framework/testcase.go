@@ -65,7 +65,12 @@ func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer
 	c := index.NewIndexWriterConfig(v, a)
 	c.SetSimilarity(ClassEnvRule.similarity)
 	if VERBOSE {
-		panic("not implemented yet")
+		// Even through TestRuleSetupAndRestoreClassEnv calls
+		// infoStream.SetDefault, we do it again here so that the
+		// PrintStreamInfoStream.messageID increments so that when there
+		// are separate instance of IndexWriter created we see "IW 0",
+		// "IW 1", "IW 2", ... instead of just always "IW 0":
+		c.SetInfoStream(newThreadNameFixingPrintStreamInfoStream(os.Stdout))
 	}
 
 	if r.Intn(2) == 0 {
