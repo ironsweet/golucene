@@ -495,7 +495,7 @@ func (dw *DocumentsWriter) flushAllThreads(indexWriter *IndexWriter) (bool, erro
 func (dw *DocumentsWriter) finishFullFlush(success bool) {
 	defer func() { dw.pendingChangesInCurrentFullFlush = false }()
 	if dw.infoStream.IsEnabled("DW") {
-		dw.infoStream.Message("DW", "finishFullFlush success %v", success)
+		dw.infoStream.Message("DW", "finishFullFlush success=%v", success)
 	}
 	dw.currentFullFlushDelQueue = nil
 	if success {

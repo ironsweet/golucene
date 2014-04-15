@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
 	"github.com/balzaczyy/golucene/core/util"
+	"reflect"
 )
 
 // index/LiveIndexWriterConfig.java
@@ -206,4 +207,40 @@ applies to newly created segment.
 func (conf *LiveIndexWriterConfig) SetUseCompoundFile(useCompoundFile bool) *LiveIndexWriterConfig {
 	conf.useCompoundFile = useCompoundFile
 	return conf
+}
+
+func (conf *LiveIndexWriterConfig) String() string {
+	return fmt.Sprintf(`matchVersion=%v
+analyzer=%v
+ramBufferSizeMB=%v
+maxBufferedDocs=%v
+maxBufferedDeleteTerms=%v
+mergedSegmentWarmer=%v
+readerTermsIndexDivisor=%v
+termIndexInterval=%v
+delPolicy=%v
+commit=%v
+openMode=%v
+similarity=%v
+mergeScheduler=%v
+default WRITE_LOCK_TIMEOUT=%v
+writeLockTimeout=%v
+codec=%v
+infoStream=%v
+mergePolicy=%v
+indexerThreadPool=%v
+readerPooling=%v
+perThreadHardLimitMB=%v
+useCompoundFile=%v
+`, conf.matchVersion, reflect.TypeOf(conf.analyzer),
+		conf.ramBufferSizeMB, conf.maxBufferedDocs,
+		conf.maxBufferedDeleteTerms, reflect.TypeOf(conf.mergedSegmentWarmer),
+		conf.readerTermsIndexDivisor, conf.termIndexInterval,
+		reflect.TypeOf(conf.delPolicy), conf.commit,
+		conf.openMode, reflect.TypeOf(conf.similarity),
+		conf.mergeScheduler, WRITE_LOCK_TIMEOUT,
+		conf.writeLockTimeout, conf.codec,
+		reflect.TypeOf(conf.infoStream), conf.mergePolicy,
+		conf.indexerThreadPool, conf.readerPooling,
+		conf.perRoutineHardLimitMB, conf.useCompoundFile)
 }

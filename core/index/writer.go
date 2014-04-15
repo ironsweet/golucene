@@ -1299,11 +1299,21 @@ func (w *IndexWriter) assertFilesExist(toSync *SegmentInfos) {
 	}
 }
 
-// For infoStream output
+/* For infoStream output */
 func (w *IndexWriter) toLiveInfos(sis *SegmentInfos) *SegmentInfos {
 	w.Lock() // synchronized
 	defer w.Unlock()
-	panic("not implemented yet")
+	newSIS := new(SegmentInfos)
+	// liveSIS := make(map[*SegmentInfoPerCommit]bool)
+	// for _, info := range w.segmentInfos.Segments {
+	// 	liveSIS[info] = true
+	// }
+	for _, info := range sis.Segments {
+		// if _, ok :=  liveSIS[info] ; ok {
+		newSIS.Segments = append(newSIS.Segments, info)
+		// }
+	}
+	return newSIS
 }
 
 /*
