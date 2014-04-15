@@ -79,7 +79,18 @@ func (w *PackedWriter) Add(v int64) error {
 }
 
 func (w *PackedWriter) Finish() error {
-	panic("not implemented yet")
+	assert(!w.finished)
+	var err error
+	if w.valueCount != -1 {
+		for w.written < w.valueCount && err == nil {
+			err = w.Add(0)
+		}
+	}
+	if err == nil {
+		err = w.flush()
+	}
+	w.finished = err == nil
+	return err
 }
 
 func (w *PackedWriter) flush() error {

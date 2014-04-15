@@ -62,6 +62,7 @@ func NewCompressingStoredFieldsWriter(dir store.Directory, si *model.SegmentInfo
 	if err != nil {
 		return nil, err
 	}
+	assert(indexStream != nil)
 	defer func() {
 		if !success {
 			util.CloseWhileSuppressingError(indexStream)
