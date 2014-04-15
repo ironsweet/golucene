@@ -140,14 +140,13 @@ func newDocumentsWriterPerThread(segmentName string,
 		intBlockAllocator:  newIntBlockAllocator(counter),
 		deleteQueue:        deleteQueue,
 		deleteSlice:        deleteQueue.newSlice(),
-		segmentInfo: model.NewSegmentInfo(directory, util.LUCENE_MAIN_VERSION,
-			segmentName, -1, false, indexWriterConfig.codec, nil, nil),
+		segmentInfo:        model.NewSegmentInfo(directory, util.LUCENE_MAIN_VERSION, segmentName, -1, false, indexWriterConfig.codec, nil, nil),
+		filesToDelete:      make(map[string]bool),
 	}
 	ans.docState = newDocState(ans, infoStream)
 	ans.docState.similarity = indexWriterConfig.similarity
-	// assertn(ans.numDocsInRAM == 0, "num docs ", ans.numDocsInRAM)
-	// ans.pendingDeletes.clear()
-	if VERBOSE && infoStream.IsEnabled("DWPT") {
+	assertn(ans.numDocsInRAM == 0, "num docs ", ans.numDocsInRAM)
+	if DWPT_VERBOSE && infoStream.IsEnabled("DWPT") {
 		infoStream.Message("DWPT", "init seg=%v delQueue=%v", segmentName, deleteQueue)
 	}
 	// this should be the last call in the ctor
@@ -162,6 +161,7 @@ files) and must discard all currently buffered docs. This resets our
 state, discarding any docs added since last flush.
 */
 func (dwpt *DocumentsWriterPerThread) abort(createdFiles map[string]bool) {
+	assert(createdFiles != nil)
 	log.Printf("now abort seg=%v", dwpt.segmentInfo.Name)
 	dwpt.hasAborted, dwpt.aborting = true, true
 	defer func() {

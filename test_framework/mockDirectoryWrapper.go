@@ -1099,6 +1099,7 @@ type MockIndexOutputWrapper struct {
 }
 
 func newMockIndexOutputWrapper(dir *MockDirectoryWrapper, name string, delegate store.IndexOutput) *MockIndexOutputWrapper {
+	assert(delegate != nil)
 	ans := &MockIndexOutputWrapper{
 		dir:        dir,
 		name:       name,
