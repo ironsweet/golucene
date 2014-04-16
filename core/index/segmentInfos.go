@@ -329,6 +329,17 @@ func GenerationFromSegmentsFileName(fileName string) int64 {
 	}
 }
 
+/*
+A utility for writing the SEGMENTS_GEN file to a Directory.
+
+NOTE: this is an internal utility which is kept public so that it's
+accessible by code from other packages. You should avoid calling this
+method unless you're absolutely sure what you're doing!
+*/
+func writeSegmentsGen(dir store.Directory, generation int64) {
+	panic("not implemented yet")
+}
+
 /* Get the next segments_N filename that will be written. */
 func (sis *SegmentInfos) nextSegmentFilename() string {
 	var nextGeneration int64
@@ -660,18 +671,66 @@ func (sis *SegmentInfos) files(dir store.Directory, includeSegmentsFile bool) []
 
 func (sis *SegmentInfos) finishCommit(dir store.Directory) error {
 	assert2(sis.pendingSegnOutput != nil, "prepareCommit was not called")
-	var success = false
-	defer func() {
-		if !success {
-			// Closes pendingSegnOutput & delets partial segments_N:
-			sis.rollbackCommit(dir)
-		} else {
-			sis.pendingSegnOutput = nil
-		}
-	}()
+	if err := func() error {
+		var success = false
+		defer func() {
+			if !success {
+				// Closes pendingSegnOutput & delets partial segments_N:
+				sis.rollbackCommit(dir)
+			} else {
+				err := func() error {
+					var success = false
+					defer func() {
+						if !success {
+							// Closes pendingSegnOutput & delets partial segments_N:
+							sis.rollbackCommit(dir)
+						} else {
+							sis.pendingSegnOutput = nil
+						}
+					}()
 
-	sis.pendingSegnOutput.Close()
-	success = true
+					err := sis.pendingSegnOutput.Close()
+					success = err == nil
+					return err
+				}()
+				assertn(err == nil, "%v", err) // no shadow
+			}
+		}()
+
+		err := sis.pendingSegnOutput.FinishCommit()
+		success = err == nil
+		return err
+	}(); err != nil {
+		return err
+	}
+
+	// NOTE: if we crash here, we have left a segments_N file in the
+	// directory in a possibly corrupt state (if some bytes made it to
+	// stable storage and others didn't). But, the segments_N file
+	// includes checksum at the end, which should catch this case. So
+	// when a reader tries to read it, it will return an index corrupt
+	// error, which should cause the retry logic in SegmentInfos to
+	// kick in and load the last good (previous) segments_N-1 file.
+
+	fileName := util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", sis.generation)
+	if err := func() error {
+		var success = false
+		defer func() {
+			if !success {
+				dir.DeleteFile(fileName)
+				// suppress error so we keep returning the original error
+			}
+		}()
+
+		err := dir.Sync([]string{fileName})
+		success = err == nil
+		return err
+	}(); err != nil {
+		return err
+	}
+
+	sis.lastGeneration = sis.generation
+	writeSegmentsGen(dir, sis.generation)
 	return nil
 }
 
