@@ -1303,6 +1303,10 @@ func (w *IndexWriter) assertFilesExist(toSync *SegmentInfos) {
 func (w *IndexWriter) toLiveInfos(sis *SegmentInfos) *SegmentInfos {
 	w.Lock() // synchronized
 	defer w.Unlock()
+	return w._toLiveInfos(sis)
+}
+
+func (w *IndexWriter) _toLiveInfos(sis *SegmentInfos) *SegmentInfos {
 	newSIS := new(SegmentInfos)
 	// liveSIS := make(map[*SegmentInfoPerCommit]bool)
 	// for _, info := range w.segmentInfos.Segments {

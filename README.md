@@ -13,8 +13,8 @@ Milestones
 
 Progress
 --------
-27300/40000 LoC, 13 Weeks Left
-V1.0 ETA: 2014/5/16
+34100/40000 LoC, 6 Weeks Left
+V1.0 ETA: 2014/6/1
 
 License
 -------
@@ -33,7 +33,7 @@ Develop Guidelines
 - "not implemented yet" means in scope but not yet translated from Java.
 - "not supported yet" means not in scope.
 - Wrapper can be implemented by composition instead of an explicit delegate field.
-- Methods of fields start with underscore are internal only, and usually require external synchronizations.
+- Methods start with '_' are considered "internal" and vulnerable to thread-safety. They must be invoked by either other "internal" methods or synchronized methods. This is to workaround universally used re-entrant lock offered by Java synchronized keyword.
 
 Known Risks/Issues
 ------------------

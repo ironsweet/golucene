@@ -359,7 +359,7 @@ func (fd *IndexFileDeleter) checkpoint(segmentInfos *SegmentInfos, isCommit bool
 	}()
 	if fd.infoStream.IsEnabled("IFD") {
 		fd.infoStream.Message("IFD", "now checkpoint '%v' [%v segments; isCommit = %v]",
-			fd.writer.readerPool.segmentsToString(fd.writer.toLiveInfos(segmentInfos).Segments),
+			fd.writer.readerPool.segmentsToString(fd.writer._toLiveInfos(segmentInfos).Segments),
 			len(segmentInfos.Segments), isCommit)
 	}
 
