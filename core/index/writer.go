@@ -1418,6 +1418,7 @@ func (w *IndexWriter) startCommit(toSync *SegmentInfos) error {
 	if err != nil {
 		return err
 	}
+	success = true
 
 	if w.infoStream.IsEnabled("IW") {
 		w.infoStream.Message("IW", "done all syncs: %v", filesToSync)
