@@ -98,6 +98,7 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 		writer:     writer,
 		policy:     policy,
 		directory:  directory,
+		refCounts:  make(map[string]*RefCount),
 	}
 
 	// First pass: walk the files and initialize our ref counts:
