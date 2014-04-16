@@ -185,6 +185,10 @@ func (w *RateLimitedDirectoryWrapper) MaxWriteMBPerSec(context int) {
 
 // store/RateLimitedIndexOutput.java
 
+type flushBuffer interface {
+	FlushBuffer(buf []byte) error
+}
+
 /* A rate limiting IndexOutput */
 type RateLimitedIndexOutput struct {
 	*BufferedIndexOutput
@@ -202,9 +206,19 @@ func newRateLimitedIndexOutput(rateLimiter RateLimiter, delegate IndexOutput) *R
 }
 
 func (out *RateLimitedIndexOutput) FlushBuffer(buf []byte) error {
-	panic("not implemented yet")
+	out.rateLimiter.Pause(int64(len(buf)))
+	if v, ok := out.delegate.(flushBuffer); ok {
+		return v.FlushBuffer(buf)
+	}
+	panic("double check if flushBuffer interface is satisfied")
+	return out.delegate.WriteBytes(buf)
 }
 
 func (out *RateLimitedIndexOutput) Length() (int64, error) {
 	return out.delegate.Length()
+}
+
+func (out *RateLimitedIndexOutput) Close() error {
+	defer out.delegate.Close()
+	return out.BufferedIndexOutput.Close()
 }
