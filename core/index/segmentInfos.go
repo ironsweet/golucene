@@ -337,7 +337,32 @@ accessible by code from other packages. You should avoid calling this
 method unless you're absolutely sure what you're doing!
 */
 func writeSegmentsGen(dir store.Directory, generation int64) {
-	panic("not implemented yet")
+	if err := func() (err error) {
+		var genOutput store.IndexOutput
+		genOutput, err = dir.CreateOutput(INDEX_FILENAME_SEGMENTS_GEN, store.IO_CONTEXT_READONCE)
+		if err != nil {
+			return err
+		}
+
+		defer func() {
+			err = mergeError(err, genOutput.Close())
+			err = mergeError(err, dir.Sync([]string{INDEX_FILENAME_SEGMENTS_GEN}))
+		}()
+
+		err = genOutput.WriteInt(FORMAT_SEGMENTS_GEN_CURRENT)
+		if err == nil {
+			err = genOutput.WriteLong(generation)
+			if err == nil {
+				err = genOutput.WriteLong(generation)
+			}
+		}
+		return err
+	}(); err != nil {
+		// It's OK if we fail to write this file since it's used only as
+		// one of the retry fallbacks.
+		dir.DeleteFile(INDEX_FILENAME_SEGMENTS_GEN)
+		// Ignore error; this file is only used in a retry fallback on init
+	}
 }
 
 /* Get the next segments_N filename that will be written. */
