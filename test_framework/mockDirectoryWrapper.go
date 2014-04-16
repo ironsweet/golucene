@@ -693,7 +693,7 @@ func (w *MockDirectoryWrapper) removeIndexInput(in store.IndexInput, name string
 	w.Lock() // synchronized
 	defer w.Unlock()
 
-	panic("not implemented yet")
+	w.removeOpenFile(in, name)
 }
 
 /*
