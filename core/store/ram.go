@@ -73,7 +73,7 @@ func (rd *RAMDirectory) FileLength(name string) (length int64, err error) {
 	rd.fileMapLock.RLock()
 	defer rd.fileMapLock.RUnlock()
 	if file, ok := rd.fileMap[name]; ok {
-		return int64(file.length), nil
+		return file.Length(), nil
 	}
 	return 0, os.ErrNotExist
 }
@@ -192,6 +192,12 @@ func NewRAMFile(directory *RAMDirectory) *RAMFile {
 		directory: directory,
 		newBuffer: newBuffer,
 	}
+}
+
+func (rf *RAMFile) Length() int64 {
+	rf.Lock()
+	defer rf.Unlock()
+	return rf.length
 }
 
 func (rf *RAMFile) SetLength(length int64) {
@@ -493,7 +499,7 @@ func (out *RAMOutputStream) WriteBytes(buf []byte) error {
 		if bytesToCopy > remainInBuffer {
 			bytesToCopy = remainInBuffer
 		}
-		copy(buf, out.currentBuffer[out.bufferPosition:out.bufferPosition+bytesToCopy])
+		copy(out.currentBuffer[out.bufferPosition:out.bufferPosition+bytesToCopy], buf)
 		buf = buf[bytesToCopy:]
 		out.bufferPosition += bytesToCopy
 	}
