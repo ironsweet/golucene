@@ -326,6 +326,10 @@ func newDirectoryImpl(random *rand.Rand, clazzName string) store.Directory {
 	}
 }
 
+func NewDefaultIOContext(r *rand.Rand) store.IOContext {
+	return NewIOContext(r, store.IO_CONTEXT_DEFAULT)
+}
+
 func NewIOContext(r *rand.Rand, oldContext store.IOContext) store.IOContext {
 	randomNumDocs := r.Intn(4192)
 	size := r.Int63n(512) * int64(randomNumDocs)

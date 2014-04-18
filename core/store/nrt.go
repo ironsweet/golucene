@@ -142,6 +142,7 @@ func (nrt *NRTCachingDirectory) _fileExists(name string) bool {
 }
 
 func (nrt *NRTCachingDirectory) DeleteFile(name string) error {
+	assert(nrt.Directory != nil)
 	nrt.Lock() // synchronized
 	defer nrt.Unlock()
 

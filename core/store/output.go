@@ -16,6 +16,14 @@ type IndexOutput interface {
 	FilePointer() int64
 	// The numer of bytes in the file.
 	Length() (int64, error)
+	// Set the file length. By default, this method does nothing (it's
+	// optional for a Directory to implement it). But, certain
+	// Directory implementations (for example FSDirectory) can use this
+	// to inform the unerlying IO system to pre-allocate the file to
+	// the specified size. If the length is longer than the current
+	// file length, the bytes added to the file are undefined.
+	// Otherwise the file is truncated.
+	SetLength(length int64) error
 }
 
 type IndexOutputImpl struct {
@@ -24,6 +32,10 @@ type IndexOutputImpl struct {
 
 func NewIndexOutput(part util.DataWriter) *IndexOutputImpl {
 	return &IndexOutputImpl{util.NewDataOutput(part)}
+}
+
+func (out *IndexOutputImpl) SetLength(length int64) error {
+	return nil
 }
 
 // store/ChecksumIndexOutput.java

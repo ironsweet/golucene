@@ -224,7 +224,119 @@ func (w *MockDirectoryWrapper) sizeInBytes() (int64, error) {
 func (w *MockDirectoryWrapper) Crash() error {
 	w.Lock() // synchronized
 	defer w.Unlock()
-	panic("not implemented yet")
+	return w._crash()
+}
+
+func (w *MockDirectoryWrapper) _crash() error {
+	w.crashed = true
+	w.openFiles = make(map[string]int)
+	w.openFilesForWrite = make(map[string]bool)
+	w.openFilesDeleted = make(map[string]bool)
+	files := w.unSyncedFiles
+	w.unSyncedFiles = make(map[string]bool)
+	// first force-close all files, so we can corrupt on windows etc.
+	// clone the file map, as these guys want to remove themselves on close.
+	m := make(map[io.Closer]error)
+	for k, v := range w.openFileHandles {
+		m[k] = v
+	}
+	for f, _ := range m {
+		f.Close() // ignore error
+	}
+
+	for name, _ := range files {
+		var action string
+		var err error
+		switch w.randomState.Intn(5) {
+		case 0:
+			action = "deleted"
+			err = w.deleteFile(name, true)
+		case 1:
+			action = "zeroes"
+			// Zero out file entirely
+			var length int64
+			length, err = w.FileLength(name)
+			if err == nil {
+				zeroes := make([]byte, 256)
+				var upto int64 = 0
+				var out store.IndexOutput
+				out, err = w.BaseDirectoryWrapperImpl.CreateOutput(name, NewDefaultIOContext(w.randomState))
+				if err == nil {
+					for upto < length && err == nil {
+						limit := length - upto
+						if int64(len(zeroes)) < limit {
+							limit = int64(len(zeroes))
+						}
+						err = out.WriteBytes(zeroes[:limit])
+						upto += limit
+					}
+					if err == nil {
+						err = out.Close()
+					}
+				}
+			}
+		case 2:
+			action = "partially truncated"
+			// Partially Truncate the file:
+
+			// First, make temp file and copy only half this file over:
+			var tempFilename string
+			for {
+				tempFilename = fmt.Sprintf("%v", w.randomState.Int())
+				if !w.BaseDirectoryWrapperImpl.FileExists(tempFilename) {
+					break
+				}
+			}
+			var tempOut store.IndexOutput
+			if tempOut, err = w.BaseDirectoryWrapperImpl.CreateOutput(tempFilename, NewDefaultIOContext(w.randomState)); err == nil {
+				var ii store.IndexInput
+				if ii, err = w.BaseDirectoryWrapperImpl.OpenInput(name, NewDefaultIOContext(w.randomState)); err == nil {
+					if err = tempOut.CopyBytes(ii, ii.Length()/2); err == nil {
+						if err = tempOut.Close(); err == nil {
+							if err = ii.Close(); err == nil {
+								// Delete original and copy bytes back:
+								if err = w.deleteFile(name, true); err == nil {
+									var out store.IndexOutput
+									if out, err = w.BaseDirectoryWrapperImpl.CreateOutput(name, NewDefaultIOContext(w.randomState)); err == nil {
+										if ii, err = w.BaseDirectoryWrapperImpl.OpenInput(tempFilename, NewDefaultIOContext(w.randomState)); err == nil {
+											if err = out.CopyBytes(ii, ii.Length()); err == nil {
+												if err = out.Close(); err == nil {
+													if err = ii.Close(); err == nil {
+														err = w.deleteFile(tempFilename, true)
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		case 3:
+			// the file survived intact:
+			action = "didn't change"
+		default:
+			action = "fully truncated"
+			// totally truncate the file to zero bytes
+			if err = w.deleteFile(name, true); err == nil {
+				var out store.IndexOutput
+				if out, err = w.BaseDirectoryWrapperImpl.CreateOutput(name, NewDefaultIOContext(w.randomState)); err == nil {
+					if err = out.SetLength(0); err == nil {
+						err = out.Close()
+					}
+				}
+			}
+		}
+		if err != nil {
+			return err
+		}
+		if VERBOSE {
+			log.Printf("MockDirectoryWrapper: %v unsynced file: %v", action, name)
+		}
+	}
+	return nil
 }
 
 func (w *MockDirectoryWrapper) maybeThrowIOException(message string) error {
@@ -558,12 +670,14 @@ func (w *MockDirectoryWrapper) Close() error {
 		}
 		if index.IsIndexFileExists(files) {
 			log.Println("\nNOTE: MockDirectoryWrapper: now crash")
-			err = w.Crash() // corrupt any unsynced-files
+			err = w._crash() // corrupt any unsynced-files
 			if err != nil {
 				return err
 			}
 			log.Println("\nNOTE: MockDirectoryWrapper: now run CheckIndex")
+			w.Unlock() // CheckIndex may access synchronized method
 			CheckIndex(w, w.crossCheckTermVectorsOnClose)
+			w.Lock() // CheckIndex may access synchronized method
 
 			// TODO: factor this out / share w/ TestIW.assertNoUnreferencedFiles
 			if w.assertNoUnreferencedFilesOnClose {
@@ -679,7 +793,18 @@ func (w *MockDirectoryWrapper) removeOpenFile(c io.Closer, name string) {
 	w.Lock() // synchronized
 	defer w.Unlock()
 
-	panic("not implemented yet")
+	w._removeOpenFile(c, name)
+}
+
+func (w *MockDirectoryWrapper) _removeOpenFile(c io.Closer, name string) {
+	if v, ok := w.openFiles[name]; ok {
+		if v == 1 {
+			delete(w.openFiles, name)
+		} else {
+			w.openFiles[name] = v - 1
+		}
+	}
+	delete(w.openFileHandles, c)
 }
 
 func (w *MockDirectoryWrapper) removeIndexOutput(out store.IndexOutput, name string) {
@@ -687,7 +812,7 @@ func (w *MockDirectoryWrapper) removeIndexOutput(out store.IndexOutput, name str
 	defer w.Unlock()
 
 	delete(w.openFilesForWrite, name)
-	w.removeOpenFile(out, name)
+	w._removeOpenFile(out, name)
 }
 
 func (w *MockDirectoryWrapper) removeIndexInput(in store.IndexInput, name string) {
