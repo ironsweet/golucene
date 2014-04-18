@@ -686,7 +686,8 @@ func (w *MockDirectoryWrapper) removeIndexOutput(out store.IndexOutput, name str
 	w.Lock() // synchronized
 	defer w.Unlock()
 
-	panic("not implemented yet")
+	delete(w.openFilesForWrite, name)
+	w.removeOpenFile(out, name)
 }
 
 func (w *MockDirectoryWrapper) removeIndexInput(in store.IndexInput, name string) {

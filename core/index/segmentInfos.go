@@ -695,6 +695,7 @@ func (sis *SegmentInfos) files(dir store.Directory, includeSegmentsFile bool) []
 }
 
 func (sis *SegmentInfos) finishCommit(dir store.Directory) error {
+	assert(dir != nil)
 	assert2(sis.pendingSegnOutput != nil, "prepareCommit was not called")
 	if err := func() error {
 		var success = false
