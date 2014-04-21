@@ -1088,8 +1088,9 @@ type MockIndexInputWrapper struct {
 	closed           bool
 }
 
-func newMockIndexInputWrapper(dir *MockDirectoryWrapper, name string, delegate store.IndexInput) *MockIndexInputWrapper {
-	panic("not implemented yet")
+func newMockIndexInputWrapper(dir *MockDirectoryWrapper,
+	name string, delegate store.IndexInput) *MockIndexInputWrapper {
+	return &MockIndexInputWrapper{delegate, dir, name, false, false}
 }
 
 func (w *MockIndexInputWrapper) ensureOpen() {
@@ -1108,6 +1109,10 @@ func (w *MockIndexInputWrapper) FilePointer() int64 {
 func (w *MockIndexInputWrapper) Seek(pos int64) error {
 	w.ensureOpen()
 	return w.IndexInput.Seek(pos)
+}
+
+func (w *MockIndexInputWrapper) String() string {
+	return fmt.Sprintf("MockIndexInputWrapper(%v)", w.IndexInput)
 }
 
 // store/MockIndexOutputWrapper.java
