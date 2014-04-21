@@ -601,7 +601,7 @@ func (w *MockDirectoryWrapper) OpenInput(name string, context store.IOContext) (
 	} else {
 		ii = newMockIndexInputWrapper(w, name, delegateInput)
 	}
-	w.addFileHandle(ii, name, HANDLE_INPUT)
+	w._addFileHandle(ii, name, HANDLE_INPUT)
 	return ii, nil
 }
 
