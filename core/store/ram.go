@@ -364,6 +364,10 @@ func (in *RAMInputStream) Close() error {
 	return nil
 }
 
+func (in *RAMInputStream) Length() int64 {
+	return in.length
+}
+
 func (in *RAMInputStream) ReadByte() (b byte, err error) {
 	if in.bufferPosition >= in.bufferLength {
 		in.currentBufferIndex++

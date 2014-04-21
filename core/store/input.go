@@ -9,34 +9,42 @@ import (
 	"io"
 )
 
-type IndexInput interface {
+type IndexInputService interface {
 	io.Closer
-	util.DataInput
-	ReadBytesBuffered(buf []byte, useBuffer bool) error
-	// IndexInput
+	// Returns the current position in this file, where the next read will occur.
 	FilePointer() int64
 	// Sets current position in this file, where the next read will occur.
 	Seek(pos int64) error
 	Length() int64
+}
+
+type IndexInputSub interface {
+	io.Closer
+	util.DataReader
+	FilePointer() int64
+	Seek(pos int64) error
+	Length() int64
+}
+
+type IndexInput interface {
+	util.DataInput
+	IndexInputService
+	ReadBytesBuffered(buf []byte, useBuffer bool) error
 	// Clone
 	Clone() IndexInput
 }
 
-type LengthCloser interface {
-	Close() error
-	Length() int64
-}
-
 type IndexInputImpl struct {
 	*util.DataInputImpl
-	LengthCloser
 	desc string
 }
 
 func newIndexInputImpl(desc string, r util.DataReader) *IndexInputImpl {
 	assert2(desc != "", "resourceDescription must not be null")
-	super := &util.DataInputImpl{Reader: r}
-	return &IndexInputImpl{DataInputImpl: super, desc: desc}
+	return &IndexInputImpl{
+		DataInputImpl: &util.DataInputImpl{Reader: r},
+		desc:          desc,
+	}
 }
 
 func (in *IndexInputImpl) String() string {

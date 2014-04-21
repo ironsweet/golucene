@@ -1,11 +1,13 @@
 package store
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"testing"
 )
 
 func TestReadEntriesOSX(t *testing.T) {
+	fmt.Println("TestReadEntriesOSX...")
 	path := "../search/testdata/osx/belfrysample"
 	d, err := OpenFSDirectory(path)
 	if err != nil {
@@ -34,6 +36,7 @@ func TestReadEntriesOSX(t *testing.T) {
 }
 
 func TestCheckHeaderWin8(t *testing.T) {
+	fmt.Println("TestCheckHeaderWin8...")
 	path := "../search/testdata/win8/belfrysample"
 	d, err := OpenFSDirectory(path)
 	if err != nil {

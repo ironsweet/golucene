@@ -219,7 +219,7 @@ type FSIndexInput struct {
 	end       int64
 }
 
-func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *FSIndexInput, err error) {
+func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (*FSIndexInput, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -228,21 +228,15 @@ func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *F
 	if err != nil {
 		return nil, err
 	}
-	super := newBufferedIndexInput(desc, context)
-	ans := &FSIndexInput{super, f, false, chunkSize, 0, fi.Size()}
-	ans.LengthCloser = ans
+	ans := &FSIndexInput{nil, f, false, chunkSize, 0, fi.Size()}
+	ans.BufferedIndexInput = newBufferedIndexInput(ans, desc, context)
 	return ans, nil
 }
 
 func newFSIndexInputFromFileSlice(desc string, f *os.File, off, length int64, bufferSize, chunkSize int) *FSIndexInput {
-	super := newBufferedIndexInputBySize(desc, bufferSize)
-	ans := &FSIndexInput{super, f, true, chunkSize, off, off + length}
-	ans.LengthCloser = ans
+	ans := &FSIndexInput{nil, f, true, chunkSize, off, off + length}
+	ans.BufferedIndexInput = newBufferedIndexInputBySize(ans, desc, bufferSize)
 	return ans
-}
-
-func (in *FSIndexInput) Length() int64 {
-	return in.end - in.off
 }
 
 func (in *FSIndexInput) Close() error {
@@ -254,15 +248,17 @@ func (in *FSIndexInput) Close() error {
 }
 
 func (in *FSIndexInput) Clone() IndexInput {
-	clone := &FSIndexInput{
-		in.BufferedIndexInput.Clone().(*BufferedIndexInput),
+	return &FSIndexInput{
+		in.BufferedIndexInput.Clone(),
 		in.file,
 		true,
 		in.chunkSize,
 		in.off,
 		in.end}
-	clone.LengthCloser = clone
-	return clone
+}
+
+func (in *FSIndexInput) Length() int64 {
+	return in.end - in.off
 }
 
 func (in *FSIndexInput) String() string {

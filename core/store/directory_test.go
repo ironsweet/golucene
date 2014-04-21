@@ -35,6 +35,7 @@ func newTestIOContextFrom(r *rand.Rand, oldContext IOContext) IOContext {
 }
 
 func TestReadingFromSlicedIndexInputOSX(t *testing.T) {
+	t.Logf("TestReadingFromSlicedIndexInputOSX...")
 	path := "../search/testdata/osx/belfrysample"
 	d, err := OpenFSDirectory(path)
 	if err != nil {

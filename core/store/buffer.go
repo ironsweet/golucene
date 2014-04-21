@@ -8,6 +8,7 @@ import (
 type SeekReader interface {
 	seekInternal(pos int64) error
 	readInternal(buf []byte) error
+	Length() int64
 }
 
 type BufferedIndexInput struct {
@@ -20,13 +21,14 @@ type BufferedIndexInput struct {
 	bufferPosition int
 }
 
-func newBufferedIndexInput(desc string, context IOContext) *BufferedIndexInput {
-	return newBufferedIndexInputBySize(desc, bufferSize(context))
+func newBufferedIndexInput(spi SeekReader, desc string, context IOContext) *BufferedIndexInput {
+	return newBufferedIndexInputBySize(spi, desc, bufferSize(context))
 }
 
-func newBufferedIndexInputBySize(desc string, bufferSize int) *BufferedIndexInput {
+func newBufferedIndexInputBySize(spi SeekReader, desc string, bufferSize int) *BufferedIndexInput {
 	checkBufferSize(bufferSize)
 	ans := &BufferedIndexInput{bufferSize: bufferSize}
+	ans.SeekReader = spi
 	ans.IndexInputImpl = newIndexInputImpl(desc, ans)
 	return ans
 }
@@ -243,8 +245,8 @@ func (in *BufferedIndexInput) ReadVLong() (n int64, err error) {
 func (in *BufferedIndexInput) refill() error {
 	start := in.bufferStart + int64(in.bufferPosition)
 	end := start + int64(in.bufferSize)
-	if end > in.Length() { // don't read past EOF
-		end = in.Length()
+	if n := in.Length(); end > n { // don't read past EOF
+		end = n
 	}
 	newLength := int(end - start)
 	if newLength <= 0 {
@@ -278,7 +280,7 @@ func (in *BufferedIndexInput) Seek(pos int64) error {
 	}
 }
 
-func (in *BufferedIndexInput) Clone() IndexInput {
+func (in *BufferedIndexInput) Clone() *BufferedIndexInput {
 	ans := &BufferedIndexInput{
 		bufferSize:     in.bufferSize,
 		buffer:         nil,

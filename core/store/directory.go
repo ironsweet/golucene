@@ -410,11 +410,9 @@ func newSlicedIndexInput(desc string, base IndexInput, fileOffset, length int64)
 
 func newSlicedIndexInputBySize(desc string, base IndexInput, fileOffset, length int64, bufferSize int) *SlicedIndexInput {
 	ans := &SlicedIndexInput{base: base, fileOffset: fileOffset, length: length}
-	super := newBufferedIndexInputBySize(fmt.Sprintf(
-		"SlicedIndexInput(%v in %v slice=%v:%v)", desc, base, fileOffset, fileOffset+length), bufferSize)
-	super.SeekReader = ans
-	super.LengthCloser = ans
-	ans.BufferedIndexInput = super
+	ans.BufferedIndexInput = newBufferedIndexInputBySize(ans, fmt.Sprintf(
+		"SlicedIndexInput(%v in %v slice=%v:%v)",
+		desc, base, fileOffset, fileOffset+length), bufferSize)
 	return ans
 }
 
@@ -439,13 +437,9 @@ func (in *SlicedIndexInput) Length() int64 {
 	return in.length
 }
 
-func (in *SlicedIndexInput) Clone() (ans IndexInput) {
-	log.Printf("DEGBU before clone: %v", in)
-	defer func() {
-		log.Printf("DEBUG after clone: %v", ans)
-	}()
+func (in *SlicedIndexInput) Clone() IndexInput {
 	return &SlicedIndexInput{
-		in.BufferedIndexInput.Clone().(*BufferedIndexInput),
+		in.BufferedIndexInput.Clone(),
 		in.base.Clone(),
 		in.fileOffset,
 		in.length,

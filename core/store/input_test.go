@@ -220,10 +220,8 @@ type MyBufferedIndexInput struct {
 
 func newMyBufferedIndexInput(length int64) *MyBufferedIndexInput {
 	ans := &MyBufferedIndexInput{pos: 0, length: length}
-	ans.BufferedIndexInput = newBufferedIndexInputBySize(fmt.Sprintf(
+	ans.BufferedIndexInput = newBufferedIndexInputBySize(ans, fmt.Sprintf(
 		"MyBufferedIndexInput(len=%v)", length), BUFFER_SIZE)
-	ans.SeekReader = ans
-	ans.LengthCloser = ans
 	return ans
 }
 
@@ -246,4 +244,12 @@ func (in *MyBufferedIndexInput) Close() error {
 
 func (in *MyBufferedIndexInput) Length() int64 {
 	return in.length
+}
+
+func (in *MyBufferedIndexInput) Clone() IndexInput {
+	return &MyBufferedIndexInput{
+		in.BufferedIndexInput.Clone(),
+		in.pos,
+		in.length,
+	}
 }

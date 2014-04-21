@@ -54,11 +54,4 @@ func TestClone(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	// panic("bingo")
-
-	// _, err = util.LoadFST(in, util.ByteSequenceOutputsSingleton())
-	// if err != nil {
-	// 	t.Error(err)
-	// }
 }
