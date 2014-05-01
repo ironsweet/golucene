@@ -498,10 +498,12 @@ func (w *MockDirectoryWrapper) CreateOutput(name string, context store.IOContext
 	if err != nil {
 		return nil, err
 	}
+	assert(delegateOutput != nil)
 	if w.randomState.Intn(10) == 0 {
 		// once ina while wrap the IO in a buffered IO with random buffer sizes
 		delegateOutput = newBufferedIndexOutputWrapper(
 			1+w.randomState.Intn(store.DEFAULT_BUFFER_SIZE), delegateOutput)
+		assert(delegateOutput != nil)
 	}
 	io := newMockIndexOutputWrapper(w, name, delegateOutput)
 	w._addFileHandle(io, name, HANDLE_OUTPUT)
@@ -1233,6 +1235,11 @@ func (w *MockIndexOutputWrapper) Close() (err error) {
 	return w.dir.maybeThrowDeterministicException()
 }
 
+func (w *MockIndexOutputWrapper) Flush() error {
+	defer w.delegate.Flush()
+	return w.dir.maybeThrowDeterministicException()
+}
+
 func (w *MockIndexOutputWrapper) WriteByte(b byte) error {
 	w.singleByte[0] = b
 	return w.WriteBytes(w.singleByte)
@@ -1291,5 +1298,5 @@ func (w *MockIndexOutputWrapper) CopyBytes(input util.DataInput, numBytes int64)
 }
 
 func (w *MockIndexOutputWrapper) String() string {
-	return fmt.Sprintf("MockIndexOutputWrapper(%v)", w.delegate)
+	return fmt.Sprintf("MockIndexOutputWrapper(%v,%v)", reflect.TypeOf(w.delegate), w.delegate)
 }

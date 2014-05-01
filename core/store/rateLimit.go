@@ -112,7 +112,7 @@ func (w *RateLimitedDirectoryWrapper) CreateOutput(name string, ctx IOContext) (
 			output = newRateLimitedIndexOutput(limiter, output)
 		}
 	}
-	return output, nil
+	return output, err
 }
 
 func (w *RateLimitedDirectoryWrapper) Close() error {

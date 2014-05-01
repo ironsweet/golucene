@@ -12,6 +12,8 @@ import (
 type IndexOutput interface {
 	io.Closer
 	util.DataOutput
+	// Forces any buffered output to be written.
+	Flush() error
 	// Returns the current position in this file, where the next write will occur.
 	FilePointer() int64
 	// The numer of bytes in the file.
@@ -51,11 +53,9 @@ type ChecksumIndexOutput struct {
 }
 
 func NewChecksumIndexOutput(main IndexOutput) *ChecksumIndexOutput {
-	return &ChecksumIndexOutput{
-		IndexOutputImpl: NewIndexOutput(main),
-		main:            main,
-		digest:          crc32.NewIEEE(),
-	}
+	ans := &ChecksumIndexOutput{main: main, digest: crc32.NewIEEE()}
+	ans.IndexOutputImpl = NewIndexOutput(ans)
+	return ans
 }
 
 func (out *ChecksumIndexOutput) WriteByte(b byte) error {
@@ -68,10 +68,22 @@ func (out *ChecksumIndexOutput) WriteBytes(buf []byte) error {
 	return out.main.WriteBytes(buf)
 }
 
+func (out *ChecksumIndexOutput) Flush() error {
+	return out.main.Flush()
+}
+
 func (out *ChecksumIndexOutput) Close() error {
 	return out.main.Close()
 }
 
+func (out *ChecksumIndexOutput) FilePointer() int64 {
+	return out.main.FilePointer()
+}
+
 func (out *ChecksumIndexOutput) FinishCommit() error {
 	return out.main.WriteLong(int64(out.digest.Sum32()))
+}
+
+func (out *ChecksumIndexOutput) Length() (int64, error) {
+	return out.main.Length()
 }

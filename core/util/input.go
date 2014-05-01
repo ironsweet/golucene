@@ -118,7 +118,7 @@ func (in *DataInputImpl) ReadLong() (n int64, err error) {
 	if err != nil {
 		return 0, err
 	}
-	return (int64(d1) << 32) | int64(d2), nil
+	return (int64(d1) << 32) | int64(d2)&0xFFFFFFFF, nil
 }
 
 func (in *DataInputImpl) ReadVLong() (n int64, err error) {

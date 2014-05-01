@@ -368,25 +368,26 @@ func (in *RAMInputStream) Length() int64 {
 	return in.length
 }
 
-func (in *RAMInputStream) ReadByte() (b byte, err error) {
+func (in *RAMInputStream) ReadByte() (byte, error) {
 	if in.bufferPosition >= in.bufferLength {
 		in.currentBufferIndex++
-		err = in.switchCurrentBuffer(true)
+		err := in.switchCurrentBuffer(true)
 		if err != nil {
-			return
+			return 0, err
 		}
 	}
 	in.bufferPosition++
 	return in.currentBuffer[in.bufferPosition-1], nil
 }
 
-func (in *RAMInputStream) ReadBytes(buf []byte) (err error) {
+func (in *RAMInputStream) ReadBytes(buf []byte) error {
+	var offset = 0
 	for limit := len(buf); limit > 0; {
 		if in.bufferPosition >= in.bufferLength {
 			in.currentBufferIndex++
-			err = in.switchCurrentBuffer(true)
+			err := in.switchCurrentBuffer(true)
 			if err != nil {
-				return
+				return err
 			}
 		}
 
@@ -394,12 +395,12 @@ func (in *RAMInputStream) ReadBytes(buf []byte) (err error) {
 		if limit < bytesToCopy {
 			bytesToCopy = limit
 		}
-		copy(buf, in.currentBuffer[in.bufferPosition:in.bufferPosition+bytesToCopy])
-		buf = buf[bytesToCopy:]
+		copy(buf[offset:], in.currentBuffer[in.bufferPosition:in.bufferPosition+bytesToCopy])
+		offset += bytesToCopy
 		limit -= bytesToCopy
 		in.bufferPosition += bytesToCopy
 	}
-	return
+	return nil
 }
 
 func (in *RAMInputStream) switchCurrentBuffer(enforceEOF bool) error {
@@ -447,6 +448,10 @@ func (in *RAMInputStream) Clone() IndexInput {
 	panic("not supported yet")
 }
 
+func (in *RAMInputStream) String() string {
+	return fmt.Sprintf("%v;%v@[0-%v]", in.IndexInputImpl.String(), in.FilePointer(), in.length)
+}
+
 // store/RamOutputStream.java
 
 /*
@@ -492,19 +497,20 @@ func (out *RAMOutputStream) WriteByte(b byte) error {
 
 func (out *RAMOutputStream) WriteBytes(buf []byte) error {
 	assert(buf != nil)
-	for len(buf) > 0 {
+	var offset = 0
+	for limit := len(buf); limit > 0; {
 		if out.bufferPosition == out.bufferLength {
 			out.currentBufferIndex++
 			out.switchCurrentBuffer()
 		}
 
-		remainInBuffer := len(out.currentBuffer) - out.bufferPosition
-		bytesToCopy := len(buf)
-		if bytesToCopy > remainInBuffer {
-			bytesToCopy = remainInBuffer
+		bytesToCopy := len(out.currentBuffer) - out.bufferPosition
+		if limit < bytesToCopy {
+			bytesToCopy = limit
 		}
-		copy(out.currentBuffer[out.bufferPosition:out.bufferPosition+bytesToCopy], buf)
-		buf = buf[bytesToCopy:]
+		copy(out.currentBuffer[out.bufferPosition:], buf[offset:offset+bytesToCopy])
+		offset += bytesToCopy
+		limit -= bytesToCopy
 		out.bufferPosition += bytesToCopy
 	}
 	return nil

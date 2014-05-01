@@ -331,7 +331,7 @@ func (out *BufferedIndexOutput) WriteBytes(buf []byte) error {
 		out.position += len(buf)
 		// if the buffer is full, flush it
 		if len(out.buffer) == out.position {
-			return out.flush()
+			return out.Flush()
 		}
 		return nil
 	}
@@ -340,7 +340,7 @@ func (out *BufferedIndexOutput) WriteBytes(buf []byte) error {
 	if len(buf) > len(out.buffer) {
 		// we flush the buffer
 		if out.position > 0 {
-			err := out.flush()
+			err := out.Flush()
 			if err != nil {
 				return err
 			}
@@ -368,7 +368,7 @@ func (out *BufferedIndexOutput) WriteBytes(buf []byte) error {
 		// if the buffer is full, flush it
 		bytesLeft = len(out.buffer) - out.position
 		if bytesLeft == 0 {
-			err := out.flush()
+			err := out.Flush()
 			if err != nil {
 				return err
 			}
@@ -378,7 +378,7 @@ func (out *BufferedIndexOutput) WriteBytes(buf []byte) error {
 	return nil
 }
 
-func (out *BufferedIndexOutput) flush() error {
+func (out *BufferedIndexOutput) Flush() error {
 	err := out.spi.FlushBuffer(out.buffer[:out.position])
 	if err == nil {
 		out.start += int64(out.position)
@@ -388,7 +388,7 @@ func (out *BufferedIndexOutput) flush() error {
 }
 
 func (out *BufferedIndexOutput) Close() error {
-	return out.flush()
+	return out.Flush()
 }
 
 func (out *BufferedIndexOutput) FilePointer() int64 {

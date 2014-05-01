@@ -31,6 +31,7 @@ type DataOutputImpl struct {
 }
 
 func NewDataOutput(part DataWriter) *DataOutputImpl {
+	assert(part != nil)
 	return &DataOutputImpl{Writer: part}
 }
 
@@ -40,6 +41,7 @@ Writes an int as four bytes.
 32-bit unsigned integer written as four bytes, high-order bytes first.
 */
 func (out *DataOutputImpl) WriteInt(i int32) error {
+	assert(out.Writer != nil)
 	err := out.Writer.WriteByte(byte(i >> 24))
 	if err == nil {
 		err = out.Writer.WriteByte(byte(i >> 16))
