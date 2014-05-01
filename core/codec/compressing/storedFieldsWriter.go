@@ -1,6 +1,7 @@
 package compressing
 
 import (
+	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/codec/lucene40"
@@ -119,9 +120,12 @@ func assert2(ok bool, msg string, args ...interface{}) {
 }
 
 func (w *CompressingStoredFieldsWriter) Close() error {
+	assert(w != nil)
 	defer func() {
-		w.fieldsStream = nil
-		w.indexWriter = nil
+		if w != nil {
+			w.fieldsStream = nil
+			w.indexWriter = nil
+		}
 	}()
 	return util.Close(w.fieldsStream, w.indexWriter)
 }
@@ -259,7 +263,10 @@ func (w *CompressingStoredFieldsWriter) flush() error {
 }
 
 func (w *CompressingStoredFieldsWriter) Abort() {
-	assert(w != nil)
+	if w == nil {
+		fmt.Println("Nil class pointer encountered.")
+		return
+	}
 	util.CloseWhileSuppressingError(w)
 	util.DeleteFilesIgnoringErrors(w.directory,
 		util.SegmentFileName(w.segment, w.segmentSuffix, lucene40.FIELDS_EXTENSION),
@@ -267,7 +274,9 @@ func (w *CompressingStoredFieldsWriter) Abort() {
 }
 
 func (w *CompressingStoredFieldsWriter) Finish(fis model.FieldInfos, numDocs int) error {
-	assert(w != nil)
+	if w == nil {
+		return errors.New("Nil class pointer encountered.")
+	}
 	if w.numBufferedDocs > 0 {
 		err := w.flush()
 		if err != nil {

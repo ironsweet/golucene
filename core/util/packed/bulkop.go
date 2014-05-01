@@ -1,5 +1,7 @@
 package packed
 
+import ()
+
 // util/packed/BulkOperationPacked.java
 
 // Non-specialized BulkOperation for Packed format
@@ -80,7 +82,7 @@ func (p *BulkOperationPacked) encodeLongToLong(values, blocks []int64, iteration
 
 func (p *BulkOperationPacked) encodeLongToByte(values []int64, blocks []byte, iterations int) {
 	var nextBlock int = 0
-	var bitsLeft int = 0
+	var bitsLeft int = 8
 	valuesOffset, blocksOffset := 0, 0
 	for i, limit := 0, p.byteValueCount*iterations; i < limit; i++ {
 		v := values[valuesOffset]

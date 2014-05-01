@@ -73,6 +73,11 @@ func NewNRTCachingDirectory(delegate Directory, maxMergeSizeMB, maxCachedMB floa
 		} else if context.FlushInfo != nil {
 			bytes = context.FlushInfo.EstimatedSegmentSize
 		}
+		if NRT_VERBOSE {
+			log.Printf("CACHE check merge=%v flush=%v size=%v",
+				context.MergeInfo, context.FlushInfo, bytes)
+		}
+		fmt.Println("DEBUG5", nrt.maxMergeSizeBytes, nrt.cache.sizeInBytes, nrt.maxCachedBytes)
 		return name != "segments.gen" &&
 			bytes <= nrt.maxMergeSizeBytes &&
 			bytes+nrt.cache.sizeInBytes <= nrt.maxCachedBytes
@@ -174,9 +179,13 @@ func (nrt *NRTCachingDirectory) FileLength(name string) (length int64, err error
 }
 
 func (nrt *NRTCachingDirectory) CreateOutput(name string, context IOContext) (out IndexOutput, err error) {
-	log.Printf("nrtdir.createOutput name=%v", name)
+	if NRT_VERBOSE {
+		log.Printf("nrtdir.createOutput name=%v", name)
+	}
 	if nrt.doCacheWrite(name, context) {
-		log.Println("  to cache")
+		if NRT_VERBOSE {
+			log.Println("  to cache")
+		}
 		nrt.Directory.DeleteFile(name) // ignore IO error
 		return nrt.cache.CreateOutput(name, context)
 	}
@@ -185,7 +194,9 @@ func (nrt *NRTCachingDirectory) CreateOutput(name string, context IOContext) (ou
 }
 
 func (nrt *NRTCachingDirectory) Sync(fileNames []string) (err error) {
-	log.Printf("nrtdir.sync files=%v", fileNames)
+	if NRT_VERBOSE {
+		log.Printf("nrtdir.sync files=%v", fileNames)
+	}
 	for _, fileName := range fileNames {
 		err = nrt.unCache(fileName)
 		if err != nil {
@@ -198,9 +209,13 @@ func (nrt *NRTCachingDirectory) Sync(fileNames []string) (err error) {
 func (nrt *NRTCachingDirectory) OpenInput(name string, context IOContext) (in IndexInput, err error) {
 	nrt.Lock() // synchronized
 	defer nrt.Unlock()
-	log.Printf("nrtdir.openInput name=%v", name)
+	if NRT_VERBOSE {
+		log.Printf("nrtdir.openInput name=%v", name)
+	}
 	if nrt.cache.FileExists(name) {
-		log.Println("  from cache")
+		if NRT_VERBOSE {
+			log.Println("  from cache")
+		}
 		return nrt.cache.OpenInput(name, context)
 	}
 	return nrt.Directory.OpenInput(name, context)
@@ -208,9 +223,13 @@ func (nrt *NRTCachingDirectory) OpenInput(name string, context IOContext) (in In
 
 func (nrt *NRTCachingDirectory) CreateSlicer(name string, context IOContext) (slicer IndexInputSlicer, err error) {
 	nrt.EnsureOpen()
-	log.Println("nrtdir.openInput name=%v", name)
+	if NRT_VERBOSE {
+		log.Println("nrtdir.openInput name=%v", name)
+	}
 	if nrt.cache.FileExists(name) {
-		log.Println("  from cache")
+		if NRT_VERBOSE {
+			log.Println("  from cache")
+		}
 		return nrt.cache.CreateSlicer(name, context)
 	}
 	return nrt.Directory.CreateSlicer(name, context)
