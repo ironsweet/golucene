@@ -198,8 +198,38 @@ func (p *DocValuesProcessor) addField(docId int, field IndexableField, fieldInfo
 	panic("not implemented yet")
 }
 
-func (p *DocValuesProcessor) flush(state SegmentWriteState) error {
-	panic("not implemented yet")
+func (p *DocValuesProcessor) flush(state SegmentWriteState) (err error) {
+	if len(p.writers) != 0 {
+		codec := state.segmentInfo.Codec().(Codec)
+		var dvConsumer DocValuesConsumer
+		dvConsumer, err = codec.DocValuesFormat().FieldsConsumer(state)
+		if err != nil {
+			return err
+		}
+		var success = false
+		defer func() {
+			if success {
+				err = mergeError(err, util.Close(dvConsumer))
+			} else {
+				util.CloseWhileSuppressingError(dvConsumer)
+			}
+		}()
+
+		for _, writer := range p.writers {
+			writer.finish(state.segmentInfo.DocCount())
+			err = writer.flush(state, dvConsumer)
+			if err != nil {
+				return err
+			}
+		}
+		// TODO: catch missing DV dields here? else we have nil/""
+		// depending on how docs landed in segments? but we can't detect
+		// all cases, and we should leave this behavior undefined. dv is
+		// not "schemaless": it's column-stride.
+		p.writers = make(map[string]DocValuesWriter)
+		success = true
+	}
+	return nil
 }
 
 func (p *DocValuesProcessor) abort() {

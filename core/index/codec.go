@@ -273,7 +273,9 @@ rather than "push", and the implementation is free to iterate over
 the values multiple times.
 3. After all fields are added, the consumer is closed.
 */
-type DocValuesConsumer interface{}
+type DocValuesConsumer interface {
+	io.Closer
+}
 
 // codecs/StoredFieldsFormat.java
 
