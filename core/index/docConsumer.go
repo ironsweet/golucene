@@ -46,6 +46,7 @@ type DocFieldProcessor struct {
 func newDocFieldProcessor(docWriter *DocumentsWriterPerThread,
 	consumer DocFieldConsumer, storedConsumer StoredFieldsConsumer) *DocFieldProcessor {
 
+	assert(storedConsumer != nil)
 	return &DocFieldProcessor{
 		fieldHash:      make([]*DocFieldProcessorPerField, 2),
 		docState:       docWriter.docState,

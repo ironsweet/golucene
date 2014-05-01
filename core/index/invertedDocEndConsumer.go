@@ -1,6 +1,7 @@
 package index
 
 type InvertedDocEndConsumer interface {
+	flush(fieldsToHash map[string]InvertedDocEndConsumerPerField, state SegmentWriteState) error
 	abort()
 }
 
@@ -13,3 +14,7 @@ type NormsConsumer struct {
 }
 
 func (nc *NormsConsumer) abort() {}
+
+func (nc *NormsConsumer) flush(fieldsToFlush map[string]InvertedDocEndConsumerPerField, state SegmentWriteState) error {
+	panic("not implemented yet")
+}

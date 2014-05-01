@@ -1,5 +1,9 @@
 package index
 
+import (
+	"github.com/balzaczyy/golucene/core/index/model"
+)
+
 type DocFieldConsumer interface {
 	// Called when DWPT decides to create a new segment
 	flush(fieldsToFlush map[string]DocFieldConsumerPerField, state SegmentWriteState) error
@@ -27,7 +31,18 @@ func newDocInverter(docState *docState, consumer InvertedDocConsumer,
 }
 
 func (di *DocInverter) flush(fieldsToFlush map[string]DocFieldConsumerPerField, state SegmentWriteState) error {
-	panic("not implemented yet")
+	childFieldsToFlush := make(map[string]InvertedDocConsumerPerField)
+	endChildFieldsToFlush := make(map[string]InvertedDocEndConsumerPerField)
+	for k, v := range fieldsToFlush {
+		perField := v.(*DocInverterPerField)
+		childFieldsToFlush[k] = perField.consumer
+		endChildFieldsToFlush[k] = perField.endConsumer
+	}
+	err := di.consumer.flush(childFieldsToFlush, state)
+	if err == nil {
+		err = di.endConsumer.flush(endChildFieldsToFlush, state)
+	}
+	return err
 }
 
 func (di *DocInverter) startDocument() {
@@ -44,4 +59,35 @@ func (di *DocInverter) abort() {
 	defer di.endConsumer.abort()
 	di.consumer.abort()
 
+}
+
+// index/InvertedDocConsumerPerField.java
+
+type InvertedDocConsumerPerField interface {
+	// Called on hitting an aborting error
+	abort()
+}
+
+// index/InvertedDocEndConsumerPerField.java
+
+type InvertedDocEndConsumerPerField interface {
+	// finish() error
+	abort()
+}
+
+// index/DocInverterPerField.java
+
+type DocInverterPerField struct {
+	_fieldInfo  model.FieldInfo
+	consumer    InvertedDocConsumerPerField
+	endConsumer InvertedDocEndConsumerPerField
+}
+
+func (dipf *DocInverterPerField) abort() {
+	defer dipf.endConsumer.abort()
+	dipf.consumer.abort()
+}
+
+func (dipf *DocInverterPerField) fieldInfo() model.FieldInfo {
+	return dipf._fieldInfo
 }

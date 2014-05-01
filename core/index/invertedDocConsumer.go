@@ -7,6 +7,8 @@ import (
 type InvertedDocConsumer interface {
 	// Abort (called after hitting abort error)
 	abort()
+	// Flush a new segment
+	flush(fieldsToHash map[string]InvertedDocConsumerPerField, state SegmentWriteState) error
 }
 
 /*
@@ -71,4 +73,8 @@ func (hash *TermsHash) reset() {
 	// we don't reuse so we drop everything and don't fill with 0
 	hash.intPool.Reset(false, false)
 	hash.bytePool.Reset(false, false)
+}
+
+func (hash *TermsHash) flush(fieldsToFlush map[string]InvertedDocConsumerPerField, state SegmentWriteState) error {
+	panic("not implemented yet")
 }

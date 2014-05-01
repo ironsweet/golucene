@@ -263,10 +263,7 @@ func (w *CompressingStoredFieldsWriter) flush() error {
 }
 
 func (w *CompressingStoredFieldsWriter) Abort() {
-	if w == nil {
-		fmt.Println("Nil class pointer encountered.")
-		return
-	}
+	assert(w != nil)
 	util.CloseWhileSuppressingError(w)
 	util.DeleteFilesIgnoringErrors(w.directory,
 		util.SegmentFileName(w.segment, w.segmentSuffix, lucene40.FIELDS_EXTENSION),
