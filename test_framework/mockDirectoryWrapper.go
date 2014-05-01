@@ -666,7 +666,7 @@ func (w *MockDirectoryWrapper) Close() error {
 	if w.checkIndexOnClose {
 		w.randomErrorRate = 0
 		w.randomErrorRateOnOpen = 0
-		files, err := w.listAll()
+		files, err := w._ListAll()
 		if err != nil {
 			return err
 		}
@@ -684,7 +684,7 @@ func (w *MockDirectoryWrapper) Close() error {
 			// TODO: factor this out / share w/ TestIW.assertNoUnreferencedFiles
 			if w.assertNoUnreferencedFilesOnClose {
 				// now look for unreferenced files: discount ones that we tried to delete but could not
-				all, err := w.ListAll()
+				all, err := w._ListAll()
 				if err != nil {
 					return err
 				}
@@ -876,10 +876,10 @@ func (w *MockDirectoryWrapper) maybeThrowDeterministicException() error {
 func (w *MockDirectoryWrapper) ListAll() ([]string, error) {
 	w.Lock() // synchronized
 	defer w.Unlock()
-	return w.listAll()
+	return w._ListAll()
 }
 
-func (w *MockDirectoryWrapper) listAll() ([]string, error) {
+func (w *MockDirectoryWrapper) _ListAll() ([]string, error) {
 	w.maybeYield()
 	return w.Directory.ListAll()
 }
