@@ -212,6 +212,7 @@ The lifecycle is:
 for the field.
 */
 type FieldsConsumer interface {
+	io.Closer
 }
 
 // codecs/DocValuesFormat.java

@@ -1,5 +1,9 @@
 package index
 
+import (
+	"github.com/balzaczyy/golucene/core/util"
+)
+
 // index/InvertedDocConsumerPerField.java
 
 type InvertedDocConsumerPerField interface {
@@ -10,7 +14,19 @@ type InvertedDocConsumerPerField interface {
 type TermsHashPerField struct {
 	consumer TermsHashConsumerPerField
 
+	termsHash *TermsHash
+
 	nextPerField *TermsHashPerField
+
+	bytesHash *util.BytesRefHash
+}
+
+func (h *TermsHashPerField) shrinkHash(targetSize int) {
+	panic("not implemented yet")
+}
+
+func (h *TermsHashPerField) reset() {
+	panic("not implemented yet")
 }
 
 func (h *TermsHashPerField) abort() {

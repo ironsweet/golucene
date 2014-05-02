@@ -96,6 +96,3 @@ func (hash *TermsHash) flush(fieldsToFlush map[string]InvertedDocConsumerPerFiel
 	}
 	return err
 }
-
-type TermsHashConsumerPerField interface {
-}
