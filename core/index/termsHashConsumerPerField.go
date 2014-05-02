@@ -7,6 +7,16 @@ import (
 type TermsHashConsumerPerField interface {
 }
 
+// index/TermVectorsConsumerPerField.java
+
+type TermVectorsConsumerPerField struct {
+	termsHashPerField *TermsHashPerField
+}
+
+func (c *TermVectorsConsumerPerField) shrinkHash() {
+	panic("not implemented yet")
+}
+
 // TODO: break into separate freq and prox writers as codes; make
 // separate container (tii/tis/skip/*) that can be configured as any
 // number of files 1..N

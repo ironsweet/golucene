@@ -364,9 +364,23 @@ verification/sanity-checks.
 6. Finally the writer is closed.
 */
 type TermVectorsWriter interface {
+	io.Closer
+	// Called before writing the term vectors of the document.
+	// startField() will be called numVectorsFields times. Note that if
+	// term vectors are enabled, this is called even if the document
+	// has no vector fields, in this case numVectorFields will be zero.
+	startDocument(int)
+	// Called after a doc and all its fields have been added
+	finishDocument() error
 	// Aborts writing entirely, implementation should remove any
 	// partially-written files, etc.
 	abort()
+	// Called before Close(), passing in the number of documents that
+	// were written. Note that this is intentionally redendant
+	// (equivalent to the number of calls to startDocument(int)), but a
+	// Codec should check that this is the case to detect the JRE bug
+	// described in LUCENE-1282.
+	finish(model.FieldInfos, int) error
 }
 
 // codecs/FieldInfosFormat.java

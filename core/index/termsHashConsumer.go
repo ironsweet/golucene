@@ -34,8 +34,52 @@ func newTermVectorsConsumer(docWriter *DocumentsWriterPerThread) *TermVectorsCon
 	}
 }
 
-func (tvc *TermVectorsConsumer) flush(fieldsToFlush map[string]TermsHashConsumerPerField, state SegmentWriteState) error {
-	panic("not implemented yet")
+func (tvc *TermVectorsConsumer) flush(fieldsToFlush map[string]TermsHashConsumerPerField,
+	state SegmentWriteState) (err error) {
+	if tvc.writer != nil {
+		numDocs := state.segmentInfo.DocCount()
+		assert(numDocs > 0)
+		// At least one doc in this run had term vectors enabled
+		func() {
+			defer func() {
+				err = mergeError(err, util.Close(tvc.writer))
+				tvc.writer = nil
+				tvc.lastDocId = 0
+				tvc.hasVectors = false
+			}()
+
+			err = tvc.fill(numDocs)
+			if err == nil {
+				err = tvc.writer.finish(state.fieldInfos, numDocs)
+			}
+		}()
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, field := range fieldsToFlush {
+		perField := field.(*TermVectorsConsumerPerField)
+		perField.termsHashPerField.reset()
+		perField.shrinkHash()
+	}
+	return
+}
+
+/*
+Fills in no-term-vectors for all docs we haven't seen since the last
+doc that had term vectors.
+*/
+func (c *TermVectorsConsumer) fill(docId int) error {
+	for c.lastDocId < docId {
+		c.writer.startDocument(0)
+		err := c.writer.finishDocument()
+		if err != nil {
+			return err
+		}
+		c.lastDocId++
+	}
+	return nil
 }
 
 func (tvc *TermVectorsConsumer) abort() {
