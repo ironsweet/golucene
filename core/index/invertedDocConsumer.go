@@ -76,5 +76,26 @@ func (hash *TermsHash) reset() {
 }
 
 func (hash *TermsHash) flush(fieldsToFlush map[string]InvertedDocConsumerPerField, state SegmentWriteState) error {
-	panic("not implemented yet")
+	childFields := make(map[string]TermsHashConsumerPerField)
+	var nextChildFieldFields map[string]InvertedDocConsumerPerField
+	if hash.nextTermsHash != nil {
+		nextChildFieldFields = make(map[string]InvertedDocConsumerPerField)
+	}
+
+	for k, v := range fieldsToFlush {
+		perField := v.(*TermsHashPerField)
+		childFields[k] = perField.consumer
+		if hash.nextTermsHash != nil {
+			nextChildFieldFields[k] = perField.nextPerField
+		}
+	}
+
+	err := hash.consumer.flush(childFields, state)
+	if err == nil && hash.nextTermsHash != nil {
+		err = hash.nextTermsHash.flush(nextChildFieldFields, state)
+	}
+	return err
+}
+
+type TermsHashConsumerPerField interface {
 }
