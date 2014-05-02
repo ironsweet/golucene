@@ -3,6 +3,7 @@ package index
 type InvertedDocEndConsumer interface {
 	flush(fieldsToHash map[string]InvertedDocEndConsumerPerField, state SegmentWriteState) error
 	abort()
+	startDocument()
 }
 
 /*
@@ -18,3 +19,7 @@ func (nc *NormsConsumer) abort() {}
 func (nc *NormsConsumer) flush(fieldsToFlush map[string]InvertedDocEndConsumerPerField, state SegmentWriteState) error {
 	panic("not implemented yet")
 }
+
+func (nc *NormsConsumer) finishDocument() {}
+
+func (nc *NormsConsumer) startDocument() {}

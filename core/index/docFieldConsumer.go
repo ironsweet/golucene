@@ -46,9 +46,13 @@ func (di *DocInverter) flush(fieldsToFlush map[string]DocFieldConsumerPerField, 
 }
 
 func (di *DocInverter) startDocument() {
-	// di.consumer.startDocument()
-	// di.endConsumer.startDocument()
-	panic("not implemented yet")
+	// err := di.consumer.startDocument()
+	// if err == nil {
+	// 	err = di.endConsumer.startDocument()
+	// }
+	// return err
+	di.consumer.startDocument()
+	di.endConsumer.startDocument()
 }
 
 func (di *DocInverter) finishDocument() error {

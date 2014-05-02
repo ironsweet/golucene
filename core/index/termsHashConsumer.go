@@ -9,6 +9,7 @@ import (
 type TermsHashConsumer interface {
 	flush(map[string]TermsHashConsumerPerField, SegmentWriteState) error
 	abort()
+	startDocument()
 }
 
 // index/TermVectorsConsumer.java
@@ -22,6 +23,8 @@ type TermVectorsConsumer struct {
 	numVectorsFields int
 	lastDocId        int
 	perFields        []*TermVectorsConsumerPerField
+
+	lastVectorFieldName string
 }
 
 func newTermVectorsConsumer(docWriter *DocumentsWriterPerThread) *TermVectorsConsumer {
@@ -50,6 +53,16 @@ func (tvc *TermVectorsConsumer) abort() {
 func (tvc *TermVectorsConsumer) reset() {
 	tvc.perFields = nil
 	tvc.numVectorsFields = 0
+}
+
+func (c *TermVectorsConsumer) startDocument() {
+	assert(c.clearLastVectorFieldName())
+	c.reset()
+}
+
+func (c *TermVectorsConsumer) clearLastVectorFieldName() bool {
+	c.lastVectorFieldName = ""
+	return true
 }
 
 // index/FreqProxTermsWriter.java
@@ -136,3 +149,5 @@ func (a FreqProxTermsWriterPerFields) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a FreqProxTermsWriterPerFields) Less(i, j int) bool {
 	return a[i].fieldInfo.Name < a[j].fieldInfo.Name
 }
+
+func (w *FreqProxTermsWriter) startDocument() {}
