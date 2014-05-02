@@ -32,11 +32,11 @@ func (pf *PerFieldPostingsFormat) Name() string {
 	return "PerField40"
 }
 
-func (pf *PerFieldPostingsFormat) FieldsConsumer(state SegmentWriteState) (w FieldsConsumer, err error) {
-	panic("not implemented yet")
+func (pf *PerFieldPostingsFormat) FieldsConsumer(state SegmentWriteState) (FieldsConsumer, error) {
+	return newPerFieldPostingsWriter(state), nil
 }
 
-func (pf *PerFieldPostingsFormat) FieldsProducer(state SegmentReadState) (r FieldsProducer, err error) {
+func (pf *PerFieldPostingsFormat) FieldsProducer(state SegmentReadState) (FieldsProducer, error) {
 	return newPerFieldPostingsReader(state)
 }
 
@@ -44,6 +44,37 @@ const (
 	PER_FIELD_FORMAT_KEY = "PerFieldPostingsFormat.format"
 	PER_FIELD_SUFFIX_KEY = "PerFieldPostingsFormat.suffix"
 )
+
+type FieldsConsumerAndSuffix struct {
+	consumer FieldsConsumer
+	suffix   int
+}
+
+func (fcas *FieldsConsumerAndSuffix) Close() error {
+	return fcas.consumer.Close()
+}
+
+type PerFieldPostingsWriter struct {
+	formats           map[PostingsFormat]*FieldsConsumerAndSuffix
+	suffixes          map[string]int
+	segmentWriteState SegmentWriteState
+}
+
+func newPerFieldPostingsWriter(state SegmentWriteState) FieldsConsumer {
+	return &PerFieldPostingsWriter{
+		make(map[PostingsFormat]*FieldsConsumerAndSuffix),
+		make(map[string]int),
+		state,
+	}
+}
+
+func (w *PerFieldPostingsWriter) Close() error {
+	var subs []io.Closer
+	for _, v := range w.formats {
+		subs = append(subs, v)
+	}
+	return util.Close(subs...)
+}
 
 type PerFieldPostingsReader struct {
 	fields  map[string]FieldsProducer
