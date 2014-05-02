@@ -210,3 +210,19 @@ func (sorter *TimSorter) sort(from, to int) {
 	sorter.exhaustStack()
 	assert(sorter.runEnd(0) == to)
 }
+
+// util/IntroSorter.java
+
+/*
+Sorter implementation based on a variant of the quicksort algorithm
+called introsort: when the recursion level exceeds the log of the
+length of the array to sort, it falls back to heapsort. This revents
+quicksort from running into its worst-case quadratic runtime. Small
+arrays are sorted with insertion sort.
+*/
+type IntroSorter struct {
+}
+
+func (s *IntroSorter) Sort(from, to int) {
+	panic("not implemented yet")
+}
