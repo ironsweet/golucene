@@ -148,6 +148,7 @@ func (p *StoredFieldsProcessor) abort() {
 	p.reset()
 
 	if w := p.fieldsWriter; w != nil {
+		assert(w != nil)
 		w.Abort()
 		p.fieldsWriter = nil
 		p.lastDocId = 0

@@ -76,6 +76,7 @@ func (p *DocFieldProcessor) flush(state SegmentWriteState) error {
 	// alter the FieldInfo if necessary. E.g., FreqProxTermsWriter does
 	// this with FieldInfo.storePayload.
 	infosWriter := p.codec.FieldInfosFormat().FieldInfosWriter()
+	assert(infosWriter != nil)
 	return infosWriter(state.directory, state.segmentInfo.Name,
 		state.fieldInfos, store.IO_CONTEXT_DEFAULT)
 }

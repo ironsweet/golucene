@@ -263,7 +263,9 @@ func (w *CompressingStoredFieldsWriter) flush() error {
 }
 
 func (w *CompressingStoredFieldsWriter) Abort() {
-	assert(w != nil)
+	if w == nil { // tolerate early released pointer
+		return
+	}
 	util.CloseWhileSuppressingError(w)
 	util.DeleteFilesIgnoringErrors(w.directory,
 		util.SegmentFileName(w.segment, w.segmentSuffix, lucene40.FIELDS_EXTENSION),

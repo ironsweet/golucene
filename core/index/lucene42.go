@@ -117,7 +117,7 @@ type Lucene42FieldInfosFormat struct {
 func newLucene42FieldInfosFormat() *Lucene42FieldInfosFormat {
 	return &Lucene42FieldInfosFormat{
 		reader: Lucene42FieldInfosReader,
-		writer: nil,
+		writer: Lucene42FieldInfosWriter,
 	}
 }
 
@@ -263,6 +263,12 @@ func getDocValuesType(input store.IndexInput, b byte) (t model.DocValuesType, er
 		return model.DocValuesType(0), errors.New(
 			fmt.Sprintf("invalid docvalues byte: %v (resource=%v)", b, input))
 	}
+}
+
+// lucene42/Lucene42FieldInfosWriter.java
+var Lucene42FieldInfosWriter = func(dir store.Directory,
+	segName string, infos model.FieldInfos, ctx store.IOContext) error {
+	panic("not implemented yet")
 }
 
 // lucene42/Lucene42TermVectorsFormat.java
