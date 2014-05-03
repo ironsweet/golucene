@@ -276,6 +276,8 @@ the values multiple times.
 */
 type DocValuesConsumer interface {
 	io.Closer
+	// Writes numeric docvalues for a field.
+	AddNumericField(model.FieldInfo, func() (int, bool)) error
 }
 
 // codecs/StoredFieldsFormat.java

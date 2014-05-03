@@ -65,13 +65,6 @@ func (di *DocInverter) abort() {
 
 }
 
-// index/InvertedDocEndConsumerPerField.java
-
-type InvertedDocEndConsumerPerField interface {
-	// finish() error
-	abort()
-}
-
 // index/DocInverterPerField.java
 
 type DocInverterPerField struct {

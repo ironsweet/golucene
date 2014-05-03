@@ -1,5 +1,10 @@
 package index
 
+import (
+	"github.com/balzaczyy/golucene/core/index/model"
+	"github.com/balzaczyy/golucene/core/util"
+)
+
 type InvertedDocEndConsumer interface {
 	flush(fieldsToHash map[string]InvertedDocEndConsumerPerField, state SegmentWriteState) error
 	abort()
@@ -16,8 +21,46 @@ type NormsConsumer struct {
 
 func (nc *NormsConsumer) abort() {}
 
-func (nc *NormsConsumer) flush(fieldsToFlush map[string]InvertedDocEndConsumerPerField, state SegmentWriteState) error {
-	panic("not implemented yet")
+func (nc *NormsConsumer) flush(fieldsToFlush map[string]InvertedDocEndConsumerPerField,
+	state SegmentWriteState) (err error) {
+	var success = false
+	var normsConsumer DocValuesConsumer
+	defer func() {
+		if success {
+			err = mergeError(err, util.Close(normsConsumer))
+		} else {
+			util.CloseWhileSuppressingError(normsConsumer)
+		}
+	}()
+
+	if state.fieldInfos.HasNorms {
+		normsFormat := state.segmentInfo.Codec().(Codec).NormsFormat()
+		assert(normsFormat != nil)
+		normsConsumer, err = normsFormat.NormsConsumer(state)
+		if err != nil {
+			return err
+		}
+
+		for _, fi := range state.fieldInfos.Values {
+			toWrite := fieldsToFlush[fi.Name].(*NormsConsumerPerField)
+			// we must check the final value of omitNorms for the fieldinfo,
+			// it could have changed for this field since the first time we
+			// added it.
+			if !fi.OmitsNorms() {
+				if toWrite != nil && !toWrite.isEmpty() {
+					err = toWrite.flush(state, normsConsumer)
+					if err != nil {
+						return err
+					}
+					assert(fi.NormType() == model.DOC_VALUES_TYPE_NUMERIC)
+				} else if fi.IsIndexed() {
+					assertn(int(fi.NormType()) == 0, "got %v; field=%v", fi.NormType(), fi.Name)
+				}
+			}
+		}
+	}
+	success = true
+	return nil
 }
 
 func (nc *NormsConsumer) finishDocument() {}
