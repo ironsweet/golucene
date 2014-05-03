@@ -49,6 +49,11 @@ func (info FieldInfo) HasDocValues() bool {
 	return int(info.docValueType) != 0
 }
 
+/* Returns DocValueType of the docValues. This may be 0 if the fiel dhas no docValues. */
+func (info FieldInfo) DocValuesType() DocValuesType {
+	return info.docValueType
+}
+
 /* Returns DocValuesType of the norm. This may be 0 if the field has no norms. */
 func (info FieldInfo) NormType() DocValuesType {
 	return info.normType

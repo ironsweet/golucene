@@ -267,8 +267,89 @@ func getDocValuesType(input store.IndexInput, b byte) (t model.DocValuesType, er
 
 // lucene42/Lucene42FieldInfosWriter.java
 var Lucene42FieldInfosWriter = func(dir store.Directory,
-	segName string, infos model.FieldInfos, ctx store.IOContext) error {
-	panic("not implemented yet")
+	segName string, infos model.FieldInfos, ctx store.IOContext) (err error) {
+
+	fileName := util.SegmentFileName(segName, "", LUCENE42_FI_EXTENSION)
+	var output store.IndexOutput
+	output, err = dir.CreateOutput(fileName, ctx)
+	if err != nil {
+		return err
+	}
+
+	var success = false
+	defer func() {
+		if success {
+			err = mergeError(err, output.Close())
+		} else {
+			util.CloseWhileSuppressingError(output)
+		}
+	}()
+
+	err = codec.WriteHeader(output, LUCENE42_FI_CODEC_NAME, LUCENE42_FI_FORMAT_CURRENT)
+	if err != nil {
+		return err
+	}
+	err = output.WriteVInt(int32(len(infos.Values)))
+	if err != nil {
+		return err
+	}
+	for _, fi := range infos.Values {
+		indexOptions := fi.IndexOptions()
+		bits := byte(0x0)
+		switch {
+		case fi.HasVectors():
+			bits |= LUCENE42_FI_STORE_TERMVECTOR
+		case fi.OmitsNorms():
+			bits |= LUCENE42_FI_OMIT_NORMS
+		case fi.HasPayloads():
+			bits |= LUCENE42_FI_STORE_PAYLOADS
+		case fi.IsIndexed():
+			bits |= LUCENE42_FI_IS_INDEXED
+			assert(int(indexOptions) >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS) || !fi.HasPayloads())
+			switch indexOptions {
+			case model.INDEX_OPT_DOCS_ONLY:
+				bits |= LUCENE42_FI_OMIT_TERM_FREQ_AND_POSITIONS
+			case model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS:
+				bits |= LUCENE42_FI_STORE_OFFSETS_IN_POSTINGS
+			case model.INDEX_OPT_DOCS_AND_FREQS:
+				bits |= LUCENE42_FI_OMIT_POSITIONS
+			}
+		}
+		err = output.WriteString(fi.Name)
+		if err != nil {
+			return err
+		}
+		err = output.WriteVInt(fi.Number)
+		if err != nil {
+			return err
+		}
+		err = output.WriteByte(bits)
+		if err != nil {
+			return err
+		}
+
+		// pack the DV types in one byte
+		dv := docValuesByte(fi.DocValuesType())
+		nrm := docValuesByte(fi.NormType())
+		assert((int(dv)&(^0xF)) == 0 && (int(nrm)&(^0x0F)) == 0)
+		val := byte(0xFF & ((nrm << 4) | dv))
+		err = output.WriteByte(val)
+		if err != nil {
+			return err
+		}
+		err = output.WriteStringStringMap(fi.Attributes())
+		if err != nil {
+			return err
+		}
+	}
+	success = true
+	return nil
+}
+
+func docValuesByte(typ model.DocValuesType) byte {
+	n := byte(typ)
+	assert(n >= 0 && n <= 4)
+	return n
 }
 
 // lucene42/Lucene42TermVectorsFormat.java
