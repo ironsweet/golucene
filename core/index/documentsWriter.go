@@ -514,14 +514,17 @@ func (dw *DocumentsWriter) putEvent(event Event) {
 	dw.events.PushBack(event)
 }
 
-func (dw *DocumentsWriter) processEvents(writer *IndexWriter, triggerMerge, forcePurge bool) bool {
+func (dw *DocumentsWriter) processEvents(writer *IndexWriter,
+	triggerMerge, forcePurge bool) (processed bool, err error) {
 	dw.eventsLock.RLock()
 	defer dw.eventsLock.RUnlock()
 
-	processed := false
 	for e := dw.events.Front(); e != nil; e = e.Next() {
 		processed = true
-		e.Value.(Event)(writer, triggerMerge, forcePurge)
+		err = e.Value.(Event)(writer, triggerMerge, forcePurge)
+		if err != nil {
+			break
+		}
 	}
-	return processed
+	return
 }

@@ -102,6 +102,16 @@ func newBufferedDeletesStream(infoStream util.InfoStream) *BufferedDeletesStream
 	}
 }
 
+func (ds *BufferedDeletesStream) clear() {
+	ds.Lock()
+	defer ds.Unlock()
+
+	ds.deletes = nil
+	ds.nextGen = 1
+	atomic.StoreInt32(&ds.numTerms, 0)
+	atomic.StoreInt64(&ds.bytesUsed, 0)
+}
+
 func (ds *BufferedDeletesStream) any() bool {
 	return atomic.LoadInt64(&ds.bytesUsed) != 0
 }

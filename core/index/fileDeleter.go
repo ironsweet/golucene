@@ -306,6 +306,13 @@ func (fd *IndexFileDeleter) refresh(segmentName string) error {
 	return nil
 }
 
+func (fd *IndexFileDeleter) refreshList() error {
+	// set to nil so that we regenerate the list of pending files;
+	// else we can accumulate some file more than once
+	fd.deletable = nil
+	return fd.refresh("")
+}
+
 func (fd *IndexFileDeleter) Close() error {
 	// DecRef old files from the last checkpoint, if any:
 	// assert locked
@@ -443,6 +450,10 @@ func (fd *IndexFileDeleter) decRefFile(filename string) {
 		fd.deleteFile(filename)
 		delete(fd.refCounts, filename)
 	}
+}
+
+func (del *IndexFileDeleter) decRefInfos(infos *SegmentInfos) {
+	del.decRefFiles(infos.files(del.directory, false))
 }
 
 // 529

@@ -852,6 +852,97 @@ func (w *IndexWriter) Rollback() error {
 }
 
 func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "rollback")
+	}
+
+	err = func() error {
+		var success = false
+		defer func() {
+			if w.infoStream.IsEnabled("IW") {
+				w.infoStream.Message("IW", "hit error during rollback")
+			}
+		}()
+
+		func() {
+			w.Lock()
+			defer w.Unlock()
+
+			w.finishMerges(false)
+			w.stopMerges = true
+		}()
+
+		if w.infoStream.IsEnabled("IW") {
+			w.infoStream.Message("IW", "rollback: done finish merges")
+		}
+
+		// Must pre-close these two, in case they increment changeCount
+		// so that we can then set it to false before calling closeInternal
+		w.mergePolicy.Close()
+		err = w.mergeScheduler.Close()
+		if err != nil {
+			return err
+		}
+
+		w.bufferedDeletesStream.clear()
+		_, err = w.docWriter.processEvents(w, false, true)
+		if err != nil {
+			return err
+		}
+		w.docWriter.close()  // mark it as closed first to prevent subsequent indexing actions/flushes
+		w.docWriter.abort(w) // don't sync on IW here
+
+		err = func() error {
+			w.Lock()
+			defer w.Unlock()
+
+			if w.pendingCommit != nil {
+				w.pendingCommit.rollbackCommit(w.directory)
+				w.deleter.decRefInfos(w.pendingCommit)
+				w.pendingCommit = nil
+			}
+
+			// Don't bother saving any changes in our segmentInfos
+			err = w.readerPool.dropAll(false)
+			if err != nil {
+				return err
+			}
+
+			// Keep the same segmentInfos instance but replace all of its
+			// SegmentInfo instances. This is so the next attempt to commit
+			// using this instance of IndexWriter will always write to a
+			// new generation ("write once").
+			w.segmentInfos.rollbackSegmentInfos(w.rollbackSegments)
+			if w.infoStream.IsEnabled("IW") {
+				w.infoStream.Message("IW", "rollback: infos=%v", w.readerPool.segmentsToString(w.segmentInfos.Segments))
+			}
+
+			w.testPoint("rollback before checkpoint")
+
+			// Ask deleter to locate unreferenced files & remove them:
+			err = w.deleter.checkpoint(w.segmentInfos, false)
+			if err == nil {
+				err = w.deleter.refreshList()
+			}
+
+			success = err != nil
+			return err
+		}()
+		if err != nil {
+			return err
+		}
+
+		success = true
+		return nil
+	}()
+
+	if err == nil {
+		ok, err = w.closeInternal(false, false)
+	}
+	return
+}
+
+func (w *IndexWriter) finishMerges(waitForMerges bool) {
 	panic("not implemented yet")
 }
 
