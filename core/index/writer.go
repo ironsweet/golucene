@@ -942,10 +942,6 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 	return
 }
 
-func (w *IndexWriter) finishMerges(waitForMerges bool) {
-	panic("not implemented yet")
-}
-
 /*
 Called whenever the SegmentInfos has been updatd and the index files
 referenced exist (correctly) in the index directory.
