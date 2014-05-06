@@ -144,11 +144,14 @@ func (d *FSDirectory) ensureCanWrite(name string) error {
 		return errors.New(fmt.Sprintf("Cannot create directory %v: %v", d.path, err))
 	}
 
-	err = os.Remove(filepath.Join(d.path, name))
-	if err != nil {
-		return errors.New(fmt.Sprintf("Cannot overwrite %v/%v: %v", d.path, name, err))
+	filename := filepath.Join(d.path, name)
+	_, err = os.Stat(filename)
+	if os.IsExist(err) {
+		err = os.Remove(filename)
+		if err != nil {
+			return errors.New(fmt.Sprintf("Cannot overwrite %v/%v: %v", d.path, name, err))
+		}
 	}
-
 	return nil
 }
 

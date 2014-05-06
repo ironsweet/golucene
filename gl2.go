@@ -41,7 +41,12 @@ func main() {
 			t.Error(err)
 		}
 		if writer != nil {
-			defer writer.Close()
+			defer func() {
+				err := writer.Close()
+				if err != nil {
+					fmt.Println(err)
+				}
+			}()
 		}
 
 		// d := index.NewDocument()
