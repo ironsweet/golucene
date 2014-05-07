@@ -62,6 +62,7 @@ type ConcurrentMergeScheduler struct {
 	suppressErrors bool
 
 	chRequest            chan *MergeJob
+	chSync               chan *sync.WaitGroup
 	concurrentMergeCount int32 // atomic
 }
 
@@ -69,6 +70,7 @@ func NewConcurrentMergeScheduler() *ConcurrentMergeScheduler {
 	cms := &ConcurrentMergeScheduler{
 		Locker:    &sync.Mutex{},
 		chRequest: make(chan *MergeJob),
+		chSync:    make(chan *sync.WaitGroup),
 	}
 	cms.SetMaxMergesAndRoutines(DEFAULT_MAX_MERGE_COUNT, DEFAULT_MAX_ROUTINE_COUNT)
 	return cms
@@ -85,13 +87,19 @@ witout explicit synchronizations and waitings.
 Note, however, change of merge count won't pause/resume workers.
 */
 func (cms *ConcurrentMergeScheduler) worker(id int) {
-	log.Printf("CMS Worker %v is started.", id)
-	for id < cms.maxRoutineCount {
+	fmt.Printf("CMS Worker %v is started.\n", id)
+	var isRunning = true
+	var wg *sync.WaitGroup
+	for isRunning && id < cms.maxRoutineCount {
 		select {
 		case job := <-cms.chRequest:
 			cms.process(job)
+		case wg = <-cms.chSync:
+			isRunning = false
+			defer wg.Done()
 		}
 	}
+	fmt.Printf("CMS Worker %v is stopped.\n", id)
 }
 
 func (cms *ConcurrentMergeScheduler) process(job *MergeJob) {
@@ -166,7 +174,13 @@ Wait for any running merge threads to finish. This call is not
 Interruptible as used by Close()
 */
 func (cms *ConcurrentMergeScheduler) sync() {
-	panic("not implemented yet")
+	wg := new(sync.WaitGroup)
+	for i := 0; i < cms.maxRoutineCount; i++ {
+		fmt.Println("DEBUG ", i)
+		wg.Add(1)
+		cms.chSync <- wg
+	}
+	wg.Wait()
 }
 
 func (cms *ConcurrentMergeScheduler) Merge(writer *IndexWriter) error {
