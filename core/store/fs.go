@@ -102,7 +102,7 @@ func (d *FSDirectory) ListAll() (paths []string, err error) {
 func (d *FSDirectory) FileExists(name string) bool {
 	d.EnsureOpen()
 	_, err := os.Stat(name)
-	return err != nil
+	return os.IsExist(err)
 }
 
 // Returns the length in bytes of a file in the directory.
