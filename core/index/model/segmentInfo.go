@@ -52,6 +52,11 @@ func (si *SegmentInfo) HasSeparateNorms() bool {
 	return false
 }
 
+/* Mark whether this segment is stored as a compound file. */
+func (si *SegmentInfo) SetUseCompoundFile(isCompoundFile bool) {
+	si.isCompoundFile = isCompoundFile
+}
+
 /* Returns true if this segment is stored as a compound file */
 func (si *SegmentInfo) IsCompoundFile() bool {
 	return si.isCompoundFile

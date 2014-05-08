@@ -1573,7 +1573,7 @@ file.
 */
 func createCompoundFile(infoStream util.InfoStream,
 	directory store.Directory,
-	checkAbort *CheckAbort,
+	checkAbort CheckAbort,
 	info *model.SegmentInfo,
 	context store.IOContext) (names []string, err error) {
 	panic("not implemented yet")

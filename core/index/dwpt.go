@@ -428,7 +428,16 @@ func (dwpt *DocumentsWriterPerThread) sealFlushedSegment(flushedSegment *Flushed
 	}()
 
 	if dwpt.indexWriterConfig.useCompoundFile {
-		panic("not implemented yet")
+		files, err := createCompoundFile(
+			dwpt.infoStream, dwpt.directory,
+			CheckAbortNone(0), newSegment.info, context)
+		if err != nil {
+			return err
+		}
+		for _, file := range files {
+			dwpt.filesToDelete[file] = true
+		}
+		newSegment.info.SetUseCompoundFile(true)
 	}
 
 	// Have codec write SegmentInfo. Must do this after creating CFS so

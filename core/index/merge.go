@@ -27,8 +27,19 @@ type MergeScheduler interface {
 // index/MergeState.java
 
 // Recording units of work when merging segments.
-type CheckAbort struct {
+type CheckAbort interface {
+	// Records the fact that roughly units amount of work have been
+	// done since this method was last called. When adding
+	// time-consuming code into SegmentMerger, you should test
+	// different values for units to ensure that the time inbetwen
+	// calls to merge.checkAborted is up to ~ 1 second.
+	work(float64) error
 }
+
+/* If you use this: IW.close(false) cannot abort your merge! */
+type CheckAbortNone int
+
+func (ca CheckAbortNone) work(units float64) error { return nil } // do nothing
 
 // index/SerialMergeScheduler.java
 
