@@ -17,8 +17,8 @@ func CheckIndex(dir store.Directory, crossCheckTermVectors bool) *index.CheckInd
 	checker := index.NewCheckIndex(dir, crossCheckTermVectors, &buf)
 	indexStatus := checker.CheckIndex(nil)
 	if indexStatus == nil || !indexStatus.Clean {
-		log.Println("CheckIndex failed")
-		log.Println(buf.String())
+		fmt.Println("CheckIndex failed")
+		fmt.Println(buf.String())
 		panic("CheckIndex failed")
 	}
 	if INFOSTREAM {

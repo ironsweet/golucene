@@ -671,12 +671,12 @@ func (w *MockDirectoryWrapper) Close() error {
 			return err
 		}
 		if index.IsIndexFileExists(files) {
-			log.Println("\nNOTE: MockDirectoryWrapper: now crash")
+			fmt.Println("\nNOTE: MockDirectoryWrapper: now crash")
 			err = w._crash() // corrupt any unsynced-files
 			if err != nil {
 				return err
 			}
-			log.Println("\nNOTE: MockDirectoryWrapper: now run CheckIndex")
+			fmt.Println("\nNOTE: MockDirectoryWrapper: now run CheckIndex")
 			w.Unlock() // CheckIndex may access synchronized method
 			CheckIndex(w, w.crossCheckTermVectorsOnClose)
 			w.Lock() // CheckIndex may access synchronized method

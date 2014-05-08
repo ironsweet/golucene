@@ -101,8 +101,8 @@ func (d *FSDirectory) ListAll() (paths []string, err error) {
 
 func (d *FSDirectory) FileExists(name string) bool {
 	d.EnsureOpen()
-	_, err := os.Stat(name)
-	return os.IsExist(err)
+	_, err := os.Stat(filepath.Join(d.path, name))
+	return err == nil || os.IsExist(err)
 }
 
 // Returns the length in bytes of a file in the directory.
@@ -146,7 +146,7 @@ func (d *FSDirectory) ensureCanWrite(name string) error {
 
 	filename := filepath.Join(d.path, name)
 	_, err = os.Stat(filename)
-	if os.IsExist(err) {
+	if err == nil || os.IsExist(err) {
 		err = os.Remove(filename)
 		if err != nil {
 			return errors.New(fmt.Sprintf("Cannot overwrite %v/%v: %v", d.path, name, err))

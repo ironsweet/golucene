@@ -34,7 +34,7 @@ func (lock *SimpleFSLock) Obtain() (ok bool, err error) {
 			err = errors.New(fmt.Sprintf("Found regular file where directory expected: %v", lock.dir))
 			return
 		}
-	} else if !os.IsExist(err) {
+	} else if os.IsNotExist(err) {
 		err = os.Mkdir(lock.dir, 0600)
 		if err != nil { // IO error
 			return
@@ -61,7 +61,7 @@ func (lock *SimpleFSLock) IsLocked() bool {
 	if err == nil {
 		defer f.Close()
 	}
-	return os.IsExist(err)
+	return err == nil || os.IsExist(err)
 }
 
 func (lock *SimpleFSLock) String() string {

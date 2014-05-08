@@ -176,7 +176,6 @@ Interruptible as used by Close()
 func (cms *ConcurrentMergeScheduler) sync() {
 	wg := new(sync.WaitGroup)
 	for i := 0; i < cms.maxRoutineCount; i++ {
-		fmt.Println("DEBUG ", i)
 		wg.Add(1)
 		cms.chSync <- wg
 	}

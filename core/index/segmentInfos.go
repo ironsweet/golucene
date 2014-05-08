@@ -6,10 +6,14 @@ import (
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
 	"strconv"
 	"strings"
 )
+
+/* Prints the given message to the infoStream. */
+func message(format string, args ...interface{}) {
+	fmt.Printf("SIS: %v\n", fmt.Sprintf(format, args...))
+}
 
 type FindSegmentsFile struct {
 	directory                store.Directory
@@ -24,7 +28,7 @@ func NewFindSegmentsFile(directory store.Directory,
 
 // TODO support IndexCommit
 func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
-	log.Print("Finding segments file...")
+	fmt.Println("Finding segments file...")
 	// if commit != nil {
 	// 	if fsf.directory != commit.Directory {
 	// 		return nil, errors.New("the specified commit does not match the specified Directory")
@@ -57,9 +61,9 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 	// when necessary.
 
 	for {
-		log.Print("Trying...")
+		fmt.Println("Trying...")
 		if useFirstMethod {
-			log.Print("Trying first method...")
+			fmt.Println("Trying first method...")
 			// List the directory and use the highest
 			// segments_N file.  This method works well as long
 			// as there is no stale caching on the directory
@@ -75,11 +79,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 				genA = LastCommitGeneration(files)
 			}
 
-			// TODO support info stream
-			// if fsf.infoStream != nil {
-			// 	message("directory listing genA=" + genA)
-			// }
-			log.Printf("directory listing genA=%v", genA)
+			message("directory listing genA=%v", genA)
 
 			// Also open segments.gen and read its
 			// contents.  Then we take the larger of the two
@@ -89,20 +89,18 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 			genB := int64(-1)
 			genInput, err := fsf.directory.OpenInput(INDEX_FILENAME_SEGMENTS_GEN, store.IO_CONTEXT_READ)
 			if err != nil {
-				// if fsf.infoStream != nil {
-				log.Printf("segments.gen open: %v", err)
-				// }
+				message("segments.gen open: %v", err)
 			} else {
 				defer genInput.Close()
-				log.Print("Reading segments info...")
+				fmt.Println("Reading segments info...")
 
 				version, err := genInput.ReadInt()
 				if err != nil {
 					return nil, err
 				}
-				log.Printf("Version: %v", version)
+				fmt.Printf("Version: %v\n", version)
 				if version == FORMAT_SEGMENTS_GEN_CURRENT {
-					log.Print("Version is current.")
+					fmt.Println("Version is current.")
 					gen0, err := genInput.ReadLong()
 					if err != nil {
 						return nil, err
@@ -111,9 +109,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 					if err != nil {
 						return nil, err
 					} else {
-						// if fsf.infoStream != nil {
-						log.Printf("fallback check: %v; %v", gen0, gen1)
-						// }
+						message("fallback check: %v; %v", gen0, gen1)
 						if gen0 == gen1 {
 							// The file is consistent.
 							genB = gen0
@@ -125,9 +121,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 				}
 			}
 
-			// if fsf.infoStream != nil {
-			log.Printf("%v check: genB=%v", INDEX_FILENAME_SEGMENTS_GEN, genB)
-			// }
+			message("%v check: genB=%v", INDEX_FILENAME_SEGMENTS_GEN, genB)
 
 			// Pick the larger of the two gen's:
 			gen = genA
@@ -155,9 +149,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 			if genLookaheadCount < fsf.defaultGenLookaheadCount {
 				gen++
 				genLookaheadCount++
-				// if fsf.infoStream != nil {
-				log.Printf("look ahead increment gen to %v", gen)
-				// }
+				message("look ahead increment gen to %v", gen)
 			} else {
 				// All attempts have failed -- throw first exc:
 				return nil, exc
@@ -174,7 +166,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 
 		lastGen = gen
 		segmentFileName := util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", gen)
-		log.Printf("SegmentFileName: %v", segmentFileName)
+		fmt.Printf("SegmentFileName: %v\n", segmentFileName)
 
 		v, err := fsf.doBody(segmentFileName)
 		if err != nil {
@@ -183,10 +175,8 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 				exc = err
 			}
 
-			// if fsf.infoStream != nil {
-			log.Printf("primary Exception on '%v': %v; will retry: retryCount = %v; gen = %v",
+			message("primary Exception on '%v': %v; will retry: retryCount = %v; gen = %v",
 				segmentFileName, err, retryCount, gen)
-			// }
 
 			if gen > 1 && useFirstMethod && retryCount == 1 {
 				// This is our second time trying this same segments
@@ -197,26 +187,18 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 				prevSegmentFileName := util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", gen-1)
 
 				if prevExists := fsf.directory.FileExists(prevSegmentFileName); prevExists {
-					// if fsf.infoStream != nil {
-					log.Printf("fallback to prior segment file '%v'", prevSegmentFileName)
-					// }
+					message("fallback to prior segment file '%v'", prevSegmentFileName)
 					v, err = fsf.doBody(prevSegmentFileName)
 					if err != nil {
-						// if fsf.infoStream != nil {
-						log.Printf("secondary Exception on '%v': %v; will retry", prevSegmentFileName, err)
-						//}
+						message("secondary Exception on '%v': %v; will retry", prevSegmentFileName, err)
 					} else {
-						// if fsf.infoStream != nil {
-						log.Printf("success on fallback %v", prevSegmentFileName)
-						//}
+						message("success on fallback %v", prevSegmentFileName)
 						return v, nil
 					}
 				}
 			}
 		} else {
-			// if fsf.infoStream != nil {
-			log.Printf("success on %v", segmentFileName)
-			// }
+			message("success on %v", segmentFileName)
 			return v, nil
 		}
 	}
@@ -381,7 +363,7 @@ Read a particular segmentFileName. Note that this may return IO error
 if a commit is in process.
 */
 func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string) error {
-	log.Printf("Reading segment info from %v...", segmentFileName)
+	fmt.Printf("Reading segment info from %v...\n", segmentFileName)
 	success := false
 
 	// Clear any previous segments:
@@ -440,11 +422,9 @@ func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string)
 			if err != nil {
 				return err
 			}
-			if codecName != "Lucene42" {
-				log.Panicf("Not supported yet: %v", codecName)
-			}
+			assertn(codecName == "Lucene42", "Not supported yet: %v", codecName)
 			fCodec := LoadCodec(codecName)
-			log.Printf("SIS.read seg=%v codec=%v", seg, fCodec)
+			fmt.Printf("SIS.read seg=%v codec=%v\n", seg, fCodec)
 			info, err := fCodec.SegmentInfoFormat().SegmentInfoReader()(directory, segName, store.IO_CONTEXT_READ)
 			// method := NewLucene42Codec()
 			// info, err := method.ReadSegmentInfo(directory, segName, store.IO_CONTEXT_READ)
