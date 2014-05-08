@@ -1539,6 +1539,13 @@ func (w *IndexWriter) testPoint(message string) {
 	}
 }
 
+// L4356
+
+/* Called by DirectoryReader.doClose() */
+func (w *IndexWriter) deletePendingFiles() {
+	w.deleter.deletePendingFiles()
+}
+
 /*
 NOTE: this method creates a compound file for all files returned by
 info.files(). While, generally, this may include separate norms and

@@ -87,6 +87,7 @@ func IsIndexFileExists(files []string) bool {
 
 type StandardDirectoryReader struct {
 	*DirectoryReaderImpl
+	writer       *IndexWriter // NRT
 	segmentInfos *SegmentInfos
 }
 
@@ -172,5 +173,18 @@ func (r *StandardDirectoryReader) IsCurrent() bool {
 }
 
 func (r *StandardDirectoryReader) doClose() error {
-	panic("not implemented yet")
+	var firstErr error
+	for _, r := range r.getSequentialSubReaders() {
+		// try to close each reader, even if an error is returned
+		if err := r.decRef(); firstErr == nil {
+			firstErr = err
+		}
+	}
+
+	if w := r.writer; w != nil {
+		// Since we just closed, writer may now be able to delete unused files:
+		w.deletePendingFiles()
+	}
+
+	return firstErr
 }
