@@ -9,9 +9,11 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
+	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // index/IndexCommit.java
@@ -1367,7 +1369,20 @@ func setDiagnostics(info *model.SegmentInfo, source string) {
 }
 
 func setDiagnosticsAndDetails(info *model.SegmentInfo, source string, details map[string]string) {
-	panic("not implemented yet")
+	ans := map[string]string{
+		"source":         source,
+		"lucene.version": util.LUCENE_VERSION,
+		"os":             runtime.GOOS,
+		"os.arch":        runtime.GOARCH,
+		"go.version":     runtime.Version(),
+		"timestamp":      fmt.Sprintf("%v", time.Now().Unix()),
+	}
+	if details != nil {
+		for k, v := range details {
+			ans[k] = v
+		}
+	}
+	info.SetDiagnostics(ans)
 }
 
 // Returns a string description of all segments, for debugging.

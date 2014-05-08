@@ -22,6 +22,10 @@ type SegmentInfo struct {
 	*AttributesMixin
 }
 
+func (info *SegmentInfo) SetDiagnostics(diagnostics map[string]string) {
+	info.diagnostics = diagnostics
+}
+
 /* Returns diagnostics saved into the segment when it was written .*/
 func (info *SegmentInfo) Diagnostics() map[string]string {
 	return info.diagnostics
