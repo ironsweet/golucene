@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-type FileEntry struct {
+type FileSlice struct {
 	offset, length int64
 }
 
@@ -25,7 +25,7 @@ const (
 	COMPOUND_FILE_ENTRIES_EXTENSION = "cfe"
 )
 
-var SENTINEL = make(map[string]FileEntry)
+var SENTINEL = make(map[string]FileSlice)
 
 type CompoundFileDirectory struct {
 	*DirectoryImpl
@@ -34,7 +34,7 @@ type CompoundFileDirectory struct {
 	directory      Directory
 	fileName       string
 	readBufferSize int
-	entries        map[string]FileEntry
+	entries        map[string]FileSlice
 	openForWrite   bool
 	writer         *CompoundFileWriter
 	handle         IndexInputSlicer
@@ -150,7 +150,7 @@ func (d *CompoundFileDirectory) FileLength(name string) (n int64, err error) {
 
 func (d *CompoundFileDirectory) CreateOutput(name string, context IOContext) (out IndexOutput, err error) {
 	d.EnsureOpen()
-	panic("not implemented yet")
+	return d.writer.createOutput(name, context)
 }
 
 func (d *CompoundFileDirectory) Sync(names []string) error {
@@ -176,14 +176,14 @@ const (
 	CODEC_MAGIC_BYTE4 = byte(codec.CODEC_MAGIC & 0xFF)
 )
 
-func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping map[string]FileEntry, err error) {
+func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping map[string]FileSlice, err error) {
 	var stream, entriesStream IndexInput = nil, nil
 	defer func() {
 		err = util.CloseWhileHandlingError(err, stream, entriesStream)
 	}()
 	// read the first VInt. If it is negative, it's the version number
 	// otherwise it's the count (pre-3.1 indexes)
-	mapping = make(map[string]FileEntry)
+	mapping = make(map[string]FileSlice)
 	stream = handle.openFullSlice()
 	log.Printf("Reading from stream: %v", stream)
 	firstInt, err := stream.ReadVInt()
@@ -246,7 +246,7 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 			if err != nil {
 				return mapping, err
 			}
-			mapping[id] = FileEntry{offset, length}
+			mapping[id] = FileSlice{offset, length}
 		}
 	} else {
 		// TODO remove once 3.x is not supported anymore
