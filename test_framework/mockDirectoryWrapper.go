@@ -41,6 +41,8 @@ type MockDirectoryWrapper struct {
 	sync.Locker                     // simulate Java's synchronized keyword
 	myLockFactory store.LockFactory // overrides LockFactory
 
+	isLocked bool // workaround re-entrant lock
+
 	maxSize int64
 
 	// Max actual bytes used. This is set by MockRAMOutputStream
@@ -556,8 +558,10 @@ func (w *MockDirectoryWrapper) _addFileHandle(c io.Closer, name string, handle H
 }
 
 func (w *MockDirectoryWrapper) OpenInput(name string, context store.IOContext) (ii store.IndexInput, err error) {
-	w.Lock() // synchronized
-	defer w.Unlock()
+	if !w.isLocked {
+		w.Lock() // synchronized
+		defer w.Unlock()
+	}
 
 	if err = w.maybeThrowDeterministicException(); err != nil {
 		return
@@ -624,7 +628,11 @@ func (w *MockDirectoryWrapper) recomputeActualSizeInBytes() (int64, error) {
 
 func (w *MockDirectoryWrapper) Close() error {
 	w.Lock()
-	defer w.Unlock()
+	w.isLocked = true
+	defer func() {
+		w.isLocked = false
+		w.Unlock()
+	}()
 
 	// files that we tried to delete, but couldn't because reader were open
 	// all that matters is that we tried! (they will eventually go away)
@@ -874,8 +882,10 @@ func (w *MockDirectoryWrapper) maybeThrowDeterministicException() error {
 }
 
 func (w *MockDirectoryWrapper) ListAll() ([]string, error) {
-	w.Lock() // synchronized
-	defer w.Unlock()
+	if !w.isLocked {
+		w.Lock() // synchronized
+		defer w.Unlock()
+	}
 	return w._ListAll()
 }
 

@@ -64,6 +64,7 @@ type ConcurrentMergeScheduler struct {
 	chRequest            chan *MergeJob
 	chSync               chan *sync.WaitGroup
 	concurrentMergeCount int32 // atomic
+	numMergeRoutines     int32 // atomic
 }
 
 func NewConcurrentMergeScheduler() *ConcurrentMergeScheduler {
@@ -87,6 +88,7 @@ witout explicit synchronizations and waitings.
 Note, however, change of merge count won't pause/resume workers.
 */
 func (cms *ConcurrentMergeScheduler) worker(id int) {
+	atomic.AddInt32(&cms.numMergeRoutines, 1)
 	fmt.Printf("CMS Worker %v is started.\n", id)
 	var isRunning = true
 	var wg *sync.WaitGroup
@@ -100,6 +102,7 @@ func (cms *ConcurrentMergeScheduler) worker(id int) {
 		}
 	}
 	fmt.Printf("CMS Worker %v is stopped.\n", id)
+	atomic.AddInt32(&cms.numMergeRoutines, -1)
 }
 
 func (cms *ConcurrentMergeScheduler) process(job *MergeJob) {
@@ -139,6 +142,8 @@ func (cms *ConcurrentMergeScheduler) SetMaxMergesAndRoutines(maxMergeCount, maxR
 	cms.maxRoutineCount = maxRoutineCount
 	cms.maxMergeCount = maxMergeCount
 
+	cms.Lock()
+	defer cms.Unlock()
 	for i := oldCount; i < maxRoutineCount; i++ {
 		go cms.worker(i)
 	}
@@ -174,8 +179,12 @@ Wait for any running merge threads to finish. This call is not
 Interruptible as used by Close()
 */
 func (cms *ConcurrentMergeScheduler) sync() {
+	cms.Lock()
+	defer cms.Unlock()
+
 	wg := new(sync.WaitGroup)
-	for i := 0; i < cms.maxRoutineCount; i++ {
+	// no need to synchronize on numMergeRoutines
+	for i, limit := 0, int(cms.numMergeRoutines); i < limit; i++ {
 		wg.Add(1)
 		cms.chSync <- wg
 	}
