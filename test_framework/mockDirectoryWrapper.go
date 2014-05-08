@@ -416,8 +416,10 @@ func (w *MockDirectoryWrapper) maybeYield() {
 }
 
 func (w *MockDirectoryWrapper) deleteFile(name string, forced bool) error {
-	w.Lock() // synchronized
-	defer w.Unlock()
+	if !w.isLocked {
+		w.Lock() // synchronized
+		defer w.Unlock()
+	}
 
 	w.maybeYield()
 
@@ -446,8 +448,10 @@ func (w *MockDirectoryWrapper) deleteFile(name string, forced bool) error {
 }
 
 func (w *MockDirectoryWrapper) CreateOutput(name string, context store.IOContext) (store.IndexOutput, error) {
-	w.Lock() // synchronized
-	defer w.Unlock()
+	if !w.isLocked {
+		w.Lock() // synchronized
+		defer w.Unlock()
+	}
 
 	err := w.maybeThrowDeterministicException()
 	if err != nil {
@@ -912,8 +916,10 @@ func (w *MockDirectoryWrapper) FileLength(name string) (n int64, err error) {
 }
 
 func (w *MockDirectoryWrapper) MakeLock(name string) store.Lock {
-	w.Lock() // synchronized
-	defer w.Unlock()
+	if !w.isLocked {
+		w.Lock() // synchronized
+		defer w.Unlock()
+	}
 
 	w.maybeYield()
 	return w.lockFactory().Make(name)
