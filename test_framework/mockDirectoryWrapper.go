@@ -911,8 +911,7 @@ func (w *MockDirectoryWrapper) FileLength(name string) (n int64, err error) {
 	defer w.Unlock()
 
 	w.maybeYield()
-	// return w.Directory.FileLength(name)
-	panic("not implemented yet")
+	return w.Directory.FileLength(name)
 }
 
 func (w *MockDirectoryWrapper) MakeLock(name string) store.Lock {

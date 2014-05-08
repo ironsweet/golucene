@@ -1576,7 +1576,63 @@ func createCompoundFile(infoStream util.InfoStream,
 	checkAbort CheckAbort,
 	info *model.SegmentInfo,
 	context store.IOContext) (names []string, err error) {
-	panic("not implemented yet")
+
+	filename := util.SegmentFileName(info.Name, "", store.COMPOUND_FILE_EXTENSION)
+	if infoStream.IsEnabled("IW") {
+		infoStream.Message("IW", "create compound file %v", filename)
+	}
+	// Now merge all added files
+	files := info.Files()
+	var cfsDir *store.CompoundFileDirectory
+	cfsDir, err = store.NewCompoundFileDirectory(directory, filename, context, true)
+	if err != nil {
+		return
+	}
+	func() {
+		defer func() {
+			var success = false
+			defer func() {
+				if !success {
+					directory.DeleteFile(filename) // ignore error
+					directory.DeleteFile(util.SegmentFileName(info.Name, "", store.COMPOUND_FILE_EXTENSION))
+				}
+			}()
+
+			err = util.CloseWhileHandlingError(err, cfsDir)
+			success = err == nil
+		}()
+
+		var length int64
+		for file, _ := range files {
+			err = directory.Copy(cfsDir, file, file, context)
+			if err != nil {
+				return
+			}
+			length, err = directory.FileLength(file)
+			if err != nil {
+				return
+			}
+			err = checkAbort.work(float64(length))
+			if err != nil {
+				return
+			}
+		}
+	}()
+	if err != nil {
+		return
+	}
+
+	// Replace all previous files with the CFS/CFE files:
+	siFiles := make(map[string]bool)
+	siFiles[filename] = true
+	siFiles[util.SegmentFileName(info.Name, "", store.COMPOUND_FILE_EXTENSION)] = true
+	info.SetFiles(siFiles)
+
+	var ans []string
+	for file, _ := range files {
+		ans = append(ans, file)
+	}
+	return ans, nil
 }
 
 // Tries to delete the given files if unreferenced.
