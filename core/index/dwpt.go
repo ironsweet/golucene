@@ -401,7 +401,59 @@ Seals the SegmentInfo for the new flushed segment and persists the
 deleted documents MutableBits
 */
 func (dwpt *DocumentsWriterPerThread) sealFlushedSegment(flushedSegment *FlushedSegment) error {
-	panic("not implemented yet")
+	assert(flushedSegment != nil)
+
+	newSegment := flushedSegment.segmentInfo
+
+	setDiagnostics(newSegment.info, SOURCE_FLUSH)
+
+	segSize, err := newSegment.SizeInBytes()
+	if err != nil {
+		return err
+	}
+	context := store.NewIOContextForFlush(&store.FlushInfo{
+		newSegment.info.DocCount(),
+		segSize,
+	})
+
+	var success = false
+	defer func() {
+		if !success {
+			if dwpt.infoStream.IsEnabled("DWPT") {
+				dwpt.infoStream.Message(
+					"DWPT", "hit error relating compound file for newly flushed segment %v",
+					newSegment.info.Name)
+			}
+		}
+	}()
+
+	if dwpt.indexWriterConfig.useCompoundFile {
+		panic("not implemented yet")
+	}
+
+	// Have codec write SegmentInfo. Must do this after creating CFS so
+	// that 1) .si isn't slurped into CFS, and 2) .si reflects
+	// useCompoundFile=true change above:
+	err = dwpt.codec.SegmentInfoFormat().SegmentInfoWriter()(
+		dwpt.directory,
+		newSegment.info,
+		flushedSegment.fieldInfos,
+		context)
+	if err != nil {
+		return err
+	}
+
+	// TODO: ideally we would freeze newSegment here!!
+	// because any changes after writing the .si will be lost...
+
+	// Must write deleted docs after the CFS so we don't slurp the del
+	// file into CFS:
+	if flushedSegment.liveDocs != nil {
+		panic("not implemented yet")
+	}
+
+	success = true
+	return nil
 }
 
 func (dwpt *DocumentsWriterPerThread) bytesUsed() int64 {

@@ -129,8 +129,11 @@ func (cc *ClosingControl) close(f func() (ok bool, err error)) error {
 
 const UNBOUNDED_MAX_MERGE_SEGMENTS = -1
 
-// Name of the write lock in the index.
+/* Name of the write lock in the index. */
 const WRITE_LOCK_NAME = "write.lock"
+
+/* Source of a segment which results from a flush. */
+const SOURCE_FLUSH = "flush"
 
 /*
 Absolute hard maximum length for a term, in bytes once encoded as

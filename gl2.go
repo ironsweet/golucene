@@ -49,10 +49,13 @@ func main() {
 			}()
 		}
 
-		// d := index.NewDocument()
-		// d.Add(NewTextField("foo", "bar", true))
-		// writer.AddDocument(d.Fields())
-		// writer.Close() // ensure index is written
+		d := index.NewDocument()
+		d.Add(NewTextField("foo", "bar", true))
+		writer.AddDocument(d.Fields())
+		err = writer.Close() // ensure index is written
+		if err != nil {
+			t.Error(err)
+		}
 
 		// reader, err := index.OpenDirectoryReader(directory)
 		// if err != nil {
