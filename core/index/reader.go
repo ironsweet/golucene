@@ -49,14 +49,21 @@ type IndexReader interface {
 	Leaves() []AtomicReaderContext
 }
 
+/* A custom listener that's invoked when the IndexReader is closed. */
+type ReaderClosedListener interface {
+	onClose(IndexReader)
+}
+
 type IndexReaderImpl struct {
 	IndexReader
-	lock              sync.Mutex
-	closed            bool
-	closedByChild     bool
-	refCount          int32 // synchronized
-	parentReaders     map[IndexReader]bool
-	parentReadersLock sync.RWMutex
+	lock                      sync.Mutex
+	closed                    bool
+	closedByChild             bool
+	refCount                  int32 // synchronized
+	parentReaders             map[IndexReader]bool
+	parentReadersLock         sync.RWMutex
+	readerClosedListeners     map[ReaderClosedListener]bool
+	readerClosedListenersLock sync.RWMutex
 }
 
 func newIndexReader(self IndexReader) *IndexReaderImpl {
@@ -113,12 +120,16 @@ func (r *IndexReaderImpl) registerParentReader(reader IndexReader) {
 }
 
 func (r *IndexReaderImpl) notifyReaderClosedListeners() {
-	panic("not implemented yet")
+	r.readerClosedListenersLock.RLock()
+	defer r.readerClosedListenersLock.RUnlock()
+	for listener, _ := range r.readerClosedListeners {
+		listener.onClose(r)
+	}
 }
 
 func (r *IndexReaderImpl) reportCloseToParentReaders() {
-	r.parentReadersLock.Lock()
-	defer r.parentReadersLock.Unlock()
+	r.parentReadersLock.RLock()
+	defer r.parentReadersLock.RUnlock()
 	for parent, _ := range r.parentReaders {
 		p := parent.(*IndexReaderImpl)
 		p.closedByChild = true
