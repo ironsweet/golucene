@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/util"
-	"io"
 	"log"
+	"reflect"
 	"sync"
 )
 
@@ -24,6 +24,8 @@ const (
 	COMPOUND_FILE_EXTENSION         = "cfs"
 	COMPOUND_FILE_ENTRIES_EXTENSION = "cfe"
 )
+
+var SENTINEL = make(map[string]FileEntry)
 
 type CompoundFileDirectory struct {
 	*DirectoryImpl
@@ -65,9 +67,15 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 		}
 		success = true
 		self.DirectoryImpl.IsOpen = true
-		return self, err
+		return self, nil
 	} else {
-		panic("not supported yet")
+		assert2(reflect.TypeOf(directory).Name() != "CompoundFileDirectory",
+			"compound file inside of compound file: %v", fileName)
+		self.entries = SENTINEL
+		self.IsOpen = true
+		self.writer = newCompoundFileWriter(directory, fileName)
+		self.handle = nil
+		return self, nil
 	}
 }
 
@@ -245,11 +253,4 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 		panic("not supported yet; will also be obsolete soon")
 	}
 	return mapping, nil
-}
-
-// store/CompoundFileWriter
-
-// Combines multiple files into a single compound file
-type CompoundFileWriter struct {
-	io.Closer
 }
