@@ -194,6 +194,9 @@ cleared, DGaps would be used:
 type Lucene40LiveDocsFormat struct {
 }
 
+/* Extension of deletes */
+const DELETES_EXTENSION = "del"
+
 func (format *Lucene40LiveDocsFormat) NewLiveDocs(size int) util.MutableBits {
 	ans := NewBitVector(size)
 	ans.InvertAll()
@@ -205,4 +208,11 @@ func (format *Lucene40LiveDocsFormat) WriteLiveDocs(bits util.MutableBits,
 	ctx store.IOContext) error {
 
 	panic("not implemented yet")
+}
+
+func (format *Lucene40LiveDocsFormat) Files(info *SegmentInfoPerCommit) []string {
+	if info.HasDeletions() {
+		return []string{util.FileNameFromGeneration(info.info.Name, DELETES_EXTENSION, info.delGen)}
+	}
+	return []string{}
 }

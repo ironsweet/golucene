@@ -86,8 +86,9 @@ func (si *SegmentInfoPerCommit) Files() []string {
 	}
 
 	// Must separately add any live docs files
-	// si.info.codec.LiveDocsFormat().Files(si, files)
-	panic("not implemented yet")
+	for _, name := range si.info.Codec().(Codec).LiveDocsFormat().Files(si) {
+		files[name] = true
+	}
 
 	ans := make([]string, 0, len(files))
 	for s, _ := range files {

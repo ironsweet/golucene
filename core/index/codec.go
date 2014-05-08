@@ -465,4 +465,6 @@ type LiveDocsFormat interface {
 	// determine the generation of the deletes file you should write to.
 	WriteLiveDocs(bits util.MutableBits, dir store.Directory,
 		info *SegmentInfoPerCommit, newDelCount int, ctx store.IOContext) error
+	// Records all files in use by this SegmentInfoPerCommit
+	Files(*SegmentInfoPerCommit) []string
 }
