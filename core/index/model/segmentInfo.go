@@ -134,6 +134,12 @@ func (si *SegmentInfo) SetFiles(files map[string]bool) {
 	si.files = files
 }
 
+/* Add this file to the set of files written for this segment. */
+func (si *SegmentInfo) AddFile(file string) {
+	si.checkFileNames(map[string]bool{file: true})
+	si.files[file] = true
+}
+
 var CODEC_FILE_PATTERN = regexp.MustCompile("_[a-z0-9]+(_.*)?\\..*")
 
 func (si *SegmentInfo) checkFileNames(files map[string]bool) {

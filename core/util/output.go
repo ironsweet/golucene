@@ -18,6 +18,7 @@ type DataOutput interface {
 	WriteString(s string) error
 	CopyBytes(input DataInput, numBytes int64) error
 	WriteStringStringMap(m map[string]string) error
+	WriteStringSet(m map[string]bool) error
 }
 
 type DataWriter interface {
@@ -191,6 +192,29 @@ func (out *DataOutputImpl) WriteStringStringMap(m map[string]string) error {
 		if err == nil {
 			err = out.WriteString(v)
 		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+/*
+Writes a String set.
+
+First the size is written as an int32, followed by each value written
+as a string.
+*/
+func (out *DataOutputImpl) WriteStringSet(m map[string]bool) error {
+	if m == nil {
+		return out.WriteInt(0)
+	}
+	err := out.WriteInt(int32(len(m)))
+	if err != nil {
+		return err
+	}
+	for value, _ := range m {
+		err = out.WriteString(value)
 		if err != nil {
 			return err
 		}

@@ -68,6 +68,7 @@ const (
 	LUCENE40_VERSION_START   = 0
 	LUCENE40_VERSION_CURRENT = LUCENE40_VERSION_START
 
+	SEGMENT_INFO_NO  = -1
 	SEGMENT_INFO_YES = 1
 )
 
@@ -143,9 +144,48 @@ var Lucene40SegmentInfoReader = func(dir store.Directory,
 
 // Lucene 4.0 implementation of SegmentInfoWriter
 var Lucene40SegmentInfoWriter = func(dir store.Directory,
-	si *model.SegmentInfo, fis model.FieldInfos, ctx store.IOContext) error {
+	si *model.SegmentInfo, fis model.FieldInfos, ctx store.IOContext) (err error) {
 
-	panic("not implemented yet")
+	filename := util.SegmentFileName(si.Name, "", LUCENE40_SI_EXTENSION)
+	si.AddFile(filename)
+
+	var output store.IndexOutput
+	output, err = dir.CreateOutput(filename, ctx)
+	if err != nil {
+		return err
+	}
+
+	var success = false
+	defer func() {
+		if !success {
+			util.CloseWhileSuppressingError(output)
+			err = mergeError(err, si.Dir.DeleteFile(filename))
+		} else {
+			err = mergeError(err, output.Close())
+		}
+	}()
+
+	err = codec.WriteHeader(output, LUCENE40_CODEC_NAME, LUCENE40_VERSION_CURRENT)
+	if err != nil {
+		return err
+	}
+	// Write the Lucene version that created this segment, since 3.1
+	err = store.Stream(output).WriteString(si.Version()).
+		WriteInt(int32(si.DocCount())).
+		WriteByte(func() byte {
+		if si.IsCompoundFile() {
+			return SEGMENT_INFO_YES
+		}
+		return byte((SEGMENT_INFO_NO + 256) % 256) // Go byte is non-negative, unlike Java
+	}()).WriteStringStringMap(si.Diagnostics()).
+		WriteStringStringMap(si.Attributes()).
+		WriteStringSet(si.Files()).Close()
+	if err != nil {
+		return err
+	}
+
+	success = true
+	return nil
 }
 
 // codecs/lucene40/Lucene40LiveDocsFormat.java
