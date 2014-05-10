@@ -158,11 +158,25 @@ func (w *CompoundFileWriter) releaseOutputLock() {
 
 type DirectCFSIndexOutput struct {
 	*IndexOutputImpl
+	owner      *CompoundFileWriter
+	delegate   IndexOutput
+	offset     int64
+	entry      FileEntry
+	isSeparate bool
 }
 
 func newDirectCFSIndexOutput(owner *CompoundFileWriter,
 	delegate IndexOutput, entry FileEntry, isSeparate bool) *DirectCFSIndexOutput {
-	panic("not implemented yet")
+	ans := &DirectCFSIndexOutput{
+		owner:      owner,
+		delegate:   delegate,
+		entry:      entry,
+		offset:     delegate.FilePointer(),
+		isSeparate: isSeparate,
+	}
+	ans.entry.offset = ans.offset
+	ans.IndexOutputImpl = NewIndexOutput(ans)
+	return ans
 }
 
 func (out *DirectCFSIndexOutput) Flush() error {
