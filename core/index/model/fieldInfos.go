@@ -197,7 +197,15 @@ func (b *FieldInfosBuilder) addOrUpdateInternal(name string,
 		panic("not implemented yet")
 		return fi
 	} else {
-		panic("not implemented yte")
+		// This field wasn't yet added to this in-RAM segment's
+		// FieldInfos, so now we get a global number for this field. If
+		// the field was seen before then we'll get the same name and
+		// number, else we'll allocate a new one:
+		fieldNumber := int32(b.globalFieldNumbers.addOrGet(name, preferredFieldNumber, docValues))
+		fi = NewFieldInfo(name, isIndexed, fieldNumber, storeTermVector,
+			omitNorms, storePayloads, indexOptions, docValues, normType, nil)
+		b.byName[fi.Name] = fi
+		return fi
 	}
 }
 
