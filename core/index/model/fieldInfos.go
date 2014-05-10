@@ -173,6 +173,34 @@ func assert2(ok bool, msg string, args ...interface{}) {
 	}
 }
 
+/*
+NOTE: this method does not carry over termVector booleans nor
+docValuesType; the indexer chain  (TermVectorsConsumerPerField,
+DocFieldProcessor) must set these fields when they succeed in
+consuming the document
+*/
+func (b *FieldInfosBuilder) AddOrUpdate(name string, fieldType IndexableFieldType) FieldInfo {
+	// TODO: really, indexer shouldn't even call this method (it's only
+	// called from DocFieldProcessor); rather, each component in the
+	// chain should update what it "owns". E.g., fieldType.indexOptions()
+	// should be updated by maybe FreqProxTermsWriterPerField:
+	return b.addOrUpdateInternal(name, -1, fieldType.Indexed(), false,
+		fieldType.OmitNorms(), false,
+		fieldType.IndexOptions(), fieldType.DocValueType(), DocValuesType(0))
+}
+
+func (b *FieldInfosBuilder) addOrUpdateInternal(name string,
+	preferredFieldNumber int, isIndexed bool, storeTermVector bool,
+	omitNorms bool, storePayloads bool, indexOptions IndexOptions,
+	docValues DocValuesType, normType DocValuesType) FieldInfo {
+	if fi, ok := b.byName[name]; ok {
+		panic("not implemented yet")
+		return fi
+	} else {
+		panic("not implemented yte")
+	}
+}
+
 func (b *FieldInfosBuilder) Finish() FieldInfos {
 	var infos []FieldInfo
 	for _, v := range b.byName {

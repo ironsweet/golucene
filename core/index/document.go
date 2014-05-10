@@ -202,7 +202,7 @@ func (ft *FieldType) Indexed() bool     { return ft.indexed }
 func (ft *FieldType) SetIndexed(v bool) { ft.checkIfFrozen(); ft.indexed = v }
 func (ft *FieldType) Stored() bool      { return ft.stored }
 func (ft *FieldType) SetStored(v bool)  { ft.checkIfFrozen(); ft.stored = v }
-func (ft *FieldType) tokenized() bool   { return ft._tokenized }
+func (ft *FieldType) Tokenized() bool   { return ft._tokenized }
 
 func (ft *FieldType) StoreTermVectors() bool       { return ft.storeTermVectors }
 func (ft *FieldType) SetStoreTermVectors(v bool)   { ft.checkIfFrozen(); ft.storeTermVectors = v }
@@ -222,9 +222,9 @@ func (ft *FieldType) SetStoreTermVectorPayloads(v bool) {
 	ft.storeTermVectorPayloads = v
 }
 
-func (ft *FieldType) omitNorms() bool                   { return ft._omitNorms }
-func (ft *FieldType) indexOptions() model.IndexOptions  { return ft._indexOptions }
-func (ft *FieldType) docValueType() model.DocValuesType { return ft._docValueType }
+func (ft *FieldType) OmitNorms() bool                   { return ft._omitNorms }
+func (ft *FieldType) IndexOptions() model.IndexOptions  { return ft._indexOptions }
+func (ft *FieldType) DocValueType() model.DocValuesType { return ft._docValueType }
 
 // Prints a Field for human consumption.
 func (ft *FieldType) String() string {
@@ -237,7 +237,7 @@ func (ft *FieldType) String() string {
 			buf.WriteString(",")
 		}
 		buf.WriteString("indexed")
-		if ft.tokenized() {
+		if ft.Tokenized() {
 			buf.WriteString(",tokenized")
 		}
 		if ft.StoreTermVectors() {
@@ -252,21 +252,21 @@ func (ft *FieldType) String() string {
 				buf.WriteString(",termVectorPayloads")
 			}
 		}
-		if ft.omitNorms() {
+		if ft.OmitNorms() {
 			buf.WriteString(",omitNorms")
 		}
-		if ft.indexOptions() != model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS {
-			fmt.Fprintf(&buf, ",indexOptions=%v", ft.indexOptions())
+		if ft.IndexOptions() != model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS {
+			fmt.Fprintf(&buf, ",indexOptions=%v", ft.IndexOptions())
 		}
 		if ft.numericType != 0 {
 			fmt.Fprintf(&buf, ",numericType=%v,numericPrecisionStep=%v", ft.numericType, ft.numericPrecisionStep)
 		}
 	}
-	if ft.docValueType() != 0 {
+	if ft.DocValueType() != 0 {
 		if buf.Len() > 0 {
 			buf.WriteString(",")
 		}
-		fmt.Fprintf(&buf, "docValueType=%v", ft.docValueType())
+		fmt.Fprintf(&buf, "docValueType=%v", ft.DocValueType())
 	}
 	return buf.String()
 }
@@ -349,7 +349,7 @@ func (f *Field) String() string {
 	return buf.String()
 }
 
-func (f *Field) fieldType() IndexableFieldType {
+func (f *Field) fieldType() model.IndexableFieldType {
 	return f._type
 }
 

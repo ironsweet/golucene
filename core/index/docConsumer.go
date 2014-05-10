@@ -34,6 +34,7 @@ type DocFieldProcessor struct {
 
 	// Hash table for all fields ever seen
 	fieldHash       []*DocFieldProcessorPerField
+	hashMask        int
 	totalFieldCount int
 
 	fieldGen int
@@ -49,6 +50,7 @@ func newDocFieldProcessor(docWriter *DocumentsWriterPerThread,
 	assert(storedConsumer != nil)
 	return &DocFieldProcessor{
 		fieldHash:      make([]*DocFieldProcessorPerField, 2),
+		hashMask:       1,
 		docState:       docWriter.docState,
 		codec:          docWriter.codec,
 		bytesUsed:      docWriter._bytesUsed,
@@ -106,6 +108,28 @@ func (p *DocFieldProcessor) fields() []DocFieldConsumerPerField {
 	return fields
 }
 
+func (p *DocFieldProcessor) rehash() {
+	newHashSize := len(p.fieldHash) * 2
+	assert(newHashSize > len(p.fieldHash)) // avoid overflow
+
+	newHashArray := make([]*DocFieldProcessorPerField, newHashSize)
+
+	// Rehash
+	newHashMask := newHashSize - 1
+	for _, fp0 := range p.fieldHash {
+		for fp0 != nil {
+			hashPos2 := hashstr(fp0.fieldInfo.Name) & newHashMask
+			nextFP0 := fp0.next
+			fp0.next = newHashArray[hashPos2]
+			newHashArray[hashPos2] = fp0
+			fp0 = nextFP0
+		}
+	}
+
+	p.fieldHash = newHashArray
+	p.hashMask = newHashMask
+}
+
 func (p *DocFieldProcessor) processDocument(fieldInfos *model.FieldInfosBuilder) error {
 	p.consumer.startDocument()
 	p.storedConsumer.startDocument()
@@ -123,15 +147,27 @@ func (p *DocFieldProcessor) processDocument(fieldInfos *model.FieldInfosBuilder)
 		fieldName := field.name()
 
 		// Make sure we have a PerField allocated
-		// TODO need a better hash code algorithm here
-		hashPos := len(fieldName) / 2
+		hashPos := hashstr(fieldName) & p.hashMask
 		fp := p.fieldHash[hashPos]
 		for fp != nil && fp.fieldInfo.Name != fieldName {
 			fp = fp.next
 		}
 
 		if fp == nil {
-			panic("not implemented yet")
+			// TODO FI: we need to genericize the "flags" that a field
+			// holds, and, how these flags are merged; it needs to be more
+			// "pluggable" such that if I want to have a new "thing" my
+			// Fields can do, I can easily add it
+			fi := fieldInfos.AddOrUpdate(fieldName, field.fieldType())
+
+			fp = newDocFieldProcessorPerField(p, fi)
+			fp.next = p.fieldHash[hashPos]
+			p.fieldHash[hashPos] = fp
+			p.totalFieldCount++
+
+			if p.totalFieldCount >= len(p.fieldHash)/2 {
+				p.rehash()
+			}
 		} else {
 			panic("not implemented yet")
 		}
@@ -144,6 +180,17 @@ func (p *DocFieldProcessor) processDocument(fieldInfos *model.FieldInfosBuilder)
 		p.storedConsumer.addField(p.docState.docID, field, fp.fieldInfo)
 	}
 	return nil
+}
+
+const primeRK = 16777619
+
+/* simple string hash used by Go strings package */
+func hashstr(sep string) int {
+	hash := uint32(0)
+	for i := 0; i < len(sep); i++ {
+		hash = hash*primeRK + uint32(sep[i])
+	}
+	return int(hash)
 }
 
 func (p *DocFieldProcessor) finishDocument() (err error) {
@@ -164,12 +211,13 @@ type DocFieldProcessorPerField struct {
 	lastGen int // -1
 }
 
-// func newDocFieldProcessorPerField(docFieldProcessor *DocFieldProcessor,
-// 	fieldInfo model.FieldInfo) *DocFieldProcessorPerField {
-// 	return &DocFieldProcessorPerField{
-// 		consumer: docFieldProcessor.consumer.addField()
-// 	}
-// }
+func newDocFieldProcessorPerField(docFieldProcessor *DocFieldProcessor,
+	fieldInfo model.FieldInfo) *DocFieldProcessorPerField {
+	return &DocFieldProcessorPerField{
+		consumer:  docFieldProcessor.consumer.addField(fieldInfo),
+		fieldInfo: fieldInfo,
+	}
+}
 
 func (f *DocFieldProcessorPerField) addField(field IndexableField) {
 	panic("not implemented yet")

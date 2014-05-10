@@ -1,14 +1,16 @@
 package index
 
 import (
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
 type InvertedDocConsumer interface {
 	// Abort (called after hitting abort error)
 	abort()
+	addField(*DocInverterPerField, model.FieldInfo) InvertedDocConsumerPerField
 	// Flush a new segment
-	flush(fieldsToHash map[string]InvertedDocConsumerPerField, state SegmentWriteState) error
+	flush(map[string]InvertedDocConsumerPerField, SegmentWriteState) error
 	startDocument()
 }
 
@@ -96,6 +98,11 @@ func (hash *TermsHash) flush(fieldsToFlush map[string]InvertedDocConsumerPerFiel
 		err = hash.nextTermsHash.flush(nextChildFieldFields, state)
 	}
 	return err
+}
+
+func (h *TermsHash) addField(docInverterPerField *DocInverterPerField,
+	fieldInfo model.FieldInfo) InvertedDocConsumerPerField {
+	return newTermsHashPerField(docInverterPerField, h, h.nextTermsHash, fieldInfo)
 }
 
 func (h *TermsHash) startDocument() {

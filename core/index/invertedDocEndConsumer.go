@@ -6,8 +6,9 @@ import (
 )
 
 type InvertedDocEndConsumer interface {
-	flush(fieldsToHash map[string]InvertedDocEndConsumerPerField, state SegmentWriteState) error
+	flush(map[string]InvertedDocEndConsumerPerField, SegmentWriteState) error
 	abort()
+	addField(*DocInverterPerField, model.FieldInfo) InvertedDocEndConsumerPerField
 	startDocument()
 }
 
@@ -66,3 +67,8 @@ func (nc *NormsConsumer) flush(fieldsToFlush map[string]InvertedDocEndConsumerPe
 func (nc *NormsConsumer) finishDocument() {}
 
 func (nc *NormsConsumer) startDocument() {}
+
+func (nc *NormsConsumer) addField(DocInverterPerField *DocInverterPerField,
+	fieldInfo model.FieldInfo) InvertedDocEndConsumerPerField {
+	panic("not implemented yet")
+}

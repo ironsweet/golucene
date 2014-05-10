@@ -1,6 +1,7 @@
 package index
 
 import (
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -19,6 +20,12 @@ type TermsHashPerField struct {
 	nextPerField *TermsHashPerField
 
 	bytesHash *util.BytesRefHash
+}
+
+func newTermsHashPerField(docInverterPerField *DocInverterPerField,
+	termsHash *TermsHash, nextTermsHash *TermsHash,
+	fieldInfo model.FieldInfo) *TermsHashPerField {
+	panic("not implemented yet")
 }
 
 func (h *TermsHashPerField) shrinkHash(targetSize int) {

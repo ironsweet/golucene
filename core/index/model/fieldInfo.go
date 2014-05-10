@@ -104,3 +104,77 @@ const (
 	DOC_VALUES_TYPE_SORTED     = DocValuesType(3)
 	DOC_VALUES_TYPE_SORTED_SET = DocValuesType(4)
 )
+
+// index/IndexableFieldType.java
+
+/**
+ * Describes the properties of a field.
+ */
+type IndexableFieldType interface {
+	/** True if this field should be indexed (inverted) */
+	Indexed() bool
+	/** True if the field's value should be stored */
+	Stored() bool
+	/**
+	 * True if this field's value should be analyzed by the
+	 * {@link Analyzer}.
+	 * <p>
+	 * This has no effect if {@link #indexed()} returns false.
+	 */
+	Tokenized() bool
+	/**
+	 * True if this field's indexed form should be also stored
+	 * into term vectors.
+	 * <p>
+	 * This builds a miniature inverted-index for this field which
+	 * can be accessed in a document-oriented way from
+	 * {@link IndexReader#getTermVector(int,String)}.
+	 * <p>
+	 * This option is illegal if {@link #indexed()} returns false.
+	 */
+	StoreTermVectors() bool
+	/**
+	 * True if this field's token character offsets should also
+	 * be stored into term vectors.
+	 * <p>
+	 * This option is illegal if term vectors are not enabled for the field
+	 * ({@link #storeTermVectors()} is false)
+	 */
+	StoreTermVectorOffsets() bool
+
+	/**
+	 * True if this field's token positions should also be stored
+	 * into the term vectors.
+	 * <p>
+	 * This option is illegal if term vectors are not enabled for the field
+	 * ({@link #storeTermVectors()} is false).
+	 */
+	StoreTermVectorPositions() bool
+
+	/**
+	 * True if this field's token payloads should also be stored
+	 * into the term vectors.
+	 * <p>
+	 * This option is illegal if term vector positions are not enabled
+	 * for the field ({@link #storeTermVectors()} is false).
+	 */
+	StoreTermVectorPayloads() bool
+
+	/**
+	 * True if normalization values should be omitted for the field.
+	 * <p>
+	 * This saves memory, but at the expense of scoring quality (length normalization
+	 * will be disabled), and if you omit norms, you cannot use index-time boosts.
+	 */
+	OmitNorms() bool
+
+	/** {@link IndexOptions}, describing what should be
+	 * recorded into the inverted index */
+	IndexOptions() IndexOptions
+
+	/**
+	 * DocValues {@link DocValuesType}: if non-null then the field's value
+	 * will be indexed into docValues.
+	 */
+	DocValueType() DocValuesType
+}
