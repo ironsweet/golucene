@@ -458,7 +458,30 @@ func (dwpt *DocumentsWriterPerThread) sealFlushedSegment(flushedSegment *Flushed
 	// Must write deleted docs after the CFS so we don't slurp the del
 	// file into CFS:
 	if flushedSegment.liveDocs != nil {
-		panic("not implemented yet")
+		delCount := flushedSegment.delCount
+		assert(delCount > 0)
+		if dwpt.infoStream.IsEnabled("DWPT") {
+			dwpt.infoStream.Message("DWPT", "flush: write %v deletes gen=%v",
+				delCount, flushedSegment.segmentInfo.delGen)
+		}
+
+		// TODO: we should prune the segment if it's 100% deleted... but
+		// merge will also catch it.
+
+		// TODO: in the NRT case id'd be better to hand this del vector
+		// over to the shortly-to-be-opened SegmentReader and let it
+		// carry the changes; there's no reason to use filesystem as
+		// intermediary here.
+
+		info := flushedSegment.segmentInfo
+		codec := info.info.Codec().(Codec)
+		err = codec.LiveDocsFormat().WriteLiveDocs(flushedSegment.liveDocs,
+			dwpt.directory, info, delCount, context)
+		if err != nil {
+			return err
+		}
+		newSegment.setDelCount(delCount)
+		newSegment.advanceDelGen()
 	}
 
 	success = true

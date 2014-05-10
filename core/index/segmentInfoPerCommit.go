@@ -108,6 +108,11 @@ func (si *SegmentInfoPerCommit) HasDeletions() bool {
 	return si.delGen != -1
 }
 
+func (si *SegmentInfoPerCommit) setDelCount(delCount int) {
+	si.delCount = delCount
+	assert(delCount <= si.info.DocCount())
+}
+
 func (si *SegmentInfoPerCommit) StringOf(dir store.Directory, pendingDelCount int) string {
 	return si.info.StringOf(dir, si.delCount+pendingDelCount)
 }
