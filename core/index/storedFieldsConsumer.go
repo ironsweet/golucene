@@ -49,12 +49,8 @@ func (p *TwoStoredFieldsConsumers) abort() {
 }
 
 func (p *TwoStoredFieldsConsumers) startDocument() {
-	// err := p.first.startDocument()
-	// if err == nil {
-	// 	err = p.second.startDocument()
-	// }
-	// return err
-	panic("not implemented yet")
+	p.first.startDocument()
+	p.second.startDocument()
 }
 
 func (p *TwoStoredFieldsConsumers) finishDocument() error {
