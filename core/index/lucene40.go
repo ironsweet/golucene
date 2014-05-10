@@ -247,7 +247,11 @@ func (format *Lucene40LiveDocsFormat) WriteLiveDocs(bits util.MutableBits,
 	dir store.Directory, info *SegmentInfoPerCommit, newDelCount int,
 	ctx store.IOContext) error {
 
-	panic("not implemented yet")
+	filename := util.FileNameFromGeneration(info.info.Name, DELETES_EXTENSION, info.nextWriteDelGen)
+	liveDocs := bits.(*BitVector)
+	assert(liveDocs.Count() == info.info.DocCount()-info.delCount-newDelCount)
+	assert(liveDocs.Length() == info.info.DocCount())
+	return liveDocs.Write(dir, filename, ctx)
 }
 
 func (format *Lucene40LiveDocsFormat) Files(info *SegmentInfoPerCommit) []string {

@@ -42,6 +42,13 @@ func (ios *IndexOutputStream) WriteByte(b byte) *IndexOutputStream {
 	return ios
 }
 
+func (ios *IndexOutputStream) WriteBytes(b []byte) *IndexOutputStream {
+	if ios.err == nil {
+		ios.err = ios.out.WriteBytes(b)
+	}
+	return ios
+}
+
 func (ios *IndexOutputStream) WriteStringStringMap(m map[string]string) *IndexOutputStream {
 	if ios.err == nil {
 		ios.err = ios.out.WriteStringStringMap(m)
