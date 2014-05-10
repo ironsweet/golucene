@@ -1,6 +1,7 @@
 package store
 
 import (
+	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/util"
 	"sync"
 )
@@ -39,10 +40,12 @@ type FileEntry struct {
 
 // Combines multiple files into a single compound file
 type CompoundFileWriter struct {
+	sync.Locker
 	directory      Directory
 	entries        map[string]FileEntry
 	seenIDs        map[string]bool
 	closed         bool
+	dataOut        IndexOutput
 	outputTaken    *AtomicBool
 	entryTableName string
 	dataFileName   string
@@ -56,6 +59,7 @@ func newCompoundFileWriter(dir Directory, name string) *CompoundFileWriter {
 	assert2(dir != nil, "directory cannot be nil")
 	assert2(name != "", "name cannot be empty")
 	return &CompoundFileWriter{
+		Locker:      &sync.Mutex{},
 		directory:   dir,
 		entries:     make(map[string]FileEntry),
 		seenIDs:     make(map[string]bool),
@@ -70,7 +74,28 @@ func newCompoundFileWriter(dir Directory, name string) *CompoundFileWriter {
 }
 
 func (w *CompoundFileWriter) output() (IndexOutput, error) {
-	panic("not implemented yet")
+	w.Lock()
+	defer w.Unlock()
+	if w.dataOut == nil {
+		var success = false
+		defer func() {
+			if !success {
+				util.CloseWhileSuppressingError(w.dataOut)
+			}
+		}()
+
+		var err error
+		w.dataOut, err = w.directory.CreateOutput(w.dataFileName, IO_CONTEXT_DEFAULT)
+		if err != nil {
+			return nil, err
+		}
+		err = codec.WriteHeader(w.dataOut, CFD_DATA_CODEC, CFD_VERSION_CURRENT)
+		if err != nil {
+			return nil, err
+		}
+		success = true
+	}
+	return w.dataOut, nil
 }
 
 /* Closes all resouces and writes the entry table */
