@@ -103,7 +103,7 @@ func (tvc *TermVectorsConsumer) reset() {
 
 func (tvc *TermVectorsConsumer) addField(termsHashPerField *TermsHashPerField,
 	fieldInfo model.FieldInfo) TermsHashConsumerPerField {
-	panic("not implemented yet")
+	return newTermVectorsConsumerPerField(termsHashPerField, tvc, fieldInfo)
 }
 
 func (c *TermVectorsConsumer) startDocument() {

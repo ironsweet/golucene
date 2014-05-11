@@ -15,6 +15,21 @@ type TermsHashConsumerPerField interface {
 
 type TermVectorsConsumerPerField struct {
 	termsHashPerField *TermsHashPerField
+	termsWriter       *TermVectorsConsumer
+	fieldInfo         model.FieldInfo
+	docState          *docState
+	fieldState        *FieldInvertState
+}
+
+func newTermVectorsConsumerPerField(termsHashPerField *TermsHashPerField,
+	termsWriter *TermVectorsConsumer, fieldInfo model.FieldInfo) *TermVectorsConsumerPerField {
+	return &TermVectorsConsumerPerField{
+		termsHashPerField: termsHashPerField,
+		termsWriter:       termsWriter,
+		fieldInfo:         fieldInfo,
+		docState:          termsHashPerField.docState,
+		fieldState:        termsHashPerField.fieldState,
+	}
 }
 
 func (c *TermVectorsConsumerPerField) streamCount() int { return 2 }
