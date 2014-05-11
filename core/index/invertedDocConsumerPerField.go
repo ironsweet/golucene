@@ -101,6 +101,8 @@ func (ss *PostingsBytesStartArray) BytesUsed() util.Counter {
 
 // index/ParallelPostingsArray.java
 
+const BYTES_PER_POSTING = 3 * util.NUM_BYTES_INT
+
 type PostingsArray interface {
 	bytesPerPosting() int
 	newInstance(size int) PostingsArray

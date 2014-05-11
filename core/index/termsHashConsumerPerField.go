@@ -3,6 +3,7 @@ package index
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/index/model"
+	"github.com/balzaczyy/golucene/core/util"
 )
 
 type TermsHashConsumerPerField interface {
@@ -119,7 +120,17 @@ func (arr *FreqProxPostingsArray) copyTo(toArray PostingsArray, numToCopy int) {
 }
 
 func (arr *FreqProxPostingsArray) bytesPerPosting() int {
-	panic("not implemented yet")
+	bytes := BYTES_PER_POSTING + 2*util.NUM_BYTES_INT
+	if arr.lastPositions != nil {
+		bytes += util.NUM_BYTES_INT
+	}
+	if arr.lastOffsets != nil {
+		bytes += util.NUM_BYTES_INT
+	}
+	if arr.termFreqs != nil {
+		bytes += util.NUM_BYTES_INT
+	}
+	return bytes
 }
 
 /*
