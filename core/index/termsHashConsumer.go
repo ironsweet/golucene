@@ -203,7 +203,7 @@ func (a FreqProxTermsWriterPerFields) Less(i, j int) bool {
 
 func (w *FreqProxTermsWriter) addField(termsHashPerField *TermsHashPerField,
 	fieldInfo model.FieldInfo) TermsHashConsumerPerField {
-	panic("not implemented yet")
+	return newFreqProxTermsWriterPerField(termsHashPerField, w, fieldInfo)
 }
 
 func (w *FreqProxTermsWriter) startDocument() {}
