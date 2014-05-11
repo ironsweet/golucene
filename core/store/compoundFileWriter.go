@@ -158,11 +158,13 @@ func (w *CompoundFileWriter) releaseOutputLock() {
 
 type DirectCFSIndexOutput struct {
 	*IndexOutputImpl
-	owner      *CompoundFileWriter
-	delegate   IndexOutput
-	offset     int64
-	entry      FileEntry
-	isSeparate bool
+	owner        *CompoundFileWriter
+	delegate     IndexOutput
+	offset       int64
+	closed       bool
+	entry        FileEntry
+	writtenBytes int64
+	isSeparate   bool
 }
 
 func newDirectCFSIndexOutput(owner *CompoundFileWriter,
@@ -198,6 +200,9 @@ func (out *DirectCFSIndexOutput) Length() (int64, error) {
 func (out *DirectCFSIndexOutput) WriteByte(b byte) error {
 	panic("not implemented yet")
 }
+
 func (out *DirectCFSIndexOutput) WriteBytes(b []byte) error {
-	panic("not implemented yet")
+	assert(!out.closed)
+	out.writtenBytes += int64(len(b))
+	return out.delegate.WriteBytes(b)
 }
