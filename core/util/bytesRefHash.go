@@ -15,7 +15,16 @@ be longer than BYTE_BLOCK_SIZE-2. The internal storage is limited to
 type BytesRefHash struct {
 }
 
+func NewBytesRefHash(pool *ByteBlockPool, capacity int,
+	bytesStartArray BytesStartArray) *BytesRefHash {
+	panic("not implemented yet")
+}
+
 /* Returns the number of values in this hash. */
 func (h *BytesRefHash) Size() int {
 	panic("not implemented yet")
+}
+
+/* Manages allocation of per-term addresses. */
+type BytesStartArray interface {
 }

@@ -5,6 +5,7 @@ import (
 )
 
 type TermsHashConsumerPerField interface {
+	streamCount() int
 }
 
 // index/TermVectorsConsumerPerField.java
@@ -12,6 +13,8 @@ type TermsHashConsumerPerField interface {
 type TermVectorsConsumerPerField struct {
 	termsHashPerField *TermsHashPerField
 }
+
+func (c *TermVectorsConsumerPerField) streamCount() int { return 2 }
 
 func (c *TermVectorsConsumerPerField) shrinkHash() {
 	panic("not implemented yet")
@@ -23,6 +26,14 @@ func (c *TermVectorsConsumerPerField) shrinkHash() {
 type FreqProxTermsWriterPerField struct {
 	termsHashPerField *TermsHashPerField
 	fieldInfo         model.FieldInfo
+	hasProx           bool
+}
+
+func (w *FreqProxTermsWriterPerField) streamCount() int {
+	if !w.hasProx {
+		return 1
+	}
+	return 2
 }
 
 /* Called after flush */

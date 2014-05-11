@@ -1,6 +1,7 @@
 package index
 
 import (
+	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -10,6 +11,7 @@ type TermsHashConsumer interface {
 	flush(map[string]TermsHashConsumerPerField, SegmentWriteState) error
 	abort()
 	startDocument()
+	addField(*TermsHashPerField, model.FieldInfo) TermsHashConsumerPerField
 }
 
 // index/TermVectorsConsumer.java
@@ -97,6 +99,11 @@ func (tvc *TermVectorsConsumer) abort() {
 func (tvc *TermVectorsConsumer) reset() {
 	tvc.perFields = nil
 	tvc.numVectorsFields = 0
+}
+
+func (tvc *TermVectorsConsumer) addField(termsHashPerField *TermsHashPerField,
+	fieldInfo model.FieldInfo) TermsHashConsumerPerField {
+	panic("not implemented yet")
 }
 
 func (c *TermVectorsConsumer) startDocument() {
@@ -192,6 +199,11 @@ func (a FreqProxTermsWriterPerFields) Len() int      { return len(a) }
 func (a FreqProxTermsWriterPerFields) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a FreqProxTermsWriterPerFields) Less(i, j int) bool {
 	return a[i].fieldInfo.Name < a[j].fieldInfo.Name
+}
+
+func (w *FreqProxTermsWriter) addField(termsHashPerField *TermsHashPerField,
+	fieldInfo model.FieldInfo) TermsHashConsumerPerField {
+	panic("not implemented yet")
 }
 
 func (w *FreqProxTermsWriter) startDocument() {}
