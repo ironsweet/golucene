@@ -84,3 +84,11 @@ func newPostingsBytesStartArray(perField *TermsHashPerField,
 	bytesUsed util.Counter) *PostingsBytesStartArray {
 	return &PostingsBytesStartArray{perField, bytesUsed}
 }
+
+func (ss *PostingsBytesStartArray) Init() []int {
+	panic("not implemented yet")
+}
+
+func (ss *PostingsBytesStartArray) BytesUsed() util.Counter {
+	return ss.bytesUsed
+}
