@@ -76,9 +76,11 @@ func (h *TermsHashPerField) abort() {
 }
 
 type PostingsBytesStartArray struct {
+	perField  *TermsHashPerField
+	bytesUsed util.Counter
 }
 
 func newPostingsBytesStartArray(perField *TermsHashPerField,
 	bytesUsed util.Counter) *PostingsBytesStartArray {
-	panic("not implemented yet")
+	return &PostingsBytesStartArray{perField, bytesUsed}
 }
