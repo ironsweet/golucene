@@ -35,7 +35,8 @@ type TermsHashPerField struct {
 
 	bytesHash *util.BytesRefHash
 
-	bytesUsed util.Counter
+	postingsArray *ParallelPostingsArray
+	bytesUsed     util.Counter
 }
 
 func newTermsHashPerField(docInverterPerField *DocInverterPerField,
@@ -86,9 +87,22 @@ func newPostingsBytesStartArray(perField *TermsHashPerField,
 }
 
 func (ss *PostingsBytesStartArray) Init() []int {
-	panic("not implemented yet")
+	if ss.perField.postingsArray == nil {
+		arr := ss.perField.consumer.createPostingsArray(2)
+		ss.bytesUsed.AddAndGet(int64(arr.size * arr.bytesPerPosting()))
+		ss.perField.postingsArray = arr
+	}
+	return ss.perField.postingsArray.textStarts
 }
 
 func (ss *PostingsBytesStartArray) BytesUsed() util.Counter {
 	return ss.bytesUsed
+}
+
+// index/ParallelPostingsArray.java
+
+type ParallelPostingsArray struct {
+	size            int
+	textStarts      []int
+	bytesPerPosting func() int
 }

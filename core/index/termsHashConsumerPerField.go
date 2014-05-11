@@ -6,6 +6,7 @@ import (
 
 type TermsHashConsumerPerField interface {
 	streamCount() int
+	createPostingsArray(int) *ParallelPostingsArray
 }
 
 // index/TermVectorsConsumerPerField.java
@@ -17,6 +18,10 @@ type TermVectorsConsumerPerField struct {
 func (c *TermVectorsConsumerPerField) streamCount() int { return 2 }
 
 func (c *TermVectorsConsumerPerField) shrinkHash() {
+	panic("not implemented yet")
+}
+
+func (c *TermVectorsConsumerPerField) createPostingsArray(size int) *ParallelPostingsArray {
 	panic("not implemented yet")
 }
 
@@ -70,6 +75,10 @@ func (w *FreqProxTermsWriterPerField) setIndexOptions(indexOptions model.IndexOp
 		w.hasProx = true
 		w.hasOffsets = true
 	}
+}
+
+func (w *FreqProxTermsWriterPerField) createPostingsArray(size int) *ParallelPostingsArray {
+	panic("not implemented yet")
 }
 
 /*
