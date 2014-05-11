@@ -974,8 +974,7 @@ func (w *MockDirectoryWrapper) Copy(to store.Directory, src string, dest string,
 
 	w.maybeYield()
 	// randomize the IOContext here?
-	panic("not implemented yet")
-	// return w.Directory.Copy(to, src, dest, context)
+	return w.Directory.Copy(to, src, dest, context)
 }
 
 func (w *MockDirectoryWrapper) CreateSlicer(name string, context store.IOContext) (slicer store.IndexInputSlicer, err error) {
