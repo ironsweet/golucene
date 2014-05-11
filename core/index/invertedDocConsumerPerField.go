@@ -101,8 +101,30 @@ func (ss *PostingsBytesStartArray) BytesUsed() util.Counter {
 
 // index/ParallelPostingsArray.java
 
+type PostingsArray interface {
+	bytesPerPosting() int
+	newInstance(size int) PostingsArray
+	copyTo(toArray PostingsArray, numToCopy int)
+}
+
 type ParallelPostingsArray struct {
-	size            int
-	textStarts      []int
-	bytesPerPosting func() int
+	PostingsArray
+	size       int
+	textStarts []int
+	intStarts  []int
+	byteStarts []int
+}
+
+func newParallelPostingsArray(spi PostingsArray, size int) *ParallelPostingsArray {
+	return &ParallelPostingsArray{
+		PostingsArray: spi,
+		size:          size,
+		textStarts:    make([]int, size),
+		intStarts:     make([]int, size),
+		byteStarts:    make([]int, size),
+	}
+}
+
+func (arr *ParallelPostingsArray) grow() *ParallelPostingsArray {
+	panic("not implemented yet")
 }

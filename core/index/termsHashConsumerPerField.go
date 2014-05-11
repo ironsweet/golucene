@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/index/model"
 )
 
@@ -78,6 +79,46 @@ func (w *FreqProxTermsWriterPerField) setIndexOptions(indexOptions model.IndexOp
 }
 
 func (w *FreqProxTermsWriterPerField) createPostingsArray(size int) *ParallelPostingsArray {
+	return newFreqProxPostingsArray(size, w.hasFreq, w.hasProx, w.hasOffsets)
+}
+
+type FreqProxPostingsArray struct {
+	termFreqs     []int // # times this term occurs in the current doc
+	lastDocIDs    []int // Last docID where this term occurred
+	lastDocCodes  []int // Code for prior doc
+	lastPositions []int //Last position where this term occurred
+	lastOffsets   []int // Last endOffsets where this term occurred
+}
+
+func newFreqProxPostingsArray(size int, writeFreqs, writeProx, writeOffsets bool) *ParallelPostingsArray {
+	ans := new(FreqProxPostingsArray)
+	if writeFreqs {
+		ans.termFreqs = make([]int, size)
+	}
+	ans.lastDocIDs = make([]int, size)
+	ans.lastDocCodes = make([]int, size)
+	if writeProx {
+		ans.lastPositions = make([]int, size)
+		if writeOffsets {
+			ans.lastOffsets = make([]int, size)
+		}
+	} else {
+		assert(!writeOffsets)
+	}
+	fmt.Printf("PA init freqs=%v pos=%v offs=%v\n", writeFreqs, writeProx, writeOffsets)
+	return newParallelPostingsArray(ans, size)
+}
+
+func (arr *FreqProxPostingsArray) newInstance(size int) PostingsArray {
+	return newFreqProxPostingsArray(size, arr.termFreqs != nil,
+		arr.lastPositions != nil, arr.lastOffsets != nil)
+}
+
+func (arr *FreqProxPostingsArray) copyTo(toArray PostingsArray, numToCopy int) {
+	panic("not implemented yet")
+}
+
+func (arr *FreqProxPostingsArray) bytesPerPosting() int {
 	panic("not implemented yet")
 }
 
