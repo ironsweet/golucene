@@ -173,7 +173,24 @@ func (p *StoredFieldsProcessor) finishDocument() error {
 }
 
 func (p *StoredFieldsProcessor) addField(docId int, field IndexableField, fieldInfo model.FieldInfo) {
-	panic("not implemented yet")
+	if field.fieldType().Stored() {
+		if p.numStoredFields == len(p.storedFields) {
+			newSize := util.Oversize(p.numStoredFields+1, util.NUM_BYTES_OBJECT_REF)
+			newArray := make([]IndexableField, newSize)
+			copy(newArray, p.storedFields)
+			p.storedFields = newArray
+
+			newInfoArray := make([]model.FieldInfo, newSize)
+			copy(newInfoArray, p.fieldInfos)
+			p.fieldInfos = newInfoArray
+		}
+
+		p.storedFields[p.numStoredFields] = field
+		p.fieldInfos[p.numStoredFields] = fieldInfo
+		p.numStoredFields++
+
+		p.docState.testPoint("StoredFieldsWriterPerThread.processFields.writeField")
+	}
 }
 
 // index/DocValuesProcessor.java

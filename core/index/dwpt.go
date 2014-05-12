@@ -70,6 +70,10 @@ func newDocState(docWriter *DocumentsWriterPerThread, infoStream util.InfoStream
 	}
 }
 
+func (ds *docState) testPoint(name string) {
+	ds.docWriter.testPoint(name)
+}
+
 func (ds *docState) clear() {
 	// don't hold onto doc nor analyzer, in case it is largish:
 	ds.doc = nil
