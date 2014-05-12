@@ -209,6 +209,9 @@ type DocFieldProcessorPerField struct {
 
 	next    *DocFieldProcessorPerField
 	lastGen int // -1
+
+	fieldCount int
+	fields     []IndexableField
 }
 
 func newDocFieldProcessorPerField(docFieldProcessor *DocFieldProcessor,
@@ -220,7 +223,14 @@ func newDocFieldProcessorPerField(docFieldProcessor *DocFieldProcessor,
 }
 
 func (f *DocFieldProcessorPerField) addField(field IndexableField) {
-	panic("not implemented yet")
+	if f.fieldCount == len(f.fields) {
+		newSize := util.Oversize(f.fieldCount+1, util.NUM_BYTES_OBJECT_REF)
+		newArray := make([]IndexableField, newSize)
+		copy(newArray, f.fields)
+		f.fields = newArray
+	}
+	f.fields[f.fieldCount] = field
+	f.fieldCount++
 }
 
 func (f *DocFieldProcessorPerField) abort() {
