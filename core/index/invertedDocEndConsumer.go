@@ -68,7 +68,7 @@ func (nc *NormsConsumer) finishDocument() {}
 
 func (nc *NormsConsumer) startDocument() {}
 
-func (nc *NormsConsumer) addField(DocInverterPerField *DocInverterPerField,
+func (nc *NormsConsumer) addField(docInverterPerField *DocInverterPerField,
 	fieldInfo model.FieldInfo) InvertedDocEndConsumerPerField {
-	panic("not implemented yet")
+	return newNormsConsumerPerField(docInverterPerField, fieldInfo, nc)
 }
