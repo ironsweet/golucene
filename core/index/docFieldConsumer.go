@@ -10,7 +10,7 @@ type DocFieldConsumer interface {
 	// Called when an aborting error is hit
 	abort()
 	startDocument()
-	addField(fi model.FieldInfo) DocFieldConsumerPerField
+	addField(fi *model.FieldInfo) DocFieldConsumerPerField
 	finishDocument() error
 }
 
@@ -64,21 +64,21 @@ func (di *DocInverter) abort() {
 	di.consumer.abort()
 }
 
-func (di *DocInverter) addField(fi model.FieldInfo) DocFieldConsumerPerField {
+func (di *DocInverter) addField(fi *model.FieldInfo) DocFieldConsumerPerField {
 	return newDocInverterPerField(di, fi)
 }
 
 // index/DocInverterPerField.java
 
 type DocInverterPerField struct {
-	_fieldInfo  model.FieldInfo
+	_fieldInfo  *model.FieldInfo
 	consumer    InvertedDocConsumerPerField
 	endConsumer InvertedDocEndConsumerPerField
 	docState    *docState
 	fieldState  *FieldInvertState
 }
 
-func newDocInverterPerField(parent *DocInverter, fieldInfo model.FieldInfo) *DocInverterPerField {
+func newDocInverterPerField(parent *DocInverter, fieldInfo *model.FieldInfo) *DocInverterPerField {
 	ans := &DocInverterPerField{
 		_fieldInfo: fieldInfo,
 		docState:   parent.docState,
@@ -94,6 +94,6 @@ func (dipf *DocInverterPerField) abort() {
 	dipf.consumer.abort()
 }
 
-func (dipf *DocInverterPerField) fieldInfo() model.FieldInfo {
+func (dipf *DocInverterPerField) fieldInfo() *model.FieldInfo {
 	return dipf._fieldInfo
 }

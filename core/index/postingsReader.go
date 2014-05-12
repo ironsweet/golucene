@@ -28,15 +28,15 @@ type PostingsReaderBase interface {
 	/** Return a newly created empty TermState */
 	NewTermState() *BlockTermState
 	/** Actually decode metadata for next term */
-	nextTerm(fieldInfo model.FieldInfo, state *BlockTermState) error
+	nextTerm(fieldInfo *model.FieldInfo, state *BlockTermState) error
 	/** Must fully consume state, since after this call that
 	 *  TermState may be reused. */
-	docs(fieldInfo model.FieldInfo, state *BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int) (de DocsEnum, err error)
+	docs(fieldInfo *model.FieldInfo, state *BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int) (de DocsEnum, err error)
 	// docsAndPositions(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits)
 	/** Returns approximate RAM bytes used */
 	// RamBytesUsed() int64
 	/** Reads data for all terms in the next block; this
 	 *  method should merely load the byte[] blob but not
 	 *  decode, which is done in {@link #nextTerm}. */
-	ReadTermsBlock(termsIn store.IndexInput, fieldInfo model.FieldInfo, termState *BlockTermState) error
+	ReadTermsBlock(termsIn store.IndexInput, fieldInfo *model.FieldInfo, termState *BlockTermState) error
 }

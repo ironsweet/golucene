@@ -304,7 +304,7 @@ type FieldReader struct {
 	*BlockTreeTermsReader // inner class
 
 	numTerms         int64
-	fieldInfo        model.FieldInfo
+	fieldInfo        *model.FieldInfo
 	sumTotalTermFreq int64
 	sumDocFreq       int64
 	docCount         int32
@@ -315,7 +315,7 @@ type FieldReader struct {
 }
 
 func newFieldReader(owner *BlockTreeTermsReader,
-	fieldInfo model.FieldInfo, numTerms int64, rootCode []byte,
+	fieldInfo *model.FieldInfo, numTerms int64, rootCode []byte,
 	sumTotalTermFreq, sumDocFreq int64, docCount int32, indexStartFP int64,
 	indexIn store.IndexInput) (r FieldReader, err error) {
 	log.Print("Initializing FieldReader...")

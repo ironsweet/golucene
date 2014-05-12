@@ -205,7 +205,7 @@ func (p *DocFieldProcessor) finishDocument() (err error) {
 /* Holds all per thread, per field state. */
 type DocFieldProcessorPerField struct {
 	consumer  DocFieldConsumerPerField
-	fieldInfo model.FieldInfo
+	fieldInfo *model.FieldInfo
 
 	next    *DocFieldProcessorPerField
 	lastGen int // -1
@@ -215,7 +215,7 @@ type DocFieldProcessorPerField struct {
 }
 
 func newDocFieldProcessorPerField(docFieldProcessor *DocFieldProcessor,
-	fieldInfo model.FieldInfo) *DocFieldProcessorPerField {
+	fieldInfo *model.FieldInfo) *DocFieldProcessorPerField {
 	return &DocFieldProcessorPerField{
 		consumer:  docFieldProcessor.consumer.addField(fieldInfo),
 		fieldInfo: fieldInfo,

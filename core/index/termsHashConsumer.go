@@ -11,7 +11,7 @@ type TermsHashConsumer interface {
 	flush(map[string]TermsHashConsumerPerField, SegmentWriteState) error
 	abort()
 	startDocument()
-	addField(*TermsHashPerField, model.FieldInfo) TermsHashConsumerPerField
+	addField(*TermsHashPerField, *model.FieldInfo) TermsHashConsumerPerField
 }
 
 // index/TermVectorsConsumer.java
@@ -102,7 +102,7 @@ func (tvc *TermVectorsConsumer) reset() {
 }
 
 func (tvc *TermVectorsConsumer) addField(termsHashPerField *TermsHashPerField,
-	fieldInfo model.FieldInfo) TermsHashConsumerPerField {
+	fieldInfo *model.FieldInfo) TermsHashConsumerPerField {
 	return newTermVectorsConsumerPerField(termsHashPerField, tvc, fieldInfo)
 }
 
@@ -202,7 +202,7 @@ func (a FreqProxTermsWriterPerFields) Less(i, j int) bool {
 }
 
 func (w *FreqProxTermsWriter) addField(termsHashPerField *TermsHashPerField,
-	fieldInfo model.FieldInfo) TermsHashConsumerPerField {
+	fieldInfo *model.FieldInfo) TermsHashConsumerPerField {
 	return newFreqProxTermsWriterPerField(termsHashPerField, w, fieldInfo)
 }
 

@@ -8,7 +8,7 @@ import (
 type InvertedDocConsumer interface {
 	// Abort (called after hitting abort error)
 	abort()
-	addField(*DocInverterPerField, model.FieldInfo) InvertedDocConsumerPerField
+	addField(*DocInverterPerField, *model.FieldInfo) InvertedDocConsumerPerField
 	// Flush a new segment
 	flush(map[string]InvertedDocConsumerPerField, SegmentWriteState) error
 	startDocument()
@@ -101,7 +101,7 @@ func (hash *TermsHash) flush(fieldsToFlush map[string]InvertedDocConsumerPerFiel
 }
 
 func (h *TermsHash) addField(docInverterPerField *DocInverterPerField,
-	fieldInfo model.FieldInfo) InvertedDocConsumerPerField {
+	fieldInfo *model.FieldInfo) InvertedDocConsumerPerField {
 	return newTermsHashPerField(docInverterPerField, h, h.nextTermsHash, fieldInfo)
 }
 

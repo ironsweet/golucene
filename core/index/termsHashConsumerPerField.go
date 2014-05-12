@@ -16,13 +16,13 @@ type TermsHashConsumerPerField interface {
 type TermVectorsConsumerPerField struct {
 	termsHashPerField *TermsHashPerField
 	termsWriter       *TermVectorsConsumer
-	fieldInfo         model.FieldInfo
+	fieldInfo         *model.FieldInfo
 	docState          *docState
 	fieldState        *FieldInvertState
 }
 
 func newTermVectorsConsumerPerField(termsHashPerField *TermsHashPerField,
-	termsWriter *TermVectorsConsumer, fieldInfo model.FieldInfo) *TermVectorsConsumerPerField {
+	termsWriter *TermVectorsConsumer, fieldInfo *model.FieldInfo) *TermVectorsConsumerPerField {
 	return &TermVectorsConsumerPerField{
 		termsHashPerField: termsHashPerField,
 		termsWriter:       termsWriter,
@@ -71,7 +71,7 @@ func (arr *TermVectorsPostingArray) bytesPerPosting() int {
 type FreqProxTermsWriterPerField struct {
 	parent            *FreqProxTermsWriter
 	termsHashPerField *TermsHashPerField
-	fieldInfo         model.FieldInfo
+	fieldInfo         *model.FieldInfo
 	docState          *docState
 	fieldState        *FieldInvertState
 	hasFreq           bool
@@ -80,7 +80,7 @@ type FreqProxTermsWriterPerField struct {
 }
 
 func newFreqProxTermsWriterPerField(termsHashPerField *TermsHashPerField,
-	parent *FreqProxTermsWriter, fieldInfo model.FieldInfo) *FreqProxTermsWriterPerField {
+	parent *FreqProxTermsWriter, fieldInfo *model.FieldInfo) *FreqProxTermsWriterPerField {
 	ans := &FreqProxTermsWriterPerField{
 		termsHashPerField: termsHashPerField,
 		parent:            parent,

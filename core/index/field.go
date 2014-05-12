@@ -53,7 +53,7 @@ type IndexableField interface {
 	readerValue() io.Reader
 
 	/** Non-null if this field has a numeric value */
-	// numericValue() uint64
+	numericValue() int64
 
 	/**
 	 * Creates the TokenStream used for indexing this field.  If appropriate,

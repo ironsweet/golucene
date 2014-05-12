@@ -25,8 +25,8 @@ type FieldInfo struct {
 }
 
 func NewFieldInfo(name string, indexed bool, number int32, storeTermVector, omitNorms, storePayloads bool,
-	indexOptions IndexOptions, docValues, normsType DocValuesType, attributes map[string]string) FieldInfo {
-	fi := FieldInfo{Name: name, indexed: indexed, Number: number, docValueType: docValues}
+	indexOptions IndexOptions, docValues, normsType DocValuesType, attributes map[string]string) *FieldInfo {
+	fi := &FieldInfo{Name: name, indexed: indexed, Number: number, docValueType: docValues}
 	fi.AttributesMixin = &AttributesMixin{attributes}
 	if indexed {
 		fi.storeTermVector = storeTermVector
@@ -39,6 +39,31 @@ func NewFieldInfo(name string, indexed bool, number int32, storeTermVector, omit
 	} // for non-indexed fields, leave defaults
 	// assert checkConsistency()
 	return fi
+}
+
+func (info *FieldInfo) checkConsistency() {
+	if !info.indexed {
+		assert(!info.storeTermVector)
+		assert(!info.storePayloads)
+		assert(!info.omitNorms)
+		assert(int(info.normType) == 0)
+		assert(int(info.indexOptions) == 0)
+	} else {
+		assert(int(info.indexOptions) != 0)
+		if info.omitNorms {
+			assert(int(info.normType) == 0)
+		}
+		// Cannot store payloads unless positions are indexed:
+		assert(int(info.indexOptions) >= int(INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS) || !info.storePayloads)
+	}
+}
+
+func (info *FieldInfo) SetDocValueType(v DocValuesType) {
+	assert2(int(info.docValueType) != 0 && info.docValueType != v,
+		"cannot change DocValues type from %v to %v for field '%v'",
+		info.docValueType, v, info.Name)
+	info.docValueType = v
+	info.checkConsistency()
 }
 
 /* Returns IndexOptions for the field, or 0 if the field is not indexed */

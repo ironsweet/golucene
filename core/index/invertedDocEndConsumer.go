@@ -8,7 +8,7 @@ import (
 type InvertedDocEndConsumer interface {
 	flush(map[string]InvertedDocEndConsumerPerField, SegmentWriteState) error
 	abort()
-	addField(*DocInverterPerField, model.FieldInfo) InvertedDocEndConsumerPerField
+	addField(*DocInverterPerField, *model.FieldInfo) InvertedDocEndConsumerPerField
 	startDocument()
 }
 
@@ -69,6 +69,6 @@ func (nc *NormsConsumer) finishDocument() {}
 func (nc *NormsConsumer) startDocument() {}
 
 func (nc *NormsConsumer) addField(docInverterPerField *DocInverterPerField,
-	fieldInfo model.FieldInfo) InvertedDocEndConsumerPerField {
+	fieldInfo *model.FieldInfo) InvertedDocEndConsumerPerField {
 	return newNormsConsumerPerField(docInverterPerField, fieldInfo, nc)
 }

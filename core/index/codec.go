@@ -277,7 +277,7 @@ the values multiple times.
 type DocValuesConsumer interface {
 	io.Closer
 	// Writes numeric docvalues for a field.
-	AddNumericField(model.FieldInfo, func() (int, bool)) error
+	AddNumericField(*model.FieldInfo, func() (int, bool)) error
 }
 
 // codecs/StoredFieldsFormat.java
@@ -447,10 +447,10 @@ type NormsFormat interface {
 // Abstract API that produces numeric, binary and sorted docvalues.
 type DocValuesProducer interface {
 	io.Closer
-	Numeric(field model.FieldInfo) (v NumericDocValues, err error)
-	Binary(field model.FieldInfo) (v BinaryDocValues, err error)
-	Sorted(field model.FieldInfo) (v SortedDocValues, err error)
-	SortedSet(field model.FieldInfo) (v SortedSetDocValues, err error)
+	Numeric(field *model.FieldInfo) (v NumericDocValues, err error)
+	Binary(field *model.FieldInfo) (v BinaryDocValues, err error)
+	Sorted(field *model.FieldInfo) (v SortedDocValues, err error)
+	SortedSet(field *model.FieldInfo) (v SortedSetDocValues, err error)
 }
 
 // codecs/LiveDocsFormat.java

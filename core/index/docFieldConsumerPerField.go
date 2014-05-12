@@ -6,5 +6,5 @@ import (
 
 type DocFieldConsumerPerField interface {
 	abort()
-	fieldInfo() model.FieldInfo
+	fieldInfo() *model.FieldInfo
 }

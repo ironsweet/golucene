@@ -212,7 +212,7 @@ func (r *Lucene41PostingsReader) Close() error {
 /* Reads but does not decode the byte[] blob holding
    metadata for the current terms block */
 func (r *Lucene41PostingsReader) ReadTermsBlock(termsIn store.IndexInput,
-	fieldInfo model.FieldInfo, _termState *BlockTermState) (err error) {
+	fieldInfo *model.FieldInfo, _termState *BlockTermState) (err error) {
 
 	termState := _termState.Self.(*intBlockTermState)
 	numBytes, err := asInt(termsIn.ReadVInt())
@@ -237,7 +237,7 @@ func (r *Lucene41PostingsReader) ReadTermsBlock(termsIn store.IndexInput,
 	return nil
 }
 
-func (r *Lucene41PostingsReader) nextTerm(fieldInfo model.FieldInfo,
+func (r *Lucene41PostingsReader) nextTerm(fieldInfo *model.FieldInfo,
 	_termState *BlockTermState) (err error) {
 
 	termState := _termState.Self.(*intBlockTermState)
@@ -337,7 +337,7 @@ func (r *Lucene41PostingsReader) nextTerm(fieldInfo model.FieldInfo,
 	return nil
 }
 
-func (r *Lucene41PostingsReader) docs(fieldInfo model.FieldInfo,
+func (r *Lucene41PostingsReader) docs(fieldInfo *model.FieldInfo,
 	termState *BlockTermState, liveDocs util.Bits,
 	reuse DocsEnum, flags int) (de DocsEnum, err error) {
 
@@ -400,7 +400,7 @@ type blockDocsEnum struct {
 }
 
 func newBlockDocsEnum(owner *Lucene41PostingsReader,
-	fieldInfo model.FieldInfo) *blockDocsEnum {
+	fieldInfo *model.FieldInfo) *blockDocsEnum {
 
 	return &blockDocsEnum{
 		Lucene41PostingsReader: owner,
@@ -416,7 +416,7 @@ func newBlockDocsEnum(owner *Lucene41PostingsReader,
 	}
 }
 
-func (de *blockDocsEnum) canReuse(docIn store.IndexInput, fieldInfo model.FieldInfo) bool {
+func (de *blockDocsEnum) canReuse(docIn store.IndexInput, fieldInfo *model.FieldInfo) bool {
 	return docIn == de.startDocIn &&
 		de.indexHasFreq == (fieldInfo.IndexOptions() >= model.INDEX_OPT_DOCS_AND_FREQS) &&
 		de.indexHasPos == (fieldInfo.IndexOptions() >= model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS) &&
@@ -852,7 +852,7 @@ func (r *CompressingStoredFieldsReader) Close() (err error) {
 }
 
 func (r *CompressingStoredFieldsReader) readField(in util.DataInput,
-	visitor StoredFieldVisitor, info model.FieldInfo, bits int) error {
+	visitor StoredFieldVisitor, info *model.FieldInfo, bits int) error {
 	switch bits & TYPE_MASK {
 	case BYTE_ARR:
 		panic("not implemented yet")

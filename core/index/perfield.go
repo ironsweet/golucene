@@ -237,28 +237,28 @@ func newPerFieldDocValuesReader(state SegmentReadState) (dvp DocValuesProducer, 
 	return &ans, nil
 }
 
-func (dvp *PerFieldDocValuesReader) Numeric(field model.FieldInfo) (v NumericDocValues, err error) {
+func (dvp *PerFieldDocValuesReader) Numeric(field *model.FieldInfo) (v NumericDocValues, err error) {
 	if p, ok := dvp.fields[field.Name]; ok {
 		return p.Numeric(field)
 	}
 	return nil, nil
 }
 
-func (dvp *PerFieldDocValuesReader) Binary(field model.FieldInfo) (v BinaryDocValues, err error) {
+func (dvp *PerFieldDocValuesReader) Binary(field *model.FieldInfo) (v BinaryDocValues, err error) {
 	if p, ok := dvp.fields[field.Name]; ok {
 		return p.Binary(field)
 	}
 	return nil, nil
 }
 
-func (dvp *PerFieldDocValuesReader) Sorted(field model.FieldInfo) (v SortedDocValues, err error) {
+func (dvp *PerFieldDocValuesReader) Sorted(field *model.FieldInfo) (v SortedDocValues, err error) {
 	if p, ok := dvp.fields[field.Name]; ok {
 		return p.Sorted(field)
 	}
 	return nil, nil
 }
 
-func (dvp *PerFieldDocValuesReader) SortedSet(field model.FieldInfo) (v SortedSetDocValues, err error) {
+func (dvp *PerFieldDocValuesReader) SortedSet(field *model.FieldInfo) (v SortedSetDocValues, err error) {
 	if p, ok := dvp.fields[field.Name]; ok {
 		return p.SortedSet(field)
 	}

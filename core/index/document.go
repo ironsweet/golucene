@@ -91,13 +91,13 @@ func newDocumentStoredFieldVisitor() *DocumentStoredFieldVisitor {
 	}
 }
 
-func (visitor *DocumentStoredFieldVisitor) binaryField(fi model.FieldInfo, value []byte) error {
+func (visitor *DocumentStoredFieldVisitor) binaryField(fi *model.FieldInfo, value []byte) error {
 	panic("not implemented yet")
 	// visitor.doc.add(newStoredField(fieldInfo.name, value))
 	// return nil
 }
 
-func (visitor *DocumentStoredFieldVisitor) stringField(fi model.FieldInfo, value string) error {
+func (visitor *DocumentStoredFieldVisitor) stringField(fi *model.FieldInfo, value string) error {
 	ft := NewFieldTypeFrom(TEXT_FIELD_TYPE_STORED)
 	ft.storeTermVectors = fi.HasVectors()
 	ft.indexed = fi.IsIndexed()
@@ -107,23 +107,23 @@ func (visitor *DocumentStoredFieldVisitor) stringField(fi model.FieldInfo, value
 	return nil
 }
 
-func (visitor *DocumentStoredFieldVisitor) intField(fi model.FieldInfo, value int) error {
+func (visitor *DocumentStoredFieldVisitor) intField(fi *model.FieldInfo, value int) error {
 	panic("not implemented yet")
 }
 
-func (visitor *DocumentStoredFieldVisitor) longField(fi model.FieldInfo, value int64) error {
+func (visitor *DocumentStoredFieldVisitor) longField(fi *model.FieldInfo, value int64) error {
 	panic("not implemented yet")
 }
 
-func (visitor *DocumentStoredFieldVisitor) floatField(fi model.FieldInfo, value float32) error {
+func (visitor *DocumentStoredFieldVisitor) floatField(fi *model.FieldInfo, value float32) error {
 	panic("not implemented yet")
 }
 
-func (visitor *DocumentStoredFieldVisitor) doubleField(fi model.FieldInfo, value float64) error {
+func (visitor *DocumentStoredFieldVisitor) doubleField(fi *model.FieldInfo, value float64) error {
 	panic("not implemented yet")
 }
 
-func (visitor *DocumentStoredFieldVisitor) needsField(fi model.FieldInfo) (status StoredFieldVisitorStatus, err error) {
+func (visitor *DocumentStoredFieldVisitor) needsField(fi *model.FieldInfo) (status StoredFieldVisitorStatus, err error) {
 	if visitor.fieldsToAdd == nil {
 		status = STORED_FIELD_VISITOR_STATUS_YES
 	} else if _, ok := visitor.fieldsToAdd[fi.Name]; ok {
@@ -330,6 +330,12 @@ func (f *Field) name() string {
 
 func (f *Field) boost() float32 {
 	return f._boost
+}
+
+func (f *Field) numericValue() int64 {
+	v, ok := f._data.(int64)
+	assert(ok)
+	return v
 }
 
 func (f *Field) binaryValue() []byte {

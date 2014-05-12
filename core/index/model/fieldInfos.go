@@ -17,13 +17,13 @@ type FieldInfos struct {
 	HasNorms     bool
 	HasDocValues bool
 
-	byNumber map[int32]FieldInfo
-	byName   map[string]FieldInfo
-	Values   []FieldInfo // sorted by ID
+	byNumber map[int32]*FieldInfo
+	byName   map[string]*FieldInfo
+	Values   []*FieldInfo // sorted by ID
 }
 
-func NewFieldInfos(infos []FieldInfo) FieldInfos {
-	self := FieldInfos{byNumber: make(map[int32]FieldInfo), byName: make(map[string]FieldInfo)}
+func NewFieldInfos(infos []*FieldInfo) FieldInfos {
+	self := FieldInfos{byNumber: make(map[int32]*FieldInfo), byName: make(map[string]*FieldInfo)}
 
 	numbers := make([]int32, 0)
 	for _, info := range infos {
@@ -47,7 +47,7 @@ func NewFieldInfos(infos []FieldInfo) FieldInfos {
 	}
 
 	sort.Sort(Int32Slice(numbers))
-	self.Values = make([]FieldInfo, len(infos))
+	self.Values = make([]*FieldInfo, len(infos))
 	for i, v := range numbers {
 		self.Values[int32(i)] = self.byNumber[v]
 	}
@@ -62,12 +62,12 @@ func (infos FieldInfos) Size() int {
 }
 
 /* Return the FieldInfo object referenced by the field name */
-func (infos FieldInfos) FieldInfoByName(fieldName string) FieldInfo {
+func (infos FieldInfos) FieldInfoByName(fieldName string) *FieldInfo {
 	return infos.byName[fieldName]
 }
 
 /* Return the FieldInfo object referenced by the fieldNumber. */
-func (infos FieldInfos) FieldInfoByNumber(fieldNumber int) FieldInfo {
+func (infos FieldInfos) FieldInfoByNumber(fieldNumber int) *FieldInfo {
 	assert(fieldNumber >= 0)
 	return infos.byNumber[int32(fieldNumber)]
 }
@@ -107,7 +107,7 @@ func NewFieldNumbers() *FieldNumbers {
 	}
 }
 
-func (fn *FieldNumbers) AddOrGet(info FieldInfo) int {
+func (fn *FieldNumbers) AddOrGet(info *FieldInfo) int {
 	return fn.addOrGet(info.Name, int(info.Number), info.docValueType)
 }
 
@@ -151,14 +151,14 @@ func (fn *FieldNumbers) addOrGet(name string, preferredNumber int, dv DocValuesT
 }
 
 type FieldInfosBuilder struct {
-	byName             map[string]FieldInfo
+	byName             map[string]*FieldInfo
 	globalFieldNumbers *FieldNumbers
 }
 
 func NewFieldInfosBuilder(globalFieldNumbers *FieldNumbers) *FieldInfosBuilder {
 	assert(globalFieldNumbers != nil)
 	return &FieldInfosBuilder{
-		byName:             make(map[string]FieldInfo),
+		byName:             make(map[string]*FieldInfo),
 		globalFieldNumbers: globalFieldNumbers,
 	}
 }
@@ -179,7 +179,7 @@ docValuesType; the indexer chain  (TermVectorsConsumerPerField,
 DocFieldProcessor) must set these fields when they succeed in
 consuming the document
 */
-func (b *FieldInfosBuilder) AddOrUpdate(name string, fieldType IndexableFieldType) FieldInfo {
+func (b *FieldInfosBuilder) AddOrUpdate(name string, fieldType IndexableFieldType) *FieldInfo {
 	// TODO: really, indexer shouldn't even call this method (it's only
 	// called from DocFieldProcessor); rather, each component in the
 	// chain should update what it "owns". E.g., fieldType.indexOptions()
@@ -192,7 +192,7 @@ func (b *FieldInfosBuilder) AddOrUpdate(name string, fieldType IndexableFieldTyp
 func (b *FieldInfosBuilder) addOrUpdateInternal(name string,
 	preferredFieldNumber int, isIndexed bool, storeTermVector bool,
 	omitNorms bool, storePayloads bool, indexOptions IndexOptions,
-	docValues DocValuesType, normType DocValuesType) FieldInfo {
+	docValues DocValuesType, normType DocValuesType) *FieldInfo {
 	if fi, ok := b.byName[name]; ok {
 		panic("not implemented yet")
 		return fi
@@ -210,7 +210,7 @@ func (b *FieldInfosBuilder) addOrUpdateInternal(name string,
 }
 
 func (b *FieldInfosBuilder) Finish() FieldInfos {
-	var infos []FieldInfo
+	var infos []*FieldInfo
 	for _, v := range b.byName {
 		infos = append(infos, v)
 	}

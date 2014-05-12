@@ -144,7 +144,7 @@ func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput) (err err
 	return
 }
 
-func (dvp *Lucene42DocValuesProducer) Numeric(field model.FieldInfo) (v NumericDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) Numeric(field *model.FieldInfo) (v NumericDocValues, err error) {
 	dvp.lock.Lock()
 	defer dvp.lock.Unlock()
 
@@ -157,7 +157,7 @@ func (dvp *Lucene42DocValuesProducer) Numeric(field model.FieldInfo) (v NumericD
 	return
 }
 
-func (dvp *Lucene42DocValuesProducer) loadNumeric(field model.FieldInfo) (v NumericDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) loadNumeric(field *model.FieldInfo) (v NumericDocValues, err error) {
 	entry := dvp.numerics[int(field.Number)]
 	if err = dvp.data.Seek(entry.offset); err != nil {
 		return
@@ -183,17 +183,17 @@ func (dvp *Lucene42DocValuesProducer) loadNumeric(field model.FieldInfo) (v Nume
 	return
 }
 
-func (dvp *Lucene42DocValuesProducer) Binary(field model.FieldInfo) (v BinaryDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) Binary(field *model.FieldInfo) (v BinaryDocValues, err error) {
 	panic("not implemented yet")
 	return nil, nil
 }
 
-func (dvp *Lucene42DocValuesProducer) Sorted(field model.FieldInfo) (v SortedDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) Sorted(field *model.FieldInfo) (v SortedDocValues, err error) {
 	panic("not implemented yet")
 	return nil, nil
 }
 
-func (dvp *Lucene42DocValuesProducer) SortedSet(field model.FieldInfo) (v SortedSetDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) SortedSet(field *model.FieldInfo) (v SortedSetDocValues, err error) {
 	panic("not implemented yet")
 	return nil, nil
 }

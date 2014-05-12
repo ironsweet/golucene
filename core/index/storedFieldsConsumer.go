@@ -8,7 +8,7 @@ import (
 )
 
 type StoredFieldsConsumer interface {
-	addField(docId int, field IndexableField, fieldInfo model.FieldInfo)
+	addField(docId int, field IndexableField, fieldInfo *model.FieldInfo)
 	flush(state SegmentWriteState) error
 	abort()
 	startDocument()
@@ -25,7 +25,7 @@ func newTwoStoredFieldsConsumers(first, second StoredFieldsConsumer) *TwoStoredF
 	return &TwoStoredFieldsConsumers{first, second}
 }
 
-func (p *TwoStoredFieldsConsumers) addField(docId int, field IndexableField, fieldInfo model.FieldInfo) {
+func (p *TwoStoredFieldsConsumers) addField(docId int, field IndexableField, fieldInfo *model.FieldInfo) {
 	// err := p.first.addField(docId, field, fieldInfo)
 	// if err == nil {
 	// 	err = p.second.addField(docId, field, fieldInfo)
@@ -73,7 +73,7 @@ type StoredFieldsProcessor struct {
 
 	numStoredFields int
 	storedFields    []IndexableField
-	fieldInfos      []model.FieldInfo
+	fieldInfos      []*model.FieldInfo
 }
 
 func newStoredFieldsProcessor(docWriter *DocumentsWriterPerThread) *StoredFieldsProcessor {
@@ -172,7 +172,7 @@ func (p *StoredFieldsProcessor) finishDocument() error {
 	panic("not implemented yet")
 }
 
-func (p *StoredFieldsProcessor) addField(docId int, field IndexableField, fieldInfo model.FieldInfo) {
+func (p *StoredFieldsProcessor) addField(docId int, field IndexableField, fieldInfo *model.FieldInfo) {
 	if field.fieldType().Stored() {
 		if p.numStoredFields == len(p.storedFields) {
 			newSize := util.Oversize(p.numStoredFields+1, util.NUM_BYTES_OBJECT_REF)
@@ -180,7 +180,7 @@ func (p *StoredFieldsProcessor) addField(docId int, field IndexableField, fieldI
 			copy(newArray, p.storedFields)
 			p.storedFields = newArray
 
-			newInfoArray := make([]model.FieldInfo, newSize)
+			newInfoArray := make([]*model.FieldInfo, newSize)
 			copy(newInfoArray, p.fieldInfos)
 			p.fieldInfos = newInfoArray
 		}
@@ -208,8 +208,22 @@ func (p *DocValuesProcessor) startDocument() {}
 
 func (p *DocValuesProcessor) finishDocument() error { return nil }
 
-func (p *DocValuesProcessor) addField(docId int, field IndexableField, fieldInfo model.FieldInfo) {
-	panic("not implemented yet")
+func (p *DocValuesProcessor) addField(docId int, field IndexableField, fieldInfo *model.FieldInfo) {
+	if dvType := field.fieldType().DocValueType(); int(dvType) != 0 {
+		fieldInfo.SetDocValueType(dvType)
+		switch dvType {
+		case model.DOC_VALUES_TYPE_BINARY:
+			p.addBinaryField(fieldInfo, docId, field.binaryValue())
+		case model.DOC_VALUES_TYPE_SORTED:
+			p.addSortedField(fieldInfo, docId, field.binaryValue())
+		case model.DOC_VALUES_TYPE_SORTED_SET:
+			p.addSortedSetField(fieldInfo, docId, field.binaryValue())
+		case model.DOC_VALUES_TYPE_NUMERIC:
+			p.addNumericField(fieldInfo, docId, field.numericValue())
+		default:
+			assertn(false, "unrecognized DocValues.Type: %v", dvType)
+		}
+	}
 }
 
 func (p *DocValuesProcessor) flush(state SegmentWriteState) (err error) {
@@ -244,6 +258,26 @@ func (p *DocValuesProcessor) flush(state SegmentWriteState) (err error) {
 		success = true
 	}
 	return nil
+}
+
+func (p *DocValuesProcessor) addBinaryField(fieldInfo *model.FieldInfo,
+	docId int, value []byte) {
+	panic("not implemented yet")
+}
+
+func (p *DocValuesProcessor) addSortedField(fieldInfo *model.FieldInfo,
+	docId int, value []byte) {
+	panic("not implemented yet")
+}
+
+func (p *DocValuesProcessor) addSortedSetField(fieldInfo *model.FieldInfo,
+	docId int, value []byte) {
+	panic("not implemented yet")
+}
+
+func (p *DocValuesProcessor) addNumericField(field *model.FieldInfo,
+	docId int, value int64) {
+	panic("not implemented yet")
 }
 
 func (p *DocValuesProcessor) abort() {

@@ -14,7 +14,7 @@ type InvertedDocEndConsumerPerField interface {
 // index/NormsConsumerPerField.java
 
 type NormsConsumerPerField struct {
-	fieldInfo  model.FieldInfo
+	fieldInfo  *model.FieldInfo
 	docState   *docState
 	similarity Similarity
 	fieldState *FieldInvertState
@@ -22,7 +22,7 @@ type NormsConsumerPerField struct {
 }
 
 func newNormsConsumerPerField(docInverterPerField *DocInverterPerField,
-	fieldInfo model.FieldInfo, parent *NormsConsumer) *NormsConsumerPerField {
+	fieldInfo *model.FieldInfo, parent *NormsConsumer) *NormsConsumerPerField {
 	return &NormsConsumerPerField{
 		fieldInfo:  fieldInfo,
 		docState:   docInverterPerField.docState,

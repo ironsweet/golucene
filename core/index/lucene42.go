@@ -184,7 +184,7 @@ var Lucene42FieldInfosReader = func(dir store.Directory,
 	}
 	log.Printf("Found %v FieldInfos.", size)
 
-	infos := make([]model.FieldInfo, size)
+	infos := make([]*model.FieldInfo, size)
 	for i, _ := range infos {
 		name, err := input.ReadString()
 		if err != nil {

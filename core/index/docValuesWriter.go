@@ -14,7 +14,7 @@ type DocValuesWriter interface {
 
 /* Buffers up pending long per doc, then flushes when segment flushes. */
 type NumericDocValuesWriter struct {
-	fieldInfo model.FieldInfo
+	fieldInfo *model.FieldInfo
 }
 
 func (w *NumericDocValuesWriter) finish(numDoc int) {}

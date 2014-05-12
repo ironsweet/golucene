@@ -31,7 +31,7 @@ type TermsHashPerField struct {
 	streamCount   int
 	numPostingInt int
 
-	fieldInfo model.FieldInfo
+	fieldInfo *model.FieldInfo
 
 	bytesHash *util.BytesRefHash
 
@@ -41,7 +41,7 @@ type TermsHashPerField struct {
 
 func newTermsHashPerField(docInverterPerField *DocInverterPerField,
 	termsHash *TermsHash, nextTermsHash *TermsHash,
-	fieldInfo model.FieldInfo) *TermsHashPerField {
+	fieldInfo *model.FieldInfo) *TermsHashPerField {
 
 	ans := &TermsHashPerField{
 		intPool:      termsHash.intPool,
