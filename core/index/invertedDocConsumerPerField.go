@@ -73,7 +73,10 @@ func (h *TermsHashPerField) reset() {
 }
 
 func (h *TermsHashPerField) abort() {
-	panic("not implemented yet")
+	h.reset()
+	if h.nextPerField != nil {
+		h.nextPerField.abort()
+	}
 }
 
 type PostingsBytesStartArray struct {
