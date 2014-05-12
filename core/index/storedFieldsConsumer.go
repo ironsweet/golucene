@@ -54,7 +54,11 @@ func (p *TwoStoredFieldsConsumers) startDocument() {
 }
 
 func (p *TwoStoredFieldsConsumers) finishDocument() error {
-	panic("not implemented yet")
+	err := p.first.finishDocument()
+	if err == nil {
+		err = p.second.finishDocument()
+	}
+	return err
 }
 
 // index/StoredFieldsProcessor.java
