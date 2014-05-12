@@ -39,7 +39,30 @@ func (c *TermVectorsConsumerPerField) shrinkHash() {
 }
 
 func (c *TermVectorsConsumerPerField) createPostingsArray(size int) *ParallelPostingsArray {
+	return newTermVectorsPostingArray(size)
+}
+
+type TermVectorsPostingArray struct {
+	freqs         []int // How many times this term occurred in the current doc
+	lastOffsets   []int // Last offset we saw
+	lastPositions []int //Last position where this term occurred
+}
+
+func newTermVectorsPostingArray(size int) *ParallelPostingsArray {
+	ans := new(TermVectorsPostingArray)
+	return newParallelPostingsArray(ans, size)
+}
+
+func (arr *TermVectorsPostingArray) newInstance(size int) PostingsArray {
+	return newTermVectorsPostingArray(size)
+}
+
+func (arr *TermVectorsPostingArray) copyTo(toArray PostingsArray, numToCopy int) {
 	panic("not implemented yet")
+}
+
+func (arr *TermVectorsPostingArray) bytesPerPosting() int {
+	return BYTES_PER_POSTING + 3*util.NUM_BYTES_INT
 }
 
 // TODO: break into separate freq and prox writers as codes; make
