@@ -69,7 +69,10 @@ func (h *TermsHashPerField) shrinkHash(targetSize int) {
 }
 
 func (h *TermsHashPerField) reset() {
-	panic("not implemented yet")
+	h.bytesHash.Clear(false)
+	if h.nextPerField != nil {
+		h.nextPerField.reset()
+	}
 }
 
 func (h *TermsHashPerField) abort() {
@@ -96,6 +99,14 @@ func (ss *PostingsBytesStartArray) Init() []int {
 		ss.perField.postingsArray = arr
 	}
 	return ss.perField.postingsArray.textStarts
+}
+
+func (ss *PostingsBytesStartArray) Clear() []int {
+	if ss.perField.postingsArray != nil {
+		ss.bytesUsed.AddAndGet(-int64(ss.perField.postingsArray.size * ss.perField.postingsArray.bytesPerPosting()))
+		ss.perField.postingsArray = nil
+	}
+	return nil
 }
 
 func (ss *PostingsBytesStartArray) BytesUsed() util.Counter {
