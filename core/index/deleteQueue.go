@@ -75,6 +75,11 @@ func newDocumentsWriterDeleteQueueWith(globalBufferedDeletes *BufferedDeletes, g
 	}
 }
 
+/* Invariant for document update */
+func (q *DocumentsWriterDeleteQueue) add(term *Term, slice *DeleteSlice) {
+	panic("not implemented yet")
+}
+
 func (dq *DocumentsWriterDeleteQueue) freezeGlobalBuffer(callerSlice *DeleteSlice) *FrozenBufferedDeletes {
 	dq.globalBufferLock.Lock()
 	defer dq.globalBufferLock.Unlock()
@@ -113,6 +118,14 @@ func (dq *DocumentsWriterDeleteQueue) anyChanges() bool {
 
 func (dq *DocumentsWriterDeleteQueue) newSlice() *DeleteSlice {
 	return newDeleteSlice(dq.tail)
+}
+
+func (q *DocumentsWriterDeleteQueue) updateSlice(slice *DeleteSlice) bool {
+	if slice.tail != q.tail { // if we are the same just
+		slice.tail = q.tail
+		return true
+	}
+	return false
 }
 
 func (dq *DocumentsWriterDeleteQueue) clear() {
@@ -162,6 +175,14 @@ func (ds *DeleteSlice) apply(del *BufferedDeletes, docIDUpto int) {
 func (ds *DeleteSlice) reset() {
 	// reset to 0 length slice
 	ds.head = ds.tail
+}
+
+/*
+Returns true iff the given item is identical to the item held by the
+slice's tail, otherwise false.
+*/
+func (ds *DeleteSlice) isTailItem(item interface{}) bool {
+	return ds.tail.item == item
 }
 
 func (ds *DeleteSlice) isEmpty() bool {

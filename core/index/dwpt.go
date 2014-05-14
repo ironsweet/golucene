@@ -255,8 +255,29 @@ func (dwpt *DocumentsWriterPerThread) updateDocuments(doc []model.IndexableField
 	panic("not implemented yet")
 }
 
-func (dwpt *DocumentsWriterPerThread) finishDocument(delTerm *Term) {
-	panic("not implemented yet")
+func (w *DocumentsWriterPerThread) finishDocument(delTerm *Term) {
+	// here we actually finish the document in two steps:
+	// 1. push the delete into the queue and update out slice.
+	// 2. increment the DWPT private document id.
+	//
+	// the updated slice we get from 1. holds all the deletes that have
+	// occurred since we updated the slice the last time.
+	applySlice := w.numDocsInRAM != 0
+	if delTerm != nil {
+		w.deleteQueue.add(delTerm, w.deleteSlice)
+		assertn(w.deleteSlice.isTailItem(delTerm), "expected the delete term as the tail item")
+	} else {
+		if !w.deleteQueue.updateSlice(w.deleteSlice) {
+			applySlice = false
+		}
+	}
+
+	if applySlice {
+		w.deleteSlice.apply(w.pendingDeletes, w.numDocsInRAM)
+	} else { // if we don't need to apply we must reset!
+		w.deleteSlice.reset()
+	}
+	w.numDocsInRAM++
 }
 
 /*
