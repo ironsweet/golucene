@@ -12,6 +12,7 @@ type InvertedDocConsumer interface {
 	// Flush a new segment
 	flush(map[string]InvertedDocConsumerPerField, SegmentWriteState) error
 	startDocument()
+	finishDocument() error
 }
 
 /*
@@ -103,6 +104,14 @@ func (hash *TermsHash) flush(fieldsToFlush map[string]InvertedDocConsumerPerFiel
 func (h *TermsHash) addField(docInverterPerField *DocInverterPerField,
 	fieldInfo *model.FieldInfo) InvertedDocConsumerPerField {
 	return newTermsHashPerField(docInverterPerField, h, h.nextTermsHash, fieldInfo)
+}
+
+func (h *TermsHash) finishDocument() error {
+	err := h.consumer.finishDocument(h)
+	if err == nil && h.nextTermsHash != nil {
+		err = h.nextTermsHash.consumer.finishDocument(h.nextTermsHash)
+	}
+	return err
 }
 
 func (h *TermsHash) startDocument() {

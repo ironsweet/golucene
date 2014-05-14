@@ -34,6 +34,10 @@ func newTermVectorsConsumerPerField(termsHashPerField *TermsHashPerField,
 
 func (c *TermVectorsConsumerPerField) streamCount() int { return 2 }
 
+func (c *TermVectorsConsumerPerField) finishDocument() error {
+	panic("not implemented yet")
+}
+
 func (c *TermVectorsConsumerPerField) shrinkHash() {
 	panic("not implemented yet")
 }

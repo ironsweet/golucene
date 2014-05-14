@@ -373,7 +373,7 @@ type TermVectorsWriter interface {
 	// startField() will be called numVectorsFields times. Note that if
 	// term vectors are enabled, this is called even if the document
 	// has no vector fields, in this case numVectorFields will be zero.
-	startDocument(int)
+	startDocument(int) error
 	// Called after a doc and all its fields have been added
 	finishDocument() error
 	// Aborts writing entirely, implementation should remove any

@@ -10,6 +10,7 @@ type InvertedDocEndConsumer interface {
 	abort()
 	addField(*DocInverterPerField, *model.FieldInfo) InvertedDocEndConsumerPerField
 	startDocument()
+	finishDocument()
 }
 
 /*

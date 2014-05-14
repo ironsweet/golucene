@@ -2,6 +2,7 @@ package index
 
 import (
 	"github.com/balzaczyy/golucene/core/index/model"
+	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -11,6 +12,7 @@ type TermsHashConsumer interface {
 	flush(map[string]TermsHashConsumerPerField, SegmentWriteState) error
 	abort()
 	startDocument()
+	finishDocument(*TermsHash) error
 	addField(*TermsHashPerField, *model.FieldInfo) TermsHashConsumerPerField
 }
 
@@ -81,6 +83,59 @@ func (c *TermVectorsConsumer) fill(docId int) error {
 		}
 		c.lastDocId++
 	}
+	return nil
+}
+
+func (c *TermVectorsConsumer) finishDocument(termsHash *TermsHash) error {
+	c.docWriter.testPoint("TermVectorsTermsWriter.finishDocument start")
+
+	if !c.hasVectors {
+		return nil
+	}
+
+	var err error
+	// initTermVectorsWriter
+	if c.writer == nil {
+		w := c.docWriter
+		ctx := store.NewIOContextForFlush(&store.FlushInfo{
+			w.numDocsInRAM,
+			w.bytesUsed(),
+		})
+		c.writer, err = w.codec.TermVectorsFormat().VectorsWriter(w.directory, w.segmentInfo, ctx)
+		if err != nil {
+			return err
+		}
+		c.lastDocId = 0
+	}
+
+	err = c.fill(c.docState.docID)
+	if err != nil {
+		return err
+	}
+
+	// Append term vectors to the real outputs:
+	err = c.writer.startDocument(c.numVectorsFields)
+	if err != nil {
+		return err
+	}
+	for i := 0; i < c.numVectorsFields; i++ {
+		err = c.perFields[i].finishDocument()
+		if err != nil {
+			return err
+		}
+	}
+	err = c.writer.finishDocument()
+	if err != nil {
+		return err
+	}
+
+	assertn(c.lastDocId == c.docState.docID, "lastDocID=%v docState.docID=%v", c.lastDocId, c.docState.docID)
+
+	c.lastDocId++
+
+	termsHash.reset()
+	c.reset()
+	c.docWriter.testPoint("TermVectorsTermsWriter.finishDocument end")
 	return nil
 }
 
@@ -205,5 +260,7 @@ func (w *FreqProxTermsWriter) addField(termsHashPerField *TermsHashPerField,
 	fieldInfo *model.FieldInfo) TermsHashConsumerPerField {
 	return newFreqProxTermsWriterPerField(termsHashPerField, w, fieldInfo)
 }
+
+func (w *FreqProxTermsWriter) finishDocument(*TermsHash) error { return nil }
 
 func (w *FreqProxTermsWriter) startDocument() {}
