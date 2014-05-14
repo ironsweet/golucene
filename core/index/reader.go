@@ -42,7 +42,7 @@ type IndexReader interface {
 	 */
 	// TODO: we need a separate StoredField, so that the
 	// Document returned here contains that class not
-	// IndexableField
+	//model.IndexableField
 	Document(docID int) (doc *Document, err error)
 	doClose() error
 	Context() IndexReaderContext

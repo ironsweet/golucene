@@ -238,7 +238,7 @@ func (dw *DocumentsWriter) ensureInitialized(state *ThreadState) {
 }
 
 // L428
-func (dw *DocumentsWriter) updateDocument(doc []IndexableField,
+func (dw *DocumentsWriter) updateDocument(doc []model.IndexableField,
 	analyzer analysis.Analyzer, delTerm *Term) (bool, error) {
 
 	hasEvents, err := dw.preUpdate()

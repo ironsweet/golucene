@@ -60,7 +60,7 @@ type docState struct {
 	infoStream util.InfoStream
 	similarity Similarity
 	docID      int
-	doc        []IndexableField
+	doc        []model.IndexableField
 }
 
 func newDocState(docWriter *DocumentsWriterPerThread, infoStream util.InfoStream) *docState {
@@ -197,7 +197,7 @@ func (dwpt *DocumentsWriterPerThread) testPoint(msg string) {
 	}
 }
 
-func (dwpt *DocumentsWriterPerThread) updateDocument(doc []IndexableField,
+func (dwpt *DocumentsWriterPerThread) updateDocument(doc []model.IndexableField,
 	analyzer analysis.Analyzer, delTerm *Term) error {
 
 	dwpt.testPoint("DocumentsWriterPerThread addDocument start")
@@ -248,7 +248,7 @@ func (dwpt *DocumentsWriterPerThread) updateDocument(doc []IndexableField,
 	return nil
 }
 
-func (dwpt *DocumentsWriterPerThread) updateDocuments(doc []IndexableField,
+func (dwpt *DocumentsWriterPerThread) updateDocuments(doc []model.IndexableField,
 	analyzer analysis.Analyzer, delTerm *Term) error {
 
 	dwpt.testPoint("DocumentsWriterPerThread addDocument start")

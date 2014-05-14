@@ -9,10 +9,22 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
+	"math"
 )
 
 /* hard limit on the maximum number of documents per chunk */
 const MAX_DOCUMENTS_PER_CHUNK = 128
+
+const (
+	STRING         = 0x00
+	BYTE_ARR       = 0x01
+	NUMERIC_INT    = 0x02
+	NUMERIC_FLOAT  = 0x03
+	NUMERIC_LONG   = 0x04
+	NUMERIC_DOUBLE = 0x05
+)
+
+var TYPE_BITS = uint(packed.BitsRequired(NUMERIC_DOUBLE))
 
 const CODEC_SFX_IDX = "Index"
 const CODEC_SFX_DAT = "Data"
@@ -262,6 +274,66 @@ func (w *CompressingStoredFieldsWriter) flush() error {
 	return nil
 }
 
+func (w *CompressingStoredFieldsWriter) WriteField(info *model.FieldInfo, field model.IndexableField) error {
+	bits := 0
+	var bytes []byte
+	var str string
+
+	number := field.NumericValue()
+	if number != nil {
+		switch t := number.(type) {
+		case int32:
+			bits = NUMERIC_INT
+		case int64:
+			bits = NUMERIC_LONG
+		case float32:
+			bits = NUMERIC_FLOAT
+		case float64:
+			bits = NUMERIC_DOUBLE
+		default:
+			panic(fmt.Sprintf("cannot store numeric type %v", t))
+		}
+	} else {
+		bytes = field.BinaryValue()
+		if bytes != nil {
+			bits = BYTE_ARR
+		} else {
+			bits = STRING
+			str = field.StringValue()
+			assert2(str != "",
+				"field %v is stored but does not have binaryValue, stringValue nor numericValue",
+				field.Name())
+		}
+	}
+
+	infoAndBits := (int64(info.Number) << TYPE_BITS) | int64(bits)
+	err := w.bufferedDocs.WriteVLong(infoAndBits)
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case bytes != nil:
+		err = w.bufferedDocs.WriteVInt(int32(len(bytes)))
+		if err == nil {
+			err = w.bufferedDocs.WriteBytes(bytes)
+		}
+	case str != "":
+		err = w.bufferedDocs.WriteString(field.StringValue())
+	case bits == NUMERIC_INT:
+		err = w.bufferedDocs.WriteInt(number.(int32))
+	case bits == NUMERIC_LONG:
+		err = w.bufferedDocs.WriteLong(number.(int64))
+	case bits == NUMERIC_FLOAT:
+		err = w.bufferedDocs.WriteInt(int32(math.Float32bits(number.(float32))))
+	case bits == NUMERIC_DOUBLE:
+		err = w.bufferedDocs.WriteLong(int64(math.Float64bits(number.(float64))))
+	default:
+		panic("Cannot get here")
+	}
+	return err
+}
+
 func (w *CompressingStoredFieldsWriter) Abort() {
 	if w == nil { // tolerate early released pointer
 		return
@@ -298,10 +370,23 @@ func (w *CompressingStoredFieldsWriter) Finish(fis model.FieldInfos, numDocs int
 
 /* A DataOutput that can be used to build a []byte */
 type GrowableByteArrayDataOutput struct {
+	*util.DataOutputImpl
 	bytes  []byte
 	length int
 }
 
 func newGrowableByteArrayDataOutput(cp int) *GrowableByteArrayDataOutput {
-	return &GrowableByteArrayDataOutput{make([]byte, 0, util.Oversize(cp, 1)), 0}
+	ans := &GrowableByteArrayDataOutput{bytes: make([]byte, 0, util.Oversize(cp, 1))}
+	ans.DataOutputImpl = util.NewDataOutput(ans)
+	return ans
+}
+
+func (out *GrowableByteArrayDataOutput) WriteByte(b byte) error {
+	out.bytes = append(out.bytes, b)
+	return nil
+}
+
+func (out *GrowableByteArrayDataOutput) WriteBytes(b []byte) error {
+	out.bytes = append(out.bytes, b...)
+	return nil
 }

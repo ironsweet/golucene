@@ -277,7 +277,7 @@ the values multiple times.
 type DocValuesConsumer interface {
 	io.Closer
 	// Writes numeric docvalues for a field.
-	AddNumericField(*model.FieldInfo, func() (int, bool)) error
+	AddNumericField(*model.FieldInfo, func() (interface{}, bool)) error
 }
 
 // codecs/StoredFieldsFormat.java
@@ -319,6 +319,8 @@ type StoredFieldsWriter interface {
 	StartDocument(numStoredFields int) error
 	// Called when a document and all its fields have been added.
 	FinishDocument() error
+	// Writes a single stored field.
+	WriteField(info *model.FieldInfo, field model.IndexableField) error
 	// Aborts writing entirely, implementation should remove any
 	// partially-written files, etc.
 	Abort()

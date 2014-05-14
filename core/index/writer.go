@@ -654,7 +654,7 @@ character U+FFFD.
 NOTE: if this method hits a memory issue, you should immediately
 close the writer. See above for details.
 */
-func (w *IndexWriter) AddDocument(doc []IndexableField) error {
+func (w *IndexWriter) AddDocument(doc []model.IndexableField) error {
 	return w.AddDocumentWithAnalyzer(doc, w.analyzer)
 }
 
@@ -668,7 +668,7 @@ error, and flushing/merging temporary free space requirements.
 NOTE: if this method hits a memory issue, you hsould immediately
 close the writer. See above for details.
 */
-func (w *IndexWriter) AddDocumentWithAnalyzer(doc []IndexableField, analyzer analysis.Analyzer) error {
+func (w *IndexWriter) AddDocumentWithAnalyzer(doc []model.IndexableField, analyzer analysis.Analyzer) error {
 	return w.UpdateDocument(nil, doc, analyzer)
 }
 
@@ -682,7 +682,7 @@ the add).
 NOTE: if this method hits a memory issue, you should immediately
 close he write. See above for details.
 */
-func (w *IndexWriter) UpdateDocument(term *Term, doc []IndexableField, analyzer analysis.Analyzer) error {
+func (w *IndexWriter) UpdateDocument(term *Term, doc []model.IndexableField, analyzer analysis.Analyzer) error {
 	w.ensureOpen()
 	var success = false
 	defer func() {

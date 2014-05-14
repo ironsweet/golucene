@@ -144,7 +144,7 @@ func (p *DocFieldProcessor) processDocument(fieldInfos *model.FieldInfosBuilder)
 	// turning on norms or vectors, etc.)
 
 	for _, field := range p.docState.doc {
-		fieldName := field.name()
+		fieldName := field.Name()
 
 		// Make sure we have a PerField allocated
 		hashPos := hashstr(fieldName) & p.hashMask
@@ -158,7 +158,7 @@ func (p *DocFieldProcessor) processDocument(fieldInfos *model.FieldInfosBuilder)
 			// holds, and, how these flags are merged; it needs to be more
 			// "pluggable" such that if I want to have a new "thing" my
 			// Fields can do, I can easily add it
-			fi := fieldInfos.AddOrUpdate(fieldName, field.fieldType())
+			fi := fieldInfos.AddOrUpdate(fieldName, field.FieldType())
 
 			fp = newDocFieldProcessorPerField(p, fi)
 			fp.next = p.fieldHash[hashPos]
@@ -211,7 +211,7 @@ type DocFieldProcessorPerField struct {
 	lastGen int // -1
 
 	fieldCount int
-	fields     []IndexableField
+	fields     []model.IndexableField
 }
 
 func newDocFieldProcessorPerField(docFieldProcessor *DocFieldProcessor,
@@ -222,10 +222,10 @@ func newDocFieldProcessorPerField(docFieldProcessor *DocFieldProcessor,
 	}
 }
 
-func (f *DocFieldProcessorPerField) addField(field IndexableField) {
+func (f *DocFieldProcessorPerField) addField(field model.IndexableField) {
 	if f.fieldCount == len(f.fields) {
 		newSize := util.Oversize(f.fieldCount+1, util.NUM_BYTES_OBJECT_REF)
-		newArray := make([]IndexableField, newSize)
+		newArray := make([]model.IndexableField, newSize)
 		copy(newArray, f.fields)
 		f.fields = newArray
 	}

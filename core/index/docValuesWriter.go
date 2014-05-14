@@ -31,6 +31,6 @@ func (w *NumericDocValuesWriter) abort() {}
 type NumericIterator struct {
 }
 
-func newNumericIterator(maxDoc int, owner *NumericDocValuesWriter) func() (int, bool) {
+func newNumericIterator(maxDoc int, owner *NumericDocValuesWriter) func() (interface{}, bool) {
 	panic("not implemented yet")
 }

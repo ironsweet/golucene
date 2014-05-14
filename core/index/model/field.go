@@ -1,8 +1,7 @@
-package index
+package model
 
 import (
 	"github.com/balzaczyy/golucene/core/analysis"
-	"github.com/balzaczyy/golucene/core/index/model"
 	"io"
 )
 
@@ -18,10 +17,10 @@ import (
  *  @lucene.experimental */
 type IndexableField interface {
 	/** Field name */
-	name() string
-	/** {@link IndexableFieldType} describing the properties
+	Name() string
+	/** {@linkmodel.IndexableFieldType} describing the properties
 	 * of this field. */
-	fieldType() model.IndexableFieldType
+	FieldType() IndexableFieldType
 	/**
 	 * Returns the field's index-time boost.
 	 * <p>
@@ -36,24 +35,24 @@ type IndexableField interface {
 	 * the range of that encoding.
 	 * <p>
 	 * It is illegal to return a boost other than 1.0f for a field that is not
-	 * indexed ({@link IndexableFieldType#indexed()} is false) or omits normalization values
-	 * ({@link IndexableFieldType#omitNorms()} returns true).
+	 * indexed ({@linkmodel.IndexableFieldType#indexed()} is false) or omits normalization values
+	 * ({@linkmodel.IndexableFieldType#omitNorms()} returns true).
 	 *
 	 * @see Similarity#computeNorm(FieldInvertState)
 	 * @see DefaultSimilarity#encodeNormValue(float)
 	 */
-	boost() float32
+	Boost() float32
 	/** Non-null if this field has a binary value */
-	binaryValue() []byte
+	BinaryValue() []byte
 
 	/** Non-null if this field has a string value */
-	stringValue() string
+	StringValue() string
 
 	/** Non-null if this field has a Reader value */
-	readerValue() io.Reader
+	ReaderValue() io.Reader
 
 	/** Non-null if this field has a numeric value */
-	numericValue() int64
+	NumericValue() interface{}
 
 	/**
 	 * Creates the TokenStream used for indexing this field.  If appropriate,
@@ -64,5 +63,5 @@ type IndexableField interface {
 	 *         a non-null value if the field is to be indexed
 	 * @throws IOException Can be thrown while creating the TokenStream
 	 */
-	tokenStream(analysis.Analyzer) (analysis.TokenStream, error)
+	TokenStream(analysis.Analyzer) (analysis.TokenStream, error)
 }

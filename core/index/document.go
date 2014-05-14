@@ -25,15 +25,15 @@ import (
  * ScoreDoc#doc} or {@link IndexReader#document(int)}.
  */
 type Document struct {
-	fields []IndexableField
+	fields []model.IndexableField
 }
 
 /** Constructs a new document with no fields. */
 func NewDocument() *Document {
-	return &Document{make([]IndexableField, 0)}
+	return &Document{make([]model.IndexableField, 0)}
 }
 
-func (doc *Document) Fields() []IndexableField {
+func (doc *Document) Fields() []model.IndexableField {
 	return doc.fields
 }
 
@@ -47,7 +47,7 @@ func (doc *Document) Fields() []IndexableField {
  * a document has to be deleted from an index and a new changed version of that
  * document has to be added.</p>
  */
-func (doc *Document) Add(field IndexableField) {
+func (doc *Document) Add(field model.IndexableField) {
 	doc.fields = append(doc.fields, field)
 }
 
@@ -63,8 +63,8 @@ getField().
 */
 func (doc *Document) Get(name string) string {
 	for _, field := range doc.fields {
-		if field.name() == name && field.stringValue() != "" {
-			return field.stringValue()
+		if field.Name() == name && field.StringValue() != "" {
+			return field.StringValue()
 		}
 	}
 	return ""
@@ -299,7 +299,7 @@ func NewStringField(name, value string, ft *FieldType) *Field {
 	return &Field{_type: ft, _name: name, _data: value}
 }
 
-func (f *Field) stringValue() string {
+func (f *Field) StringValue() string {
 	switch f._data.(type) {
 	case string:
 		return f._data.(string)
@@ -317,28 +317,26 @@ func assert2(ok bool, msg string) {
 	}
 }
 
-func (f *Field) readerValue() io.Reader {
+func (f *Field) ReaderValue() io.Reader {
 	if v, ok := f._data.(io.Reader); ok {
 		return v
 	}
 	return nil
 }
 
-func (f *Field) name() string {
+func (f *Field) Name() string {
 	return f._name
 }
 
-func (f *Field) boost() float32 {
+func (f *Field) Boost() float32 {
 	return f._boost
 }
 
-func (f *Field) numericValue() int64 {
-	v, ok := f._data.(int64)
-	assert(ok)
-	return v
+func (f *Field) NumericValue() interface{} {
+	return f._data
 }
 
-func (f *Field) binaryValue() []byte {
+func (f *Field) BinaryValue() []byte {
 	if v, ok := f._data.([]byte); ok {
 		return v
 	}
@@ -355,11 +353,11 @@ func (f *Field) String() string {
 	return buf.String()
 }
 
-func (f *Field) fieldType() model.IndexableFieldType {
+func (f *Field) FieldType() model.IndexableFieldType {
 	return f._type
 }
 
-func (f *Field) tokenStream(analyzer analysis.Analyzer) (ts analysis.TokenStream, err error) {
+func (f *Field) TokenStream(analyzer analysis.Analyzer) (ts analysis.TokenStream, err error) {
 	panic("not implemented yet")
 }
 
