@@ -52,7 +52,7 @@ func NewBytesRefHash(pool *ByteBlockPool, capacity int,
 
 /* Returns the number of values in this hash. */
 func (h *BytesRefHash) Size() int {
-	panic("not implemented yet")
+	return h.count
 }
 
 func (h *BytesRefHash) shrink(targetSize int) bool {
