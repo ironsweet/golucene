@@ -291,7 +291,7 @@ func (w *CompressingStoredFieldsWriter) WriteField(info *model.FieldInfo, field 
 		case float64:
 			bits = NUMERIC_DOUBLE
 		default:
-			panic(fmt.Sprintf("cannot store numeric type %v", t))
+			panic(fmt.Sprintf("cannot store numeric value %v of type %v", number, t))
 		}
 	} else {
 		bytes = field.BinaryValue()

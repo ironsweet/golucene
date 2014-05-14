@@ -333,7 +333,12 @@ func (f *Field) Boost() float32 {
 }
 
 func (f *Field) NumericValue() interface{} {
-	return f._data
+	switch f._data.(type) {
+	case int32, int64, float32, float64:
+		return f._data
+	default:
+		return nil
+	}
 }
 
 func (f *Field) BinaryValue() []byte {
