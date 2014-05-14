@@ -19,6 +19,8 @@ type TermVectorsConsumerPerField struct {
 	fieldInfo         *model.FieldInfo
 	docState          *docState
 	fieldState        *FieldInvertState
+
+	maxNumPostings int
 }
 
 func newTermVectorsConsumerPerField(termsHashPerField *TermsHashPerField,
@@ -39,7 +41,8 @@ func (c *TermVectorsConsumerPerField) finishDocument() error {
 }
 
 func (c *TermVectorsConsumerPerField) shrinkHash() {
-	panic("not implemented yet")
+	c.termsHashPerField.shrinkHash(c.maxNumPostings)
+	c.maxNumPostings = 0
 }
 
 func (c *TermVectorsConsumerPerField) createPostingsArray(size int) *ParallelPostingsArray {
