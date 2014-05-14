@@ -65,7 +65,10 @@ func newTermsHashPerField(docInverterPerField *DocInverterPerField,
 }
 
 func (h *TermsHashPerField) shrinkHash(targetSize int) {
-	panic("not implemented yet")
+	// Fully free the bytesHash on each flush but keep the pool
+	// untouched. bytesHash.clear will clear the BytesStartArray and
+	// in turn the ParallelPostingsArray too
+	h.bytesHash.Clear(false)
 }
 
 func (h *TermsHashPerField) reset() {
