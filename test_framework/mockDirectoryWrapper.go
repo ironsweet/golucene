@@ -972,7 +972,11 @@ func (w *MockDirectoryWrapper) LockID() string {
 
 func (w *MockDirectoryWrapper) Copy(to store.Directory, src string, dest string, context store.IOContext) error {
 	w.Lock() // synchronized
-	defer w.Unlock()
+	w.isLocked = true
+	defer func() {
+		w.isLocked = false
+		w.Unlock()
+	}()
 
 	w.maybeYield()
 	// randomize the IOContext here?
