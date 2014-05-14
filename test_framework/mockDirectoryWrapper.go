@@ -899,8 +899,10 @@ func (w *MockDirectoryWrapper) _ListAll() ([]string, error) {
 }
 
 func (w *MockDirectoryWrapper) FileExists(name string) bool {
-	w.Lock() // synchronized
-	defer w.Unlock()
+	if !w.isLocked {
+		w.Lock() // synchronized
+		defer w.Unlock()
+	}
 
 	w.maybeYield()
 	return w.Directory.FileExists(name)
