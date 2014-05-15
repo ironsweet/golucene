@@ -117,6 +117,11 @@ func (dw *DocumentsWriter) applyAllDeletes(deleteQueue *DocumentsWriterDeleteQue
 	panic("not implemented yet")
 }
 
+func (w *DocumentsWriter) purgeBuffer(writer *IndexWriter, forced bool) (int, error) {
+	// forced flag is ignored since Go doesn't encourage tryLock idea
+	return w.ticketQueue.forcePurge(writer)
+}
+
 func (dw *DocumentsWriter) ensureOpen() {
 	assert2(!dw.closed, "this IndexWriter is closed")
 }

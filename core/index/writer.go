@@ -1650,7 +1650,7 @@ func (w *IndexWriter) flushFailed(info *model.SegmentInfo) error {
 }
 
 func (w *IndexWriter) purge(forced bool) (n int, err error) {
-	panic("not implemented yet")
+	return w.docWriter.purgeBuffer(w, forced)
 }
 
 func (w *IndexWriter) doAfterSegmentFlushed(triggerMerge bool, forcePurge bool) error {
