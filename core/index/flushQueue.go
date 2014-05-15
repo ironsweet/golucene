@@ -59,8 +59,12 @@ func (fq *DocumentsWriterFlushQueue) addFlushTicket(dwpt *DocumentsWriterPerThre
 	return ticket
 }
 
-func (fq *DocumentsWriterFlushQueue) addSegment(ticket *SegmentFlushTicket, segment *FlushedSegment) {
-	panic("not implemented yet")
+func (q *DocumentsWriterFlushQueue) addSegment(ticket *SegmentFlushTicket, segment *FlushedSegment) {
+	q.Lock()
+	defer q.Unlock()
+	// the actual flush is done asynchronously and once done the
+	// FlushedSegment is passed to the flush ticket
+	ticket.setSegment(segment)
 }
 
 func (fq *DocumentsWriterFlushQueue) markTicketFailed(ticket *SegmentFlushTicket) {
@@ -155,6 +159,11 @@ func newSegmentFlushTicket(frozenDeletes *FrozenBufferedDeletes) *SegmentFlushTi
 	return &SegmentFlushTicket{
 		FlushTicketImpl: newFlushTicket(frozenDeletes),
 	}
+}
+
+func (ticket *SegmentFlushTicket) setSegment(segment *FlushedSegment) {
+	assert(!ticket.failed)
+	ticket.segment = segment
 }
 
 func (ticket *SegmentFlushTicket) fail() {
