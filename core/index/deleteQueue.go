@@ -3,6 +3,7 @@ package index
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 )
 
 // index/DocumentsWriterDeleteQueue.java
@@ -135,6 +136,10 @@ func (dq *DocumentsWriterDeleteQueue) clear() {
 	currentTail := dq.tail
 	dq.globalSlice.head, dq.globalSlice.tail = currentTail, currentTail
 	dq.globalBufferedDeletes.clear()
+}
+
+func (q *DocumentsWriterDeleteQueue) bytesUsed() int64 {
+	return atomic.LoadInt64(&q.globalBufferedDeletes.bytesUsed)
 }
 
 func (dq *DocumentsWriterDeleteQueue) String() string {

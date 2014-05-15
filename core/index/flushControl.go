@@ -268,7 +268,7 @@ func (fc *DocumentsWriterFlushControl) close() {
 /* Various statistics */
 
 func (fc *DocumentsWriterFlushControl) deleteBytesUsed() int64 {
-	panic("not implemented yet")
+	return fc.documentsWriter.deleteQueue.bytesUsed() + fc.bufferedDeletesStream.bytesUsed
 }
 
 // L444

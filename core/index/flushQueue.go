@@ -170,3 +170,7 @@ func (ticket *SegmentFlushTicket) fail() {
 	assert(ticket.segment == nil)
 	ticket.failed = true
 }
+
+func (ticket *SegmentFlushTicket) canPublish() bool {
+	return ticket.segment != nil || ticket.failed
+}
