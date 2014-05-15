@@ -149,6 +149,44 @@ func newFlushTicket(frozenDeletes *FrozenBufferedDeletes) *FlushTicketImpl {
 	return &FlushTicketImpl{frozenDeletes: frozenDeletes}
 }
 
+/*
+Publishes the flushed segment, segment private deletes (if any) and
+its associated global delete (if present) to IndexWriter. The actual
+publishing operation is syned on IW -> BDS so that the SegmentInfo's
+delete generation is always GlobalPacket_deleteGeneration + 1
+*/
+func (t *FlushTicketImpl) publishFlushedSegment(indexWriter *IndexWriter,
+	newSegment *FlushedSegment, globalPacket *FrozenBufferedDeletes) error {
+	assert(newSegment != nil)
+	assert(newSegment.segmentInfo != nil)
+	segmentDeletes := newSegment.segmentDeletes
+	// fmt.Printf("FLUSH: %v\n", newSegment.segmentInfo.Name())
+	if is := indexWriter.infoStream; is.IsEnabled("DW") {
+		is.Message("DW", "publishFlushedSegment seg-private deletes=%v", segmentDeletes)
+		if segmentDeletes != nil {
+			is.Message("DW", "flush: push buffered seg private deletes: %v", segmentDeletes)
+		}
+	}
+	// now publish!
+	return indexWriter.publishFlushedSegment(newSegment.segmentInfo, segmentDeletes, globalPacket)
+}
+
+func (t *FlushTicketImpl) finishFlush(indexWriter *IndexWriter,
+	newSegment *FlushedSegment, bufferedDeletes *FrozenBufferedDeletes) error {
+	// Finish the flushed segment and publish it to IndexWriter
+	if newSegment == nil {
+		assert(bufferedDeletes != nil)
+		if bufferedDeletes != nil && bufferedDeletes.any() {
+			indexWriter.publishFrozenDeletes(bufferedDeletes)
+			if indexWriter.infoStream.IsEnabled("DW") {
+				indexWriter.infoStream.Message("DW", "flush: push buffered deletes: %v", bufferedDeletes)
+			}
+		}
+		return nil
+	}
+	return t.publishFlushedSegment(indexWriter, newSegment, bufferedDeletes)
+}
+
 type SegmentFlushTicket struct {
 	*FlushTicketImpl
 	segment *FlushedSegment
@@ -159,6 +197,12 @@ func newSegmentFlushTicket(frozenDeletes *FrozenBufferedDeletes) *SegmentFlushTi
 	return &SegmentFlushTicket{
 		FlushTicketImpl: newFlushTicket(frozenDeletes),
 	}
+}
+
+func (ticket *SegmentFlushTicket) publish(writer *IndexWriter) error {
+	assertn(!ticket.published, "ticket was already publised - can not publish twice")
+	ticket.published = true
+	return ticket.finishFlush(writer, ticket.segment, ticket.frozenDeletes)
 }
 
 func (ticket *SegmentFlushTicket) setSegment(segment *FlushedSegment) {

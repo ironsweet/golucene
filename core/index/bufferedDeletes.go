@@ -18,7 +18,7 @@ const BYTES_PER_DEL_QUERY = 40 + util.NUM_BYTES_OBJECT_REF + util.NUM_BYTES_INT
 
 const MAX_INT = int(math.MaxInt32)
 
-const VERBOSE = true
+const VERBOSE = false
 
 /*
 Holds buffered deletes, by docID, term or query for a single segment.
@@ -50,11 +50,12 @@ func newBufferedDeletes() *BufferedDeletes {
 
 func (bd *BufferedDeletes) String() string {
 	if VERBOSE {
-		return fmt.Sprintf("gen=%v, numTerms=%v, terms=%v, queries=%v, docIDs=%v, bytesUsed=%v",
+		return fmt.Sprintf(
+			"BufferedDeletes[gen=%v, numTerms=%v, terms=%v, queries=%v, docIDs=%v, bytesUsed=%v]",
 			bd.gen, atomic.LoadInt32(&bd.numTermDeletes), bd.terms, bd.queries, bd.docIDs, bd.bytesUsed)
 	} else {
 		var buf bytes.Buffer
-		fmt.Fprintf(&buf, "gen=%v", bd.gen)
+		fmt.Fprintf(&buf, "BufferedDeletes[gen=%v", bd.gen)
 		if n := atomic.LoadInt32(&bd.numTermDeletes); n != 0 {
 			fmt.Fprintf(&buf, " %v deleted terms (unique count=%v)", n, len(bd.terms))
 		}
@@ -67,6 +68,7 @@ func (bd *BufferedDeletes) String() string {
 		if n := atomic.LoadInt64(&bd.bytesUsed); n != 0 {
 			fmt.Fprintf(&buf, " bytesUsed=%v", n)
 		}
+		buf.WriteRune(']')
 		return buf.String()
 	}
 }
@@ -152,4 +154,8 @@ func (bd *FrozenBufferedDeletes) queries() []*QueryAndLimit {
 
 func (bd *FrozenBufferedDeletes) String() string {
 	panic("not implemented yet")
+}
+
+func (d *FrozenBufferedDeletes) any() bool {
+	return d.termCount > 0 || len(d._queries) > 0
 }

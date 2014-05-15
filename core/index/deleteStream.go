@@ -102,6 +102,11 @@ func newBufferedDeletesStream(infoStream util.InfoStream) *BufferedDeletesStream
 	}
 }
 
+/* Appends a new packet of buffered deletes to the stream, setting its generation: */
+func (s *BufferedDeletesStream) push(packet *FrozenBufferedDeletes) int64 {
+	panic("not implemented yet")
+}
+
 func (ds *BufferedDeletesStream) clear() {
 	ds.Lock()
 	defer ds.Unlock()

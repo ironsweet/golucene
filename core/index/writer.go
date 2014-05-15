@@ -206,6 +206,8 @@ type IndexWriter struct {
 	readerPool            *ReaderPool
 	bufferedDeletesStream *BufferedDeletesStream
 
+	bufferedDeletesStreamLock sync.Locker
+
 	// This is a "write once" variable (like the organic dye on a DVD-R
 	// that may or may not be heated by a laser and then cooled to
 	// permanently record the event): it's false, until Reader() is
@@ -282,6 +284,8 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 
 		bufferedDeletesStream: newBufferedDeletesStream(conf.infoStream),
 		poolReaders:           conf.readerPooling,
+
+		bufferedDeletesStreamLock: &sync.Mutex{},
 
 		writeLock: d.MakeLock(WRITE_LOCK_NAME),
 	}
@@ -977,6 +981,15 @@ func (w *IndexWriter) changed() {
 	defer w.Unlock()
 	w.changeCount++
 	w.segmentInfos.changed()
+}
+
+func (w *IndexWriter) publishFrozenDeletes(packet *FrozenBufferedDeletes) {
+	w.Lock()
+	defer w.Unlock()
+	assert(packet != nil && packet.any())
+	w.bufferedDeletesStreamLock.Lock()
+	defer w.bufferedDeletesStreamLock.Unlock()
+	w.bufferedDeletesStream.push(packet)
 }
 
 /*
