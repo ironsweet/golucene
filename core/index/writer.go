@@ -997,8 +997,41 @@ Atomically adds the segment private delete packet and publishes the
 flushed segments SegmentInfo to the index writer.
 */
 func (w *IndexWriter) publishFlushedSegment(newSegment *SegmentInfoPerCommit,
-	packet *FrozenBufferedDeletes, globalPacket *FrozenBufferedDeletes) error {
-	panic("not implemented yet")
+	packet *FrozenBufferedDeletes, globalPacket *FrozenBufferedDeletes) (err error) {
+	defer func() {
+		atomic.AddInt32(&w.flushCount, 1)
+		err = mergeError(err, w.doAfterFlush())
+	}()
+
+	// Lock order IW -> BDS
+	w.Lock()
+	defer w.Unlock()
+	w.bufferedDeletesStreamLock.Lock()
+	defer w.bufferedDeletesStreamLock.Unlock()
+
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "publishFlushedSegment")
+	}
+
+	if globalPacket != nil && globalPacket.any() {
+		w.bufferedDeletesStream.push(globalPacket)
+	}
+	// Publishing the segment must be synched on IW -> BDS to make sure
+	// that no merge prunes away the seg. private delete packet
+	var nextGen int64
+	if packet != nil && packet.any() {
+		nextGen = w.bufferedDeletesStream.push(packet)
+	} else {
+		// Since we don't have a delete packet to apply we can get a new
+		// generation right away
+		nextGen = w.bufferedDeletesStream.nextGen
+	}
+	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "publish sets newSegment delGen=%v seg=%v", nextGen, w.readerPool.segmentToString(newSegment))
+	}
+	newSegment.setBufferedDeletesGen(nextGen)
+	w.segmentInfos.Segments = append(w.segmentInfos.Segments, newSegment)
+	return w.checkpoint()
 }
 
 func (w *IndexWriter) resetMergeExceptions() {
