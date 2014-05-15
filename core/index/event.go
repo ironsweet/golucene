@@ -22,7 +22,8 @@ var mergePendingEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge
 })
 
 var forcedPurgeEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) error {
-	panic("not implemented yet")
+	_, err := writer.purge(true)
+	return err
 })
 
 func newFlushFailedEvent(info *model.SegmentInfo) Event {
