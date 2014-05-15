@@ -133,7 +133,7 @@ is active and RANDOM_MULTIPLIER
 func Rarely(random *rand.Rand) bool {
 	p := either(TEST_NIGHTLY, 10, 1).(int)
 	p += int(float64(p) * math.Log(float64(RANDOM_MULTIPLIER)))
-	if p < 50 {
+	if p > 50 {
 		p = 50
 	}
 	min := 100 - p // never more than 50

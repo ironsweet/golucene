@@ -955,9 +955,13 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 Called whenever the SegmentInfos has been updatd and the index files
 referenced exist (correctly) in the index directory.
 */
-func (w *IndexWriter) checkpoint() (err error) {
+func (w *IndexWriter) checkpoint() error {
 	w.Lock() // synchronized
 	defer w.Unlock()
+	return w._checkpoint()
+}
+
+func (w *IndexWriter) _checkpoint() error {
 	w.changeCount++
 	w.segmentInfos.changed()
 	return w.deleter.checkpoint(w.segmentInfos, false)
@@ -1031,7 +1035,7 @@ func (w *IndexWriter) publishFlushedSegment(newSegment *SegmentInfoPerCommit,
 	}
 	newSegment.setBufferedDeletesGen(nextGen)
 	w.segmentInfos.Segments = append(w.segmentInfos.Segments, newSegment)
-	return w.checkpoint()
+	return w._checkpoint()
 }
 
 func (w *IndexWriter) resetMergeExceptions() {
