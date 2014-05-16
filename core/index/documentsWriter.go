@@ -2,7 +2,6 @@ package index
 
 import (
 	"container/list"
-	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
