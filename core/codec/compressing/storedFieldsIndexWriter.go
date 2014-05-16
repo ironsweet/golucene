@@ -213,6 +213,7 @@ func (w *StoredFieldsIndexWriter) writeIndex(numDocs int, startPointer int64) er
 }
 
 func (w *StoredFieldsIndexWriter) finish(numDocs int) error {
+	assert(w != nil)
 	assert2(numDocs == w.totalDocs, "Expected %v docs, but got %v", numDocs, w.totalDocs)
 	if w.blockChunks > 0 {
 		err := w.writeBlock()

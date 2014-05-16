@@ -7,6 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -89,8 +90,8 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 
 	currentSegmentsFile := segmentInfos.SegmentsFileName()
 	if infoStream.IsEnabled("IFD") {
-		infoStream.Message("IFD", "init: current segments file is '%v'; deletePolicy=%v",
-			currentSegmentsFile, policy)
+		infoStream.Message("IFD", "init: current segments file is '%v'; deletionPolicy=%v",
+			currentSegmentsFile, reflect.TypeOf(policy).Name())
 	}
 
 	fd := &IndexFileDeleter{

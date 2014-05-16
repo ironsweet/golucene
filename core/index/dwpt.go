@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
@@ -398,7 +399,8 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 		newSegmentSize := float64(numBytes) / 1024 / 1024
 		dwpt.infoStream.Message("DWPT",
 			"flushed: segment=%v ramUsed=%v MB newFlushedSize(includes docstores)=%v MB docs/MB=%v",
-			startMBUsed, newSegmentSize, float64(flushState.segmentInfo.DocCount())/newSegmentSize)
+			dwpt.segmentInfo.Name, startMBUsed, newSegmentSize,
+			float64(flushState.segmentInfo.DocCount())/newSegmentSize)
 	}
 
 	assert(dwpt.segmentInfo != nil)
@@ -539,4 +541,15 @@ func (alloc *IntBlockAllocator) Recycle(blocks [][]int) {
 	for i, _ := range blocks {
 		blocks[i] = nil
 	}
+}
+
+func (w *DocumentsWriterPerThread) String() string {
+	return fmt.Sprintf(
+		"DocumentsWriterPerThread [pendingDeletes=%v, segment=%v, aborting=%v, numDocsInRAM=%v, deleteQueue=%v]",
+		w.pendingDeletes, func() string {
+			if w.segmentInfo != nil {
+				return w.segmentInfo.Name
+			}
+			return "null"
+		}(), w.aborting, w.numDocsInRAM, w.deleteQueue)
 }

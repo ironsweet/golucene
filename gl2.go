@@ -51,7 +51,10 @@ func main() {
 
 		d := index.NewDocument()
 		d.Add(NewTextField("foo", "bar", true))
-		writer.AddDocument(d.Fields())
+		err = writer.AddDocument(d.Fields())
+		if err != nil {
+			t.Error(err)
+		}
 		err = writer.Close() // ensure index is written
 		if err != nil {
 			t.Error(err)

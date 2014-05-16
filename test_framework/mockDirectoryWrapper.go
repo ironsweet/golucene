@@ -1060,6 +1060,7 @@ type MockLock struct {
 }
 
 func newMockLock(dir *MockDirectoryWrapper, delegate store.Lock, name string) *MockLock {
+	assert(name != "")
 	ans := &MockLock{
 		delegate: delegate,
 		name:     name,

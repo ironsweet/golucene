@@ -84,7 +84,7 @@ func NewPrintStreamInfoStream(w io.Writer) *PrintStreamInfoStream {
 
 func (is *PrintStreamInfoStream) Message(component,
 	message string, args ...interface{}) {
-	fmt.Fprintf(is.stream, "%3v %v [%v] %v\n", component, is.messageId,
+	fmt.Fprintf(is.stream, "%4v %v [%v] %v\n", component, is.messageId,
 		time.Now().Format(FORMAT), fmt.Sprintf(message, args...))
 }
 

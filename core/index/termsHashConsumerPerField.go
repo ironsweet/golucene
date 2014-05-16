@@ -1,7 +1,6 @@
 package index
 
 import (
-	"fmt"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 )
@@ -151,7 +150,7 @@ func newFreqProxPostingsArray(size int, writeFreqs, writeProx, writeOffsets bool
 	} else {
 		assert(!writeOffsets)
 	}
-	fmt.Printf("PA init freqs=%v pos=%v offs=%v\n", writeFreqs, writeProx, writeOffsets)
+	// fmt.Printf("PA init freqs=%v pos=%v offs=%v\n", writeFreqs, writeProx, writeOffsets)
 	return newParallelPostingsArray(ans, size)
 }
 

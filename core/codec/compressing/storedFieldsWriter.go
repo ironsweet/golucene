@@ -106,6 +106,7 @@ func NewCompressingStoredFieldsWriter(dir store.Directory, si *model.SegmentInfo
 	if err != nil {
 		return nil, err
 	}
+	assert(ans.indexWriter != nil)
 	indexStream = nil
 
 	err = ans.fieldsStream.WriteVInt(int32(chunkSize))
@@ -348,6 +349,7 @@ func (w *CompressingStoredFieldsWriter) Finish(fis model.FieldInfos, numDocs int
 	if w == nil {
 		return errors.New("Nil class pointer encountered.")
 	}
+	assert2(w.indexWriter != nil, "already closed?")
 	if w.numBufferedDocs > 0 {
 		err := w.flush()
 		if err != nil {

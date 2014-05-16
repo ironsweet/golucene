@@ -702,7 +702,10 @@ func (w *IndexWriter) UpdateDocument(term *Term, doc []model.IndexableField, ana
 		return err
 	}
 	if ok {
-		w.docWriter.processEvents(w, true, false)
+		_, err = w.docWriter.processEvents(w, true, false)
+		if err != nil {
+			return err
+		}
 	}
 	success = true
 	return nil

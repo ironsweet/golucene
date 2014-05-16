@@ -367,6 +367,7 @@ func (fc *DocumentsWriterFlushControl) nextPendingFlush() *DocumentsWriterPerThr
 		defer fc.Unlock()
 
 		if e := fc.flushQueue.Front(); e != nil {
+			fc.flushQueue.Remove(e)
 			pool := e.Value.(*DocumentsWriterPerThread)
 			fc.updateStallState()
 			return 0, false, pool
