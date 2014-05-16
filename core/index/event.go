@@ -18,7 +18,7 @@ var applyDeletesEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge
 })
 
 var mergePendingEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) error {
-	panic("not implemented yet")
+	return writer.doAfterSegmentFlushed(triggerMerge, forcePurge)
 })
 
 var forcedPurgeEvent = Event(func(writer *IndexWriter, triggerMerge, forcePurge bool) error {
