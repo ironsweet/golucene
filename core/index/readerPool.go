@@ -119,12 +119,48 @@ func (pool *ReaderPool) commit(infos *SegmentInfos) error {
 	return nil
 }
 
-// Obtain a readersAndLiveDocs instance from the ReaderPool. If
-// create is true, you must later call release().
+/*
+Obtain a readersAndLiveDocs instance from the ReaderPool. If
+create is true, you must later call release().
+*/
 func (pool *ReaderPool) get(info *SegmentInfoPerCommit, create bool) *ReadersAndLiveDocs {
 	pool.Lock() // synchronized
 	defer pool.Unlock()
-	panic("not implemented yet")
+
+	assertn(info.info.Dir == pool.owner.directory, "info.dir=%v vs %v", info.info.Dir, pool.owner.directory)
+
+	rld, ok := pool.readerMap[info]
+	if !ok {
+		if !create {
+			return nil
+		}
+		rld = newReadersAndLiveDocs(pool.owner, info)
+		// Steal initial reference:
+		pool.readerMap[info] = rld
+	} else {
+		assertn(rld.info == info, "rld.info=%v info=%v isLive?= %v vs %v",
+			rld.info, info, pool.infoIsLive(rld.info), pool.infoIsLive(info))
+	}
+
+	if create {
+		// Return ref to caller:
+		rld.incRef()
+	}
+
+	assert(pool.noDups())
+
+	return rld
+}
+
+/* Make sure that every segment appears only once in the pool: */
+func (pool *ReaderPool) noDups() bool {
+	seen := make(map[string]bool)
+	for info, _ := range pool.readerMap {
+		_, ok := seen[info.info.Name]
+		assert(!ok)
+		seen[info.info.Name] = true
+	}
+	return true
 }
 
 /*

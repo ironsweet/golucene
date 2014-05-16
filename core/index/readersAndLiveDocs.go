@@ -43,6 +43,8 @@ type ReadersAndLiveDocs struct {
 
 	info *SegmentInfoPerCommit
 
+	writer *IndexWriter
+
 	// Set once (nil, and then maybe set, and never set again)
 	_reader *SegmentReader
 
@@ -63,6 +65,13 @@ type ReadersAndLiveDocs struct {
 	// How many further deletions we;ve doen against
 	// liveDocs vs when we loaded it or last wrote it:
 	_pendingDeleteCount int
+
+	// True if the current liveDOcs is reference dby an external NRT reader:
+	shared bool
+}
+
+func newReadersAndLiveDocs(writer *IndexWriter, info *SegmentInfoPerCommit) *ReadersAndLiveDocs {
+	return &ReadersAndLiveDocs{info: info, writer: writer, shared: true}
 }
 
 func (rld *ReadersAndLiveDocs) pendingDeleteCount() int {
