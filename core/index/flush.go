@@ -31,21 +31,45 @@ type FlushPolicy interface {
 	// Note: this method is called synchronized on the given
 	// DocumentsWriterFlushControl and it is guaranteed that the
 	// calling goroutine holds the lock on the given ThreadState
-	// OnDelete(control *DocumentsWriterFlushControl, state *ThreadState)
+	onDelete(*DocumentsWriterFlushControl, *ThreadState)
+	// Called for each document update on the given ThreadState's DWPT
+	//
+	// Note: this method is called synchronized on the given DWFC and
+	// it is guaranteed that the calling thread holds the lock on the
+	// given ThreadState
+	onUpdate(*DocumentsWriterFlushControl, *ThreadState)
+	// Called for each document addition on the given ThreadState's DWPT.
+	//
+	// Note: this method is synchronized by the given DWFC and it is
+	// guaranteed that the calling thread holds the lock on the given
+	// ThreadState
+	onInsert(*DocumentsWriterFlushControl, *ThreadState)
 	// Called by DocumentsWriter to initialize the FlushPolicy
 	init(indexWriterConfig *LiveIndexWriterConfig)
 }
 
+type FlushPolicyImplSPI interface {
+	onInsert(*DocumentsWriterFlushControl, *ThreadState)
+	onDelete(*DocumentsWriterFlushControl, *ThreadState)
+}
+
 type FlushPolicyImpl struct {
 	sync.Locker
+	FlushPolicyImplSPI
 	indexWriterConfig *LiveIndexWriterConfig
 	infoStream        util.InfoStream
 }
 
-func newFlushPolicyImpl() *FlushPolicyImpl {
+func newFlushPolicyImpl(spi FlushPolicyImplSPI) *FlushPolicyImpl {
 	return &FlushPolicyImpl{
-		Locker: &sync.Mutex{},
+		Locker:             &sync.Mutex{},
+		FlushPolicyImplSPI: spi,
 	}
+}
+
+func (fp *FlushPolicyImpl) onUpdate(control *DocumentsWriterFlushControl, state *ThreadState) {
+	fp.onInsert(control, state)
+	fp.onDelete(control, state)
 }
 
 func (fp *FlushPolicyImpl) init(indexWriterConfig *LiveIndexWriterConfig) {
@@ -84,7 +108,7 @@ type FlushByRamOrCountsPolicy struct {
 }
 
 func newFlushByRamOrCountsPolicy() *FlushByRamOrCountsPolicy {
-	return &FlushByRamOrCountsPolicy{
-		FlushPolicyImpl: newFlushPolicyImpl(),
-	}
+	ans := new(FlushByRamOrCountsPolicy)
+	ans.FlushPolicyImpl = newFlushPolicyImpl(ans)
+	return ans
 }

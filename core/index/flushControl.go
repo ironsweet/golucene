@@ -35,6 +35,9 @@ type DocumentsWriterFlushControl struct {
 	flushingWriters map[*DocumentsWriterPerThread]int64
 
 	maxConfiguredRamBuffer float64
+	peakActiveBytes        int64
+	peakFlushBytes         int64
+	peakNetBytes           int64
 	peakDelta              int64
 
 	*DocumentsWriterStallControl // mixin
@@ -87,6 +90,10 @@ func (fc *DocumentsWriterFlushControl) flushBytes() int64 {
 func (fc *DocumentsWriterFlushControl) netBytes() int64 {
 	fc.Lock()
 	defer fc.Unlock()
+	return fc._netBytes()
+}
+
+func (fc *DocumentsWriterFlushControl) _netBytes() int64 {
 	return fc._activeBytes + fc._flushBytes
 }
 
@@ -143,8 +150,83 @@ func (fc *DocumentsWriterFlushControl) assertMemory() {
 	}
 }
 
+func (fc *DocumentsWriterFlushControl) commitPerThreadBytes(perThread *ThreadState) {
+	delta := perThread.dwpt.bytesUsed() - perThread.bytesUsed
+	perThread.bytesUsed += delta
+	// We need to differentiate here if we are pending since
+	// setFlushPending moves the perThread memory to the flushBytes and
+	// we could be set to pending during a delete
+	if perThread.flushPending {
+		fc._flushBytes += delta
+	} else {
+		fc._activeBytes += delta
+	}
+	fc.assertUpdatePeaks(delta)
+}
+
+func (fc *DocumentsWriterFlushControl) assertUpdatePeaks(delta int64) {
+	if fc.peakActiveBytes < fc._activeBytes {
+		fc.peakActiveBytes = fc._activeBytes
+	}
+	if fc.peakFlushBytes < fc._flushBytes {
+		fc.peakFlushBytes = fc._flushBytes
+	}
+	if n := fc._netBytes(); fc.peakNetBytes < n {
+		fc.peakNetBytes = n
+	}
+	if fc.peakDelta < delta {
+		fc.peakDelta = delta
+	}
+}
+
 func (fc *DocumentsWriterFlushControl) doAfterDocument(perThread *ThreadState, isUpdate bool) *DocumentsWriterPerThread {
-	panic("not implemented yet")
+	fc.Lock()
+	defer fc.Unlock()
+
+	defer func() {
+		stalled := fc.updateStallState()
+		fc.assertNumDocsSinceStalled(stalled)
+		fc.assertMemory()
+	}()
+
+	fc.commitPerThreadBytes(perThread)
+	if !perThread.flushPending {
+		if isUpdate {
+			fc.flushPolicy.onUpdate(fc, perThread)
+		} else {
+			fc.flushPolicy.onInsert(fc, perThread)
+		}
+		if !perThread.flushPending && perThread.bytesUsed > fc.hardMaxBytesPerDWPT {
+			// Safety check to prevent a single DWPT exceeding its RAM
+			// limit. This is super important since we can not address more
+			// than 2048 MB per DWPT
+			fc._setFlushPending(perThread)
+		}
+	}
+	var flushingDWPT *DocumentsWriterPerThread
+	if fc.fullFlush {
+		if perThread.flushPending {
+			fc.checkoutAndBlock(perThread)
+			flushingDWPT = fc.nextPendingFlush()
+		}
+	} else {
+		flushingDWPT = fc._tryCheckOutForFlush(perThread)
+	}
+	return flushingDWPT
+}
+
+/*
+updates the number of documents "finished" while we are in a stalled
+state. this is important for asserting memory upper bounds since it
+corresponds to the number of threads that are in-flight and crossed
+the stall control check before we actually stalled.
+*/
+func (fc *DocumentsWriterFlushControl) assertNumDocsSinceStalled(stalled bool) {
+	if fc.stalled {
+		fc.numDocsSinceStalled++
+	} else {
+		fc.numDocsSinceStalled = 0
+	}
 }
 
 func (fc *DocumentsWriterFlushControl) doAfterFlush(dwpt *DocumentsWriterPerThread) {
@@ -234,7 +316,18 @@ func (fc *DocumentsWriterFlushControl) tryCheckoutForFlush(perThread *ThreadStat
 	return fc._tryCheckOutForFlush(perThread)
 }
 
+func (fc *DocumentsWriterFlushControl) checkoutAndBlock(perThread *ThreadState) {
+	// perThread is already locked
+	assert2(perThread.flushPending, "can not block non-pending threadstate")
+	assert2(fc.fullFlush, "can not block if fullFlush == false")
+	bytes := perThread.bytesUsed
+	dwpt := fc.perThreadPool.reset(perThread, fc.closed)
+	fc.numPending--
+	fc.blockedFlushes.PushBack(&BlockedFlush{dwpt, bytes})
+}
+
 func (fc *DocumentsWriterFlushControl) _tryCheckOutForFlush(perThread *ThreadState) *DocumentsWriterPerThread {
+	// perThread is already locked
 	assert(perThread.flushPending)
 	defer fc.updateStallState()
 	// We are pending so all memory is already moved to flushBytes
