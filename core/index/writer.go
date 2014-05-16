@@ -1703,8 +1703,14 @@ func (w *IndexWriter) purge(forced bool) (n int, err error) {
 	return w.docWriter.purgeBuffer(w, forced)
 }
 
-func (w *IndexWriter) doAfterSegmentFlushed(triggerMerge bool, forcePurge bool) error {
-	panic("not implemented yet")
+func (w *IndexWriter) doAfterSegmentFlushed(triggerMerge bool, forcePurge bool) (err error) {
+	defer func() {
+		if triggerMerge {
+			err = mergeError(err, w.maybeMerge(MERGE_TRIGGER_SEGMENT_FLUSH, UNBOUNDED_MAX_MERGE_SEGMENTS))
+		}
+	}()
+	_, err = w.purge(forcePurge)
+	return err
 }
 
 /*
