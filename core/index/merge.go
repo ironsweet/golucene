@@ -108,16 +108,15 @@ type MergePolicy interface {
 }
 
 type MergePolicyImplSPI interface {
-	size(*SegmentInfoPerCommit) (int64, error)
-}
-
-type MergePolicyImpl struct {
-	self MergeSpecifier
-	spi  MergePolicyImplSPI
 	// Return the byte size of the provided SegmentInfoPerCommit,
 	// pro-rated by percentage of non-deleted documents if
 	// SetCalibrateSizeByDeletes() is set.
-	Size func(info *SegmentInfoPerCommit) (n int64, err error)
+	Size(*SegmentInfoPerCommit) (int64, error)
+}
+
+type MergePolicyImpl struct {
+	self    MergeSpecifier
+	SizeSPI MergePolicyImplSPI
 	// IndexWriter that contains this instance.
 	writer *util.SetOnce
 	// If the size of te merge segment exceeds this ratio of the total
@@ -173,7 +172,7 @@ func newMergePolicyImpl(self MergeSpecifier, defaultNoCFSRatio, defaultMaxCFSSeg
 		noCFSRatio:        defaultNoCFSRatio,
 		maxCFSSegmentSize: defaultMaxCFSSegmentSize,
 	}
-	ans.spi = ans
+	ans.SizeSPI = ans
 	return ans
 }
 
@@ -186,7 +185,7 @@ func (mp *MergePolicyImpl) SetIndexWriter(writer *IndexWriter) {
 	mp.writer.Set(writer)
 }
 
-func (mp *MergePolicyImpl) size(info *SegmentInfoPerCommit) (n int64, err error) {
+func (mp *MergePolicyImpl) Size(info *SegmentInfoPerCommit) (n int64, err error) {
 	byteSize, err := info.SizeInBytes()
 	if err != nil {
 		return 0, err
@@ -499,9 +498,9 @@ func (a *BySizeDescendingSegments) Swap(i, j int) { a.values[i], a.values[j] = a
 func (a *BySizeDescendingSegments) Less(i, j int) bool {
 	var err error
 	var sz1, sz2 int64
-	sz1, err = a.spi.size(a.values[i])
+	sz1, err = a.spi.Size(a.values[i])
 	assert(err == nil)
-	sz2, err = a.spi.size(a.values[j])
+	sz2, err = a.spi.Size(a.values[j])
 	assert(err == nil)
 	if sz1 != sz2 {
 		return sz1 < sz2
@@ -530,7 +529,7 @@ func (tmp *TieredMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *Segme
 	totIndexBytes := int64(0)
 	minSegmentBytes := int64(math.MaxInt64)
 	for _, info := range infosSorted {
-		segBytes, err := tmp.size(info)
+		segBytes, err := tmp.Size(info)
 		if err != nil {
 			return nil, err
 		}
@@ -559,7 +558,7 @@ func (tmp *TieredMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *Segme
 	// If we have too-large segments, grace them out of the maxSegmentCount:
 	tooBitCount := 0
 	for tooBitCount < len(infosSorted) {
-		n, err := tmp.size(infosSorted[tooBitCount])
+		n, err := tmp.Size(infosSorted[tooBitCount])
 		if err != nil {
 			return nil, err
 		}
@@ -946,13 +945,15 @@ func NewLogDocMergePolicy() *LogMergePolicy {
 	ans := &LogDocMergePolicy{
 		LogMergePolicy: NewLogMergePolicy(DEFAULT_MIN_MERGE_DOCS, math.MaxInt64),
 	}
-	ans.Size = func(info *SegmentInfoPerCommit) (int64, error) {
-		return ans.sizeDocs(info)
-	}
 	// maxMergeSize(ForForcedMerge) are never used by LogDocMergePolicy;
 	// set it to math.MaxInt64 to disable it
 	ans.maxMergeSizeForForcedMerge = math.MaxInt64
+	ans.SizeSPI = ans
 	return ans.LogMergePolicy
+}
+
+func (p *LogDocMergePolicy) Size(info *SegmentInfoPerCommit) (int64, error) {
+	return p.sizeDocs(info)
 }
 
 // index/LogByteSizeMergePolicy.java
@@ -980,8 +981,10 @@ func NewLogByteSizeMergePolicy() *LogMergePolicy {
 			int64(DEFAULT_MAX_MERGE_MB*1024*1024)),
 	}
 	ans.maxMergeSizeForForcedMerge = int64(DEFAULT_MAX_MERGE_MB_FOR_FORCED_MERGE * 1024 * 1024)
-	ans.Size = func(info *SegmentInfoPerCommit) (int64, error) {
-		return ans.sizeBytes(info)
-	}
+	ans.SizeSPI = ans
 	return ans.LogMergePolicy
+}
+
+func (p *LogByteSizeMergePolicy) Size(info *SegmentInfoPerCommit) (int64, error) {
+	return p.sizeBytes(info)
 }

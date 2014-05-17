@@ -60,19 +60,21 @@ type AlcoholicMergePolicy struct {
 }
 
 func NewAlcoholicMergePolicy( /*tz TimeZone, */ r *rand.Rand) *AlcoholicMergePolicy {
-	now := time.Now()
 	mp := &AlcoholicMergePolicy{
 		NewLogMergePolicy(0, int64(tu.NextInt(r, 1024*1024, int(math.MaxInt32)))), r}
-	mp.Size = func(info *SegmentInfoPerCommit) (int64, error) {
-		n, err := info.SizeInBytes()
-		if hour := now.Hour(); err == nil && (hour < 6 || hour > 20 ||
-			mp.random.Intn(23) == 5) { // it's 5 o'clock somewhere
-			// pick a random drink during the day
-			return drinks[r.Intn(5)] * n, nil
-		}
-		return n, err
-	}
+	mp.SizeSPI = mp
 	return mp
+}
+
+func (p *AlcoholicMergePolicy) Size(info *SegmentInfoPerCommit) (int64, error) {
+	n, err := info.SizeInBytes()
+	now := time.Now()
+	if hour := now.Hour(); err == nil && (hour < 6 || hour > 20 ||
+		p.random.Intn(23) == 5) { // it's 5 o'clock somewhere
+		// pick a random drink during the day
+		return drinks[p.random.Intn(5)] * n, nil
+	}
+	return n, err
 }
 
 var drinks = []int64{15, 17, 21, 22, 30}
