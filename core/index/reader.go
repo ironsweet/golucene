@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
+	"reflect"
 	"sync"
 	"sync/atomic"
 )
@@ -131,13 +132,23 @@ func (r *IndexReaderImpl) reportCloseToParentReaders() {
 	r.parentReadersLock.RLock()
 	defer r.parentReadersLock.RUnlock()
 	for parent, _ := range r.parentReaders {
-		p := parent.(*IndexReaderImpl)
-		p.closedByChild = true
-		// cross memory barrier by a fake write:
-		// FIXME do we need it in Go?
-		atomic.AddInt32(&p.refCount, 0)
-		// recurse:
-		p.reportCloseToParentReaders()
+		if p, ok := parent.(*IndexReaderImpl); ok {
+			p.closedByChild = true
+			// cross memory barrier by a fake write:
+			// FIXME do we need it in Go?
+			atomic.AddInt32(&p.refCount, 0)
+			// recurse:
+			p.reportCloseToParentReaders()
+		} else if p, ok := parent.(*BaseCompositeReader); ok {
+			p.closedByChild = true
+			// cross memory barrier by a fake write:
+			// FIXME do we need it in Go?
+			atomic.AddInt32(&p.refCount, 0)
+			// recurse:
+			p.reportCloseToParentReaders()
+		} else {
+			panic(fmt.Sprintf("Unknown IndexReader type: %v", reflect.TypeOf(parent).Name()))
+		}
 	}
 }
 

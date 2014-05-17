@@ -60,11 +60,11 @@ func main() {
 			t.Error(err)
 		}
 
-		// reader, err := index.OpenDirectoryReader(directory)
-		// if err != nil {
-		// 	t.Error(err)
-		// }
-		// defer reader.Close()
+		reader, err := index.OpenDirectoryReader(directory)
+		if err != nil {
+			t.Error(err)
+		}
+		defer reader.Close()
 
 		// searcher := NewSearcher(reader)
 		// res, err := searcher.Search(q, nil, 1000)
