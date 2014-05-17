@@ -114,7 +114,17 @@ func newDocumentsWriter(writer *IndexWriter, config *LiveIndexWriterConfig, dire
 }
 
 func (dw *DocumentsWriter) applyAllDeletes(deleteQueue *DocumentsWriterDeleteQueue) (bool, error) {
-	panic("not implemented yet")
+	if dw.flushControl.doApplyAllDeletes() {
+		if deleteQueue != nil && !dw.flushControl.fullFlush {
+			err := dw.ticketQueue.addDeletes(deleteQueue)
+			if err != nil {
+				return false, err
+			}
+		}
+		dw.putEvent(applyDeletesEvent) // apply deletes event forces a purge
+		return true, nil
+	}
+	return false, nil
 }
 
 func (w *DocumentsWriter) purgeBuffer(writer *IndexWriter, forced bool) (int, error) {

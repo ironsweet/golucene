@@ -6,6 +6,7 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 	"math"
 	"sync"
+	"sync/atomic"
 )
 
 // index/DocumentsWriterFlushControl.java
@@ -28,6 +29,7 @@ type DocumentsWriterFlushControl struct {
 	_flushBytes         int64
 	numPending          int // volatile
 	numDocsSinceStalled int
+	flushDeletes        int32 // atomic bool
 	fullFlush           bool
 	flushQueue          *list.List
 	// only for safety reasons if a DWPT is close to the RAM limit
@@ -519,6 +521,10 @@ func (fc *DocumentsWriterFlushControl) addFlushableState(perThread *ThreadState)
 	} else {
 		fc.perThreadPool.reset(perThread, fc.closed) // make this state inactive
 	}
+}
+
+func (fc *DocumentsWriterFlushControl) doApplyAllDeletes() bool {
+	return atomic.SwapInt32(&fc.flushDeletes, 0) == 1
 }
 
 /*
