@@ -99,11 +99,11 @@ they will be run concurrently.
 The default MergePolicy is TieredMergePolicy.
 */
 type MergePolicy interface {
-	io.Closer
 	// Clone() MergePolicy
 	SetIndexWriter(writer *IndexWriter)
 	SetNoCFSRatio(noCFSRatio float64)
 	SetMaxCFSSegmentSizeMB(v float64)
+	MergeSpecifier
 }
 
 type MergePolicyImpl struct {
@@ -127,14 +127,14 @@ type MergeSpecifier interface {
 	// index. IndexWriter calls this whenever there is a change to the
 	// segments. This call is always synchronized on the IndexWriter
 	// instance so only one thread at a time will call this method.
-	// FindMerges(mergeTrigger MergeTrigger, segmentInfos *SegmentInfos) (spec MergeSpecification, err error)
+	FindMerges(mergeTrigger MergeTrigger, segmentInfos *SegmentInfos) (spec MergeSpecification, err error)
 	// Determine what set of merge operations is necessary in order to
 	// merge to <= the specified segment count. IndexWriter calls this
 	// when its forceMerge() method is called. This call is always
 	// synchronized on the IndexWriter instance so only one thread at a
 	// time will call this method.
-	// FindForcedMerges(segmentInfos *SegmentInfos, maxSegmentCount int,
-	// segmentsToMerge map[SegmentInfoPerCommit]bool) (spec MergeSpecification, err error)
+	FindForcedMerges(segmentInfos *SegmentInfos, maxSegmentCount int,
+		segmentsToMerge map[*SegmentInfoPerCommit]bool) (spec MergeSpecification, err error)
 	// Determine what set of merge operations is necessary in order to
 	// expunge all deletes from the index.
 	// FindForcedDeletesMerges(segmentinfos *SegmentInfos) (spec MergeSpecification, err error)
@@ -247,7 +247,25 @@ const (
 	// Merge was triggered by a full flush. Full flushes can be caused
 	// by a commit, NRT reader reopen or close call on the index writer
 	MERGE_TRIGGER_FULL_FLUSH = MergeTrigger(2)
+	/* Merge has been triggerd explicitly by the user. */
+	MERGE_TRIGGER_EXPLICIT = MergeTrigger(3)
+	/* Merge was triggered by a successfully finished merge. */
+	MERGE_FINISHED = MergeTrigger(4)
 )
+
+func MergeTriggerName(trigger MergeTrigger) string {
+	switch int(trigger) {
+	case 1:
+		return "SEGMENT_FLUSH"
+	case 2:
+		return "FULL_FLUSH"
+	case 3:
+		return "EXPLICIT"
+	case 4:
+		return "MERGE_FINISHED"
+	}
+	panic(fmt.Sprintf("Invalid merge trigger: %v", trigger))
+}
 
 /*
 OneMerge provides the information necessary to perform an individual
@@ -258,12 +276,31 @@ whether the new segment should use the compound file format.
 type OneMerge struct {
 	sync.Locker
 
-	registerDone bool // used by MergeControl
+	registerDone   bool // used by MergeControl
+	maxNumSegments int
 
 	// Segments to ber merged.
 	segments []*SegmentInfoPerCommit
 
-	aborted bool
+	// Number of documents in the merged segment.
+	totalDocCount int
+	aborted       bool
+}
+
+func newOneMerge(segments []*SegmentInfoPerCommit) *OneMerge {
+	assert2(len(segments) > 0, "segments must include at least one segment")
+	// clone the list, as the in list may be based off original SegmentInfos and may be modified
+	segments2 := make([]*SegmentInfoPerCommit, len(segments))
+	copy(segments2, segments)
+	count := 0
+	for _, info := range segments {
+		count += info.info.DocCount()
+	}
+	return &OneMerge{
+		maxNumSegments: -1,
+		segments:       segments2,
+		totalDocCount:  count,
+	}
 }
 
 func (m *OneMerge) abort() {
@@ -277,7 +314,7 @@ A MergeSpecification instance provides the information necessary to
 perform multiple merges. It simply contains a list of OneMerge
 instances.
 */
-type MergeSpecification []OneMerge
+type MergeSpecification []*OneMerge
 
 /*
 Thrown when a merge was explicitly aborted because IndexWriter.close()
@@ -444,6 +481,16 @@ func (tmp *TieredMergePolicy) SetSegmentsPerTier(v float64) *TieredMergePolicy {
 	return tmp
 }
 
+func (tmp *TieredMergePolicy) FindMerges(mergeTrigger MergeTrigger, segmentInfos *SegmentInfos) (MergeSpecification, error) {
+	panic("not implemented yet")
+}
+
+func (tmp *TieredMergePolicy) FindForcedMerges(infos *SegmentInfos,
+	maxSegmentCount int,
+	segmentsToMerge map[*SegmentInfoPerCommit]bool) (MergeSpecification, error) {
+	panic("not implemented yet")
+}
+
 func (tmp *TieredMergePolicy) Close() error { return nil }
 
 func (tmp *TieredMergePolicy) String() string {
@@ -582,6 +629,12 @@ Returns true if the number of segments eligible for merging is less
 than or equal to the specified maxNumSegments.
 */
 func (mp *LogMergePolicy) isMergedBy(infos *SegmentInfos, maxNumSegments int, segmentsToMerge map[*SegmentInfoPerCommit]bool) bool {
+	panic("not implemented yet")
+}
+
+func (mp *LogMergePolicy) FindForcedMerges(infos *SegmentInfos,
+	maxSegmentCount int,
+	segmentsToMerge map[*SegmentInfoPerCommit]bool) (MergeSpecification, error) {
 	panic("not implemented yet")
 }
 

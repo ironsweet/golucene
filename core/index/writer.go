@@ -811,7 +811,45 @@ func (w *IndexWriter) maybeMerge(trigger MergeTrigger, maxNumSegments int) (err 
 func (w *IndexWriter) updatePendingMerges(trigger MergeTrigger, maxNumSegments int) error {
 	w.Lock() // synchronized
 	defer w.Unlock()
-	panic("not implemented yet")
+	assert(maxNumSegments == -1 || maxNumSegments > 0)
+	if w.stopMerges {
+		return nil
+	}
+
+	var err error
+	var spec MergeSpecification
+	if maxNumSegments != UNBOUNDED_MAX_MERGE_SEGMENTS {
+		assertn(trigger == MERGE_TRIGGER_EXPLICIT || trigger == MERGE_FINISHED,
+			"Expected EXPLIT or MEGE_FINISHED as trigger even with maxNumSegments set but was: %v",
+			MergeTriggerName(trigger))
+		spec, err = w.mergePolicy.FindForcedMerges(
+			w.segmentInfos,
+			maxNumSegments,
+			w.segmentsToMerge)
+		if err != nil {
+			return err
+		}
+		if spec != nil {
+			for _, merge := range spec {
+				merge.maxNumSegments = maxNumSegments
+			}
+		}
+	} else {
+		spec, err = w.mergePolicy.FindMerges(trigger, w.segmentInfos)
+		if err != nil {
+			return err
+		}
+	}
+
+	if spec != nil {
+		for _, merge := range spec {
+			_, err = w.registerMerge(merge)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 /*
@@ -1417,6 +1455,16 @@ Merges the indicated segments, replacing them in the stack with a
 single segment.
 */
 func (w *IndexWriter) merge(merge *OneMerge) error {
+	panic("not implemented yet")
+}
+
+/*
+Checks whether this merge involves any segments already participating
+in a merge. If not, this merge is "registered", meaning we record
+that its semgents are now participating in a merge, and true is
+returned. Else (the merge conflicts) false is returned.
+*/
+func (w *IndexWriter) registerMerge(merge *OneMerge) (bool, error) {
 	panic("not implemented yet")
 }
 

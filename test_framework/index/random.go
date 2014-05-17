@@ -25,7 +25,13 @@ func NewMockRandomMergePolicy(r *rand.Rand) *MockRandomMergePolicy {
 	return res
 }
 
-func (p *MockRandomMergePolicy) FindMerges(mergeTrigger *MergeTrigger, segmentInfos *SegmentInfos) {
+func (p *MockRandomMergePolicy) FindMerges(mergeTrigger MergeTrigger,
+	segmentInfos *SegmentInfos) (MergeSpecification, error) {
+	panic("not implemented yet")
+}
+
+func (p *MockRandomMergePolicy) FindForcedMerges(segmentsInfos *SegmentInfos,
+	maxSegmentCount int, segmentsToMerge map[*SegmentInfoPerCommit]bool) (MergeSpecification, error) {
 	panic("not implemented yet")
 }
 
