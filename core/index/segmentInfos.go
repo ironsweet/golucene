@@ -422,8 +422,8 @@ func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string)
 			if err != nil {
 				return err
 			}
-			assertn(codecName == "Lucene42", "Not supported yet: %v", codecName)
 			fCodec := LoadCodec(codecName)
+			assertn(fCodec != nil, "Invalid codec name: %v", codecName)
 			fmt.Printf("SIS.read seg=%v codec=%v\n", seg, fCodec)
 			info, err := fCodec.SegmentInfoFormat().SegmentInfoReader()(directory, segName, store.IO_CONTEXT_READ)
 			// method := NewLucene42Codec()
