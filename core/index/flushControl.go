@@ -210,7 +210,7 @@ func (fc *DocumentsWriterFlushControl) doAfterDocument(perThread *ThreadState, i
 			flushingDWPT = fc.nextPendingFlush()
 		}
 	} else {
-		flushingDWPT = fc._tryCheckOutForFlush(perThread)
+		flushingDWPT = fc._tryCheckoutForFlush(perThread)
 	}
 	return flushingDWPT
 }
@@ -317,9 +317,14 @@ func (fc *DocumentsWriterFlushControl) doOnAbort(state *ThreadState) {
 func (fc *DocumentsWriterFlushControl) tryCheckoutForFlush(perThread *ThreadState) *DocumentsWriterPerThread {
 	fc.Lock()
 	defer fc.Unlock()
+	return fc._tryCheckoutForFlush(perThread)
+}
 
-	assert(perThread.flushPending)
-	return fc._tryCheckOutForFlush(perThread)
+func (fc *DocumentsWriterFlushControl) _tryCheckoutForFlush(perThread *ThreadState) *DocumentsWriterPerThread {
+	if perThread.flushPending {
+		return fc.internalTryCheckOutForFlush(perThread)
+	}
+	return nil
 }
 
 func (fc *DocumentsWriterFlushControl) checkoutAndBlock(perThread *ThreadState) {
@@ -332,7 +337,7 @@ func (fc *DocumentsWriterFlushControl) checkoutAndBlock(perThread *ThreadState) 
 	fc.blockedFlushes.PushBack(&BlockedFlush{dwpt, bytes})
 }
 
-func (fc *DocumentsWriterFlushControl) _tryCheckOutForFlush(perThread *ThreadState) *DocumentsWriterPerThread {
+func (fc *DocumentsWriterFlushControl) internalTryCheckOutForFlush(perThread *ThreadState) *DocumentsWriterPerThread {
 	// perThread is already locked
 	assert(perThread.flushPending)
 	defer fc.updateStallState()
@@ -506,7 +511,7 @@ func (fc *DocumentsWriterFlushControl) addFlushableState(perThread *ThreadState)
 			if !perThread.flushPending {
 				fc._setFlushPending(perThread)
 			}
-			flushingDWPT := fc._tryCheckOutForFlush(perThread)
+			flushingDWPT := fc.internalTryCheckOutForFlush(perThread)
 			assert2(flushingDWPT != nil, "DWPT must never be null here since we hold the lock and it holds documents")
 			assert2(dwpt == flushingDWPT, "flushControl returned different DWPT")
 			fc.fullFlushBuffer = append(fc.fullFlushBuffer, flushingDWPT)

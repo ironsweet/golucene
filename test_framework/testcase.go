@@ -244,17 +244,17 @@ func wrapDirectory(random *rand.Rand, directory store.Directory, bare bool) Base
 		directory = rateLimitedDirectoryWrapper
 	}
 
-	if bare {
-		base := NewBaseDirectoryWrapper(directory)
-		CloseAfterSuite(NewCloseableDirectory(base, SuiteFailureMarker))
-		return base
-	} else {
-		mock := NewMockDirectoryWrapper(random, directory)
+	// if bare {
+	base := NewBaseDirectoryWrapper(directory)
+	CloseAfterSuite(NewCloseableDirectory(base, SuiteFailureMarker))
+	return base
+	// } else {
+	// 	mock := NewMockDirectoryWrapper(random, directory)
 
-		mock.SetThrottling(TEST_THROTTLING)
-		CloseAfterSuite(NewCloseableDirectory(mock, SuiteFailureMarker))
-		return mock
-	}
+	// 	mock.SetThrottling(TEST_THROTTLING)
+	// 	CloseAfterSuite(NewCloseableDirectory(mock, SuiteFailureMarker))
+	// 	return mock
+	// }
 }
 
 // L1064
