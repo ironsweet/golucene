@@ -859,8 +859,7 @@ and thus is only safe to access if you hold IndexWriter's lock (which
 you do when IndexWriter invokes the MergePolicy).
 */
 func (w *IndexWriter) MergingSegments() []*SegmentInfoPerCommit {
-	w.Lock() // synchronized
-	defer w.Unlock()
+	// no need to synchronized but should be
 	var ans []*SegmentInfoPerCommit
 	for k, _ := range w.mergingSegments {
 		ans = append(ans, k)
