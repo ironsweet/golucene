@@ -106,8 +106,13 @@ type MergePolicy interface {
 	MergeSpecifier
 }
 
+type MergePolicyImplSPI interface {
+	size(*SegmentInfoPerCommit) (int64, error)
+}
+
 type MergePolicyImpl struct {
 	self MergeSpecifier
+	spi  MergePolicyImplSPI
 	// Return the byte size of the provided SegmentInfoPerCommit,
 	// pro-rated by percentage of non-deleted documents if
 	// SetCalibrateSizeByDeletes() is set.
@@ -167,21 +172,7 @@ func newMergePolicyImpl(self MergeSpecifier, defaultNoCFSRatio, defaultMaxCFSSeg
 		noCFSRatio:        defaultNoCFSRatio,
 		maxCFSSegmentSize: defaultMaxCFSSegmentSize,
 	}
-	ans.Size = func(info *SegmentInfoPerCommit) (n int64, err error) {
-		byteSize, err := info.SizeInBytes()
-		if err != nil {
-			return 0, err
-		}
-		docCount := info.info.DocCount()
-		if docCount <= 0 {
-			return byteSize, nil
-		}
-
-		delCount := ans.writer.Get().(*IndexWriter).readerPool.numDeletedDocs(info)
-		delRatio := float32(delCount) / float32(docCount)
-		assert(delRatio <= 1)
-		return int64(float32(byteSize) * (1 - delRatio)), nil
-	}
+	ans.spi = ans
 	return ans
 }
 
@@ -192,6 +183,22 @@ it is called more thanonce, panic is thrown.
 */
 func (mp *MergePolicyImpl) SetIndexWriter(writer *IndexWriter) {
 	mp.writer.Set(writer)
+}
+
+func (mp *MergePolicyImpl) size(info *SegmentInfoPerCommit) (n int64, err error) {
+	byteSize, err := info.SizeInBytes()
+	if err != nil {
+		return 0, err
+	}
+	docCount := info.info.DocCount()
+	if docCount <= 0 {
+		return byteSize, nil
+	}
+
+	delCount := mp.writer.Get().(*IndexWriter).readerPool.numDeletedDocs(info)
+	delRatio := float32(delCount) / float32(docCount)
+	assert(delRatio <= 1)
+	return int64(float32(byteSize) * (1 - delRatio)), nil
 }
 
 /*
