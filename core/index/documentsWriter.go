@@ -230,8 +230,35 @@ func (dw *DocumentsWriter) preUpdate() (bool, error) {
 	return hasEvents, nil
 }
 
-func (dw *DocumentsWriter) postUpdate(flusingDWPT *DocumentsWriterPerThread, hasEvents bool) (bool, error) {
-	panic("not implemented yet")
+func (dw *DocumentsWriter) postUpdate(flushingDWPT *DocumentsWriterPerThread, hasEvents bool) (bool, error) {
+	ok, err := dw.applyAllDeletes(dw.deleteQueue)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		hasEvents = true
+	}
+	if flushingDWPT != nil {
+		ok, err = dw.doFlush(flushingDWPT)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			hasEvents = true
+		}
+	} else {
+		nextPendingFlush := dw.flushControl.nextPendingFlush()
+		if nextPendingFlush != nil {
+			ok, err = dw.doFlush(nextPendingFlush)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				hasEvents = true
+			}
+		}
+	}
+	return hasEvents, nil
 }
 
 func (dw *DocumentsWriter) ensureInitialized(state *ThreadState) {
