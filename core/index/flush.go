@@ -55,21 +55,21 @@ type FlushPolicyImplSPI interface {
 
 type FlushPolicyImpl struct {
 	sync.Locker
-	FlushPolicyImplSPI
+	spi               FlushPolicyImplSPI
 	indexWriterConfig *LiveIndexWriterConfig
 	infoStream        util.InfoStream
 }
 
 func newFlushPolicyImpl(spi FlushPolicyImplSPI) *FlushPolicyImpl {
 	return &FlushPolicyImpl{
-		Locker:             &sync.Mutex{},
-		FlushPolicyImplSPI: spi,
+		Locker: &sync.Mutex{},
+		spi:    spi,
 	}
 }
 
 func (fp *FlushPolicyImpl) onUpdate(control *DocumentsWriterFlushControl, state *ThreadState) {
-	fp.onInsert(control, state)
-	fp.onDelete(control, state)
+	fp.spi.onInsert(control, state)
+	fp.spi.onDelete(control, state)
 }
 
 func (fp *FlushPolicyImpl) init(indexWriterConfig *LiveIndexWriterConfig) {
@@ -111,4 +111,12 @@ func newFlushByRamOrCountsPolicy() *FlushByRamOrCountsPolicy {
 	ans := new(FlushByRamOrCountsPolicy)
 	ans.FlushPolicyImpl = newFlushPolicyImpl(ans)
 	return ans
+}
+
+func (p *FlushByRamOrCountsPolicy) onDelete(control *DocumentsWriterFlushControl, state *ThreadState) {
+	panic("not implemented yet")
+}
+
+func (p *FlushByRamOrCountsPolicy) onInsert(control *DocumentsWriterFlushControl, state *ThreadState) {
+	panic("not implemented yet")
 }
