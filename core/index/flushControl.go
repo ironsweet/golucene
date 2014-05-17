@@ -280,6 +280,12 @@ Sets flush pending state on the given ThreadState. The ThreadState
 must have indexed at least one Document and must not be already
 pending.
 */
+func (fc *DocumentsWriterFlushControl) setFlushPending(perThread *ThreadState) {
+	fc.Lock()
+	defer fc.Unlock()
+	fc._setFlushPending(perThread)
+}
+
 func (fc *DocumentsWriterFlushControl) _setFlushPending(perThread *ThreadState) {
 	assert(!perThread.flushPending)
 	if perThread.dwpt.numDocsInRAM > 0 {

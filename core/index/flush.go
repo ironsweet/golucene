@@ -79,6 +79,37 @@ func (fp *FlushPolicyImpl) init(indexWriterConfig *LiveIndexWriterConfig) {
 	fp.infoStream = indexWriterConfig.infoStream
 }
 
+/*
+Returns the current most RAM consuming non-pending ThreadState with
+at least one indexed document.
+
+This method will never return nil
+*/
+func (p *FlushPolicyImpl) findLargestNonPendingWriter(control *DocumentsWriterFlushControl,
+	perThreadState *ThreadState) *ThreadState {
+	assert(perThreadState.dwpt.numDocsInRAM > 0)
+	maxRamSoFar := perThreadState.bytesUsed
+	// the dwpt which needs to be flushed eventually
+	maxRamUsingThreadState := perThreadState
+	assertn(!perThreadState.flushPending, "DWPT should have flushed")
+	control.perThreadPool.foreach(func(next *ThreadState) {
+		if !next.flushPending {
+			if nextRam := next.bytesUsed; nextRam > maxRamSoFar && next.dwpt.numDocsInRAM > 0 {
+				maxRamSoFar = nextRam
+				maxRamUsingThreadState = next
+			}
+		}
+	})
+	p.message("set largest ram consuming thread pending on lower watermark")
+	return maxRamUsingThreadState
+}
+
+func (p *FlushPolicyImpl) message(s string) {
+	if p.infoStream.IsEnabled("FP") {
+		p.infoStream.Message("FP", s)
+	}
+}
+
 // index/FlushByRamOrCountsPolicy.java
 
 /*
@@ -118,5 +149,35 @@ func (p *FlushByRamOrCountsPolicy) onDelete(control *DocumentsWriterFlushControl
 }
 
 func (p *FlushByRamOrCountsPolicy) onInsert(control *DocumentsWriterFlushControl, state *ThreadState) {
-	panic("not implemented yet")
+	if p.flushOnDocCount() && state.dwpt.numDocsInRAM >= p.indexWriterConfig.maxBufferedDocs {
+		// flush this state by num docs
+		control.setFlushPending(state)
+	} else if p.flushOnRAM() { // flush by RAM
+		limit := int64(p.indexWriterConfig.ramBufferSizeMB * 1024 * 1024)
+		totalRam := control._activeBytes + control.deleteBytesUsed() // safe w/o sync
+		if totalRam >= limit {
+			if p.infoStream.IsEnabled("FP") {
+				p.infoStream.Message("FP",
+					"flush: activeBytes=%v deleteBytes=%v vs limit=%v",
+					control._activeBytes, control.deleteBytesUsed(), limit)
+			}
+			p.markLargestWriterPending(control, state, totalRam)
+		}
+	}
+}
+
+/* Marks the mos tram consuming active DWPT flush pending */
+func (p *FlushByRamOrCountsPolicy) markLargestWriterPending(control *DocumentsWriterFlushControl,
+	perThreadState *ThreadState, currentBytesPerThread int64) {
+	control.setFlushPending(p.findLargestNonPendingWriter(control, perThreadState))
+}
+
+/* Returns true if this FLushPolicy flushes on IndexWriterConfig.MaxBufferedDocs(), otherwise false */
+func (p *FlushByRamOrCountsPolicy) flushOnDocCount() bool {
+	return p.indexWriterConfig.maxBufferedDocs != DISABLE_AUTO_FLUSH
+}
+
+/* Returns true if this FlushPolicy flushes on IndexWriterConfig.RAMBufferSizeMB(), otherwise false */
+func (p *FlushByRamOrCountsPolicy) flushOnRAM() bool {
+	return p.indexWriterConfig.ramBufferSizeMB != DISABLE_AUTO_FLUSH
 }
