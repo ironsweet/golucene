@@ -55,10 +55,7 @@ func NewRandomSimilarityProvider(r *rand.Rand) *RandomSimilarityProvider {
 	for i, v := range r.Perm(len(allSims)) {
 		sims[i] = allSims[v]
 	}
-	return &RandomSimilarityProvider{
-		PerFieldSimilarityWrapper: NewPerFieldSimilarityWrapper(func(name string) Similarity {
-			panic("not implemented yet")
-		}),
+	ans := &RandomSimilarityProvider{
 		Locker:           &sync.Mutex{},
 		defaultSim:       NewDefaultSimilarity(),
 		previousMappings: make(map[string]Similarity),
@@ -67,9 +64,15 @@ func NewRandomSimilarityProvider(r *rand.Rand) *RandomSimilarityProvider {
 		shouldQueryNorm:  r.Intn(2) == 0,
 		knownSims:        sims,
 	}
+	ans.PerFieldSimilarityWrapper = NewPerFieldSimilarityWrapper(ans)
+	return ans
 }
 
 func (rp *RandomSimilarityProvider) QueryNorm(valueForNormalization float32) float32 {
+	panic("not implemented yet")
+}
+
+func (p *RandomSimilarityProvider) Get(name string) Similarity {
 	panic("not implemented yet")
 }
 

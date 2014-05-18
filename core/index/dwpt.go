@@ -166,6 +166,7 @@ files) and must discard all currently buffered docs. This resets our
 state, discarding any docs added since last flush.
 */
 func (dwpt *DocumentsWriterPerThread) abort(createdFiles map[string]bool) {
+	panic("DEBUG")
 	assert(createdFiles != nil)
 	log.Printf("now abort seg=%v", dwpt.segmentInfo.Name)
 	dwpt.hasAborted, dwpt.aborting = true, true

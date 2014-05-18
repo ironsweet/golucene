@@ -37,40 +37,23 @@ func main() {
 		conf := NewIndexWriterConfig(TEST_VERSION_CURRENT, analyzer)
 
 		writer, err := index.NewIndexWriter(directory, conf)
-		if err != nil {
-			t.Error(err)
-		}
-		if writer != nil {
-			defer func() {
-				err := writer.Close()
-				if err != nil {
-					fmt.Println(err)
-				}
-			}()
-		}
+		t.Assert2(err == nil, "%v", err)
+		t.Assert(writer != nil)
 
 		d := index.NewDocument()
 		d.Add(NewTextField("foo", "bar", true))
 		err = writer.AddDocument(d.Fields())
-		if err != nil {
-			t.Error(err)
-		}
+		t.Assert2(err == nil, "%v", err)
 		err = writer.Close() // ensure index is written
-		if err != nil {
-			t.Error(err)
-		}
+		t.Assert2(err == nil, "%v", err)
 
 		reader, err := index.OpenDirectoryReader(directory)
-		if err != nil {
-			t.Error(err)
-		}
+		t.Assert2(err == nil, "%v", err)
 		defer reader.Close()
 
 		searcher := NewSearcher(reader)
 		res, err := searcher.Search(q, nil, 1000)
-		if err != nil {
-			t.Error(err)
-		}
+		t.Assert2(err == nil, "%v", err)
 		hits := res.ScoreDocs
 		t.Assert(1 == len(hits))
 		t.Assert2(hits[0].Score < 0, fmt.Sprintf("score is not negative: %v", hits[0].Score))
