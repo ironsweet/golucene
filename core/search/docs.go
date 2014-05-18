@@ -1,6 +1,7 @@
 package search
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 )
 
@@ -45,5 +46,11 @@ func (s *abstractScorer) ScoreAndCollect(c Collector) (err error) {
 func assert(ok bool) {
 	if !ok {
 		panic("assert fail")
+	}
+}
+
+func assert2(ok bool, msg string, args ...interface{}) {
+	if !ok {
+		panic(fmt.Sprintf(msg, args...))
 	}
 }

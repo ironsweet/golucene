@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/util"
+	"reflect"
 )
 
 type TermQuery struct {
@@ -94,6 +95,8 @@ func (tw TermWeight) Scorer(context index.AtomicReaderContext,
 	if err != nil {
 		return nil, err
 	}
+	assert(termsEnum != nil)
+	fmt.Println("DEBUG", reflect.TypeOf(termsEnum).Name())
 	docs, err := termsEnum.Docs(acceptDocs, index.DOCS_ENUM_EMPTY)
 	if err != nil {
 		return nil, err
@@ -106,16 +109,22 @@ func (tw TermWeight) Scorer(context index.AtomicReaderContext,
 	return newTermScorer(tw, docs, simScorer), nil
 }
 
-func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (te index.TermsEnum, err error) {
+func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (index.TermsEnum, error) {
 	state := tw.termStates.State(ctx.Ord)
 	if state == nil { // term is not present in that reader
-		// assert termNotInReader(ctx.Reader(), tw.Term)
-		// : "no termstate found but term exists in reader term=" + term;
+		assert2(tw.termNotInReader(ctx.Reader().(index.AtomicReader), tw.term),
+			"no termstate found but term exists in reader term=%v", tw.term)
 		return index.EMPTY_TERMS_ENUM, nil
 	}
-	te = ctx.Reader().(index.AtomicReader).Terms(tw.term.Field).Iterator(index.EMPTY_TERMS_ENUM)
-	err = te.SeekExactFromLast(tw.term.Bytes, *state)
-	return
+	te := ctx.Reader().(index.AtomicReader).Terms(tw.term.Field).Iterator(index.EMPTY_TERMS_ENUM)
+	err := te.SeekExactFromLast(tw.term.Bytes, *state)
+	return te, err
+}
+
+func (tw TermWeight) termNotInReader(reader index.AtomicReader, term index.Term) bool {
+	n, err := reader.DocFreq(term)
+	assert(err == nil)
+	return n == 0
 }
 
 // search/TermScorer.java

@@ -11,7 +11,7 @@ import (
 // search/RandomSimilarityProvider.java
 
 var allSims = func() []Similarity {
-	ans := make([]Similarity, 1)
+	var ans []Similarity
 	ans = append(ans, NewDefaultSimilarity())
 	// ans = append(ans, newBM25Similarity())
 	// for _, basicModel := range BASIC_MODELS {
@@ -55,6 +55,7 @@ func NewRandomSimilarityProvider(r *rand.Rand) *RandomSimilarityProvider {
 	sims := make([]Similarity, len(allSims))
 	for i, v := range r.Perm(len(allSims)) {
 		sims[i] = allSims[v]
+		assert(sims[i] != nil)
 	}
 	ans := &RandomSimilarityProvider{
 		Locker:           &sync.Mutex{},
@@ -93,7 +94,18 @@ func (p *RandomSimilarityProvider) Get(name string) Similarity {
 		sim = p.knownSims[hash%len(p.knownSims)]
 		p.previousMappings[name] = sim
 	}
+	assert(sim != nil)
 	return sim
+}
+
+func assert(ok bool) {
+	assert2(ok, "assert fail")
+}
+
+func assert2(ok bool, msg string, args ...interface{}) {
+	if !ok {
+		panic(fmt.Sprintf(msg, args...))
+	}
 }
 
 func (rp *RandomSimilarityProvider) String() string {

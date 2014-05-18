@@ -48,6 +48,11 @@ type IndexReader interface {
 	doClose() error
 	Context() IndexReaderContext
 	Leaves() []AtomicReaderContext
+	// Returns the number of documents containing the term. This method
+	// returns 0 if the term of field does not exists. This method does
+	// not take into account deleted documents that have not yet been
+	// merged away.
+	DocFreq(Term) (int, error)
 }
 
 /* A custom listener that's invoked when the IndexReader is closed. */
