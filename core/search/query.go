@@ -13,7 +13,7 @@ The abstract base class for queries.
 type Query interface {
 	SetBoost(b float32)
 	Boost() float32
-	CreateWeight(ss IndexSearcher) (w Weight, err error)
+	CreateWeight(ss *IndexSearcher) (w Weight, err error)
 	Rewrite(r index.IndexReader) Query
 }
 
@@ -29,7 +29,7 @@ func NewAbstractQuery(self Query) *AbstractQuery {
 func (q *AbstractQuery) SetBoost(b float32) { q.boost = b }
 func (q *AbstractQuery) Boost() float32     { return q.boost }
 
-func (q *AbstractQuery) CreateWeight(ss IndexSearcher) (w Weight, err error) {
+func (q *AbstractQuery) CreateWeight(ss *IndexSearcher) (w Weight, err error) {
 	panic(fmt.Sprintf("Query %v does not implement createWeight", q))
 }
 

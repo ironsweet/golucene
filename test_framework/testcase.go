@@ -244,17 +244,17 @@ func wrapDirectory(random *rand.Rand, directory store.Directory, bare bool) Base
 		directory = rateLimitedDirectoryWrapper
 	}
 
-	// if bare {
-	base := NewBaseDirectoryWrapper(directory)
-	CloseAfterSuite(NewCloseableDirectory(base, SuiteFailureMarker))
-	return base
-	// } else {
-	// 	mock := NewMockDirectoryWrapper(random, directory)
+	if bare {
+		base := NewBaseDirectoryWrapper(directory)
+		CloseAfterSuite(NewCloseableDirectory(base, SuiteFailureMarker))
+		return base
+	} else {
+		mock := NewMockDirectoryWrapper(random, directory)
 
-	// 	mock.SetThrottling(TEST_THROTTLING)
-	// 	CloseAfterSuite(NewCloseableDirectory(mock, SuiteFailureMarker))
-	// 	return mock
-	// }
+		mock.SetThrottling(TEST_THROTTLING)
+		CloseAfterSuite(NewCloseableDirectory(mock, SuiteFailureMarker))
+		return mock
+	}
 }
 
 // L1064
@@ -365,10 +365,50 @@ func NewIOContext(r *rand.Rand, oldContext store.IOContext) store.IOContext {
 	}
 }
 
+// L1193
+/*
+Sometimes wrap the IndexReader as slow, parallel or filter reader (or
+combinations of that)
+*/
+func maybeWrapReader(r index.IndexReader) (index.IndexReader, error) {
+	random := Random()
+	if Rarely(random) {
+		panic("not implemented yet")
+	}
+	return r, nil
+}
+
 // L1305
 // Create a new searcher over the reader. This searcher might randomly use threads
-func NewSearcher(r index.IndexReader) *search.IndexSearcher {
-	panic("not implemented yet")
+func NewSearcher(r index.IndexReader) *ts.AssertingIndexSearcher {
+	return newSearcher(r, true)
+}
+
+/*
+Create a new searcher over the reader. This searcher might randomly
+use threads. If maybeWrap is true, this searcher migt wrap the reader
+with one that return nil for sequentialSubReaders.
+*/
+func newSearcher(r index.IndexReader, maybeWrap bool) *ts.AssertingIndexSearcher {
+	random := Random()
+	var err error
+	// By default, GoLucene would make use of Goroutines to do
+	// concurrent search and collect
+	//
+	// if util.Usually(random) {
+	if maybeWrap {
+		r, err = maybeWrapReader(r)
+		assert(err == nil)
+	}
+	if random.Intn(2) == 0 {
+		ss := ts.NewAssertingIndexSearcher(random, r)
+		ss.SetSimilarity(ClassEnvRule.similarity)
+		return ss
+	}
+	ss := ts.NewAssertingIndexSearcherFromContext(random, r.Context())
+	ss.SetSimilarity(ClassEnvRule.similarity)
+	return ss
+	// }
 }
 
 // util/TestRuleSetupAndRestoreClassEnv.java

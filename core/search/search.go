@@ -17,22 +17,27 @@ type IndexSearcher struct {
 	similarity    Similarity
 }
 
-func NewIndexSearcher(r index.IndexReader) IndexSearcher {
+func NewIndexSearcher(r index.IndexReader) *IndexSearcher {
 	log.Print("Initializing IndexSearcher from IndexReader: ", r)
 	return NewIndexSearcherFromContext(r.Context())
 }
 
-func NewIndexSearcherFromContext(context index.IndexReaderContext) IndexSearcher {
+func NewIndexSearcherFromContext(context index.IndexReaderContext) *IndexSearcher {
 	//assert context.isTopLevel: "IndexSearcher's ReaderContext must be topLevel for reader" + context.reader();
 	defaultSimilarity := NewDefaultSimilarity()
-	return IndexSearcher{context.Reader(), context, context.Leaves(), defaultSimilarity}
+	return &IndexSearcher{context.Reader(), context, context.Leaves(), defaultSimilarity}
 }
 
-func (ss IndexSearcher) SearchTop(q Query, n int) (topDocs TopDocs, err error) {
+/* Expert: set the similarity implementation used by this IndexSearcher. */
+func (ss *IndexSearcher) SetSimilarity(similarity Similarity) {
+	ss.similarity = similarity
+}
+
+func (ss *IndexSearcher) SearchTop(q Query, n int) (topDocs TopDocs, err error) {
 	return ss.Search(q, nil, n)
 }
 
-func (ss IndexSearcher) Search(q Query, f Filter, n int) (topDocs TopDocs, err error) {
+func (ss *IndexSearcher) Search(q Query, f Filter, n int) (topDocs TopDocs, err error) {
 	w, err := ss.createNormalizedWeight(wrapFilter(q, f))
 	if err != nil {
 		return TopDocs{}, err
@@ -48,7 +53,7 @@ func (ss IndexSearcher) Search(q Query, f Filter, n int) (topDocs TopDocs, err e
  * @throws BooleanQuery.TooManyClauses If a query would exceed
  *         {@link BooleanQuery#getMaxClauseCount()} clauses.
  */
-func (ss IndexSearcher) searchWSI(w Weight, after ScoreDoc, nDocs int) TopDocs {
+func (ss *IndexSearcher) searchWSI(w Weight, after ScoreDoc, nDocs int) TopDocs {
 	// TODO support concurrent search
 	return ss.searchLWSI(ss.leafContexts, w, after, nDocs)
 }
@@ -61,7 +66,7 @@ func (ss IndexSearcher) searchWSI(w Weight, after ScoreDoc, nDocs int) TopDocs {
  * @throws BooleanQuery.TooManyClauses If a query would exceed
  *         {@link BooleanQuery#getMaxClauseCount()} clauses.
  */
-func (ss IndexSearcher) searchLWSI(leaves []index.AtomicReaderContext, w Weight, after ScoreDoc, nDocs int) TopDocs {
+func (ss *IndexSearcher) searchLWSI(leaves []index.AtomicReaderContext, w Weight, after ScoreDoc, nDocs int) TopDocs {
 	// single thread
 	limit := ss.reader.MaxDoc()
 	if limit == 0 {
@@ -75,7 +80,7 @@ func (ss IndexSearcher) searchLWSI(leaves []index.AtomicReaderContext, w Weight,
 	return collector.TopDocs()
 }
 
-func (ss IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, c Collector) (err error) {
+func (ss *IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, c Collector) (err error) {
 	// TODO: should we make this
 	// threaded...?  the Collector could be sync'd?
 	// always use single thread:
@@ -108,7 +113,7 @@ This is intended to be used in developing Similiarity implemenations, and, for
 good performance, should not be displayed with every hit. Computing an
 explanation is as expensive as executing the query over the entire index.
 */
-func (ss IndexSearcher) Explain(query Query, doc int) (exp Explanation, err error) {
+func (ss *IndexSearcher) Explain(query Query, doc int) (exp Explanation, err error) {
 	w, err := ss.createNormalizedWeight(query)
 	if err == nil {
 		return ss.explain(w, doc)
@@ -126,11 +131,11 @@ explanation is as expensive as executing the query over the entire index.
 
 Applications should call explain(Query, int).
 */
-func (ss IndexSearcher) explain(weight Weight, doc int) (exp Explanation, err error) {
+func (ss *IndexSearcher) explain(weight Weight, doc int) (exp Explanation, err error) {
 	panic("not implemented yet")
 }
 
-func (ss IndexSearcher) createNormalizedWeight(q Query) (w Weight, err error) {
+func (ss *IndexSearcher) createNormalizedWeight(q Query) (w Weight, err error) {
 	q = rewrite(q, ss.reader)
 	log.Printf("After rewrite: %v", q)
 	w, err = q.CreateWeight(ss)
@@ -157,19 +162,19 @@ func rewrite(q Query, r index.IndexReader) Query {
 }
 
 // Returns this searhcers the top-level IndexReaderContext
-func (ss IndexSearcher) TopReaderContext() index.IndexReaderContext {
+func (ss *IndexSearcher) TopReaderContext() index.IndexReaderContext {
 	return ss.readerContext
 }
 
-func (ss IndexSearcher) String() string {
+func (ss *IndexSearcher) String() string {
 	return fmt.Sprintf("IndexSearcher(%v)", ss.reader)
 }
 
-func (ss IndexSearcher) TermStatistics(term index.Term, context index.TermContext) TermStatistics {
+func (ss *IndexSearcher) TermStatistics(term index.Term, context index.TermContext) TermStatistics {
 	return NewTermStatistics(term.Bytes, int64(context.DocFreq), context.TotalTermFreq)
 }
 
-func (ss IndexSearcher) CollectionStatistics(field string) CollectionStatistics {
+func (ss *IndexSearcher) CollectionStatistics(field string) CollectionStatistics {
 	terms := index.GetMultiTerms(ss.reader, field)
 	if terms == nil {
 		return NewCollectionStatistics(field, int64(ss.reader.MaxDoc()), 0, 0, 0)

@@ -25,7 +25,7 @@ func NewTermQueryWithDocFreq(t index.Term, docFreq int) *TermQuery {
 	return ans
 }
 
-func (q *TermQuery) CreateWeight(ss IndexSearcher) (w Weight, err error) {
+func (q *TermQuery) CreateWeight(ss *IndexSearcher) (w Weight, err error) {
 	ctx := ss.TopReaderContext()
 	var termState *index.TermContext
 	if q.perReaderTermState == nil || q.perReaderTermState.TopReaderContext != ctx {
@@ -62,7 +62,7 @@ type TermWeight struct {
 	termStates index.TermContext
 }
 
-func NewTermWeight(owner *TermQuery, ss IndexSearcher, termStates index.TermContext) TermWeight {
+func NewTermWeight(owner *TermQuery, ss *IndexSearcher, termStates index.TermContext) TermWeight {
 	// assert(termStates != nil)
 	sim := ss.similarity
 	return TermWeight{owner, sim, sim.computeWeight(

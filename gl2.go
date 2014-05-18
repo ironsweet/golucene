@@ -66,14 +66,14 @@ func main() {
 		}
 		defer reader.Close()
 
-		// searcher := NewSearcher(reader)
-		// res, err := searcher.Search(q, nil, 1000)
-		// if err != nil {
-		// 	t.Error(err)
-		// }
-		// hits := res.ScoreDocs
-		// t.Assert(1 == len(hits))
-		// t.Assert2(hits[0].Score < 0, fmt.Sprintf("score is not negative: %v", hits[0].Score))
+		searcher := NewSearcher(reader)
+		res, err := searcher.Search(q, nil, 1000)
+		if err != nil {
+			t.Error(err)
+		}
+		hits := res.ScoreDocs
+		t.Assert(1 == len(hits))
+		t.Assert2(hits[0].Score < 0, fmt.Sprintf("score is not negative: %v", hits[0].Score))
 
 		// explain, err := searcher.Explain(q, hits[0].Doc)
 		// if err != nil {
