@@ -25,5 +25,8 @@ func NewAssertingIndexSearcher(random *rand.Rand, r index.IndexReader) *Assertin
 }
 
 func NewAssertingIndexSearcherFromContext(random *rand.Rand, ctx index.IndexReaderContext) *AssertingIndexSearcher {
-	panic("not implemented yet")
+	return &AssertingIndexSearcher{
+		search.NewIndexSearcherFromContext(ctx),
+		rand.New(rand.NewSource(random.Int63())),
+	}
 }
