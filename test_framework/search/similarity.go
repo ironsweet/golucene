@@ -3,6 +3,7 @@ package search
 import (
 	"fmt"
 	. "github.com/balzaczyy/golucene/core/search"
+	"math"
 	"math/rand"
 	"sync"
 )
@@ -72,8 +73,27 @@ func (rp *RandomSimilarityProvider) QueryNorm(valueForNormalization float32) flo
 	panic("not implemented yet")
 }
 
+const primeRK = 16777619
+
+/* simple string hash used by Go strings package */
+func hashstr(sep string) int {
+	hash := uint32(0)
+	for i := 0; i < len(sep); i++ {
+		hash = hash*primeRK + uint32(sep[i])
+	}
+	return int(hash)
+}
+
 func (p *RandomSimilarityProvider) Get(name string) Similarity {
-	panic("not implemented yet")
+	p.Lock()
+	defer p.Unlock()
+	sim, ok := p.previousMappings[name]
+	if !ok {
+		hash := int(math.Abs(math.Pow(float64(p.perFieldSeed), float64(hashstr(name)))))
+		sim = p.knownSims[hash%len(p.knownSims)]
+		p.previousMappings[name] = sim
+	}
+	return sim
 }
 
 func (rp *RandomSimilarityProvider) String() string {
