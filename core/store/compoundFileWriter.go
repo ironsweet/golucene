@@ -64,11 +64,12 @@ func newCompoundFileWriter(dir Directory, name string) *CompoundFileWriter {
 	assert2(dir != nil, "directory cannot be nil")
 	assert2(name != "", "name cannot be empty")
 	return &CompoundFileWriter{
-		Locker:      &sync.Mutex{},
-		directory:   dir,
-		entries:     make(map[string]*FileEntry),
-		seenIDs:     make(map[string]bool),
-		outputTaken: NewAtomicBool(),
+		Locker:         &sync.Mutex{},
+		directory:      dir,
+		entries:        make(map[string]*FileEntry),
+		seenIDs:        make(map[string]bool),
+		pendingEntries: list.New(),
+		outputTaken:    NewAtomicBool(),
 		entryTableName: util.SegmentFileName(
 			util.StripExtension(name),
 			"",
