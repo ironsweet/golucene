@@ -115,7 +115,6 @@ func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer
 		c.SetMergedSegmentWarmer(index.NewSimpleMergedSegmentWarmer(c.InfoStream()))
 	}
 	c.SetUseCompoundFile(r.Intn(2) == 0)
-	// c.SetUseCompoundFile(true)
 	c.SetReaderPooling(r.Intn(2) == 0)
 	c.SetReaderTermsIndexDivisor(NextInt(r, 1, 4))
 	return c

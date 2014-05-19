@@ -225,5 +225,7 @@ func (w *StoredFieldsIndexWriter) finish(numDocs int) error {
 }
 
 func (w *StoredFieldsIndexWriter) Close() error {
+	assert(w != nil)
+	assert(w.fieldsIndexOut != nil)
 	return w.fieldsIndexOut.Close()
 }

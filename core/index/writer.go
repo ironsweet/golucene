@@ -1731,11 +1731,10 @@ func createCompoundFile(infoStream util.InfoStream,
 	siFiles[util.SegmentFileName(info.Name, "", store.COMPOUND_FILE_EXTENSION)] = true
 	info.SetFiles(siFiles)
 
-	var ans []string
 	for file, _ := range files {
-		ans = append(ans, file)
+		names = append(names, file)
 	}
-	return ans, nil
+	return
 }
 
 // Tries to delete the given files if unreferenced.

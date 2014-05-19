@@ -1,8 +1,8 @@
 package util
 
 import (
-	"errors"
-	"fmt"
+	// "errors"
+	// "fmt"
 	"io"
 )
 
@@ -70,11 +70,14 @@ func Close(objects ...io.Closer) error {
 }
 
 func safeClose(obj io.Closer) (err error) {
-	defer func() {
-		if p := recover(); p != nil {
-			err = errors.New(fmt.Sprintf("%v", p))
-		}
-	}()
+	if obj == nil {
+		return
+	}
+	// defer func() {
+	// 	if p := recover(); p != nil {
+	// 		err = errors.New(fmt.Sprintf("%v", p))
+	// 	}
+	// }()
 	return obj.Close()
 }
 

@@ -77,7 +77,6 @@ func NewNRTCachingDirectory(delegate Directory, maxMergeSizeMB, maxCachedMB floa
 			log.Printf("CACHE check merge=%v flush=%v size=%v",
 				context.MergeInfo, context.FlushInfo, bytes)
 		}
-		// fmt.Println("DEBUG5", nrt.maxMergeSizeBytes, nrt.cache.sizeInBytes, nrt.maxCachedBytes)
 		return name != "segments.gen" &&
 			bytes <= nrt.maxMergeSizeBytes &&
 			bytes+nrt.cache.sizeInBytes <= nrt.maxCachedBytes

@@ -353,8 +353,7 @@ func (d *DirectoryImpl) Copy(to Directory, src, dest string, ctx IOContext) (err
 	if err != nil {
 		return err
 	}
-	err = os.CopyBytes(is, is.Length())
-	return
+	return os.CopyBytes(is, is.Length())
 }
 
 func (d *DirectoryImpl) CreateSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {
