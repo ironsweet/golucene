@@ -2,6 +2,8 @@ package store
 
 import (
 	"container/list"
+	"errors"
+	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/util"
 	"sync"
@@ -139,6 +141,45 @@ func (w *CompoundFileWriter) ensureOpen() {
 	assert2(!w.closed, "CFS Directory is already closed")
 }
 
+/* Copy the contents of the file with specified extension into the provided output stream. */
+func (w *CompoundFileWriter) copyFileEntry(dataOut IndexOutput, fileEntry *FileEntry) (n int64, err error) {
+	var is IndexInput
+	is, err = fileEntry.dir.OpenInput(fileEntry.file, IO_CONTEXT_READONCE)
+	if err != nil {
+		return 0, err
+	}
+	var success = false
+	defer func() {
+		if success {
+			err = util.Close(is)
+			// copy successful - delete file
+			if err == nil {
+				err = fileEntry.dir.DeleteFile(fileEntry.file)
+			}
+		} else {
+			util.CloseWhileSuppressingError(is)
+		}
+	}()
+
+	startPtr := dataOut.FilePointer()
+	length := fileEntry.length
+	err = dataOut.CopyBytes(is, length)
+	if err != nil {
+		return 0, err
+	}
+	// verify that the output length diff is equal to original file
+	endPtr := dataOut.FilePointer()
+	diff := endPtr - startPtr
+	if diff != length {
+		return 0, errors.New(fmt.Sprintf(
+			"Difference in the output file offsets %v does not match the original file length %v",
+			diff, length))
+	}
+	fileEntry.offset = startPtr
+	success = true
+	return length, nil
+}
+
 func (w *CompoundFileWriter) writeEntryTable(entries map[string]*FileEntry,
 	entryOut IndexOutput) error {
 	panic("not implemented yet")
@@ -194,7 +235,27 @@ func (w *CompoundFileWriter) releaseOutputLock() {
 }
 
 func (w *CompoundFileWriter) prunePendingEntries() error {
-	panic("not implemented yet")
+	// claim the output and copy all pending files in
+	if w.outputTaken.CompareAndSet(false, true) {
+		defer func() {
+			cas := w.outputTaken.CompareAndSet(true, false)
+			assert(cas)
+		}()
+		for w.pendingEntries.Len() > 0 {
+			head := w.pendingEntries.Front()
+			w.pendingEntries.Remove(head)
+			entry := head.Value.(*FileEntry)
+			out, err := w.output()
+			if err == nil {
+				_, err = w.copyFileEntry(out, entry)
+			}
+			if err != nil {
+				return err
+			}
+			w.entries[entry.file] = entry
+		}
+	}
+	return nil
 }
 
 type DirectCFSIndexOutput struct {
