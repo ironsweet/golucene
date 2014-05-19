@@ -193,6 +193,10 @@ func (w *CompoundFileWriter) releaseOutputLock() {
 	w.outputTaken.CompareAndSet(true, false)
 }
 
+func (w *CompoundFileWriter) prunePendingEntries() error {
+	panic("not implemented yet")
+}
+
 type DirectCFSIndexOutput struct {
 	*IndexOutputImpl
 	owner        *CompoundFileWriter
@@ -222,8 +226,25 @@ func (out *DirectCFSIndexOutput) Flush() error {
 	panic("not implemented yet")
 }
 
-func (out *DirectCFSIndexOutput) Close() (err error) {
-	panic("not implemented yet")
+func (out *DirectCFSIndexOutput) Close() error {
+	if out.closed {
+		return nil
+	}
+	out.closed = true
+	out.entry.length = out.writtenBytes
+	if out.isSeparate {
+		err := out.delegate.Close()
+		if err != nil {
+			return err
+		}
+		// we are a separate file - push into the pending entries
+		out.owner.pendingEntries.PushBack(out.entry)
+	} else {
+		// we have been written into the CFS directly - release the lock
+		out.owner.releaseOutputLock()
+	}
+	// now prune all pending entries and push them into the CFS
+	return out.owner.prunePendingEntries()
 }
 
 func (out *DirectCFSIndexOutput) FilePointer() int64 {
