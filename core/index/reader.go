@@ -247,8 +247,20 @@ func (r *AtomicReaderImpl) Context() IndexReaderContext {
 	return r.readerContext
 }
 
-func (r *AtomicReaderImpl) DocFreq(term Term) (n int, err error) {
-	panic("not implemented yet")
+func (r *AtomicReaderImpl) DocFreq(term Term) (int, error) {
+	if fields := r.Fields(); fields != nil {
+		if terms := fields.Terms(term.Field); terms != nil {
+			termsEnum := terms.Iterator(nil)
+			ok, err := termsEnum.SeekExact(term.Bytes)
+			if err != nil {
+				return 0, err
+			}
+			if ok {
+				return termsEnum.DocFreq()
+			}
+		}
+	}
+	return 0, nil
 }
 
 func (r *AtomicReaderImpl) TotalTermFreq(term Term) (n int64, err error) {
