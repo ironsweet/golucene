@@ -1,6 +1,7 @@
 package store
 
 import (
+	"container/list"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/util"
 	"sync"
@@ -41,9 +42,11 @@ type FileEntry struct {
 // Combines multiple files into a single compound file
 type CompoundFileWriter struct {
 	sync.Locker
-	directory      Directory
-	entries        map[string]FileEntry
-	seenIDs        map[string]bool
+	directory Directory
+	entries   map[string]*FileEntry
+	seenIDs   map[string]bool
+	// all entries that are written to a sep. file but not yet moved into CFS
+	pendingEntries *list.List
 	closed         bool
 	dataOut        IndexOutput
 	outputTaken    *AtomicBool
@@ -61,7 +64,7 @@ func newCompoundFileWriter(dir Directory, name string) *CompoundFileWriter {
 	return &CompoundFileWriter{
 		Locker:      &sync.Mutex{},
 		directory:   dir,
-		entries:     make(map[string]FileEntry),
+		entries:     make(map[string]*FileEntry),
 		seenIDs:     make(map[string]bool),
 		outputTaken: NewAtomicBool(),
 		entryTableName: util.SegmentFileName(
@@ -99,12 +102,46 @@ func (w *CompoundFileWriter) output() (IndexOutput, error) {
 }
 
 /* Closes all resouces and writes the entry table */
-func (w *CompoundFileWriter) Close() error {
-	panic("not implemented yet")
+func (w *CompoundFileWriter) Close() (err error) {
+	if w.closed {
+		return nil
+	}
+
+	var priorError error
+	var entryTableOut IndexOutput
+	// TODO this code should clean up after itself (remove partial .cfs/.cfe)
+	func() {
+		defer func() {
+			err = util.CloseWhileHandlingError(priorError, w.dataOut)
+		}()
+		assert2(w.pendingEntries.Len() == 0 && !w.outputTaken.Get(),
+			"CFS has pending open files")
+		w.closed = true
+		// open the compound stream
+		_, err = w.output()
+		if err != nil {
+			return
+		}
+		assert(w.dataOut != nil)
+	}()
+
+	defer func() {
+		err = util.CloseWhileHandlingError(priorError, entryTableOut)
+	}()
+	entryTableOut, err = w.directory.CreateOutput(w.entryTableName, IO_CONTEXT_DEFAULT)
+	if err == nil {
+		err = w.writeEntryTable(w.entries, entryTableOut)
+	}
+	return
 }
 
 func (w *CompoundFileWriter) ensureOpen() {
 	assert2(!w.closed, "CFS Directory is already closed")
+}
+
+func (w *CompoundFileWriter) writeEntryTable(entries map[string]*FileEntry,
+	entryOut IndexOutput) error {
+	panic("not implemented yet")
 }
 
 func (w *CompoundFileWriter) createOutput(name string, context IOContext) (IndexOutput, error) {
@@ -124,7 +161,7 @@ func (w *CompoundFileWriter) createOutput(name string, context IOContext) (Index
 	assert2(name != "", "name must not be empty")
 	_, ok := w.entries[name]
 	assert2(!ok, "File %v already exists", name)
-	entry := FileEntry{}
+	entry := &FileEntry{}
 	entry.file = name
 	w.entries[name] = entry
 	id := util.StripSegmentName(name)
@@ -162,13 +199,13 @@ type DirectCFSIndexOutput struct {
 	delegate     IndexOutput
 	offset       int64
 	closed       bool
-	entry        FileEntry
+	entry        *FileEntry
 	writtenBytes int64
 	isSeparate   bool
 }
 
 func newDirectCFSIndexOutput(owner *CompoundFileWriter,
-	delegate IndexOutput, entry FileEntry, isSeparate bool) *DirectCFSIndexOutput {
+	delegate IndexOutput, entry *FileEntry, isSeparate bool) *DirectCFSIndexOutput {
 	ans := &DirectCFSIndexOutput{
 		owner:      owner,
 		delegate:   delegate,
@@ -185,7 +222,7 @@ func (out *DirectCFSIndexOutput) Flush() error {
 	panic("not implemented yet")
 }
 
-func (out *DirectCFSIndexOutput) Close() error {
+func (out *DirectCFSIndexOutput) Close() (err error) {
 	panic("not implemented yet")
 }
 
