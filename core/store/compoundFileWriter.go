@@ -31,8 +31,9 @@ func (b *AtomicBool) CompareAndSet(from, to bool) bool {
 	defer b.Unlock()
 	if b.v == from {
 		b.v = to
+		return true
 	}
-	return b.v
+	return false
 }
 
 type FileEntry struct {
