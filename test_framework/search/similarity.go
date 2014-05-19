@@ -70,8 +70,11 @@ func NewRandomSimilarityProvider(r *rand.Rand) *RandomSimilarityProvider {
 	return ans
 }
 
-func (rp *RandomSimilarityProvider) QueryNorm(valueForNormalization float32) float32 {
-	panic("not implemented yet")
+func (rp *RandomSimilarityProvider) QueryNorm(sumOfSquaredWeights float32) float32 {
+	if rp.shouldQueryNorm {
+		return rp.defaultSim.QueryNorm(sumOfSquaredWeights)
+	}
+	return 1.0
 }
 
 const primeRK = 16777619
