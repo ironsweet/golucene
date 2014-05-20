@@ -63,32 +63,32 @@ type TermWeight struct {
 	termStates index.TermContext
 }
 
-func NewTermWeight(owner *TermQuery, ss *IndexSearcher, termStates index.TermContext) TermWeight {
+func NewTermWeight(owner *TermQuery, ss *IndexSearcher, termStates index.TermContext) *TermWeight {
 	// assert(termStates != nil)
 	sim := ss.similarity
-	return TermWeight{owner, sim, sim.computeWeight(
+	return &TermWeight{owner, sim, sim.computeWeight(
 		owner.boost,
 		ss.CollectionStatistics(owner.term.Field),
 		ss.TermStatistics(owner.term, termStates)), termStates}
 }
 
-func (tw TermWeight) String() string {
+func (tw *TermWeight) String() string {
 	return fmt.Sprintf("weight(%v)", tw.TermQuery)
 }
 
-func (tw TermWeight) ValueForNormalization() float32 {
+func (tw *TermWeight) ValueForNormalization() float32 {
 	return tw.stats.ValueForNormalization()
 }
 
-func (tw TermWeight) Normalize(norm float32, topLevelBoost float32) {
+func (tw *TermWeight) Normalize(norm float32, topLevelBoost float32) {
 	tw.stats.Normalize(norm, topLevelBoost)
 }
 
-func (tw TermWeight) IsScoresDocsOutOfOrder() bool {
+func (tw *TermWeight) IsScoresDocsOutOfOrder() bool {
 	return false
 }
 
-func (tw TermWeight) Scorer(context index.AtomicReaderContext,
+func (tw *TermWeight) Scorer(context index.AtomicReaderContext,
 	inOrder bool, topScorer bool, acceptDocs util.Bits) (sc Scorer, err error) {
 	// assert termStates.topReaderContext == ReaderUtil.getTopLevelContext(context) : "The top-reader used to create Weight (" + termStates.topReaderContext + ") is not the same as the current reader's top-reader (" + ReaderUtil.getTopLevelContext(context);
 	termsEnum, err := tw.termsEnum(context)
@@ -109,7 +109,7 @@ func (tw TermWeight) Scorer(context index.AtomicReaderContext,
 	return newTermScorer(tw, docs, simScorer), nil
 }
 
-func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (index.TermsEnum, error) {
+func (tw *TermWeight) termsEnum(ctx index.AtomicReaderContext) (index.TermsEnum, error) {
 	state := tw.termStates.State(ctx.Ord)
 	if state == nil { // term is not present in that reader
 		assert2(tw.termNotInReader(ctx.Reader().(index.AtomicReader), tw.term),
@@ -121,7 +121,7 @@ func (tw TermWeight) termsEnum(ctx index.AtomicReaderContext) (index.TermsEnum, 
 	return te, err
 }
 
-func (tw TermWeight) termNotInReader(reader index.AtomicReader, term index.Term) bool {
+func (tw *TermWeight) termNotInReader(reader index.AtomicReader, term index.Term) bool {
 	n, err := reader.DocFreq(term)
 	assert(err == nil)
 	return n == 0

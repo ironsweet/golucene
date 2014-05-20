@@ -106,7 +106,7 @@ func (d *CompoundFileDirectory) OpenInput(name string, context IOContext) (in In
 	assert(!d.openForWrite)
 	id := util.StripSegmentName(name)
 	if entry, ok := d.entries[id]; ok {
-		is := d.handle.openSlice(name, entry.offset, entry.length)
+		is := d.handle.OpenSlice(name, entry.offset, entry.length)
 		return is, nil
 	}
 	keys := make([]string, 0)
@@ -184,7 +184,7 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 	// read the first VInt. If it is negative, it's the version number
 	// otherwise it's the count (pre-3.1 indexes)
 	mapping = make(map[string]FileSlice)
-	stream = handle.openFullSlice()
+	stream = handle.OpenFullSlice()
 	log.Printf("Reading from stream: %v", stream)
 	firstInt, err := stream.ReadVInt()
 	if err != nil {

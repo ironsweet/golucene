@@ -150,18 +150,18 @@ func (s *fileIndexInputSlicer) Close() error {
 	return s.file.Close()
 }
 
-func (s *fileIndexInputSlicer) openSlice(desc string, offset, length int64) IndexInput {
+func (s *fileIndexInputSlicer) OpenSlice(desc string, offset, length int64) IndexInput {
 	return newSimpleFSIndexInputFromFileSlice(fmt.Sprintf("SimpleFSIndexInput(%v in path='%v' slice=%v:%v)",
 		desc, s.file.Name(), offset, offset+length),
 		s.file, offset, length, bufferSize(s.ctx), s.chunkSize)
 }
 
-func (s *fileIndexInputSlicer) openFullSlice() IndexInput {
+func (s *fileIndexInputSlicer) OpenFullSlice() IndexInput {
 	fi, err := s.file.Stat()
 	if err != nil {
 		panic(err)
 	}
-	return s.openSlice("full-slice", 0, fi.Size())
+	return s.OpenSlice("full-slice", 0, fi.Size())
 }
 
 type SimpleFSIndexInput struct {

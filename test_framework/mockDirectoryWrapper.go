@@ -983,11 +983,65 @@ func (w *MockDirectoryWrapper) Copy(to store.Directory, src string, dest string,
 	return w.Directory.Copy(to, src, dest, context)
 }
 
-func (w *MockDirectoryWrapper) CreateSlicer(name string, context store.IOContext) (slicer store.IndexInputSlicer, err error) {
+func (w *MockDirectoryWrapper) CreateSlicer(name string,
+	context store.IOContext) (store.IndexInputSlicer, error) {
+
 	w.Lock() // synchronized
 	defer w.Unlock()
 
-	panic("not implemented yet")
+	w.maybeYield()
+	if !w.Directory.FileExists(name) {
+		return nil, errors.New(fmt.Sprintf("File not found: %v", name))
+	}
+	// cannot open a file for input if it's still open for output,
+	// except for segments.gen and segments_N
+	if _, ok := w.openFilesForWrite[name]; ok && !strings.HasPrefix(name, "segments") {
+		return nil, w.fillOpenTrace(errors.New(fmt.Sprintf(
+			"MockDirectoryWrapper: file '%v' is still open for writing", name)), name, false)
+	}
+
+	delegateHandle, err := w.Directory.CreateSlicer(name, context)
+	if err != nil {
+		return nil, err
+	}
+	handle := &myIndexInputSlicer{w, delegateHandle, name, false}
+	w.addFileHandle(handle, name, HANDLE_SLICE)
+	return handle, nil
+}
+
+type myIndexInputSlicer struct {
+	owner          *MockDirectoryWrapper
+	delegateHandle store.IndexInputSlicer
+	name           string
+	isClosed       bool
+}
+
+func (s *myIndexInputSlicer) Close() error {
+	if !s.isClosed {
+		err := s.delegateHandle.Close()
+		if err != nil {
+			return err
+		}
+		s.owner.removeOpenFile(s, s.name)
+		s.isClosed = true
+	}
+	return nil
+}
+
+func (s *myIndexInputSlicer) OpenSlice(desc string, offset, length int64) store.IndexInput {
+	s.owner.maybeYield()
+	slice := s.delegateHandle.OpenSlice(desc, offset, length)
+	ii := newMockIndexInputWrapper(s.owner, s.name, slice)
+	s.owner.addFileHandle(ii, s.name, HANDLE_INPUT)
+	return ii
+}
+
+func (s *myIndexInputSlicer) OpenFullSlice() store.IndexInput {
+	s.owner.maybeYield()
+	slice := s.delegateHandle.OpenFullSlice()
+	ii := newMockIndexInputWrapper(s.owner, s.name, slice)
+	s.owner.addFileHandle(ii, s.name, HANDLE_INPUT)
+	return ii
 }
 
 type BufferedIndexOutputWrapper struct {

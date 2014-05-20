@@ -375,15 +375,15 @@ func (d *DirectoryImpl) EnsureOpen() {
 
 type IndexInputSlicer interface {
 	io.Closer
-	openSlice(desc string, offset, length int64) IndexInput
-	openFullSlice() IndexInput
+	OpenSlice(desc string, offset, length int64) IndexInput
+	OpenFullSlice() IndexInput
 }
 
 type simpleIndexInputSlicer struct {
 	base IndexInput
 }
 
-func (is simpleIndexInputSlicer) openSlice(desc string, offset, length int64) IndexInput {
+func (is simpleIndexInputSlicer) OpenSlice(desc string, offset, length int64) IndexInput {
 	return newSlicedIndexInput(fmt.Sprintf("SlicedIndexInput(%v in %v)", desc, is.base),
 		is.base, offset, length)
 }
@@ -392,7 +392,7 @@ func (is simpleIndexInputSlicer) Close() error {
 	return is.base.Close()
 }
 
-func (is simpleIndexInputSlicer) openFullSlice() IndexInput {
+func (is simpleIndexInputSlicer) OpenFullSlice() IndexInput {
 	return is.base
 }
 
