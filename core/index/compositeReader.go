@@ -159,7 +159,7 @@ func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 	}
 	newDocBase := 0
 	for i, r := range sequentialSubReaders {
-		children[i] = b.build4(parent, r, i, newDocBase)
+		children[i] = b.build4(newParent, r, i, newDocBase)
 		newDocBase = r.MaxDoc()
 	}
 	// assert newDocBase == cr.maxDoc()
