@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
@@ -27,6 +28,12 @@ func main() {
 	}
 	if len(r.Leaves()) < 1 {
 		panic("Should have one leaf.")
+	}
+	for _, ctx := range r.Leaves() {
+		if ctx.Parent() != r.Context() {
+			fmt.Println("DEBUG", ctx.Parent(), r.Context())
+			panic("leaves not point to parent!")
+		}
 	}
 	log.Print("Initializing IndexSearcher...")
 	ss := search.NewIndexSearcher(r)

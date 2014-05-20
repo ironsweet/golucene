@@ -964,6 +964,10 @@ func (e *SegmentTermsEnum) Ord() int64 {
 	panic("not supported!")
 }
 
+func (e *SegmentTermsEnum) String() string {
+	return "SegmentTermsEnum"
+}
+
 type segmentTermsEnumFrame struct {
 	// internal data structure
 	*SegmentTermsEnum

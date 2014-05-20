@@ -55,7 +55,7 @@ type TopDocs struct {
 type Collector interface {
 	SetScorer(s Scorer)
 	Collect(doc int) error
-	SetNextReader(ctx index.AtomicReaderContext)
+	SetNextReader(ctx *index.AtomicReaderContext)
 	AcceptsDocsOutOfOrder() bool
 }
 
@@ -239,7 +239,7 @@ func (c *TopScoreDocCollector) newTopDocs(results []ScoreDoc, start int) TopDocs
 	return TopDocs{c.TotalHits, results, maxScore}
 }
 
-func (c *TopScoreDocCollector) SetNextReader(ctx index.AtomicReaderContext) {
+func (c *TopScoreDocCollector) SetNextReader(ctx *index.AtomicReaderContext) {
 	c.docBase = ctx.DocBase
 }
 

@@ -13,7 +13,7 @@ import (
 type IndexSearcher struct {
 	reader        index.IndexReader
 	readerContext index.IndexReaderContext
-	leafContexts  []index.AtomicReaderContext
+	leafContexts  []*index.AtomicReaderContext
 	similarity    Similarity
 }
 
@@ -66,7 +66,7 @@ func (ss *IndexSearcher) searchWSI(w Weight, after ScoreDoc, nDocs int) TopDocs 
  * @throws BooleanQuery.TooManyClauses If a query would exceed
  *         {@link BooleanQuery#getMaxClauseCount()} clauses.
  */
-func (ss *IndexSearcher) searchLWSI(leaves []index.AtomicReaderContext, w Weight, after ScoreDoc, nDocs int) TopDocs {
+func (ss *IndexSearcher) searchLWSI(leaves []*index.AtomicReaderContext, w Weight, after ScoreDoc, nDocs int) TopDocs {
 	// single thread
 	limit := ss.reader.MaxDoc()
 	if limit == 0 {
@@ -80,7 +80,7 @@ func (ss *IndexSearcher) searchLWSI(leaves []index.AtomicReaderContext, w Weight
 	return collector.TopDocs()
 }
 
-func (ss *IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight, c Collector) (err error) {
+func (ss *IndexSearcher) searchLWC(leaves []*index.AtomicReaderContext, w Weight, c Collector) (err error) {
 	// TODO: should we make this
 	// threaded...?  the Collector could be sync'd?
 	// always use single thread:
@@ -93,8 +93,9 @@ func (ss *IndexSearcher) searchLWC(leaves []index.AtomicReaderContext, w Weight,
 		if err != nil {
 			return err
 		}
-		// TODO catch CollectionTerminatedException
-		scorer.ScoreAndCollect(c)
+		if scorer != nil {
+			err = scorer.ScoreAndCollect(c)
+		} // TODO catch CollectionTerminatedException
 	}
 	return
 }
@@ -302,7 +303,7 @@ func (ts *TFIDFSimilarity) computeWeight(queryBoost float32, collectionStats Col
 	return newIDFStats(collectionStats.field, idf, queryBoost)
 }
 
-func (ts *TFIDFSimilarity) simScorer(stats SimWeight, ctx index.AtomicReaderContext) (ss SimScorer, err error) {
+func (ts *TFIDFSimilarity) simScorer(stats SimWeight, ctx *index.AtomicReaderContext) (ss SimScorer, err error) {
 	idfstats := stats.(*idfStats)
 	ndv, err := ctx.Reader().(index.AtomicReader).NormValues(idfstats.field)
 	if err != nil {

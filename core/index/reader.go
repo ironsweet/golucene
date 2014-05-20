@@ -47,7 +47,7 @@ type IndexReader interface {
 	Document(docID int) (doc *Document, err error)
 	doClose() error
 	Context() IndexReaderContext
-	Leaves() []AtomicReaderContext
+	Leaves() []*AtomicReaderContext
 	// Returns the number of documents containing the term. This method
 	// returns 0 if the term of field does not exists. This method does
 	// not take into account deleted documents that have not yet been
@@ -189,13 +189,14 @@ func (r *IndexReaderImpl) Close() error {
 	return nil
 }
 
-func (r *IndexReaderImpl) Leaves() []AtomicReaderContext {
+func (r *IndexReaderImpl) Leaves() []*AtomicReaderContext {
 	return r.Context().Leaves()
 }
 
 type IndexReaderContext interface {
 	Reader() IndexReader
-	Leaves() []AtomicReaderContext
+	Parent() *CompositeReaderContext
+	Leaves() []*AtomicReaderContext
 	Children() []IndexReaderContext
 }
 
@@ -212,6 +213,10 @@ func newIndexReaderContext(parent *CompositeReaderContext, ordInParent, docBaseI
 		isTopLevel:      parent == nil,
 		docBaseInParent: docBaseInParent,
 		ordInParent:     ordInParent}
+}
+
+func (ctx *IndexReaderContextImpl) Parent() *CompositeReaderContext {
+	return ctx.parent
 }
 
 type ARFieldsReader interface {
@@ -291,7 +296,12 @@ type AtomicReaderContext struct {
 	*IndexReaderContextImpl
 	Ord, DocBase int
 	reader       AtomicReader
-	leaves       []AtomicReaderContext
+	leaves       []*AtomicReaderContext
+}
+
+func (ctx *AtomicReaderContext) String() string {
+	return fmt.Sprintf("AtomicReaderContext{%v ord=%v docBase=%v %v}",
+		ctx.IndexReaderContextImpl, ctx.Ord, ctx.DocBase, ctx.reader)
 }
 
 func newAtomicReaderContextFromReader(r AtomicReader) *AtomicReaderContext {
@@ -305,12 +315,12 @@ func newAtomicReaderContext(parent *CompositeReaderContext, reader AtomicReader,
 	ans.DocBase = leafDocBase
 	ans.reader = reader
 	if ans.isTopLevel {
-		ans.leaves = []AtomicReaderContext{*ans}
+		ans.leaves = []*AtomicReaderContext{ans}
 	}
 	return ans
 }
 
-func (ctx *AtomicReaderContext) Leaves() []AtomicReaderContext {
+func (ctx *AtomicReaderContext) Leaves() []*AtomicReaderContext {
 	if !ctx.IndexReaderContextImpl.isTopLevel {
 		panic("This is not a top-level context.")
 	}

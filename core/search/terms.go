@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/util"
-	"reflect"
 )
 
 type TermQuery struct {
@@ -88,16 +87,17 @@ func (tw *TermWeight) IsScoresDocsOutOfOrder() bool {
 	return false
 }
 
-func (tw *TermWeight) Scorer(context index.AtomicReaderContext,
+func (tw *TermWeight) Scorer(context *index.AtomicReaderContext,
 	inOrder bool, topScorer bool, acceptDocs util.Bits) (sc Scorer, err error) {
-	// assert termStates.topReaderContext == ReaderUtil.getTopLevelContext(context) : "The top-reader used to create Weight (" + termStates.topReaderContext + ") is not the same as the current reader's top-reader (" + ReaderUtil.getTopLevelContext(context);
+	assert2(tw.termStates.TopReaderContext == index.TopLevelContext(context),
+		"The top-reader used to create Weight (%v) is not the same as the current reader's top-reader (%v)",
+		tw.termStates.TopReaderContext, index.TopLevelContext(context))
 	termsEnum, err := tw.termsEnum(context)
-	if err != nil {
+	if termsEnum == nil || err != nil {
 		return nil, err
 	}
 	assert(termsEnum != nil)
-	fmt.Println("DEBUG", reflect.TypeOf(termsEnum).Name())
-	docs, err := termsEnum.Docs(acceptDocs, index.DOCS_ENUM_EMPTY)
+	docs, err := termsEnum.Docs(acceptDocs, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -109,19 +109,20 @@ func (tw *TermWeight) Scorer(context index.AtomicReaderContext,
 	return newTermScorer(tw, docs, simScorer), nil
 }
 
-func (tw *TermWeight) termsEnum(ctx index.AtomicReaderContext) (index.TermsEnum, error) {
+func (tw *TermWeight) termsEnum(ctx *index.AtomicReaderContext) (index.TermsEnum, error) {
 	state := tw.termStates.State(ctx.Ord)
 	if state == nil { // term is not present in that reader
-		assert2(tw.termNotInReader(ctx.Reader().(index.AtomicReader), tw.term),
+		assert2(tw.termNotInReader(ctx.Reader(), tw.term),
 			"no termstate found but term exists in reader term=%v", tw.term)
-		return index.EMPTY_TERMS_ENUM, nil
+		return nil, nil
 	}
-	te := ctx.Reader().(index.AtomicReader).Terms(tw.term.Field).Iterator(index.EMPTY_TERMS_ENUM)
+	terms := ctx.Reader().(index.AtomicReader).Terms(tw.term.Field)
+	te := terms.Iterator(nil)
 	err := te.SeekExactFromLast(tw.term.Bytes, *state)
 	return te, err
 }
 
-func (tw *TermWeight) termNotInReader(reader index.AtomicReader, term index.Term) bool {
+func (tw *TermWeight) termNotInReader(reader index.IndexReader, term index.Term) bool {
 	n, err := reader.DocFreq(term)
 	assert(err == nil)
 	return n == 0

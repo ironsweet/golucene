@@ -1,9 +1,24 @@
 package index
 
+// index/ReaderUtil.java
+
+/* Common util methods for dealing wiht IndexReaders and IndexReaderContexts. */
+
 /*
- * Returns index of the searcher/reader for document n in the
- * array used to construct this searcher/reader.
- */
+Walks up the reader tree and return the given context's top level
+reader context, or in other words the reader tree's root context.
+*/
+func TopLevelContext(ctx IndexReaderContext) IndexReaderContext {
+	for ctx.Parent() != nil {
+		ctx = ctx.Parent()
+	}
+	return ctx
+}
+
+/*
+Returns index of the searcher/reader for document n in the
+array used to construct this searcher/reader.
+*/
 func subIndex(n int, docStarts []int) int {
 	// searcher/reader for doc n:
 	size := len(docStarts)

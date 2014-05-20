@@ -98,14 +98,12 @@ func newCompositeReaderContext6(parent *CompositeReaderContext,
 	return ans
 }
 
-func (ctx *CompositeReaderContext) Leaves() []AtomicReaderContext {
-	if !ctx.isTopLevel {
-		panic("This is not a top-level context.")
-	}
-	// assert leaves != null
-	ans := make([]AtomicReaderContext, 0, ctx.leaves.Len())
+func (ctx *CompositeReaderContext) Leaves() []*AtomicReaderContext {
+	assert2(ctx.isTopLevel, "This is not a top-level context.")
+	assert(ctx.leaves != nil)
+	ans := make([]*AtomicReaderContext, 0, ctx.leaves.Len())
 	for e := ctx.leaves.Front(); e != nil; e = e.Next() {
-		ans = append(ans, e.Value.(AtomicReaderContext))
+		ans = append(ans, e.Value.(*AtomicReaderContext))
 	}
 	return ans
 }
@@ -119,7 +117,8 @@ func (ctx *CompositeReaderContext) Reader() IndexReader {
 }
 
 func (ctx *CompositeReaderContext) String() string {
-	return "CompositeReaderContext"
+	return fmt.Sprintf("CompositeReaderContext{%v %v %v}",
+		ctx.IndexReaderContextImpl, ctx.children, ctx.reader)
 }
 
 type CompositeReaderContextBuilder struct {
@@ -142,7 +141,7 @@ func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 	if ar, ok := reader.(AtomicReader); ok {
 		log.Print("AtomicReader is detected.")
 		atomic := newAtomicReaderContext(parent, ar, ord, docBase, b.leaves.Len(), b.leafDocBase)
-		b.leaves.PushBack(*atomic)
+		b.leaves.PushBack(atomic)
 		b.leafDocBase += reader.MaxDoc()
 		return atomic
 	}

@@ -97,7 +97,7 @@ type Similarity interface {
 	computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight
 	// Creates a new SimScorer to score matching documents from a
 	// segment of the inverted index.
-	simScorer(w SimWeight, ctx index.AtomicReaderContext) (ss SimScorer, err error)
+	simScorer(w SimWeight, ctx *index.AtomicReaderContext) (ss SimScorer, err error)
 }
 
 // similarities/PerFieldSimilarityWrapper
@@ -131,7 +131,7 @@ func (wrapper *PerFieldSimilarityWrapper) computeWeight(queryBoost float32,
 	return &PerFieldSimWeight{sim, sim.computeWeight(queryBoost, collectionStats, termStats...)}
 }
 
-func (wrapper *PerFieldSimilarityWrapper) simScorer(w SimWeight, ctx index.AtomicReaderContext) (ss SimScorer, err error) {
+func (wrapper *PerFieldSimilarityWrapper) simScorer(w SimWeight, ctx *index.AtomicReaderContext) (ss SimScorer, err error) {
 	panic("not implemented yet")
 }
 
