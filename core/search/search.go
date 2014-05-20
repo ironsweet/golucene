@@ -137,7 +137,7 @@ func (ss *IndexSearcher) explain(weight Weight, doc int) (exp Explanation, err e
 }
 
 func (ss *IndexSearcher) createNormalizedWeight(q Query) (w Weight, err error) {
-	q = rewrite(q, ss.reader)
+	q = ss.rewrite(q, ss.reader)
 	log.Printf("After rewrite: %v", q)
 	w, err = q.CreateWeight(ss)
 	if err != nil {
@@ -152,7 +152,7 @@ func (ss *IndexSearcher) createNormalizedWeight(q Query) (w Weight, err error) {
 	return w, nil
 }
 
-func rewrite(q Query, r index.IndexReader) Query {
+func (ss *IndexSearcher) rewrite(q Query, r index.IndexReader) Query {
 	log.Printf("Rewriting '%v'...", q)
 	after := q.Rewrite(r)
 	for after != q {

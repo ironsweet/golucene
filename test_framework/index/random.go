@@ -27,7 +27,29 @@ func NewMockRandomMergePolicy(r *rand.Rand) *MockRandomMergePolicy {
 
 func (p *MockRandomMergePolicy) FindMerges(mergeTrigger MergeTrigger,
 	segmentInfos *SegmentInfos) (MergeSpecification, error) {
-	panic("not implemented yet")
+
+	var segments []*SegmentInfoPerCommit
+	merging := p.Writer.Get().(*IndexWriter).MergingSegments()
+
+	for _, sipc := range segmentInfos.Segments {
+		if _, ok := merging[sipc]; !ok {
+			segments = append(segments, sipc)
+		}
+	}
+
+	var merges []*OneMerge
+	if n := len(segments); n > 1 && (n > 30 || p.random.Intn(5) == 3) {
+		segments2 := make([]*SegmentInfoPerCommit, len(segments))
+		for i, v := range p.random.Perm(len(segments)) {
+			segments2[i] = segments[v]
+		}
+		segments = segments2
+
+		// TODO: sometimes make more than 1 merge?
+		segsToMerge := tu.NextInt(p.random, 1, n)
+		merges = append(merges, NewOneMerge(segments[:segsToMerge]))
+	}
+	return MergeSpecification(merges), nil
 }
 
 func (p *MockRandomMergePolicy) FindForcedMerges(segmentsInfos *SegmentInfos,

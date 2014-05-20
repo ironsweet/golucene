@@ -858,13 +858,9 @@ segments already being merged. The returned collection is not cloned,
 and thus is only safe to access if you hold IndexWriter's lock (which
 you do when IndexWriter invokes the MergePolicy).
 */
-func (w *IndexWriter) MergingSegments() []*SegmentInfoPerCommit {
+func (w *IndexWriter) MergingSegments() map[*SegmentInfoPerCommit]bool {
 	// no need to synchronized but should be
-	var ans []*SegmentInfoPerCommit
-	for k, _ := range w.mergingSegments {
-		ans = append(ans, k)
-	}
-	return ans
+	return w.mergingSegments
 }
 
 /*

@@ -118,7 +118,7 @@ type MergePolicyImpl struct {
 	self    MergeSpecifier
 	SizeSPI MergePolicyImplSPI
 	// IndexWriter that contains this instance.
-	writer *util.SetOnce
+	Writer *util.SetOnce
 	// If the size of te merge segment exceeds this ratio of the total
 	// index size then it will remain in non-compound format.
 	noCFSRatio float64
@@ -148,7 +148,7 @@ type MergeSpecifier interface {
 
 func (mp *MergePolicyImpl) clone() *MergePolicyImpl {
 	clone := *mp
-	clone.writer = util.NewSetOnce()
+	clone.Writer = util.NewSetOnce()
 	return &clone
 }
 
@@ -168,7 +168,7 @@ different defaults than the MergePolicy.
 func newMergePolicyImpl(self MergeSpecifier, defaultNoCFSRatio, defaultMaxCFSSegmentSize float64) *MergePolicyImpl {
 	ans := &MergePolicyImpl{
 		self:              self,
-		writer:            util.NewSetOnce(),
+		Writer:            util.NewSetOnce(),
 		noCFSRatio:        defaultNoCFSRatio,
 		maxCFSSegmentSize: defaultMaxCFSSegmentSize,
 	}
@@ -182,7 +182,7 @@ allowed to be called only once, and is usually set by IndexWriter. If
 it is called more thanonce, panic is thrown.
 */
 func (mp *MergePolicyImpl) SetIndexWriter(writer *IndexWriter) {
-	mp.writer.Set(writer)
+	mp.Writer.Set(writer)
 }
 
 func (mp *MergePolicyImpl) Size(info *SegmentInfoPerCommit) (n int64, err error) {
@@ -195,7 +195,7 @@ func (mp *MergePolicyImpl) Size(info *SegmentInfoPerCommit) (n int64, err error)
 		return byteSize, nil
 	}
 
-	delCount := mp.writer.Get().(*IndexWriter).readerPool.numDeletedDocs(info)
+	delCount := mp.Writer.Get().(*IndexWriter).readerPool.numDeletedDocs(info)
 	delRatio := float32(delCount) / float32(docCount)
 	assert(delRatio <= 1)
 	return int64(float32(byteSize) * (1 - delRatio)), nil
@@ -207,7 +207,7 @@ pending deletes, is in the same dir as the writer, and matches the
 current compound file setting)
 */
 func (mp *MergePolicyImpl) isMerged(info *SegmentInfoPerCommit) bool {
-	w := mp.writer.Get().(*IndexWriter)
+	w := mp.Writer.Get().(*IndexWriter)
 	assert(w != nil)
 	hasDeletions := w.readerPool.numDeletedDocs(info) > 0
 	return !hasDeletions &&
@@ -294,7 +294,7 @@ type OneMerge struct {
 	aborted       bool
 }
 
-func newOneMerge(segments []*SegmentInfoPerCommit) *OneMerge {
+func NewOneMerge(segments []*SegmentInfoPerCommit) *OneMerge {
 	assert2(len(segments) > 0, "segments must include at least one segment")
 	// clone the list, as the in list may be based off original SegmentInfos and may be modified
 	segments2 := make([]*SegmentInfoPerCommit, len(segments))
@@ -516,7 +516,7 @@ func (tmp *TieredMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *Segme
 		return nil, nil
 	}
 	merging := make(map[*SegmentInfoPerCommit]bool)
-	for _, info := range tmp.writer.Get().(*IndexWriter).MergingSegments() {
+	for info, _ := range tmp.Writer.Get().(*IndexWriter).MergingSegments() {
 		merging[info] = true
 	}
 	toBeMerged := make(map[*SegmentInfoPerCommit]bool)
@@ -544,7 +544,7 @@ func (tmp *TieredMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *Segme
 				extra += " [floored]"
 			}
 			tmp.message("  seg=%v size=%v MB%v",
-				tmp.writer.Get().(*IndexWriter).readerPool.segmentToString(info),
+				tmp.Writer.Get().(*IndexWriter).readerPool.segmentToString(info),
 				fmt.Sprintf("%.3f", float32(segBytes)/1024/1024), extra)
 		}
 
@@ -647,12 +647,12 @@ func (tmp *TieredMergePolicy) floorSize(bytes int64) int64 {
 }
 
 func (tmp *TieredMergePolicy) verbose() bool {
-	w := tmp.writer.Get()
+	w := tmp.Writer.Get()
 	return w != nil && w.(*IndexWriter).infoStream.IsEnabled("TMP")
 }
 
 func (tmp *TieredMergePolicy) message(message string, args ...interface{}) {
-	tmp.writer.Get().(*IndexWriter).infoStream.Message("TMP", message, args...)
+	tmp.Writer.Get().(*IndexWriter).infoStream.Message("TMP", message, args...)
 }
 
 func (tmp *TieredMergePolicy) String() string {
@@ -724,14 +724,14 @@ func NewLogMergePolicy(min, max int64) *LogMergePolicy {
 
 // Returns true if LMP is enabled in IndexWriter's InfoStream.
 func (mp *LogMergePolicy) verbose() bool {
-	w := mp.writer.Get().(*IndexWriter)
+	w := mp.Writer.Get().(*IndexWriter)
 	return w != nil && w.infoStream.IsEnabled("LMP")
 }
 
 // Print a debug message to IndexWriter's infoStream.
 func (mp *LogMergePolicy) message(message string) {
 	if mp.verbose() {
-		mp.writer.Get().(*IndexWriter).infoStream.Message("LMP", message)
+		mp.Writer.Get().(*IndexWriter).infoStream.Message("LMP", message)
 	}
 }
 
@@ -767,7 +767,7 @@ SetCalibrateSizeByDeletes() is set.
 func (mp *LogMergePolicy) sizeDocs(info *SegmentInfoPerCommit) (n int64, err error) {
 	infoDocCount := info.info.DocCount()
 	if mp.calibrateSizeByDeletes {
-		delCount := mp.writer.Get().(*IndexWriter).readerPool.numDeletedDocs(info)
+		delCount := mp.Writer.Get().(*IndexWriter).readerPool.numDeletedDocs(info)
 		assert(delCount <= infoDocCount)
 		return int64(infoDocCount - delCount), nil
 	}
@@ -828,7 +828,7 @@ func (mp *LogMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *SegmentIn
 	levels := make([]*SegmentInfoAndLevel, 0)
 	norm := math.Log(float64(mp.mergeFactor))
 
-	mergingSegments := mp.writer.Get().(*IndexWriter).mergingSegments
+	mergingSegments := mp.Writer.Get().(*IndexWriter).mergingSegments
 
 	for i, info := range infos.Segments {
 		size, err := mp.Size(info)
@@ -857,7 +857,7 @@ func (mp *LogMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *SegmentIn
 				extra = fmt.Sprintf("%v [skip: too large]", extra)
 			}
 			mp.message(fmt.Sprintf("seg=%v level=%v size=%.3f MB%v",
-				mp.writer.Get().(*IndexWriter).readerPool.segmentToString(info),
+				mp.Writer.Get().(*IndexWriter).readerPool.segmentToString(info),
 				infoLevel.level,
 				segBytes/1024/1024,
 				extra))
