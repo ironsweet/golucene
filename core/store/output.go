@@ -35,6 +35,13 @@ func (ios *IndexOutputStream) WriteInt(i int32) *IndexOutputStream {
 	return ios
 }
 
+func (ios *IndexOutputStream) WriteLong(l int64) *IndexOutputStream {
+	if ios.err == nil {
+		ios.err = ios.out.WriteLong(l)
+	}
+	return ios
+}
+
 func (ios *IndexOutputStream) WriteByte(b byte) *IndexOutputStream {
 	if ios.err == nil {
 		ios.err = ios.out.WriteByte(b)

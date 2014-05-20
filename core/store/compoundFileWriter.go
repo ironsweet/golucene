@@ -184,7 +184,22 @@ func (w *CompoundFileWriter) copyFileEntry(dataOut IndexOutput, fileEntry *FileE
 
 func (w *CompoundFileWriter) writeEntryTable(entries map[string]*FileEntry,
 	entryOut IndexOutput) error {
-	panic("not implemented yet")
+	err := codec.WriteHeader(entryOut, CFD_ENTRY_CODEC, CFD_VERSION_CURRENT)
+	if err == nil {
+		err = entryOut.WriteVInt(int32(len(entries)))
+		if err == nil {
+			for _, fe := range entries {
+				if err = Stream(entryOut).
+					WriteString(util.StripSegmentName(fe.file)).
+					WriteLong(fe.offset).
+					WriteLong(fe.length).
+					Close(); err != nil {
+					break
+				}
+			}
+		}
+	}
+	return err
 }
 
 func (w *CompoundFileWriter) createOutput(name string, context IOContext) (IndexOutput, error) {
