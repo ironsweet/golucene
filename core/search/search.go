@@ -9,8 +9,17 @@ import (
 	"math"
 )
 
+/* Define service that can be overrided */
+type IndexSearcherSPI interface {
+	CreateNormalizedWeight(Query) (Weight, error)
+	Rewrite(Query) (Query, error)
+	WrapFilter(Query, Filter) Query
+	SearchLWC([]*index.AtomicReaderContext, Weight, Collector) error
+}
+
 // IndexSearcher
 type IndexSearcher struct {
+	spi           IndexSearcherSPI
 	reader        index.IndexReader
 	readerContext index.IndexReaderContext
 	leafContexts  []*index.AtomicReaderContext
@@ -23,9 +32,11 @@ func NewIndexSearcher(r index.IndexReader) *IndexSearcher {
 }
 
 func NewIndexSearcherFromContext(context index.IndexReaderContext) *IndexSearcher {
-	//assert context.isTopLevel: "IndexSearcher's ReaderContext must be topLevel for reader" + context.reader();
+	// assert2(context.isTopLevel, "IndexSearcher's ReaderContext must be topLevel for reader %v", context.reader())
 	defaultSimilarity := NewDefaultSimilarity()
-	return &IndexSearcher{context.Reader(), context, context.Leaves(), defaultSimilarity}
+	ss := &IndexSearcher{nil, context.Reader(), context, context.Leaves(), defaultSimilarity}
+	ss.spi = ss
+	return ss
 }
 
 /* Expert: set the similarity implementation used by this IndexSearcher. */
@@ -38,7 +49,7 @@ func (ss *IndexSearcher) SearchTop(q Query, n int) (topDocs TopDocs, err error) 
 }
 
 func (ss *IndexSearcher) Search(q Query, f Filter, n int) (topDocs TopDocs, err error) {
-	w, err := ss.createNormalizedWeight(wrapFilter(q, f))
+	w, err := ss.spi.CreateNormalizedWeight(ss.spi.WrapFilter(q, f))
 	if err != nil {
 		return TopDocs{}, err
 	}
@@ -76,11 +87,11 @@ func (ss *IndexSearcher) searchLWSI(leaves []*index.AtomicReaderContext, w Weigh
 		nDocs = limit
 	}
 	collector := NewTopScoreDocCollector(nDocs, after, !w.IsScoresDocsOutOfOrder())
-	ss.searchLWC(leaves, w, collector)
+	ss.spi.SearchLWC(leaves, w, collector)
 	return collector.TopDocs()
 }
 
-func (ss *IndexSearcher) searchLWC(leaves []*index.AtomicReaderContext, w Weight, c Collector) (err error) {
+func (ss *IndexSearcher) SearchLWC(leaves []*index.AtomicReaderContext, w Weight, c Collector) (err error) {
 	// TODO: should we make this
 	// threaded...?  the Collector could be sync'd?
 	// always use single thread:
@@ -100,7 +111,7 @@ func (ss *IndexSearcher) searchLWC(leaves []*index.AtomicReaderContext, w Weight
 	return
 }
 
-func wrapFilter(q Query, f Filter) Query {
+func (ss *IndexSearcher) WrapFilter(q Query, f Filter) Query {
 	if f == nil {
 		return q
 	}
@@ -115,7 +126,7 @@ good performance, should not be displayed with every hit. Computing an
 explanation is as expensive as executing the query over the entire index.
 */
 func (ss *IndexSearcher) Explain(query Query, doc int) (exp Explanation, err error) {
-	w, err := ss.createNormalizedWeight(query)
+	w, err := ss.spi.CreateNormalizedWeight(query)
 	if err == nil {
 		return ss.explain(w, doc)
 	}
@@ -136,8 +147,11 @@ func (ss *IndexSearcher) explain(weight Weight, doc int) (exp Explanation, err e
 	panic("not implemented yet")
 }
 
-func (ss *IndexSearcher) createNormalizedWeight(q Query) (w Weight, err error) {
-	q = ss.rewrite(q, ss.reader)
+func (ss *IndexSearcher) CreateNormalizedWeight(q Query) (w Weight, err error) {
+	q, err = ss.spi.Rewrite(q)
+	if err != nil {
+		return nil, err
+	}
 	log.Printf("After rewrite: %v", q)
 	w, err = q.CreateWeight(ss)
 	if err != nil {
@@ -152,14 +166,14 @@ func (ss *IndexSearcher) createNormalizedWeight(q Query) (w Weight, err error) {
 	return w, nil
 }
 
-func (ss *IndexSearcher) rewrite(q Query, r index.IndexReader) Query {
+func (ss *IndexSearcher) Rewrite(q Query) (Query, error) {
 	log.Printf("Rewriting '%v'...", q)
-	after := q.Rewrite(r)
+	after := q.Rewrite(ss.reader)
 	for after != q {
 		q = after
-		after = q.Rewrite(r)
+		after = q.Rewrite(ss.reader)
 	}
-	return q
+	return q, nil
 }
 
 // Returns this searhcers the top-level IndexReaderContext
