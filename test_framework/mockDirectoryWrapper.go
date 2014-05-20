@@ -1005,7 +1005,7 @@ func (w *MockDirectoryWrapper) CreateSlicer(name string,
 		return nil, err
 	}
 	handle := &myIndexInputSlicer{w, delegateHandle, name, false}
-	w.addFileHandle(handle, name, HANDLE_SLICE)
+	w._addFileHandle(handle, name, HANDLE_SLICE)
 	return handle, nil
 }
 
