@@ -54,9 +54,13 @@ func main() {
 		searcher := NewSearcher(reader)
 		res, err := searcher.Search(q, nil, 1000)
 		t.Assert2(err == nil, "%v", err)
-		hits := res.ScoreDocs
-		t.Assert(1 == len(hits))
-		t.Assert2(hits[0].Score < 0, fmt.Sprintf("score is not negative: %v", hits[0].Score))
+		if err == nil {
+			hits := res.ScoreDocs
+			t.Assert2(1 == len(hits), "no hit")
+			if len(hits) > 0 {
+				t.Assert2(hits[0].Score < 0, fmt.Sprintf("score is not negative: %v", hits[0].Score))
+			}
+		}
 
 		// explain, err := searcher.Explain(q, hits[0].Doc)
 		// if err != nil {
