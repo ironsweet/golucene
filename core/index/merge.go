@@ -545,7 +545,7 @@ func (tmp *TieredMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *Segme
 			}
 			tmp.message("  seg=%v size=%v MB%v",
 				tmp.writer.Get().(*IndexWriter).readerPool.segmentToString(info),
-				fmt.Sprintf("%.3f", segBytes/1024/1024), extra)
+				fmt.Sprintf("%.3f", float32(segBytes)/1024/1024), extra)
 		}
 
 		if segBytes < minSegmentBytes {

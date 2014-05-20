@@ -383,7 +383,7 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 			check(flushState.fieldInfos.HasProx, "prox", "no prox"),
 			check(flushState.fieldInfos.HasFreq, "freqs", "no freqs"))
 		dwpt.infoStream.Message("DWPT", "flushedFiles=%v", info.Files())
-		dwpt.infoStream.Message("DWPT", "flushed coded=%v", dwpt.codec)
+		dwpt.infoStream.Message("DWPT", "flushed codec=%v", dwpt.codec)
 	}
 
 	var segmentDeletes *BufferedDeletes
