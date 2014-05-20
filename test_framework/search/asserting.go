@@ -30,16 +30,16 @@ func NewAssertingIndexSearcherFromContext(random *rand.Rand, ctx index.IndexRead
 
 func rewrite(random *rand.Rand, ss *search.IndexSearcher) *search.IndexSearcher {
 	v := reflect.ValueOf(ss)
-	m1 := v.MethodByName("createNormalizedWidget")
-	m1.Set(reflect.MakeFunc(m1.Elem().Type(), func(in []reflect.Value) []reflect.Value {
+	m1 := v.MethodByName("createNormalizedWeight")
+	m1.Set(reflect.MakeFunc(m1.Type(), func(in []reflect.Value) []reflect.Value {
 		panic("not implemented yet")
 	}))
 	m2 := v.MethodByName("rewrite")
-	m2.Set(reflect.MakeFunc(m2.Elem().Type(), func(in []reflect.Value) []reflect.Value {
+	m2.Set(reflect.MakeFunc(m2.Type(), func(in []reflect.Value) []reflect.Value {
 		panic("not implemented yet")
 	}))
 	m3 := v.MethodByName("searchLWSI")
-	m3.Set(reflect.MakeFunc(m3.Elem().Type(), func(in []reflect.Value) []reflect.Value {
+	m3.Set(reflect.MakeFunc(m3.Type(), func(in []reflect.Value) []reflect.Value {
 		panic("not implemented yet")
 	}))
 	return ss

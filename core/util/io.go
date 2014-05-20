@@ -73,7 +73,7 @@ func safeClose(obj io.Closer) (err error) {
 	defer func() {
 		if p := recover(); p != nil {
 			// err = errors.New(fmt.Sprintf("%v", p))
-			fmt.Println("DEBUG", obj, p)
+			fmt.Println("Uncaught nil pointer of closer.", obj, p)
 		}
 	}()
 	if obj != nil {

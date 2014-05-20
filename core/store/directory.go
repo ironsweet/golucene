@@ -357,7 +357,6 @@ func (d *DirectoryImpl) Copy(to Directory, src, dest string, ctx IOContext) (err
 }
 
 func (d *DirectoryImpl) CreateSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {
-	panic("Should be overrided, I guess")
 	d.EnsureOpen()
 	base, err := d.OpenInput(name, context)
 	if err != nil {
