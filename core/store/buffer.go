@@ -29,7 +29,7 @@ func newBufferedIndexInputBySize(spi SeekReader, desc string, bufferSize int) *B
 	checkBufferSize(bufferSize)
 	ans := &BufferedIndexInput{bufferSize: bufferSize}
 	ans.SeekReader = spi
-	ans.IndexInputImpl = newIndexInputImpl(desc, ans)
+	ans.IndexInputImpl = NewIndexInputImpl(desc, ans)
 	return ans
 }
 
@@ -288,7 +288,7 @@ func (in *BufferedIndexInput) Clone() *BufferedIndexInput {
 		bufferLength:   0,
 		bufferPosition: 0,
 	}
-	ans.IndexInputImpl = newIndexInputImpl(in.desc, ans)
+	ans.IndexInputImpl = NewIndexInputImpl(in.desc, ans)
 	return ans
 }
 

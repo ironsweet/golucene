@@ -662,7 +662,7 @@ func (w *MockDirectoryWrapper) Close() error {
 		}
 		panic(mergeError(errors.New(fmt.Sprintf(
 			"MockDirectoryWrapper: cannot close: there are still open files: %v",
-			w.openFiles)), cause).Error())
+			w.openFiles)), cause))
 	}
 
 	nOpenLocks := func() int {
@@ -833,6 +833,7 @@ func (w *MockDirectoryWrapper) removeIndexInput(in store.IndexInput, name string
 	w.Lock() // synchronized
 	defer w.Unlock()
 
+	fmt.Println("DEBUG1", w.openFiles, name)
 	w.removeOpenFile(in, name)
 }
 
@@ -1158,16 +1159,25 @@ Used by MockDirectoryWrapper to create an input stream that keeps
 track of when it's been closed.
 */
 type MockIndexInputWrapper struct {
-	store.IndexInput // delegate
-	dir              *MockDirectoryWrapper
-	name             string
-	isClone          bool
-	closed           bool
+	*store.IndexInputImpl
+	dir      *MockDirectoryWrapper
+	delegate store.IndexInput
+	name     string
+	isClone  bool
+	closed   bool
 }
 
 func newMockIndexInputWrapper(dir *MockDirectoryWrapper,
 	name string, delegate store.IndexInput) *MockIndexInputWrapper {
-	return &MockIndexInputWrapper{delegate, dir, name, false, false}
+	ans := &MockIndexInputWrapper{nil, dir, delegate, name, false, false}
+	ans.IndexInputImpl = store.NewIndexInputImpl(fmt.Sprintf(
+		"MockIndexInputWrapper(name=%v delegate=%v)",
+		name, delegate), ans)
+	return ans
+}
+
+func (w *MockIndexInputWrapper) Close() error {
+	panic("not implemented yet")
 }
 
 func (w *MockIndexInputWrapper) ensureOpen() {
@@ -1180,16 +1190,56 @@ func (w *MockIndexInputWrapper) Clone() store.IndexInput {
 
 func (w *MockIndexInputWrapper) FilePointer() int64 {
 	w.ensureOpen()
-	return w.IndexInput.FilePointer()
+	return w.delegate.FilePointer()
 }
 
 func (w *MockIndexInputWrapper) Seek(pos int64) error {
 	w.ensureOpen()
-	return w.IndexInput.Seek(pos)
+	return w.delegate.Seek(pos)
+}
+
+func (w *MockIndexInputWrapper) Length() int64 {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexInputWrapper) ReadByte() (byte, error) {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexInputWrapper) ReadBytes(buf []byte) error {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexInputWrapper) ReadShort() (int16, error) {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexInputWrapper) ReadInt() (int32, error) {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexInputWrapper) ReadLong() (int64, error) {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexInputWrapper) ReadString() (string, error) {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexInputWrapper) ReadStringStringMap() (map[string]string, error) {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexInputWrapper) ReadVInt() (int32, error) {
+	panic("not implemented yet")
+}
+
+func (w *MockIndexInputWrapper) ReadVLong() (int64, error) {
+	panic("not implemented yet")
 }
 
 func (w *MockIndexInputWrapper) String() string {
-	return fmt.Sprintf("MockIndexInputWrapper(%v)", w.IndexInput)
+	return fmt.Sprintf("MockIndexInputWrapper(%v)", w.delegate)
 }
 
 // store/MockIndexOutputWrapper.java

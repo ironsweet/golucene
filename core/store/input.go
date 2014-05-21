@@ -39,7 +39,7 @@ type IndexInputImpl struct {
 	desc string
 }
 
-func newIndexInputImpl(desc string, r util.DataReader) *IndexInputImpl {
+func NewIndexInputImpl(desc string, r util.DataReader) *IndexInputImpl {
 	assert2(desc != "", "resourceDescription must not be null")
 	return &IndexInputImpl{
 		DataInputImpl: &util.DataInputImpl{Reader: r},
@@ -79,7 +79,7 @@ type ChecksumIndexInput struct {
 
 func NewChecksumIndexInput(main IndexInput) *ChecksumIndexInput {
 	ans := &ChecksumIndexInput{main: main, digest: crc32.NewIEEE()}
-	ans.IndexInputImpl = newIndexInputImpl(fmt.Sprintf("ChecksumIndexInput(%v)", main), ans)
+	ans.IndexInputImpl = NewIndexInputImpl(fmt.Sprintf("ChecksumIndexInput(%v)", main), ans)
 	return ans
 }
 

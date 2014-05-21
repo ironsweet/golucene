@@ -356,7 +356,7 @@ func newRAMInputStream(name string, f *RAMFile) (in *RAMInputStream, err error) 
 		length:             int64(f.length),
 		currentBufferIndex: -1,
 	}
-	in.IndexInputImpl = newIndexInputImpl(fmt.Sprintf("RAMInputStream(name=%v)", name), in)
+	in.IndexInputImpl = NewIndexInputImpl(fmt.Sprintf("RAMInputStream(name=%v)", name), in)
 	return in, nil
 }
 
