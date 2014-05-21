@@ -834,7 +834,7 @@ func (w *MockDirectoryWrapper) removeIndexInput(in store.IndexInput, name string
 	defer w.Unlock()
 
 	fmt.Println("DEBUG1", w.openFiles, name)
-	w.removeOpenFile(in, name)
+	w._removeOpenFile(in, name)
 }
 
 /*
@@ -1214,19 +1214,23 @@ func (w *MockIndexInputWrapper) Seek(pos int64) error {
 }
 
 func (w *MockIndexInputWrapper) Length() int64 {
-	panic("not implemented yet")
+	w.ensureOpen()
+	return w.delegate.Length()
 }
 
 func (w *MockIndexInputWrapper) ReadByte() (byte, error) {
-	panic("not implemented yet")
+	w.ensureOpen()
+	return w.delegate.ReadByte()
 }
 
 func (w *MockIndexInputWrapper) ReadBytes(buf []byte) error {
-	panic("not implemented yet")
+	w.ensureOpen()
+	return w.delegate.ReadBytes(buf)
 }
 
 func (w *MockIndexInputWrapper) ReadShort() (int16, error) {
-	panic("not implemented yet")
+	w.ensureOpen()
+	return w.delegate.ReadShort()
 }
 
 func (w *MockIndexInputWrapper) ReadInt() (int32, error) {
@@ -1235,23 +1239,28 @@ func (w *MockIndexInputWrapper) ReadInt() (int32, error) {
 }
 
 func (w *MockIndexInputWrapper) ReadLong() (int64, error) {
-	panic("not implemented yet")
+	w.ensureOpen()
+	return w.delegate.ReadLong()
 }
 
 func (w *MockIndexInputWrapper) ReadString() (string, error) {
-	panic("not implemented yet")
+	w.ensureOpen()
+	return w.delegate.ReadString()
 }
 
 func (w *MockIndexInputWrapper) ReadStringStringMap() (map[string]string, error) {
-	panic("not implemented yet")
+	w.ensureOpen()
+	return w.delegate.ReadStringStringMap()
 }
 
 func (w *MockIndexInputWrapper) ReadVInt() (int32, error) {
-	panic("not implemented yet")
+	w.ensureOpen()
+	return w.delegate.ReadVInt()
 }
 
 func (w *MockIndexInputWrapper) ReadVLong() (int64, error) {
-	panic("not implemented yet")
+	w.ensureOpen()
+	return w.delegate.ReadVLong()
 }
 
 func (w *MockIndexInputWrapper) String() string {
