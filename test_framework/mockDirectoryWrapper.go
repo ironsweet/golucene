@@ -1176,8 +1176,23 @@ func newMockIndexInputWrapper(dir *MockDirectoryWrapper,
 	return ans
 }
 
-func (w *MockIndexInputWrapper) Close() error {
-	panic("not implemented yet")
+func (w *MockIndexInputWrapper) Close() (err error) {
+	defer func() {
+		w.closed = true
+		err2 := w.delegate.Close()
+		err = mergeError(err, err2)
+		if err2 == nil {
+			// Pending resolution on LUCENE-686 we may want to remove the
+			// conditional check so we also track that all clones get closed:
+			if !w.isClone {
+				w.dir.removeIndexInput(w, w.name)
+			}
+		}
+	}()
+	// turn on the following to look for leaks closing inputs, after
+	// fixing TestTransactions
+	// return w.dir.maybeThrowDeterministicException()
+	return nil
 }
 
 func (w *MockIndexInputWrapper) ensureOpen() {
@@ -1215,7 +1230,8 @@ func (w *MockIndexInputWrapper) ReadShort() (int16, error) {
 }
 
 func (w *MockIndexInputWrapper) ReadInt() (int32, error) {
-	panic("not implemented yet")
+	w.ensureOpen()
+	return w.delegate.ReadInt()
 }
 
 func (w *MockIndexInputWrapper) ReadLong() (int64, error) {
