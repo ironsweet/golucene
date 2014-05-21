@@ -407,7 +407,28 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 }
 
 func (w *IndexWriter) fieldInfos(info *model.SegmentInfo) (infos model.FieldInfos, err error) {
-	panic("not implemented yet")
+	var cfsDir store.Directory
+	defer func() {
+		if info.IsCompoundFile() && cfsDir != nil {
+			err = mergeError(err, cfsDir.Close())
+		}
+	}()
+
+	if info.IsCompoundFile() {
+		cfsDir, err = store.NewCompoundFileDirectory(
+			info.Dir,
+			util.SegmentFileName(info.Name, "", store.COMPOUND_FILE_EXTENSION),
+			store.IO_CONTEXT_READONCE,
+			false,
+		)
+		if err != nil {
+			return
+		}
+	} else {
+		cfsDir = info.Dir
+	}
+	return info.Codec().(Codec).FieldInfosFormat().FieldInfosReader()(
+		cfsDir, info.Name, store.IO_CONTEXT_READONCE)
 }
 
 /*
