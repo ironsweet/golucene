@@ -887,6 +887,12 @@ func assert(ok bool) {
 	}
 }
 
+func assert2(ok bool, msg string, args ...interface{}) {
+	if !ok {
+		panic(fmt.Sprintf(msg, args...))
+	}
+}
+
 func (e *SegmentTermsEnum) DocFreq() (df int, err error) {
 	assert(!e.eof)
 	log.Println("BTTR.docFreq")

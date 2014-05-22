@@ -59,15 +59,13 @@ func main() {
 			t.Assert2(1 == len(hits), "no hit")
 			if len(hits) > 0 {
 				t.Assert2(hits[0].Score < 0, fmt.Sprintf("score is not negative: %v", hits[0].Score))
+
+				explain, err := searcher.Explain(q, hits[0].Doc)
+				t.Assert2(err == nil, "%v", err)
+				t.Assert2(isSimilar(hits[0].Score, explain.Value(), 0.01), "score doesn't match explanation")
+				t.Assert2(explain.IsMatch(), "explain doesn't think doc is a match")
 			}
 		}
-
-		// explain, err := searcher.Explain(q, hits[0].Doc)
-		// if err != nil {
-		// 	t.Error(err)
-		// }
-		// t.Assert2(isSimilar(hits[0].Score, explain.Value(), 0.01), "score doesn't match explanation")
-		// t.Assert2(explain.IsMatch(), "explain doesn't think doc is a match")
 	})
 
 	AfterSuite(nil)

@@ -3,6 +3,7 @@ package index
 import (
 	"errors"
 	"fmt"
+	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
 	"reflect"
@@ -44,7 +45,7 @@ type IndexReader interface {
 	// TODO: we need a separate StoredField, so that the
 	// Document returned here contains that class not
 	//model.IndexableField
-	Document(docID int) (doc *Document, err error)
+	Document(docID int) (doc *docu.Document, err error)
 	doClose() error
 	Context() IndexReaderContext
 	Leaves() []*AtomicReaderContext
@@ -162,8 +163,8 @@ func (r *IndexReaderImpl) numDeletedDocs() int {
 	return r.MaxDoc() - r.NumDocs()
 }
 
-func (r *IndexReaderImpl) Document(docID int) (doc *Document, err error) {
-	visitor := newDocumentStoredFieldVisitor()
+func (r *IndexReaderImpl) Document(docID int) (doc *docu.Document, err error) {
+	visitor := docu.NewDocumentStoredFieldVisitor()
 	if err = r.VisitDocument(docID, visitor); err != nil {
 		return nil, err
 	}

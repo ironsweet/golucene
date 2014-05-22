@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -418,28 +419,11 @@ type SortedSetDocValues interface {
 }
 
 type StoredFieldVisitor interface {
-	binaryField(fi *model.FieldInfo, value []byte) error
-	stringField(fi *model.FieldInfo, value string) error
-	intField(fi *model.FieldInfo, value int) error
-	longField(fi *model.FieldInfo, value int64) error
-	floatField(fi *model.FieldInfo, value float32) error
-	doubleField(fi *model.FieldInfo, value float64) error
-	needsField(fi *model.FieldInfo) (StoredFieldVisitorStatus, error)
+	BinaryField(fi *model.FieldInfo, value []byte) error
+	StringField(fi *model.FieldInfo, value string) error
+	IntField(fi *model.FieldInfo, value int) error
+	LongField(fi *model.FieldInfo, value int64) error
+	FloatField(fi *model.FieldInfo, value float32) error
+	DoubleField(fi *model.FieldInfo, value float64) error
+	NeedsField(fi *model.FieldInfo) (docu.StoredFieldVisitorStatus, error)
 }
-
-type StoredFieldVisitorAdapter struct{}
-
-func (va *StoredFieldVisitorAdapter) binaryField(fi *model.FieldInfo, value []byte) error  { return nil }
-func (va *StoredFieldVisitorAdapter) stringField(fi *model.FieldInfo, value string) error  { return nil }
-func (va *StoredFieldVisitorAdapter) intField(fi *model.FieldInfo, value int) error        { return nil }
-func (va *StoredFieldVisitorAdapter) longField(fi *model.FieldInfo, value int64) error     { return nil }
-func (va *StoredFieldVisitorAdapter) floatField(fi *model.FieldInfo, value float32) error  { return nil }
-func (va *StoredFieldVisitorAdapter) doubleField(fi *model.FieldInfo, value float64) error { return nil }
-
-type StoredFieldVisitorStatus int
-
-const (
-	STORED_FIELD_VISITOR_STATUS_YES  = StoredFieldVisitorStatus(1)
-	STORED_FIELD_VISITOR_STATUS_NO   = StoredFieldVisitorStatus(2)
-	STORED_FIELD_VISITOR_STATUS_STOP = StoredFieldVisitorStatus(3)
-)

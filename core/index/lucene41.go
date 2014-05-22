@@ -6,6 +6,7 @@ import (
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/codec/compressing"
 	"github.com/balzaczyy/golucene/core/codec/lucene40"
+	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -866,7 +867,7 @@ func (r *CompressingStoredFieldsReader) readField(in util.DataInput,
 		if err != nil {
 			return err
 		}
-		visitor.stringField(info, string(data))
+		visitor.StringField(info, string(data))
 	case NUMERIC_INT:
 		panic("not implemented yet")
 	case NUMERIC_FLOAT:
@@ -999,16 +1000,16 @@ func (r *CompressingStoredFieldsReader) visitDocument(docID int, visitor StoredF
 		bits := int(infoAndBits & int64(TYPE_MASK))
 		assertWithMessage(bits <= NUMERIC_DOUBLE, fmt.Sprintf("bits=%x", bits))
 
-		status, err := visitor.needsField(fieldInfo)
+		status, err := visitor.NeedsField(fieldInfo)
 		if err != nil {
 			return err
 		}
 		switch status {
-		case STORED_FIELD_VISITOR_STATUS_YES:
+		case docu.STORED_FIELD_VISITOR_STATUS_YES:
 			r.readField(documentInput, visitor, fieldInfo, bits)
-		case STORED_FIELD_VISITOR_STATUS_NO:
+		case docu.STORED_FIELD_VISITOR_STATUS_NO:
 			panic("not implemented yet")
-		case STORED_FIELD_VISITOR_STATUS_STOP:
+		case docu.STORED_FIELD_VISITOR_STATUS_STOP:
 			return nil
 		}
 	}
