@@ -584,7 +584,7 @@ func (w *MockDirectoryWrapper) OpenInput(name string, context store.IOContext) (
 	}
 
 	// cannot open a file for input if it's still open for output,
-	//except for segments.gen and segments_N
+	// except for segments.gen and segments_N
 	if _, ok := w.openFilesForWrite[name]; ok && strings.HasPrefix(name, "segments") {
 		err = w.fillOpenTrace(errors.New(fmt.Sprintf(
 			"MockDirectoryWrapper: file '%v' is still open for writing", name)), name, false)
