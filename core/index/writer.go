@@ -408,12 +408,6 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 
 func (w *IndexWriter) fieldInfos(info *model.SegmentInfo) (infos model.FieldInfos, err error) {
 	var cfsDir store.Directory
-	defer func() {
-		if info.IsCompoundFile() && cfsDir != nil {
-			err = mergeError(err, cfsDir.Close())
-		}
-	}()
-
 	if info.IsCompoundFile() {
 		cfsDir, err = store.NewCompoundFileDirectory(
 			info.Dir,
@@ -424,6 +418,10 @@ func (w *IndexWriter) fieldInfos(info *model.SegmentInfo) (infos model.FieldInfo
 		if err != nil {
 			return
 		}
+		assert(cfsDir != nil)
+		defer func() {
+			err = mergeError(err, cfsDir.Close())
+		}()
 	} else {
 		cfsDir = info.Dir
 	}
