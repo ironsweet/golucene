@@ -123,9 +123,9 @@ func NewSimpleFSDirectory(path string) (d *SimpleFSDirectory, err error) {
 }
 
 func (d *SimpleFSDirectory) OpenInput(name string, context IOContext) (in IndexInput, err error) {
-	log.Printf("Opening %v...", name)
 	d.EnsureOpen()
 	fpath := filepath.Join(d.path, name)
+	log.Printf("Opening %v...", fpath)
 	sin, err := newSimpleFSIndexInput(fmt.Sprintf("SimpleFSIndexInput(path='%v')", fpath),
 		fpath, context, d.chunkSize)
 	return sin, err
@@ -147,7 +147,11 @@ type fileIndexInputSlicer struct {
 }
 
 func (s *fileIndexInputSlicer) Close() error {
-	return s.file.Close()
+	err := s.file.Close()
+	if err != nil {
+		fmt.Printf("Closing %v failed: %v\n", s.file.Name(), err)
+	}
+	return err
 }
 
 func (s *fileIndexInputSlicer) OpenSlice(desc string, offset, length int64) IndexInput {

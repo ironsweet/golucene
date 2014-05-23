@@ -32,7 +32,7 @@ func main() {
 	conf := index.NewIndexWriterConfig(util.VERSION_45, analyzer)
 
 	writer, err := index.NewIndexWriter(directory, conf)
-	assert(err == nil)
+	assert2(err == nil, "%v", err)
 
 	d := docu.NewDocument()
 	d.Add(docu.NewTextField("foo", "bar", docu.STORE_NO))

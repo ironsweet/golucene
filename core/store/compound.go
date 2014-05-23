@@ -59,11 +59,11 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 		}()
 		self.handle, err = directory.CreateSlicer(fileName, context)
 		if err != nil {
-			return self, err
+			return nil, err
 		}
 		self.entries, err = readEntries(self.handle, directory, fileName)
 		if err != nil {
-			return self, err
+			return nil, err
 		}
 		success = true
 		self.DirectoryImpl.IsOpen = true
@@ -83,9 +83,9 @@ func (d *CompoundFileDirectory) Close() error {
 	d.Lock() // syncronized
 	defer d.Unlock()
 
-	log.Printf("Closing %v...", d)
+	fmt.Printf("Closing %v...\n", d)
 	if !d.IsOpen {
-		log.Print("CompoundFileDirectory is already closed.")
+		fmt.Println("CompoundFileDirectory is already closed.")
 		// allow double close - usually to be consistent with other closeables
 		return nil // already closed
 	}

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 )
 
 type NoSuchDirectoryError struct {
@@ -204,7 +205,26 @@ func (d *FSDirectory) Close() error {
 }
 
 func (d *FSDirectory) fsync(name string) error {
-	panic("not implemented yet")
+	var err, err2 error
+	var success = false
+	var retryCount = 0
+	for !success && retryCount < 5 {
+		retryCount++
+		if err2, success = func() (error, bool) {
+			file, err := os.Open(name)
+			if err != nil {
+				return err, false
+			}
+			defer file.Close()
+			return file.Sync(), true
+		}(); err2 != nil {
+			if err == nil {
+				err = err2
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+	return err
 }
 
 func (d *FSDirectory) String() string {
