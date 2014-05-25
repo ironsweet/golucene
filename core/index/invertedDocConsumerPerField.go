@@ -44,6 +44,8 @@ type TermsHashPerField struct {
 
 	postingsArray *ParallelPostingsArray
 	bytesUsed     util.Counter
+
+	doCall, doNextCall bool
 }
 
 func newTermsHashPerField(docInverterPerField *DocInverterPerField,
@@ -93,7 +95,19 @@ func (h *TermsHashPerField) abort() {
 }
 
 func (h *TermsHashPerField) start(fields []model.IndexableField, count int) (bool, error) {
-	panic("not implemented yet")
+	var err error
+	h.doCall, err = h.consumer.start(fields, count)
+	if err != nil {
+		return false, err
+	}
+	h.bytesHash.Reinit()
+	if h.nextPerField != nil {
+		h.doNextCall, err = h.nextPerField.start(fields, count)
+		if err != nil {
+			return false, err
+		}
+	}
+	return h.doCall || h.doNextCall, nil
 }
 
 func (h *TermsHashPerField) finish() error {

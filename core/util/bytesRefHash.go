@@ -92,6 +92,20 @@ func (h *BytesRefHash) Clear(resetPool bool) {
 	}
 }
 
+/*
+reinitializes the BytesRefHash after a previous clear() call. If
+clear() has not been called previously this method has no effect.
+*/
+func (h *BytesRefHash) Reinit() {
+	if h.bytesStart == nil {
+		h.bytesStart = h.bytesStartArray.Init()
+	}
+	if h.ids == nil {
+		h.ids = make([]int, h.hashSize)
+		h.bytesUsed.AddAndGet(NUM_BYTES_INT * int64(h.hashSize))
+	}
+}
+
 /* Manages allocation of per-term addresses. */
 type BytesStartArray interface {
 	// Initializes the BytesStartArray. This call will allocate memory

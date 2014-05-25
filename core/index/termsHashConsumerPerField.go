@@ -6,6 +6,7 @@ import (
 )
 
 type TermsHashConsumerPerField interface {
+	start([]model.IndexableField, int) (bool, error)
 	streamCount() int
 	createPostingsArray(int) *ParallelPostingsArray
 }
@@ -19,7 +20,10 @@ type TermVectorsConsumerPerField struct {
 	docState          *docState
 	fieldState        *FieldInvertState
 
+	doVectors, doVectorPositions, doVectorOffsets, doVectorPayloads bool
+
 	maxNumPostings int
+	hasPayloads    bool // if enabled, and we actually saw any for this field
 }
 
 func newTermVectorsConsumerPerField(termsHashPerField *TermsHashPerField,
@@ -34,6 +38,49 @@ func newTermVectorsConsumerPerField(termsHashPerField *TermsHashPerField,
 }
 
 func (c *TermVectorsConsumerPerField) streamCount() int { return 2 }
+
+func (c *TermVectorsConsumerPerField) start(fields []model.IndexableField, count int) (bool, error) {
+	c.doVectors = false
+	c.doVectorPositions = false
+	c.doVectorOffsets = false
+	c.doVectorPayloads = false
+	c.hasPayloads = false
+
+	for _, field := range fields[:count] {
+		t := field.FieldType()
+		if t.Indexed() {
+			if t.StoreTermVectors() {
+				panic("not implemented yet")
+			} else {
+				assert2(!t.StoreTermVectorOffsets(),
+					"cannot index term vector offsets when term vectors are not indexed (field='%v')",
+					field.Name())
+				assert2(!t.StoreTermVectorPositions(),
+					"cannot index term vector positions when term vectors are not indexed (field='%v')",
+					field.Name())
+				assert2(!t.StoreTermVectorPayloads(),
+					"cannot index term vector payloads when term vectors are not indexed (field='%v')",
+					field.Name())
+			}
+		} else {
+			panic("not implemented yet")
+		}
+	}
+
+	if c.doVectors {
+		c.termsWriter.hasVectors = true
+		if c.termsHashPerField.bytesHash.Size() != 0 {
+			// Only necessary if previous doc hit a non-aborting error
+			// while writing vectors in this field:
+			c.termsHashPerField.reset()
+		}
+	}
+
+	// TODO: only if needed for performance
+	// perThread.postingsCount = 0
+
+	return c.doVectors, nil
+}
 
 func (c *TermVectorsConsumerPerField) finishDocument() error {
 	panic("not implemented yet")
@@ -121,6 +168,15 @@ func (w *FreqProxTermsWriterPerField) setIndexOptions(indexOptions model.IndexOp
 		w.hasProx = true
 		w.hasOffsets = true
 	}
+}
+
+func (w *FreqProxTermsWriterPerField) start(fields []model.IndexableField, count int) (bool, error) {
+	for _, field := range fields[:count] {
+		if field.FieldType().Indexed() {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (w *FreqProxTermsWriterPerField) createPostingsArray(size int) *ParallelPostingsArray {

@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"github.com/balzaczyy/golucene/core/util"
 	"io"
 )
 
@@ -58,6 +59,44 @@ import (
  * implementation of {@link #incrementToken}! This is checked when Java
  * assertions are enabled.
  */
-type TokenStream struct {
+type TokenStream interface {
+	// Releases resouces associated with this stream.
 	io.Closer
+	Attributes() *util.AttributeSource
+	// Consumers (i.e., IndexWriter) use this method to advance the
+	// stream to the next token. Implementing classes must implement
+	// this method and update the appropriate AttributeImpls with the
+	// attributes of he next token.
+	//
+	// The producer must make no assumptions about the attributes after
+	// the method has been returned: the caller may arbitrarily change
+	// it. If the producer needs to preserve the state for subsequent
+	// calls, it can use captureState to create a copy of the current
+	// attribute state.
+	//
+	// This method is called for every token of a docuent, so an
+	// efficient implementation is crucial for good performance.l To
+	// avoid calls to AddAttribute(clas) and GetAttribute(Class),
+	// references to all AttributeImpls that this stream uses should be
+	// retrived during instantiation.
+	//
+	// To ensure that filters and consumers know which attributes are
+	// available, the attributes must be added during instantiation.
+	// Filters and consumers are not required to check for availability
+	// of attribute in IncrementToken().
+	IncrementToken() (bool, error)
+	// This method is called by a consumer before it begins consumption
+	// using IncrementToken().
+	//
+	// Resets this stream to a clean state. Stateful implementation
+	// must implement this method so that they can be reused, just as
+	// if they had been created fresh.
+	Reset() error
 }
+
+type TokenStreamImpl struct {
+}
+
+func (ts *TokenStreamImpl) Reset() error { return nil }
+
+func (ts *TokenStreamImpl) Close() error { return nil }
