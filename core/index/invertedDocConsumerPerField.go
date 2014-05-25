@@ -8,6 +8,13 @@ import (
 // index/InvertedDocConsumerPerField.java
 
 type InvertedDocConsumerPerField interface {
+	// Called once per field, and is given all IndexableField
+	// occurrences for this field in the document. Return true if you
+	// wish to see inverted tokens for these fields:
+	start([]model.IndexableField, int) (bool, error)
+	// Called once per field per document, after all IndexableFields
+	// are inverted
+	finish() error
 	// Called on hitting an aborting error
 	abort()
 }
@@ -83,6 +90,14 @@ func (h *TermsHashPerField) abort() {
 	if h.nextPerField != nil {
 		h.nextPerField.abort()
 	}
+}
+
+func (h *TermsHashPerField) start(fields []model.IndexableField, count int) (bool, error) {
+	panic("not implemented yet")
+}
+
+func (h *TermsHashPerField) finish() error {
+	panic("not implemented yet")
 }
 
 type PostingsBytesStartArray struct {

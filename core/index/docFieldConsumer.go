@@ -66,33 +66,3 @@ func (di *DocInverter) abort() {
 func (di *DocInverter) addField(fi *model.FieldInfo) DocFieldConsumerPerField {
 	return newDocInverterPerField(di, fi)
 }
-
-// index/DocInverterPerField.java
-
-type DocInverterPerField struct {
-	_fieldInfo  *model.FieldInfo
-	consumer    InvertedDocConsumerPerField
-	endConsumer InvertedDocEndConsumerPerField
-	docState    *docState
-	fieldState  *FieldInvertState
-}
-
-func newDocInverterPerField(parent *DocInverter, fieldInfo *model.FieldInfo) *DocInverterPerField {
-	ans := &DocInverterPerField{
-		_fieldInfo: fieldInfo,
-		docState:   parent.docState,
-		fieldState: newFieldInvertState(fieldInfo.Name),
-	}
-	ans.consumer = parent.consumer.addField(ans, fieldInfo)
-	ans.endConsumer = parent.endConsumer.addField(ans, fieldInfo)
-	return ans
-}
-
-func (dipf *DocInverterPerField) abort() {
-	defer dipf.endConsumer.abort()
-	dipf.consumer.abort()
-}
-
-func (dipf *DocInverterPerField) fieldInfo() *model.FieldInfo {
-	return dipf._fieldInfo
-}

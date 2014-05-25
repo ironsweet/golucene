@@ -49,7 +49,7 @@ func main() {
 	res, err := searcher.Search(q, nil, 1000)
 	assert(err == nil)
 	hits := res.ScoreDocs
-	assert(len(hits) == 1)
+	assert2(len(hits) == 1, "Expect 1 hits, but %v only.", len(hits))
 	assert2(hits[0].Score < 0, "score is not negative: %v", hits[0].Score)
 
 	explain, err := searcher.Explain(q, hits[0].Doc)

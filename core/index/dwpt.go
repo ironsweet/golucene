@@ -56,12 +56,13 @@ var defaultIndexingChain = func(documentsWriterPerThread *DocumentsWriterPerThre
 }
 
 type docState struct {
-	docWriter  *DocumentsWriterPerThread
-	analyzer   analysis.Analyzer
-	infoStream util.InfoStream
-	similarity Similarity
-	docID      int
-	doc        []model.IndexableField
+	docWriter     *DocumentsWriterPerThread
+	analyzer      analysis.Analyzer
+	infoStream    util.InfoStream
+	similarity    Similarity
+	docID         int
+	doc           []model.IndexableField
+	maxTermPrefix string // log only
 }
 
 func newDocState(docWriter *DocumentsWriterPerThread, infoStream util.InfoStream) *docState {

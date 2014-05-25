@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -49,6 +50,7 @@ func newDocFieldProcessor(docWriter *DocumentsWriterPerThread,
 
 	assert(storedConsumer != nil)
 	return &DocFieldProcessor{
+		_fields:        make([]*DocFieldProcessorPerField, 1),
 		fieldHash:      make([]*DocFieldProcessorPerField, 2),
 		hashMask:       1,
 		docState:       docWriter.docState,
@@ -143,8 +145,11 @@ func (p *DocFieldProcessor) processDocument(fieldInfos *model.FieldInfosBuilder)
 	// any changes to fields we had already seen before (e.g. suddenly
 	// turning on norms or vectors, etc.)
 
+	fmt.Println("DEBUG7", p.docState.doc)
+
 	for _, field := range p.docState.doc {
 		fieldName := field.Name()
+		fmt.Println("DEBUG5", field)
 
 		// Make sure we have a PerField allocated
 		hashPos := hashstr(fieldName) & p.hashMask
@@ -166,20 +171,66 @@ func (p *DocFieldProcessor) processDocument(fieldInfos *model.FieldInfosBuilder)
 			p.totalFieldCount++
 
 			if p.totalFieldCount >= len(p.fieldHash)/2 {
+				fmt.Println("DEBUG8")
 				p.rehash()
 			}
 		} else {
 			panic("not implemented yet")
 		}
 
+		fmt.Println("DEBUG6", thisFieldGen, fp.lastGen)
 		if thisFieldGen != fp.lastGen {
-			panic("not implemented yet")
+			// First time we're seeing this field for this doc
+			fp.fieldCount = 0
+
+			fmt.Println("DEBUG9", p.fieldCount, len(p._fields))
+			if p.fieldCount == len(p._fields) {
+				newSize := len(p._fields) * 2
+				newArray := make([]*DocFieldProcessorPerField, newSize)
+				copy(newArray, p._fields[:p.fieldCount])
+				p._fields = newArray
+			}
+
+			p._fields[p.fieldCount] = fp
+			p.fieldCount++
+			fp.lastGen = thisFieldGen
 		}
 
 		fp.addField(field)
 		p.storedConsumer.addField(p.docState.docID, field, fp.fieldInfo)
 	}
+
+	fmt.Println("DEBUG4", p.fieldCount, p._fields[:p.fieldCount])
+
+	// If we are writing vectors then we must visit fields in sorted
+	// order so they are written in sorted order. TODO: we actually
+	// only need to sort the subset of fields that have vectors enabled;
+	// we could save [small amount of] CPU here.
+	util.IntroSort(ByNameDocFieldProcessorPerFields(p._fields[:p.fieldCount]))
+	for _, perField := range p._fields[:p.fieldCount] {
+		err := perField.consumer.processFields(perField.fields, perField.fieldCount)
+		if err != nil {
+			return err
+		}
+	}
+
+	if prefix, is := p.docState.maxTermPrefix, p.docState.infoStream; prefix != "" && is.IsEnabled("IW") {
+		is.Message("IW",
+			"WARNING: document contains at least one immense term (whose UTF8 encoding is longer than the max length %v), all of which were skipped.  Please correct the analyzer to not produce such terms.  The prefix of the first immense term is: '%v...'",
+			MAX_TERM_LENGTH_UTF8,
+			prefix)
+		p.docState.maxTermPrefix = ""
+	}
+
 	return nil
+}
+
+type ByNameDocFieldProcessorPerFields []*DocFieldProcessorPerField
+
+func (a ByNameDocFieldProcessorPerFields) Len() int      { return len(a) }
+func (a ByNameDocFieldProcessorPerFields) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByNameDocFieldProcessorPerFields) Less(i, j int) bool {
+	return a[i].fieldInfo.Name < a[j].fieldInfo.Name
 }
 
 const primeRK = 16777619
@@ -218,6 +269,7 @@ func newDocFieldProcessorPerField(docFieldProcessor *DocFieldProcessor,
 	fieldInfo *model.FieldInfo) *DocFieldProcessorPerField {
 	return &DocFieldProcessorPerField{
 		consumer:  docFieldProcessor.consumer.addField(fieldInfo),
+		lastGen:   -1,
 		fieldInfo: fieldInfo,
 	}
 }

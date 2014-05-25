@@ -7,7 +7,7 @@ import (
 // index/InvertedDocEndConsumerPerField.java
 
 type InvertedDocEndConsumerPerField interface {
-	// finish() error
+	finish() error
 	abort()
 }
 
@@ -29,6 +29,10 @@ func newNormsConsumerPerField(docInverterPerField *DocInverterPerField,
 		fieldState: docInverterPerField.fieldState,
 		similarity: docInverterPerField.docState.similarity,
 	}
+}
+
+func (nc *NormsConsumerPerField) finish() error {
+	panic("not implemented yet")
 }
 
 func (nc *NormsConsumerPerField) flush(state SegmentWriteState, normsWriter DocValuesConsumer) error {
