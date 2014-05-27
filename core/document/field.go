@@ -102,7 +102,27 @@ func (f *Field) FieldType() model.IndexableFieldType {
 }
 
 func (f *Field) TokenStream(analyzer analysis.Analyzer) (ts analysis.TokenStream, err error) {
-	panic("not implemented yet")
+	if !f.FieldType().Indexed() {
+		return nil, nil
+	}
+
+	if nt := f.FieldType().(*FieldType).NumericType(); nt != NumericType(0) {
+		panic("not implemented yet")
+	}
+
+	if !f.FieldType().Tokenized() {
+		panic("not implemented yet")
+	}
+
+	if f._tokenStream != nil {
+		return f._tokenStream, nil
+	} else if f.ReaderValue() != nil {
+		panic("not implemented yet")
+	} else if f.StringValue() != "" {
+		return analyzer.TokenStreamForString(f._name, f.StringValue())
+	}
+
+	panic("Field must have either TokenStream, String, Reader, or Number value")
 }
 
 /* Specifies whether and how a field should be stored. */

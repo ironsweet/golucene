@@ -93,6 +93,7 @@ func (ft *FieldType) SetStoreTermVectorPayloads(v bool) {
 
 func (ft *FieldType) OmitNorms() bool                   { return ft._omitNorms }
 func (ft *FieldType) IndexOptions() model.IndexOptions  { return ft._indexOptions }
+func (ft *FieldType) NumericType() NumericType          { return ft.numericType }
 func (ft *FieldType) DocValueType() model.DocValuesType { return ft._docValueType }
 
 // Prints a Field for human consumption.
