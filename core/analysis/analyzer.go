@@ -49,7 +49,7 @@ type container struct {
 }
 
 type AnalyzerImpl struct {
-	spi           AnalyzerSPI
+	Spi           AnalyzerSPI
 	reuseStrategy ReuseStrategy
 	// Since Go doesn't have ThreadLocal alternatives, to share
 	// Analyzer, one must Clone() the Analyzer for each Go routine. It
@@ -71,7 +71,7 @@ func NewAnalyzerWithStrategy(reuseStrategy ReuseStrategy) *AnalyzerImpl {
 		reuseStrategy: reuseStrategy,
 		storedValue:   &container{nil},
 	}
-	ans.spi = ans
+	ans.Spi = ans
 	return ans
 }
 
@@ -90,7 +90,7 @@ func (a *AnalyzerImpl) TokenStreamForString(fieldName, text string) (TokenStream
 	strReader.setValue(text)
 	r := a.InitReader(fieldName, strReader)
 	if components == nil {
-		components = a.spi.CreateComponents(fieldName, r)
+		components = a.Spi.CreateComponents(fieldName, r)
 		a.reuseStrategy.SetReusableComponents(a, fieldName, components)
 	} else {
 		err := components.SetReader(r)
@@ -106,6 +106,10 @@ func (a *AnalyzerImpl) InitReader(fieldName string, reader io.ReadCloser) io.Rea
 	return reader
 }
 
+type myTokenizer interface {
+	SetReader(io.ReadCloser) error
+}
+
 /*
 This class encapsulates the outer components of a token stream. It
 provides access to the source Tokenizer and the outer end (sink), an
@@ -113,6 +117,8 @@ instance of TokenFilter which also serves as the TokenStream returned
 by Analyzer.tokenStream(string, Reader).
 */
 type TokenStreamComponents struct {
+	// Original source of tokens.
+	source myTokenizer
 	// Sink tokenStream, such as the outer tokenFilter decorating the
 	// chain. This can be the source if there are no filters.
 	sink TokenStream
@@ -121,6 +127,14 @@ type TokenStreamComponents struct {
 	// Resets the encapculated components with the given reader. If the
 	// components canno be reset, an error should be returned.
 	SetReader func(io.ReadCloser) error
+}
+
+func NewTokenStreamComponents(source myTokenizer, result TokenStream) *TokenStreamComponents {
+	ans := &TokenStreamComponents{source: source, sink: result}
+	ans.SetReader = func(reader io.ReadCloser) error {
+		return ans.source.SetReader(reader)
+	}
+	return ans
 }
 
 /* Returns the sink TokenStream */

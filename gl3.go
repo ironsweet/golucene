@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	std "github.com/balzaczyy/golucene/core/analysis/standard"
+	std "github.com/balzaczyy/golucene/analysis/standard"
 	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"

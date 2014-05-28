@@ -85,6 +85,22 @@ type TokenStream interface {
 	// Filters and consumers are not required to check for availability
 	// of attribute in IncrementToken().
 	IncrementToken() (bool, error)
+	// This method is called by the consumer after the last token has
+	// been consumed, after IncrementToken() returned false (using the
+	// new TokenSream API). Streams implementing the old API should
+	// upgrade to use this feature.
+	//
+	// This method can be used to perform any end-of-stream operations,
+	// such as setting the final offset of a stream. The final offset
+	// of a stream might difer from the offset of the last token eg in
+	// case one or more whitespaces followed after the last token, but
+	// a WhitespaceTokenizer was used.
+	//
+	// Additionally any skipped positions (such as those removed by a
+	// stopFilter) can be applied to the position increment, or any
+	// adjustment or other attributes where the end-of-stream value may
+	// be important.
+	End() error
 	// This method is called by a consumer before it begins consumption
 	// using IncrementToken().
 	//
@@ -95,8 +111,10 @@ type TokenStream interface {
 }
 
 type TokenStreamImpl struct {
+	atts *util.AttributeSource
 }
 
-func (ts *TokenStreamImpl) Reset() error { return nil }
-
-func (ts *TokenStreamImpl) Close() error { return nil }
+func (ts *TokenStreamImpl) Attributes() *util.AttributeSource { return ts.atts }
+func (ts *TokenStreamImpl) End() error                        { return nil }
+func (ts *TokenStreamImpl) Reset() error                      { return nil }
+func (ts *TokenStreamImpl) Close() error                      { return nil }
