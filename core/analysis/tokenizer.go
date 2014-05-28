@@ -16,6 +16,14 @@ type Tokenizer struct {
 	*TokenStreamImpl
 }
 
+/* Constructs a token stream processing the given input. */
+func NewTokenizer(input io.ReadCloser) *Tokenizer {
+	assert2(input != nil, "inpu tmust not be nil")
+	return &Tokenizer{
+		TokenStreamImpl: NewTokenStream(),
+	}
+}
+
 /*
 Expert: Set a new reader on the Tokenizer. Typically, an analyzer (in
 its tokenStream method) will use this to re-use a previously created

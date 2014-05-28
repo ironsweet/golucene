@@ -114,6 +114,13 @@ type TokenStreamImpl struct {
 	atts *util.AttributeSource
 }
 
+/* A TokenStream using the default attribute factory. */
+func NewTokenStream() *TokenStreamImpl {
+	return &TokenStreamImpl{
+		atts: util.NewAttributeSource(),
+	}
+}
+
 func (ts *TokenStreamImpl) Attributes() *util.AttributeSource { return ts.atts }
 func (ts *TokenStreamImpl) End() error                        { return nil }
 func (ts *TokenStreamImpl) Reset() error                      { return nil }

@@ -41,6 +41,14 @@ Creates a new instance of the StandardTokenizer. Attaches the input
 to the newly created JFlex scanner.
 */
 func newStandardTokenizer(matchVersion util.Version, input io.ReadCloser) *StandardTokenizer {
+	ans := &StandardTokenizer{
+		Tokenizer: NewTokenizer(input),
+	}
+	ans.init(matchVersion)
+	return ans
+}
+
+func (t *StandardTokenizer) init(matchVersion util.Version) {
 	panic("not implemented yet")
 }
 

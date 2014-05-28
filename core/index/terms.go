@@ -62,7 +62,7 @@ succesfully call next() or one of the seek methods.
 type TermsEnum interface {
 	util.BytesRefIterator
 
-	Attributes() util.AttributeSource
+	Attributes() *util.AttributeSource
 	/* Attempts to seek to the exact term, returning
 	true if the term is found. If this returns false, the
 	enum is unpositioned. For some codecs, seekExact may
@@ -155,14 +155,14 @@ const (
 
 type TermsEnumImpl struct {
 	TermsEnum
-	atts util.AttributeSource
+	atts *util.AttributeSource
 }
 
 func newTermsEnumImpl(self TermsEnum) *TermsEnumImpl {
 	return &TermsEnumImpl{self, util.NewAttributeSource()}
 }
 
-func (e *TermsEnumImpl) Attributes() util.AttributeSource {
+func (e *TermsEnumImpl) Attributes() *util.AttributeSource {
 	return e.atts
 }
 
