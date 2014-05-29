@@ -2,6 +2,7 @@ package util
 
 import (
 	. "github.com/balzaczyy/golucene/core/analysis"
+	"github.com/balzaczyy/golucene/core/util"
 )
 
 type FilteringTokenFilterSPI interface {
@@ -21,7 +22,18 @@ position increments when filtering terms.
 */
 type FilteringTokenFilter struct {
 	*TokenFilter
-	spi FilteringTokenFilterSPI
+	spi                      FilteringTokenFilterSPI
+	version                  util.Version
+	enablePositionIncrements bool
+}
+
+/* Creates a new FilteringTokenFilter. */
+func NewFilteringTokenFilter(version util.Version, in TokenStream) *FilteringTokenFilter {
+	return &FilteringTokenFilter{
+		TokenFilter:              NewTokenFilter(in),
+		version:                  version,
+		enablePositionIncrements: true,
+	}
 }
 
 func (f *FilteringTokenFilter) IncrementToken() (bool, error) {

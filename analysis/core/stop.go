@@ -32,6 +32,7 @@ StopFilter:
 */
 type StopFilter struct {
 	*FilteringTokenFilter
+	stopWords map[string]bool
 }
 
 /*
@@ -39,5 +40,8 @@ Constructs a filter which removes words from the input TokenStream
 that are named in the Set.
 */
 func NewStopFilter(matchVersion util.Version, in TokenStream, stopWords map[string]bool) *StopFilter {
-	panic("not implemented yet")
+	return &StopFilter{
+		FilteringTokenFilter: NewFilteringTokenFilter(matchVersion, in),
+		stopWords:            stopWords,
+	}
 }
