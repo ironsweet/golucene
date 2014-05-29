@@ -25,6 +25,8 @@ type FilteringTokenFilter struct {
 	spi                      FilteringTokenFilterSPI
 	version                  util.Version
 	enablePositionIncrements bool
+	first                    bool
+	skippedPositions         int
 }
 
 /* Creates a new FilteringTokenFilter. */
@@ -33,6 +35,7 @@ func NewFilteringTokenFilter(version util.Version, in TokenStream) *FilteringTok
 		TokenFilter:              NewTokenFilter(in),
 		version:                  version,
 		enablePositionIncrements: true,
+		first: true,
 	}
 }
 
@@ -41,7 +44,12 @@ func (f *FilteringTokenFilter) IncrementToken() (bool, error) {
 }
 
 func (f *FilteringTokenFilter) Reset() error {
-	panic("not implemented yet")
+	err := f.TokenFilter.Reset()
+	if err == nil {
+		f.first = true
+		f.skippedPositions = 0
+	}
+	return err
 }
 
 func (f *FilteringTokenFilter) End() error {
