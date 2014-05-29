@@ -1,6 +1,7 @@
 package core
 
 import (
+	. "github.com/balzaczyy/golucene/analysis/util"
 	. "github.com/balzaczyy/golucene/core/analysis"
 	"github.com/balzaczyy/golucene/core/util"
 )
@@ -17,10 +18,15 @@ LowerCaseFilter:
 */
 type LowerCaseFilter struct {
 	*TokenFilter
+	charUtils *CharacterUtils
 }
 
+/* Create a new LowerCaseFilter, that normalizes token text to lower case. */
 func NewLowerCaseFilter(matchVersion util.Version, in TokenStream) *LowerCaseFilter {
-	panic("not implemented yet")
+	return &LowerCaseFilter{
+		TokenFilter: NewTokenFilter(in),
+		charUtils:   GetCharacterUtils(matchVersion),
+	}
 }
 
 func (f *LowerCaseFilter) IncrementToken() (bool, error) {
