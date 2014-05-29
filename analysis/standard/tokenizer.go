@@ -35,11 +35,13 @@ StandardTokenizer:
 */
 type StandardTokenizer struct {
 	*Tokenizer
+	input io.ReadCloser
 
 	// A private instance of the JFlex-constructed scanner
 	scanner StandardTokenizerInterface
 
-	maxTokenLength int
+	skippedPositions int
+	maxTokenLength   int
 }
 
 /*
@@ -49,6 +51,7 @@ to the newly created JFlex scanner.
 func newStandardTokenizer(matchVersion util.Version, input io.ReadCloser) *StandardTokenizer {
 	ans := &StandardTokenizer{
 		Tokenizer: NewTokenizer(input),
+		input:     input,
 	}
 	ans.init(matchVersion)
 	return ans
@@ -68,11 +71,20 @@ func (t *StandardTokenizer) End() error {
 }
 
 func (t *StandardTokenizer) Reset() error {
-	panic("not implemented yet")
+	t.scanner.yyreset(t.input)
+	t.skippedPositions = 0
+	return nil
 }
 
 // standard/StandardTokenizerInterface.java
 
 /* Internal interface for supporting versioned grammars. */
 type StandardTokenizerInterface interface {
+	// Resets the scanner to read from a new input stream.
+	// Does not close the old reader.
+	//
+	// All internal variables are reset, the old input stream cannot be
+	// reused (internal buffer) is discarded and lost). Lexical state
+	// is set to ZZ_INITIAL.
+	yyreset(io.ReadCloser)
 }
