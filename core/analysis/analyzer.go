@@ -164,6 +164,12 @@ func (rs *ReuseStrategyImpl) storedValue(a *AnalyzerImpl) interface{} {
 	return a.storedValue.value
 }
 
+/* Set the stored value. */
+func (rs *ReuseStrategyImpl) setStoredValue(a *AnalyzerImpl, v interface{}) {
+	assert2(a.storedValue != nil, "this Analyzer is closed")
+	a.storedValue.value = v
+}
+
 func assert2(ok bool, msg string, args ...interface{}) {
 	if !ok {
 		panic(fmt.Sprintf(msg, args...))
@@ -185,7 +191,7 @@ func (rs *GlobalReuseStrategy) ReusableComponents(a *AnalyzerImpl, fieldName str
 }
 
 func (rs *GlobalReuseStrategy) SetReusableComponents(a *AnalyzerImpl, fieldName string, components *TokenStreamComponents) {
-	panic("not implemneted yet")
+	rs.setStoredValue(a, components)
 }
 
 // L423
