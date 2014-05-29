@@ -78,6 +78,17 @@ func NewAttributeSource() *AttributeSource {
 	return NewAttributeSourceWith(DEFAULT_ATTRIBUTE_FACTORY)
 }
 
+/* An AttributeSource that uses the same attributes as the supplied one. */
+func NewAttributeSourceFrom(input *AttributeSource) *AttributeSource {
+	assert2(input != nil, "input AttributeSource must not be null")
+	return &AttributeSource{
+		attributes:     input.attributes,
+		attributeImpls: input.attributeImpls,
+		currentState:   input.currentState,
+		factory:        input.factory,
+	}
+}
+
 /* An AttributeSource using the supplied AttributeFactory for creating new Attribute instance. */
 func NewAttributeSourceWith(factory AttributeFactory) *AttributeSource {
 	// Note that Lucene Java use LinkedHashMap to keep insert order.

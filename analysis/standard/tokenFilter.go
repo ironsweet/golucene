@@ -8,10 +8,14 @@ import (
 /* Normalizes tokens extracted with StandardTokenizer */
 type StandardFilter struct {
 	*TokenFilter
+	matchVersion util.Version
 }
 
 func newStandardFilter(matchVersion util.Version, in TokenStream) *StandardFilter {
-	panic("not implemented yet")
+	return &StandardFilter{
+		TokenFilter:  NewTokenFilter(in),
+		matchVersion: matchVersion,
+	}
 }
 
 func (f *StandardFilter) IncrementToken() (bool, error) {

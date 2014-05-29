@@ -121,6 +121,13 @@ func NewTokenStream() *TokenStreamImpl {
 	}
 }
 
+/* A TokenStream that uses the same attributes as the supplied one. */
+func NewTokenStreamWith(input *util.AttributeSource) *TokenStreamImpl {
+	return &TokenStreamImpl{
+		atts: util.NewAttributeSourceFrom(input),
+	}
+}
+
 func (ts *TokenStreamImpl) Attributes() *util.AttributeSource { return ts.atts }
 func (ts *TokenStreamImpl) End() error                        { return nil }
 func (ts *TokenStreamImpl) Reset() error                      { return nil }
