@@ -6,6 +6,8 @@ import (
 	"io"
 )
 
+// standard/StandardTokenizer.java
+
 /*
 A grammar-based tokenizer constructed with JFlex.
 
@@ -33,6 +35,10 @@ StandardTokenizer:
 */
 type StandardTokenizer struct {
 	*Tokenizer
+
+	// A private instance of the JFlex-constructed scanner
+	scanner StandardTokenizerInterface
+
 	maxTokenLength int
 }
 
@@ -49,7 +55,8 @@ func newStandardTokenizer(matchVersion util.Version, input io.ReadCloser) *Stand
 }
 
 func (t *StandardTokenizer) init(matchVersion util.Version) {
-	panic("not implemented yet")
+	// GoLucene support >=4.5 only
+	t.scanner = newStandardTokenizerImpl(nil)
 }
 
 func (t *StandardTokenizer) IncrementToken() (bool, error) {
@@ -62,4 +69,10 @@ func (t *StandardTokenizer) End() error {
 
 func (t *StandardTokenizer) Reset() error {
 	panic("not implemented yet")
+}
+
+// standard/StandardTokenizerInterface.java
+
+/* Internal interface for supporting versioned grammars. */
+type StandardTokenizerInterface interface {
 }
