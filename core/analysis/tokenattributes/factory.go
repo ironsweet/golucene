@@ -10,6 +10,8 @@ func (fac *DefaultAttributeFactory) Create(name string) *util.AttributeImpl {
 	switch name {
 	case "PositionIncrementAttribute":
 		return newPositionIncrementAttributeImpl()
+	case "CharTermAttribute":
+		return newCharTermAttributeImpl()
 	}
 	panic("not supported yet")
 }
