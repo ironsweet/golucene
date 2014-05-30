@@ -101,3 +101,7 @@ func NewAttributeSourceWith(factory AttributeFactory) *AttributeSource {
 		factory:        factory,
 	}
 }
+
+func (as *AttributeSource) Add(v Attribute) Attribute {
+	panic("not implemented yet")
+}

@@ -40,8 +40,11 @@ Constructs a filter which removes words from the input TokenStream
 that are named in the Set.
 */
 func NewStopFilter(matchVersion util.Version, in TokenStream, stopWords map[string]bool) *StopFilter {
-	return &StopFilter{
-		FilteringTokenFilter: NewFilteringTokenFilter(matchVersion, in),
-		stopWords:            stopWords,
-	}
+	ans := &StopFilter{stopWords: stopWords}
+	ans.FilteringTokenFilter = NewFilteringTokenFilter(ans, matchVersion, in)
+	return ans
+}
+
+func (f *StopFilter) Accept() bool {
+	panic("not implemented yet")
 }
