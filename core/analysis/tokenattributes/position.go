@@ -43,3 +43,15 @@ func newPositionIncrementAttributeImpl() *util.AttributeImpl {
 	ans := &PositionIncrementAttributeImpl{1}
 	return util.NewAttributeImpl(ans)
 }
+
+func (a *PositionIncrementAttributeImpl) Interfaces() []string {
+	return []string{"PositionIncrementAttribute"}
+}
+
+func (a *PositionIncrementAttributeImpl) SetPositionIncrement(positionIncrement int) {
+	panic("not implemented yet")
+}
+
+func (a *PositionIncrementAttributeImpl) PositionIncrement() int {
+	return a.positionIncrement
+}

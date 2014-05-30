@@ -1,15 +1,19 @@
 package util
 
-import ()
+import (
+	"reflect"
+)
 
 // util/Attribute.java
 
 /* Base interface for attributes. */
-type Attribute interface{}
+type Attribute interface {
+}
 
 // util/AttributeImpl.java
 
 type AttributeImplSPI interface {
+	Interfaces() []string
 }
 
 /*
@@ -19,12 +23,16 @@ Attributes are used to add data in a dynamic, yet type-safe way to a
 source of usually streamed ojects, e.g. a TokenStream.
 */
 type AttributeImpl struct {
-	value interface{}
+	Value interface{}
 	spi   AttributeImplSPI
 }
 
 func NewAttributeImpl(spi AttributeImplSPI) *AttributeImpl {
 	return &AttributeImpl{spi, spi}
+}
+
+func (v *AttributeImpl) Interfaces() []string {
+	return v.spi.Interfaces()
 }
 
 func (v *AttributeImpl) Clone() *AttributeImpl {
@@ -64,7 +72,7 @@ it creates a new instance and returns it.
 */
 type AttributeSource struct {
 	attributes     map[string]*AttributeImpl
-	attributeImpls map[*AttributeImpl]*AttributeImpl
+	attributeImpls map[reflect.Type]*AttributeImpl
 	currentState   []*AttributeState
 	factory        AttributeFactory
 }
@@ -92,7 +100,7 @@ func NewAttributeSourceWith(factory AttributeFactory) *AttributeSource {
 	// port GoSolr. So we use plain map here.
 	return &AttributeSource{
 		attributes:     make(map[string]*AttributeImpl),
-		attributeImpls: make(map[*AttributeImpl]*AttributeImpl),
+		attributeImpls: make(map[reflect.Type]*AttributeImpl),
 		currentState:   make([]*AttributeState, 1),
 		factory:        factory,
 	}
@@ -111,7 +119,21 @@ The recommended way to use custom implementations is using an
 AttributeFactory.
 */
 func (as *AttributeSource) AddImpl(att *AttributeImpl) {
-	panic("not implemented yet")
+	typ := reflect.TypeOf(att)
+	if _, ok := as.attributeImpls[typ]; ok {
+		return
+	}
+
+	// add all interfaces of this AttributeImpl to the maps
+	for _, curInterface := range att.Interfaces() {
+		// Attribute is a superclass of this interface
+		if _, ok := as.attributes[curInterface]; !ok {
+			// invalidate state to force recomputation in captureState()
+			as.currentState[0] = nil
+			as.attributes[curInterface] = att
+			as.attributeImpls[typ] = att
+		}
+	}
 }
 
 /*
@@ -126,5 +148,5 @@ func (as *AttributeSource) Add(s string) Attribute {
 		attImpl = as.factory.Create(s)
 		as.AddImpl(attImpl)
 	}
-	return attImpl
+	return attImpl.Value
 }
