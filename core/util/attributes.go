@@ -67,8 +67,8 @@ type is already present. If yes, it returns the instance, otherwise
 it creates a new instance and returns it.
 */
 type AttributeSource struct {
-	attributes     map[reflect.Type]Attribute
-	attributeImpls map[reflect.Type]*AttributeImpl
+	attributes     map[reflect.Type]*AttributeImpl
+	attributeImpls map[*AttributeImpl]*AttributeImpl
 	currentState   []*AttributeState
 	factory        AttributeFactory
 }
@@ -95,13 +95,41 @@ func NewAttributeSourceWith(factory AttributeFactory) *AttributeSource {
 	// But it's used by Solr only and GoLucene doesn't have plan to
 	// port GoSolr. So we use plain map here.
 	return &AttributeSource{
-		attributes:     make(map[reflect.Type]Attribute),
-		attributeImpls: make(map[reflect.Type]*AttributeImpl),
+		attributes:     make(map[reflect.Type]*AttributeImpl),
+		attributeImpls: make(map[*AttributeImpl]*AttributeImpl),
 		currentState:   make([]*AttributeState, 1),
 		factory:        factory,
 	}
 }
 
-func (as *AttributeSource) Add(v Attribute) Attribute {
+/*
+Expert: Adds a custom AttributeImpl instance with one or more
+Attribute interfaces.
+
+Please note: it is not guaranteed, that att is added to the
+AttributeSource, because the provided attributes may already exist.
+You should always retrieve the wanted attributes using Get() after
+adding with this method and cast to you class.
+
+The recommended way to use custom implementations is using an
+AttributeFactory.
+*/
+func (as *AttributeSource) AddImpl(att *AttributeImpl) {
 	panic("not implemented yet")
+}
+
+/*
+The caller must pass in a Attribute instance. This method first
+checks if an instance of that type is already in this AttributeSource
+and returns it. Otherwise a new instance is created, added to this
+AttributeSource and returned.
+*/
+func (as *AttributeSource) Add(v Attribute) Attribute {
+	typ := reflect.TypeOf(v)
+	attImpl, ok := as.attributes[typ]
+	if !ok {
+		attImpl = as.factory.Create(typ)
+		as.AddImpl(attImpl)
+	}
+	return attImpl
 }
