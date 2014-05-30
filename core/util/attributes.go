@@ -1,8 +1,6 @@
 package util
 
-import (
-	"reflect"
-)
+import ()
 
 // util/Attribute.java
 
@@ -11,13 +9,23 @@ type Attribute interface{}
 
 // util/AttributeImpl.java
 
+type AttributeImplSPI interface {
+}
+
 /*
 Base class for Attributes that can be added to a AttributeSource.
 
 Attributes are used to add data in a dynamic, yet type-safe way to a
 source of usually streamed ojects, e.g. a TokenStream.
 */
-type AttributeImpl struct{}
+type AttributeImpl struct {
+	value interface{}
+	spi   AttributeImplSPI
+}
+
+func NewAttributeImpl(spi AttributeImplSPI) *AttributeImpl {
+	return &AttributeImpl{spi, spi}
+}
 
 func (v *AttributeImpl) Clone() *AttributeImpl {
 	panic("not implemented yet")
@@ -27,19 +35,7 @@ func (v *AttributeImpl) Clone() *AttributeImpl {
 
 /* An AttributeFactory creates instances of AttributeImpls. */
 type AttributeFactory interface {
-	Create(reflect.Type) *AttributeImpl
-}
-
-type DefaultAttributeFactory struct {
-	attTypeImplMap map[reflect.Type]Attribute
-}
-
-func (fac *DefaultAttributeFactory) Create(t reflect.Type) *AttributeImpl {
-	panic("not implemented yet")
-}
-
-var DEFAULT_ATTRIBUTE_FACTORY = &DefaultAttributeFactory{
-	make(map[reflect.Type]Attribute),
+	Create(string) *AttributeImpl
 }
 
 /* This class holds the state of an AttributeSource */
@@ -67,16 +63,16 @@ type is already present. If yes, it returns the instance, otherwise
 it creates a new instance and returns it.
 */
 type AttributeSource struct {
-	attributes     map[reflect.Type]*AttributeImpl
+	attributes     map[string]*AttributeImpl
 	attributeImpls map[*AttributeImpl]*AttributeImpl
 	currentState   []*AttributeState
 	factory        AttributeFactory
 }
 
 /* An AttributeSource using the default attribute factory */
-func NewAttributeSource() *AttributeSource {
-	return NewAttributeSourceWith(DEFAULT_ATTRIBUTE_FACTORY)
-}
+// func NewAttributeSource() *AttributeSource {
+// 	return NewAttributeSourceWith(DEFAULT_ATTRIBUTE_FACTORY)
+// }
 
 /* An AttributeSource that uses the same attributes as the supplied one. */
 func NewAttributeSourceFrom(input *AttributeSource) *AttributeSource {
@@ -95,7 +91,7 @@ func NewAttributeSourceWith(factory AttributeFactory) *AttributeSource {
 	// But it's used by Solr only and GoLucene doesn't have plan to
 	// port GoSolr. So we use plain map here.
 	return &AttributeSource{
-		attributes:     make(map[reflect.Type]*AttributeImpl),
+		attributes:     make(map[string]*AttributeImpl),
 		attributeImpls: make(map[*AttributeImpl]*AttributeImpl),
 		currentState:   make([]*AttributeState, 1),
 		factory:        factory,
@@ -124,11 +120,10 @@ checks if an instance of that type is already in this AttributeSource
 and returns it. Otherwise a new instance is created, added to this
 AttributeSource and returned.
 */
-func (as *AttributeSource) Add(v Attribute) Attribute {
-	typ := reflect.TypeOf(v)
-	attImpl, ok := as.attributes[typ]
+func (as *AttributeSource) Add(s string) Attribute {
+	attImpl, ok := as.attributes[s]
 	if !ok {
-		attImpl = as.factory.Create(typ)
+		attImpl = as.factory.Create(s)
 		as.AddImpl(attImpl)
 	}
 	return attImpl

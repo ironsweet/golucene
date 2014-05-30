@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
 	"sort"
@@ -159,7 +160,7 @@ type TermsEnumImpl struct {
 }
 
 func newTermsEnumImpl(self TermsEnum) *TermsEnumImpl {
-	return &TermsEnumImpl{self, util.NewAttributeSource()}
+	return &TermsEnumImpl{self, util.NewAttributeSourceWith(tokenattributes.DEFAULT_ATTRIBUTE_FACTORY)}
 }
 
 func (e *TermsEnumImpl) Attributes() *util.AttributeSource {

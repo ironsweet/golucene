@@ -42,7 +42,7 @@ func NewFilteringTokenFilter(spi FilteringTokenFilterSPI,
 		version:     version,
 		first:       true,
 	}
-	ans.posIncrAtt = ans.Attributes().Add(new(PositionIncrementAttribute)).(PositionIncrementAttribute)
+	ans.posIncrAtt = ans.Attributes().Add("PositionIncrementAttribute").(PositionIncrementAttribute)
 	ans.enablePositionIncrements = true
 	return ans
 }

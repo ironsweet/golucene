@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
 )
@@ -117,7 +118,7 @@ type TokenStreamImpl struct {
 /* A TokenStream using the default attribute factory. */
 func NewTokenStream() *TokenStreamImpl {
 	return &TokenStreamImpl{
-		atts: util.NewAttributeSource(),
+		atts: util.NewAttributeSourceWith(DEFAULT_ATTRIBUTE_FACTORY),
 	}
 }
 

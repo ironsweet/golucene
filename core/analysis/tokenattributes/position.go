@@ -33,3 +33,13 @@ type PositionIncrementAttribute interface {
 	// Returns the position increment of this token.
 	PositionIncrement() int
 }
+
+/* Default implementation of ositionIncrementAttribute */
+type PositionIncrementAttributeImpl struct {
+	positionIncrement int
+}
+
+func newPositionIncrementAttributeImpl() *util.AttributeImpl {
+	ans := &PositionIncrementAttributeImpl{1}
+	return util.NewAttributeImpl(ans)
+}
