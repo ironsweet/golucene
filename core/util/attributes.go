@@ -136,6 +136,11 @@ func (as *AttributeSource) AddImpl(att *AttributeImpl) {
 	}
 }
 
+/* Returns true, iff this AttributeSource has any attributes */
+func (as *AttributeSource) hasAny() bool {
+	return len(as.attributes) > 0
+}
+
 /*
 The caller must pass in a Attribute instance. This method first
 checks if an instance of that type is already in this AttributeSource
@@ -152,7 +157,22 @@ func (as *AttributeSource) Add(s string) Attribute {
 }
 
 func (as *AttributeSource) currentState() *AttributeState {
-	panic("not implemented yet")
+	s := as._currentState[0]
+	if s != nil || !as.hasAny() {
+		return s
+	}
+	s = new(AttributeState)
+	var c *AttributeState
+	for _, v := range as.attributeImpls {
+		if c == nil {
+			c = s
+			c.attribute = v
+		} else {
+			c.next = &AttributeState{attribute: v}
+			c = c.next
+		}
+	}
+	return s
 }
 
 /*
