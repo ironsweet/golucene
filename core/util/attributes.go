@@ -14,6 +14,10 @@ type Attribute interface {
 
 type AttributeImplSPI interface {
 	Interfaces() []string
+	// Clears the values in this AttributeImpl and resets it to its
+	// default value. If this implementation implements more than one
+	// Attribute interface, it clears all.
+	Clear()
 }
 
 /*
@@ -23,16 +27,12 @@ Attributes are used to add data in a dynamic, yet type-safe way to a
 source of usually streamed ojects, e.g. a TokenStream.
 */
 type AttributeImpl struct {
+	AttributeImplSPI
 	Value interface{}
-	spi   AttributeImplSPI
 }
 
 func NewAttributeImpl(spi AttributeImplSPI) *AttributeImpl {
 	return &AttributeImpl{spi, spi}
-}
-
-func (v *AttributeImpl) Interfaces() []string {
-	return v.spi.Interfaces()
 }
 
 func (v *AttributeImpl) Clone() *AttributeImpl {
@@ -48,13 +48,13 @@ type AttributeFactory interface {
 
 /* This class holds the state of an AttributeSource */
 type AttributeState struct {
-	value *AttributeImpl
-	next  *AttributeState
+	attribute *AttributeImpl
+	next      *AttributeState
 }
 
 func (s *AttributeState) Clone() *AttributeState {
 	ans := new(AttributeState)
-	ans.value = s.value.Clone()
+	ans.attribute = s.attribute.Clone()
 	if s.next != nil {
 		ans.next = s.next.Clone()
 	}
@@ -73,7 +73,7 @@ it creates a new instance and returns it.
 type AttributeSource struct {
 	attributes     map[string]*AttributeImpl
 	attributeImpls map[reflect.Type]*AttributeImpl
-	currentState   []*AttributeState
+	_currentState  []*AttributeState
 	factory        AttributeFactory
 }
 
@@ -88,7 +88,7 @@ func NewAttributeSourceFrom(input *AttributeSource) *AttributeSource {
 	return &AttributeSource{
 		attributes:     input.attributes,
 		attributeImpls: input.attributeImpls,
-		currentState:   input.currentState,
+		_currentState:  input._currentState,
 		factory:        input.factory,
 	}
 }
@@ -101,7 +101,7 @@ func NewAttributeSourceWith(factory AttributeFactory) *AttributeSource {
 	return &AttributeSource{
 		attributes:     make(map[string]*AttributeImpl),
 		attributeImpls: make(map[reflect.Type]*AttributeImpl),
-		currentState:   make([]*AttributeState, 1),
+		_currentState:  make([]*AttributeState, 1),
 		factory:        factory,
 	}
 }
@@ -129,7 +129,7 @@ func (as *AttributeSource) AddImpl(att *AttributeImpl) {
 		// Attribute is a superclass of this interface
 		if _, ok := as.attributes[curInterface]; !ok {
 			// invalidate state to force recomputation in captureState()
-			as.currentState[0] = nil
+			as._currentState[0] = nil
 			as.attributes[curInterface] = att
 			as.attributeImpls[typ] = att
 		}
@@ -149,4 +149,18 @@ func (as *AttributeSource) Add(s string) Attribute {
 		as.AddImpl(attImpl)
 	}
 	return attImpl.Value
+}
+
+func (as *AttributeSource) currentState() *AttributeState {
+	panic("not implemented yet")
+}
+
+/*
+Resets all Attributes in this AttributeSource by calling
+AttributeImpl.clear() on each Attribute implementation.
+*/
+func (as *AttributeSource) Clear() {
+	for state := as.currentState(); state != nil; state = state.next {
+		state.attribute.Clear()
+	}
 }

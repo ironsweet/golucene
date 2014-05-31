@@ -55,3 +55,7 @@ func (a *PositionIncrementAttributeImpl) SetPositionIncrement(positionIncrement 
 func (a *PositionIncrementAttributeImpl) PositionIncrement() int {
 	return a.positionIncrement
 }
+
+func (a *PositionIncrementAttributeImpl) Clear() {
+	a.positionIncrement = 1
+}

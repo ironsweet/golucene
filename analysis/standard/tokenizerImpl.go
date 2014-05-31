@@ -1,6 +1,7 @@
 package standard
 
 import (
+	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"io"
 )
 
@@ -54,7 +55,7 @@ type StandardTokenizerImpl struct {
 	yyline int
 
 	// the number of characters up to the start of the matched text
-	yychar int
+	_yychar int
 
 	// the number of characters from the last newline up to the start of the matched text
 	yycolumn int
@@ -78,6 +79,15 @@ func newStandardTokenizerImpl(in io.ReadCloser) *StandardTokenizerImpl {
 	}
 }
 
+func (t *StandardTokenizerImpl) yychar() int {
+	return t._yychar
+}
+
+/* Fills CharTermAttribute with the current token text. */
+func (t *StandardTokenizerImpl) text(tt CharTermAttribute) {
+	panic("not implemented yet")
+}
+
 /*
 Resets the scanner to read from a new input stream.
 Does not close the old reader.
@@ -95,9 +105,22 @@ func (t *StandardTokenizerImpl) yyreset(reader io.ReadCloser) {
 	t.zzEOFDone = false
 	t.zzEndRead, t.zzStartRead = 0, 0
 	t.zzCurrentPos, t.zzMarkedPos = 0, 0
-	t.yyline, t.yychar, t.yycolumn = 0, 0, 0
+	t.yyline, t._yychar, t.yycolumn = 0, 0, 0
 	t.zzLexicalState = YYINITIAL
 	if len(t.zzBuffer) > ZZ_BUFFERSIZE {
 		t.zzBuffer = make([]rune, ZZ_BUFFERSIZE)
 	}
+}
+
+/* Returns the length of the matched text region. */
+func (t *StandardTokenizerImpl) yylength() int {
+	return t.zzMarkedPos - t.zzStartRead
+}
+
+/*
+Resumes scanning until the next regular expression is matched, the
+end of input is encountered or an I/O-Error occurs.
+*/
+func (t *StandardTokenizerImpl) nextToken() (int, error) {
+	panic("not implemented yet")
 }

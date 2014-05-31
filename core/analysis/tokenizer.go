@@ -14,14 +14,39 @@ Attributes().ClearAttributes() before setting attributes.
 */
 type Tokenizer struct {
 	*TokenStreamImpl
+	input io.ReadCloser
 }
 
 /* Constructs a token stream processing the given input. */
 func NewTokenizer(input io.ReadCloser) *Tokenizer {
-	assert2(input != nil, "inpu tmust not be nil")
+	assert2(input != nil, "input must not be nil")
 	return &Tokenizer{
 		TokenStreamImpl: NewTokenStream(),
+		input:           input,
 	}
+}
+
+func (t *Tokenizer) Close() error {
+	if t.input != nil {
+		err := t.input.Close()
+		if err != nil {
+			return err
+		}
+		t.input = nil
+	}
+	return nil
+}
+
+/*
+Return the corrected offset. If input is a CharFilter subclass, this
+method calls CharFilter.correctOffset(), else returns currentOff.
+*/
+func (t *Tokenizer) CorrectOffset(currentOff int) int {
+	assert2(t.input != nil, "this tokenizer is closed")
+	if v, ok := t.input.(CharFilterService); ok {
+		return v.CorrectOffset(currentOff)
+	}
+	return currentOff
 }
 
 /*

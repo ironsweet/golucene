@@ -43,3 +43,11 @@ func (a *CharTermAttributeImpl) Buffer() []rune {
 func (a *CharTermAttributeImpl) Length() int {
 	return a.termLength
 }
+
+func (a *CharTermAttributeImpl) Clear() {
+	a.termLength = 0
+}
+
+func (a *CharTermAttributeImpl) String() string {
+	panic("not implemented yet")
+}

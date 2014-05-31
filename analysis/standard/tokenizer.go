@@ -2,11 +2,34 @@ package standard
 
 import (
 	. "github.com/balzaczyy/golucene/core/analysis"
+	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
 )
 
 // standard/StandardTokenizer.java
+
+const (
+	ACRONYM_DEP = 8 // deprecated 3.1
+)
+
+/* String token types that correspond to token type int constants */
+var TOKEN_TYPES = []string{
+	"<ALPHANUM>",
+	"<APOSTROPHE>",
+	"<ACRONYM>",
+	"<COMPANY>",
+	"<EMAIL>",
+	"<HOST>",
+	"<NUM>",
+	"<CJ>",
+	"<ACRONYM_DEP>",
+	"<SOUTHEAST_ASIAN>",
+	"<IDEOGRAPHIC>",
+	"<HIRAGANA>",
+	"<KATAKANA>",
+	"<HANGUL>",
+}
 
 /*
 A grammar-based tokenizer constructed with JFlex.
@@ -42,6 +65,14 @@ type StandardTokenizer struct {
 
 	skippedPositions int
 	maxTokenLength   int
+
+	// this tokenizer generates three attributes:
+	// term offset, positionIncrement and type
+
+	termAtt    CharTermAttribute
+	offsetAtt  OffsetAttribute
+	posIncrAtt PositionIncrementAttribute
+	typeAtt    TypeAttribute
 }
 
 /*
@@ -63,7 +94,34 @@ func (t *StandardTokenizer) init(matchVersion util.Version) {
 }
 
 func (t *StandardTokenizer) IncrementToken() (bool, error) {
-	panic("not implemented yet")
+	t.Attributes().Clear()
+	t.skippedPositions = 0
+
+	for {
+		tokenType, err := t.scanner.nextToken()
+		if tokenType == YYEOF || err != nil {
+			return false, err
+		}
+
+		if t.scanner.yylength() <= t.maxTokenLength {
+			t.posIncrAtt.SetPositionIncrement(t.skippedPositions + 1)
+			t.scanner.text(t.termAtt)
+			start := t.scanner.yychar()
+			t.offsetAtt.SetOffset(t.CorrectOffset(start), t.CorrectOffset(start+t.termAtt.Length()))
+			// This 'if' should be removed in the next release. For now,
+			// it converts invalid acronyms to HOST. When removed, only the
+			// 'else' part should remain.
+			if tokenType == ACRONYM_DEP {
+				panic("not implemented yet")
+			} else {
+				t.typeAtt.SetType(TOKEN_TYPES[tokenType])
+			}
+			return true, nil
+		} else {
+			// When we skip a too-long term, we still increment the positionincrement
+			t.skippedPositions++
+		}
+	}
 }
 
 func (t *StandardTokenizer) End() error {
@@ -78,8 +136,15 @@ func (t *StandardTokenizer) Reset() error {
 
 // standard/StandardTokenizerInterface.java
 
+/* This character denotes the end of file */
+const YYEOF = -1
+
 /* Internal interface for supporting versioned grammars. */
 type StandardTokenizerInterface interface {
+	// Copies the matched text into the CharTermAttribute
+	text(CharTermAttribute)
+	// Returns the current position.
+	yychar() int
 	// Resets the scanner to read from a new input stream.
 	// Does not close the old reader.
 	//
@@ -87,4 +152,9 @@ type StandardTokenizerInterface interface {
 	// reused (internal buffer) is discarded and lost). Lexical state
 	// is set to ZZ_INITIAL.
 	yyreset(io.ReadCloser)
+	// Returns the length of the matched text region.
+	yylength() int
+	// Resumes scanning until the next regular expression is matched,
+	// the end of input is encountered or an I/O-Error occurs.
+	nextToken() (int, error)
 }
