@@ -10,7 +10,14 @@ import (
 // standard/StandardTokenizer.java
 
 const (
-	ACRONYM_DEP = 8 // deprecated 3.1
+	ALPHANUM        = 0
+	NUM             = 6
+	ACRONYM_DEP     = 8 // deprecated 3.1
+	SOUTHEAST_ASIAN = 9
+	IDEOGRAPHIC     = 10
+	HIRAGANA        = 11
+	KATAKANA        = 12
+	HANGUL          = 13
 )
 
 /* String token types that correspond to token type int constants */
