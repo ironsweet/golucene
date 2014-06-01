@@ -1,7 +1,6 @@
 package standard
 
 import (
-	"fmt"
 	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"io"
 )
@@ -180,7 +179,6 @@ func zzUnpackCMap(packed []int) []rune {
 		if i%2 == 0 {
 			count = value
 		} else {
-			fmt.Println(j, count, value)
 			m[j] = rune(value)
 			j++
 			count--
@@ -763,7 +761,7 @@ type StandardTokenizerImpl struct {
 
 	// this buffer contains the current text to be matched and is the
 	// source of yytext() string
-	zzBuffer []rune
+	zzBuffer []byte
 
 	// the text position at the last accepting state
 	zzMarkedPos int
@@ -800,7 +798,7 @@ func newStandardTokenizerImpl(in io.ReadCloser) *StandardTokenizerImpl {
 	return &StandardTokenizerImpl{
 		zzReader:       in,
 		zzLexicalState: YYINITIAL,
-		zzBuffer:       make([]rune, ZZ_BUFFERSIZE),
+		zzBuffer:       make([]byte, ZZ_BUFFERSIZE),
 		zzAtBOL:        true,
 	}
 }
@@ -816,7 +814,35 @@ func (t *StandardTokenizerImpl) text(tt CharTermAttribute) {
 
 /* Refills the input buffer. */
 func (t *StandardTokenizerImpl) zzRefill() (bool, error) {
-	panic("not implemented yet")
+	// first: make room (if you can)
+	if t.zzStartRead > 0 {
+		copy(t.zzBuffer, t.zzBuffer[t.zzStartRead:t.zzEndRead])
+
+		// translate stored positions
+		t.zzEndRead -= t.zzStartRead
+		t.zzCurrentPos -= t.zzStartRead
+		t.zzMarkedPos -= t.zzStartRead
+		t.zzStartRead = 0
+	}
+
+	// is the buffer big enough?
+	if t.zzCurrentPos >= len(t.zzBuffer) {
+		panic("not implemented yet")
+	}
+
+	// finally: fill the buffer with new input
+	numRead, err := t.zzReader.Read(t.zzBuffer[t.zzEndRead:])
+	if err != nil && err != io.EOF {
+		return false, err
+	}
+
+	if numRead > 0 {
+		t.zzEndRead += numRead
+		return false, nil
+	}
+
+	assert(numRead == 0 && err == io.EOF)
+	return true, nil
 }
 
 /*
@@ -839,7 +865,7 @@ func (t *StandardTokenizerImpl) yyreset(reader io.ReadCloser) {
 	t.yyline, t._yychar, t.yycolumn = 0, 0, 0
 	t.zzLexicalState = YYINITIAL
 	if len(t.zzBuffer) > ZZ_BUFFERSIZE {
-		t.zzBuffer = make([]rune, ZZ_BUFFERSIZE)
+		t.zzBuffer = make([]byte, ZZ_BUFFERSIZE)
 	}
 }
 

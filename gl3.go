@@ -8,12 +8,9 @@ import (
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"os"
 )
 
 func main() {
-	fmt.Printf("tests_codec: %v\n", os.Getenv("tests_codec"))
-
 	index.DefaultSimilarity = func() index.Similarity {
 		return search.NewDefaultSimilarity()
 	}
