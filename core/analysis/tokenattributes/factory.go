@@ -1,6 +1,7 @@
 package tokenattributes
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -12,8 +13,10 @@ func (fac *DefaultAttributeFactory) Create(name string) *util.AttributeImpl {
 		return newPositionIncrementAttributeImpl()
 	case "CharTermAttribute":
 		return newCharTermAttributeImpl()
+	case "OffsetAttribute":
+		return newOffsetAttributeImpl()
 	}
-	panic("not supported yet")
+	panic(fmt.Sprintf("not supported yet: %v", name))
 }
 
 /*
