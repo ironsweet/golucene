@@ -4,6 +4,8 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 )
 
+const DEFAULT_TYPE = "word"
+
 /* A Token's lexical type. The default value is "word". */
 type TypeAttribute interface {
 	util.Attribute
@@ -17,7 +19,7 @@ type TypeAttributeImpl struct {
 }
 
 func newTypeAttributeImpl() *util.AttributeImpl {
-	panic("not implemented yet")
+	return util.NewAttributeImpl(&TypeAttributeImpl{DEFAULT_TYPE})
 }
 
 func (a *TypeAttributeImpl) Interfaces() []string {
@@ -26,4 +28,8 @@ func (a *TypeAttributeImpl) Interfaces() []string {
 
 func (a *TypeAttributeImpl) SetType(typ string) {
 	a.typ = typ
+}
+
+func (a *TypeAttributeImpl) Clear() {
+	a.typ = DEFAULT_TYPE
 }
