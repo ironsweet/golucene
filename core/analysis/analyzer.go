@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 )
@@ -216,20 +217,18 @@ func (rs *PerFieldReuseStrategy) SetReusableComponents(a Analyzer, fieldName str
 
 /* Internal class to enale reuse of the string reader by Analyzer.TokenStreamForString() */
 type ReusableStringReader struct {
-	pos, size int
-	s         string
+	s *bytes.Buffer
 }
 
 func (r *ReusableStringReader) setValue(s string) {
-	r.s = s
-	r.size = len(s)
-	r.pos = 0
+	r.s = bytes.NewBufferString(s)
 }
 
 func (r *ReusableStringReader) Read(p []byte) (int, error) {
-	panic("not implemented yet")
+	return r.s.Read(p)
 }
 
 func (r *ReusableStringReader) Close() error {
-	panic("not implemented yet")
+	r.s = nil
+	return nil
 }
