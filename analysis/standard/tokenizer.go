@@ -88,9 +88,14 @@ to the newly created JFlex scanner.
 */
 func newStandardTokenizer(matchVersion util.Version, input io.ReadCloser) *StandardTokenizer {
 	ans := &StandardTokenizer{
-		Tokenizer: NewTokenizer(input),
-		input:     input,
+		Tokenizer:      NewTokenizer(input),
+		input:          input,
+		maxTokenLength: DEFAULT_MAX_TOKEN_LENGTH,
 	}
+	ans.termAtt = ans.Attributes().Add("CharTermAttribute").(CharTermAttribute)
+	ans.offsetAtt = ans.Attributes().Add("OffsetAttribute").(OffsetAttribute)
+	ans.posIncrAtt = ans.Attributes().Add("PositionIncrementAttribute").(PositionIncrementAttribute)
+	ans.typeAtt = ans.Attributes().Add("TypeAttribute").(TypeAttribute)
 	ans.init(matchVersion)
 	return ans
 }
