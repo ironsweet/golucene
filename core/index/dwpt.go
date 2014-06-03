@@ -188,6 +188,10 @@ func (dwpt *DocumentsWriterPerThread) abort(createdFiles map[string]bool) {
 	})
 }
 
+func (dwpt *DocumentsWriterPerThread) setAborting() {
+	dwpt.aborting = true
+}
+
 func (dwpt *DocumentsWriterPerThread) checkAndResetHasAborted() (res bool) {
 	res, dwpt.hasAborted = dwpt.hasAborted, false
 	return

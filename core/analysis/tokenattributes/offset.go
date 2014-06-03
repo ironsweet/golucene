@@ -9,6 +9,9 @@ type OffsetAttribute interface {
 	util.Attribute
 	// Returns this Token's starting offset, the position of the first
 	// character corresponding to this token in the source text.
+	StartOffset() int
+	// Returns this Token's starting offset, the position of the first
+	// character corresponding to this token in the source text.
 	//
 	// Note that the difference between endOffset() and startOffset()
 	// may not be equal to the termText.Length(), as the term text may
@@ -20,7 +23,7 @@ type OffsetAttribute interface {
 	// position of the last character corresponding to this token in
 	// the source text. The length of the token in the source text is
 	// (endOffset() - startOffset()).
-	// EndOffset() int
+	EndOffset() int
 }
 
 /* Default implementation of OffsetAttribute */
@@ -36,6 +39,10 @@ func (a *OffsetAttributeImpl) Interfaces() []string {
 	return []string{"OffsetAttribute"}
 }
 
+func (a *OffsetAttributeImpl) StartOffset() int {
+	return a.startOffset
+}
+
 func (a *OffsetAttributeImpl) SetOffset(startOffset, endOffset int) {
 	// TODO: we could assert that this is set-once, ie, current value
 	// are -1? Very few token filters should change offsets once set by
@@ -46,6 +53,10 @@ func (a *OffsetAttributeImpl) SetOffset(startOffset, endOffset int) {
 		startOffset, endOffset)
 	a.startOffset = startOffset
 	a.endOffset = a.endOffset
+}
+
+func (a *OffsetAttributeImpl) EndOffset() int {
+	return a.endOffset
 }
 
 func (a *OffsetAttributeImpl) Clear() {

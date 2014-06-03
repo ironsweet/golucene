@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	ta "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 )
@@ -89,11 +90,102 @@ func (di *DocInverterPerField) processFields(fields []model.IndexableField, coun
 							return err
 						}
 
-						di.fieldState.attributeSource = stream.Attributes()
+						atts := stream.Attributes()
+						di.fieldState.attributeSource = atts
 
 						fmt.Println("DEBUGa", checkOffsets, lastStartOffset, hasMoreTokens)
 
-						panic("not implemented yet")
+						offsetAttribute := atts.Add("OffsetAttribute").(ta.OffsetAttribute)
+						posIncrAttribute := atts.Add("PositionIncrementAttribute").(ta.PositionIncrementAttribute)
+
+						if hasMoreTokens {
+							di.consumer.startField(field)
+
+							for {
+								// If we hit an error in stream.next below (which is
+								// fairy common, eg if analyer chokes on a given
+								// document), then it's non-aborting and (above) this
+								// one document will be marked as deleted, but still
+								// consume a docID
+
+								posIncr := posIncrAttribute.PositionIncrement()
+								assert2(posIncr >= 0,
+									"position increment must be >=0 (got %v) for field '%v'",
+									posIncr, field.Name())
+								assert2(di.fieldState.position != 0 || posIncr != 0,
+									"first position increment must be > 0 (got 0) for field '%v'",
+									field.Name())
+								position := di.fieldState.position + posIncr
+								if position > 0 {
+									// NOTE: confusing: this "mirrors" the position++ we do below
+									position--
+								} else {
+									assert2(position >= 0, "position overflow for field '%v'", field.Name())
+								}
+
+								// position is legal, we can safely place it in fieldState now.
+								// not sure if anything will use fieldState after non-aborting exc...
+								di.fieldState.position = position
+
+								if posIncr == 0 {
+									di.fieldState.numOverlap++
+								}
+
+								if checkOffsets {
+									startOffset := di.fieldState.offset + offsetAttribute.StartOffset()
+									endOffset := di.fieldState.offset + offsetAttribute.EndOffset()
+									assert2(startOffset >= 0 && startOffset <= endOffset,
+										"startOffset must be non-negative, and endOffset must be >= startOffset, startOffset=%v,endOffset=%v for field '%v'",
+										startOffset, endOffset, field.Name())
+									assert2(startOffset >= lastStartOffset,
+										"offsets must not go backwards startOffset=%v is < lastStartOffset=%v for field '%v'",
+										startOffset, lastStartOffset, field.Name())
+									lastStartOffset = startOffset
+								}
+
+								if err = func() error {
+									var success = false
+									defer func() {
+										if !success {
+											di.docState.docWriter.setAborting()
+										}
+									}()
+									// If we hit an error here, we abort all buffered
+									// documents since the last flush, on the
+									// likelihood that the internal state of the
+									// consumer is now corrupt and should not be
+									// flushed to a new segment:
+									if err := di.consumer.add(); err != nil {
+										return err
+									}
+									success = true
+									return nil
+								}(); err != nil {
+									return err
+								}
+
+								di.fieldState.length++
+								di.fieldState.position++
+								ok, err := stream.IncrementToken()
+								if err != nil {
+									return err
+								}
+								if !ok {
+									break
+								}
+							}
+						}
+						// trigger stream to perform end-of-stream operations
+						err = stream.End()
+						if err != nil {
+							return err
+						}
+						// TODO: maybe add some safety? then again, it's alread
+						// checked when we come back around to the field...
+						di.fieldState.position += posIncrAttribute.PositionIncrement()
+						di.fieldState.offset += offsetAttribute.EndOffset()
+						success2 = true
+						return nil
 					}()
 				}
 			}

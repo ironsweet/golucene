@@ -12,6 +12,10 @@ type InvertedDocConsumerPerField interface {
 	// occurrences for this field in the document. Return true if you
 	// wish to see inverted tokens for these fields:
 	start([]model.IndexableField, int) (bool, error)
+	// Called before a field instance is being processed
+	startField(model.IndexableField)
+	// Called once per inverted token
+	add() error
 	// Called once per field per document, after all IndexableFields
 	// are inverted
 	finish() error
@@ -94,6 +98,10 @@ func (h *TermsHashPerField) abort() {
 	}
 }
 
+func (h *TermsHashPerField) startField(f model.IndexableField) {
+	panic("not implemented yet")
+}
+
 func (h *TermsHashPerField) start(fields []model.IndexableField, count int) (bool, error) {
 	var err error
 	h.doCall, err = h.consumer.start(fields, count)
@@ -108,6 +116,11 @@ func (h *TermsHashPerField) start(fields []model.IndexableField, count int) (boo
 		}
 	}
 	return h.doCall || h.doNextCall, nil
+}
+
+/* Primary entry point (for first TermsHash) */
+func (h *TermsHashPerField) add() error {
+	panic("not implemented yet")
 }
 
 func (h *TermsHashPerField) finish() error {
