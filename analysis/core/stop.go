@@ -3,6 +3,7 @@ package core
 import (
 	. "github.com/balzaczyy/golucene/analysis/util"
 	. "github.com/balzaczyy/golucene/core/analysis"
+	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -33,6 +34,7 @@ StopFilter:
 type StopFilter struct {
 	*FilteringTokenFilter
 	stopWords map[string]bool
+	termAtt   CharTermAttribute
 }
 
 /*
@@ -42,9 +44,12 @@ that are named in the Set.
 func NewStopFilter(matchVersion util.Version, in TokenStream, stopWords map[string]bool) *StopFilter {
 	ans := &StopFilter{stopWords: stopWords}
 	ans.FilteringTokenFilter = NewFilteringTokenFilter(ans, matchVersion, in)
+	ans.termAtt = ans.Attributes().Add("CharTermAttribute").(CharTermAttribute)
 	return ans
 }
 
 func (f *StopFilter) Accept() bool {
-	panic("not implemented yet")
+	term := string(f.termAtt.Buffer()[:f.termAtt.Length()])
+	_, ok := f.stopWords[term]
+	return !ok
 }
