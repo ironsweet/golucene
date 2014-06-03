@@ -156,6 +156,13 @@ func (as *AttributeSource) Add(s string) Attribute {
 	return attImpl.Value
 }
 
+/* Returns the instance of the passe in Attribute contained in this AttributeSource */
+func (as *AttributeSource) Get(s string) Attribute {
+	attImpl, ok := as.attributes[s]
+	assert2(ok, "This AttributeSource does not have the attribute '%v'.", s)
+	return attImpl.Value
+}
+
 func (as *AttributeSource) currentState() *AttributeState {
 	s := as._currentState[0]
 	if s != nil || !as.hasAny() {

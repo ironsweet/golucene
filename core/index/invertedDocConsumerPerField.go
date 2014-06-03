@@ -1,6 +1,7 @@
 package index
 
 import (
+	ta "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 )
@@ -33,6 +34,8 @@ type TermsHashPerField struct {
 	nextPerField *TermsHashPerField
 	docState     *docState
 	fieldState   *FieldInvertState
+	termAtt      ta.TermToBytesRefAttribute
+	termBytesRef []byte
 
 	// Copied from our perThread
 	intPool      *util.IntBlockPool
@@ -99,7 +102,12 @@ func (h *TermsHashPerField) abort() {
 }
 
 func (h *TermsHashPerField) startField(f model.IndexableField) {
-	panic("not implemented yet")
+	h.termAtt = h.fieldState.attributeSource.Get("TermToBytesRefAttribute").(ta.TermToBytesRefAttribute)
+	h.termBytesRef = h.termAtt.BytesRef()
+	h.consumer.startField(f)
+	if h.nextPerField != nil {
+		h.nextPerField.startField(f)
+	}
 }
 
 func (h *TermsHashPerField) start(fields []model.IndexableField, count int) (bool, error) {
