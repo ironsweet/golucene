@@ -37,7 +37,15 @@ func (a *OffsetAttributeImpl) Interfaces() []string {
 }
 
 func (a *OffsetAttributeImpl) SetOffset(startOffset, endOffset int) {
-	panic("not implemented yet")
+	// TODO: we could assert that this is set-once, ie, current value
+	// are -1? Very few token filters should change offsets once set by
+	// the tokenizer... and tokenizer should call clearAtts before
+	// re-using OffsetAtt
+	assert2(startOffset >= 0 && startOffset <= endOffset,
+		"startOffset must be non-negative, and endOffset must be >= startOffset, startOffset=%v,endOffset=%v",
+		startOffset, endOffset)
+	a.startOffset = startOffset
+	a.endOffset = a.endOffset
 }
 
 func (a *OffsetAttributeImpl) Clear() {
