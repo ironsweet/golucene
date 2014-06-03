@@ -761,7 +761,7 @@ type StandardTokenizerImpl struct {
 
 	// this buffer contains the current text to be matched and is the
 	// source of yytext() string
-	zzBuffer []byte
+	zzBuffer []rune
 
 	// the text position at the last accepting state
 	zzMarkedPos int
@@ -798,7 +798,7 @@ func newStandardTokenizerImpl(in io.ReadCloser) *StandardTokenizerImpl {
 	return &StandardTokenizerImpl{
 		zzReader:       in,
 		zzLexicalState: YYINITIAL,
-		zzBuffer:       make([]byte, ZZ_BUFFERSIZE),
+		zzBuffer:       make([]rune, ZZ_BUFFERSIZE),
 		zzAtBOL:        true,
 	}
 }
@@ -809,7 +809,7 @@ func (t *StandardTokenizerImpl) yychar() int {
 
 /* Fills CharTermAttribute with the current token text. */
 func (t *StandardTokenizerImpl) text(tt CharTermAttribute) {
-	panic("not implemented yet")
+	tt.CopyBuffer(t.zzBuffer[t.zzStartRead:t.zzMarkedPos])
 }
 
 /* Refills the input buffer. */
@@ -831,7 +831,7 @@ func (t *StandardTokenizerImpl) zzRefill() (bool, error) {
 	}
 
 	// finally: fill the buffer with new input
-	numRead, err := t.zzReader.Read(t.zzBuffer[t.zzEndRead:])
+	numRead, err := readRunes(t.zzReader.(io.RuneReader), t.zzBuffer[t.zzEndRead:])
 	if err != nil && err != io.EOF {
 		return false, err
 	}
@@ -843,6 +843,17 @@ func (t *StandardTokenizerImpl) zzRefill() (bool, error) {
 
 	assert(numRead == 0 && err == io.EOF)
 	return true, nil
+}
+
+func readRunes(r io.RuneReader, buffer []rune) (int, error) {
+	for i, _ := range buffer {
+		ch, _, err := r.ReadRune()
+		if err != nil {
+			return i, err
+		}
+		buffer[i] = ch
+	}
+	return len(buffer), nil
 }
 
 /*
@@ -865,7 +876,7 @@ func (t *StandardTokenizerImpl) yyreset(reader io.ReadCloser) {
 	t.yyline, t._yychar, t.yycolumn = 0, 0, 0
 	t.zzLexicalState = YYINITIAL
 	if len(t.zzBuffer) > ZZ_BUFFERSIZE {
-		t.zzBuffer = make([]byte, ZZ_BUFFERSIZE)
+		t.zzBuffer = make([]rune, ZZ_BUFFERSIZE)
 	}
 }
 

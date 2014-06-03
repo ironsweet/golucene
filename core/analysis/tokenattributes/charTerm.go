@@ -6,6 +6,8 @@ import (
 
 /* The term text of a Token. */
 type CharTermAttribute interface {
+	// Copies the contents of buffer into the termBuffer array
+	CopyBuffer(buffer []rune)
 	// Returns the internal termBuffer rune slice which you can then
 	// directly alter. If the slice is too small for your token, use
 	// ResizeBuffer(int) to increase it. After altering the buffer, be
@@ -36,8 +38,21 @@ func (a *CharTermAttributeImpl) Interfaces() []string {
 	return []string{"CharTermAttribute"}
 }
 
+func (a *CharTermAttributeImpl) CopyBuffer(buffer []rune) {
+	a.growTermBuffer(len(buffer))
+	copy(a.termBuffer, buffer)
+	a.termLength = len(buffer)
+}
+
 func (a *CharTermAttributeImpl) Buffer() []rune {
 	return a.termBuffer
+}
+
+func (a *CharTermAttributeImpl) growTermBuffer(newSize int) {
+	if len(a.termBuffer) < newSize {
+		// not big enough: create a new slice with slight over allocation:
+		a.termBuffer = make([]rune, util.Oversize(newSize, util.NUM_BYTES_CHAR))
+	}
 }
 
 func (a *CharTermAttributeImpl) Length() int {

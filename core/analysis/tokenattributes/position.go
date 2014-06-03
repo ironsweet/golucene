@@ -1,6 +1,7 @@
 package tokenattributes
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -49,7 +50,14 @@ func (a *PositionIncrementAttributeImpl) Interfaces() []string {
 }
 
 func (a *PositionIncrementAttributeImpl) SetPositionIncrement(positionIncrement int) {
-	panic("not implemented yet")
+	assert2(positionIncrement >= 0, "Increment must be zero or greater: got %v", positionIncrement)
+	a.positionIncrement = positionIncrement
+}
+
+func assert2(ok bool, msg string, args ...interface{}) {
+	if !ok {
+		panic(fmt.Sprintf(msg, args...))
+	}
 }
 
 func (a *PositionIncrementAttributeImpl) PositionIncrement() int {

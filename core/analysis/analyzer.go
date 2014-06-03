@@ -228,6 +228,10 @@ func (r *ReusableStringReader) Read(p []byte) (int, error) {
 	return r.s.Read(p)
 }
 
+func (r *ReusableStringReader) ReadRune() (rune, int, error) {
+	return r.s.ReadRune()
+}
+
 func (r *ReusableStringReader) Close() error {
 	r.s = nil
 	return nil
