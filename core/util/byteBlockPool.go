@@ -24,7 +24,7 @@ type ByteBlockPool struct {
 	buffers    [][]byte
 	bufferUpto int
 	byteUpto   int
-	buffer     []int
+	buffer     []byte
 	byteOffset int
 	allocator  ByteAllocator
 }
@@ -67,6 +67,16 @@ func (pool *ByteBlockPool) Reset(zeroFillBuffers, reuseFirst bool) {
 			pool.buffer = nil
 		}
 	}
+}
+
+/*
+Advances the pool to its next buffer. This method should be called
+once after the constructor to initialize the pool. In contrast to the
+constructor, a ByteBlockPool.Reset() call will advance the pool to
+its first buffer immediately.
+*/
+func (pool *ByteBlockPool) NextBuffer() {
+	panic("not implemented yet")
 }
 
 type ByteAllocator interface {

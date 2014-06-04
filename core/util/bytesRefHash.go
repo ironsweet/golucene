@@ -101,13 +101,53 @@ func (h *BytesRefHash) Add(bytes []byte, code int) (int, bool) {
 	assert(bytes != nil)
 	assert(len(bytes) > 0)
 	assert2(h.bytesStart != nil, "Bytesstart is null - not initialized")
-	// length := len(bytes)
+	length := len(bytes)
 	// final position
 	hashPos := h.findHash(bytes, code)
 	e := h.ids[hashPos]
 
 	if e == -1 {
-		panic("not implemented yet")
+		// new entry
+		if len2 := 2 + len(bytes); len2+h.pool.byteUpto > BYTE_BLOCK_SIZE {
+			if len2 > BYTE_BLOCK_SIZE {
+				return 0, false
+			}
+			h.pool.NextBuffer()
+		}
+		buffer := h.pool.buffer
+		bufferUpto := h.pool.byteUpto
+		if h.count >= len(h.bytesStart) {
+			h.bytesStart = h.bytesStartArray.Grow()
+			assert2(h.count < len(h.bytesStart)+1, "count: %v len: %v", h.count, len(h.bytesStart))
+		}
+		e = h.count
+		h.count++
+
+		h.bytesStart[e] = bufferUpto + h.pool.byteOffset
+
+		// We first encode the length, followed by the bytes. Length is
+		// encoded as vint, but will consume 1 or 2 bytes at most (we
+		// reject too-long terms, above).
+		if length < 128 {
+			// 1 byte to store length
+			buffer[bufferUpto] = byte(length)
+			h.pool.byteUpto += length + 1
+			assert2(length >= 0, "Length must be positive: %v", length)
+			copy(buffer[bufferUpto+1:], bytes)
+		} else {
+			// 2 bytes to store length
+			buffer[bufferUpto] = byte(0x80 | (length & 0x7f))
+			buffer[bufferUpto+1] = byte((length >> 7) & 0xff)
+			h.pool.byteUpto += length + 2
+			copy(buffer[bufferUpto+2:], bytes)
+		}
+		assert(h.ids[hashPos] == -1)
+		h.ids[hashPos] = e
+
+		if h.count == h.hashHalfSize {
+			h.rehash(2*h.hashSize, true)
+		}
+		return e, true
 	}
 	return -(e + 1), true
 }
@@ -121,6 +161,11 @@ func (h *BytesRefHash) findHash(bytes []byte, code int) int {
 		panic("not implemented yet")
 	}
 	return hashPos
+}
+
+/* Claled when has is too small (> 50% occupied) or too large (< 20% occupied). */
+func (h *BytesRefHash) rehash(newSize int, hashOnData bool) {
+	panic("not implemented yet")
 }
 
 /*
@@ -145,6 +190,8 @@ type BytesStartArray interface {
 	// BytesStartArray. The BytesRefHash uses this reference to track
 	// its memory usage
 	BytesUsed() Counter
+	// Grows the BytesStartArray
+	Grow() []int
 	// clears the BytesStartArray and returns the cleared instance.
 	Clear() []int
 }

@@ -184,6 +184,10 @@ func (ss *PostingsBytesStartArray) Init() []int {
 	return ss.perField.postingsArray.textStarts
 }
 
+func (ss *PostingsBytesStartArray) Grow() []int {
+	panic("not implemented yet")
+}
+
 func (ss *PostingsBytesStartArray) Clear() []int {
 	if ss.perField.postingsArray != nil {
 		ss.bytesUsed.AddAndGet(-int64(ss.perField.postingsArray.size * ss.perField.postingsArray.bytesPerPosting()))
