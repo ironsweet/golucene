@@ -24,8 +24,10 @@ type TermVectorsConsumerPerField struct {
 
 	doVectors, doVectorPositions, doVectorOffsets, doVectorPayloads bool
 
-	maxNumPostings int
-	hasPayloads    bool // if enabled, and we actually saw any for this field
+	maxNumPostings   int
+	payloadAttribute PayloadAttribute
+	offsetAttribute  OffsetAttribute
+	hasPayloads      bool // if enabled, and we actually saw any for this field
 }
 
 func newTermVectorsConsumerPerField(termsHashPerField *TermsHashPerField,
@@ -94,7 +96,18 @@ func (c *TermVectorsConsumerPerField) shrinkHash() {
 }
 
 func (c *TermVectorsConsumerPerField) startField(f model.IndexableField) error {
-	panic("not implemented yet")
+	atts := c.fieldState.attributeSource
+	if c.doVectorOffsets {
+		c.offsetAttribute = atts.Add("OffsetAttribute").(OffsetAttribute)
+	} else {
+		c.offsetAttribute = nil
+	}
+	if c.doVectorPayloads && atts.Has("PayloadAttribute") {
+		c.payloadAttribute = atts.Get("PayloadAttribute").(PayloadAttribute)
+	} else {
+		c.payloadAttribute = nil
+	}
+	return nil
 }
 
 func (c *TermVectorsConsumerPerField) createPostingsArray(size int) *ParallelPostingsArray {
