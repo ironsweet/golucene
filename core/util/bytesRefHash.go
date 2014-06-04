@@ -92,6 +92,11 @@ func (h *BytesRefHash) Clear(resetPool bool) {
 	}
 }
 
+/* Adds a new BytesRef with pre-calculated hash code. */
+func (h *BytesRefHash) Add(bytes []byte, code int) (int, bool) {
+	panic("not implemented yet")
+}
+
 /*
 reinitializes the BytesRefHash after a previous clear() call. If
 clear() has not been called previously this method has no effect.

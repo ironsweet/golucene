@@ -126,9 +126,38 @@ func (h *TermsHashPerField) start(fields []model.IndexableField, count int) (boo
 	return h.doCall || h.doNextCall, nil
 }
 
+/*
+Secondary entry point (for 2nd & subsequent TermsHash), because token
+text has already be "interned" into textStart, so we hash by textStart
+*/
+func (h *TermsHashPerField) addFrom(textStart int) error {
+	panic("not implemented yet")
+}
+
 /* Primary entry point (for first TermsHash) */
 func (h *TermsHashPerField) add() error {
-	panic("not implemented yet")
+	// We are first in the chain so we must "intern" the term text into
+	// textStart address. Get the text & hash of this term.
+	termId, ok := h.bytesHash.Add(h.termBytesRef, h.termAtt.FillBytesRef())
+	if !ok {
+		// Not enough room in current block. Just skip this term, to
+		// remain as robust as ossible during indexing. A TokenFilter can
+		// be inserted into the analyzer chain if other behavior is
+		// wanted (pruning the term to a prefix, returning an error, etc).
+		panic("not implemented yet")
+		return nil
+	}
+
+	if termId >= 0 { // new posting
+		panic("not implemented yet")
+	} else {
+		panic("not implemented yet")
+	}
+
+	if h.doNextCall {
+		return h.nextPerField.addFrom(h.postingsArray.textStarts[termId])
+	}
+	return nil
 }
 
 func (h *TermsHashPerField) finish() error {
