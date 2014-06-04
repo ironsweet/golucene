@@ -1,6 +1,7 @@
 package index
 
 import (
+	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 )
@@ -135,6 +136,8 @@ type FreqProxTermsWriterPerField struct {
 	hasFreq           bool
 	hasProx           bool
 	hasOffsets        bool
+	payloadAttribute  PayloadAttribute
+	offsetAttribute   OffsetAttribute
 }
 
 func newFreqProxTermsWriterPerField(termsHashPerField *TermsHashPerField,
@@ -185,7 +188,18 @@ func (w *FreqProxTermsWriterPerField) start(fields []model.IndexableField, count
 }
 
 func (w *FreqProxTermsWriterPerField) startField(f model.IndexableField) error {
-	panic("not implemented yet")
+	atts := w.fieldState.attributeSource
+	if atts.Has("PayloadAttribute") {
+		w.payloadAttribute = atts.Get("PayloadAttribute").(PayloadAttribute)
+	} else {
+		w.payloadAttribute = nil
+	}
+	if w.hasOffsets {
+		w.offsetAttribute = atts.Add("OffsetAttribute").(OffsetAttribute)
+	} else {
+		w.offsetAttribute = nil
+	}
+	return nil
 }
 
 func (w *FreqProxTermsWriterPerField) createPostingsArray(size int) *ParallelPostingsArray {

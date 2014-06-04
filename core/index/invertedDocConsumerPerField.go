@@ -1,7 +1,6 @@
 package index
 
 import (
-	"fmt"
 	ta "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
@@ -103,7 +102,6 @@ func (h *TermsHashPerField) abort() {
 }
 
 func (h *TermsHashPerField) startField(f model.IndexableField) {
-	fmt.Println("DEBUG", h.fieldState.attributeSource)
 	h.termAtt = h.fieldState.attributeSource.Get("TermToBytesRefAttribute").(ta.TermToBytesRefAttribute)
 	h.termBytesRef = h.termAtt.BytesRef()
 	h.consumer.startField(f)

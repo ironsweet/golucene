@@ -141,6 +141,12 @@ func (as *AttributeSource) hasAny() bool {
 	return len(as.attributes) > 0
 }
 
+/* Returns true, iff this AttributeSource contains the passed-in Attribute. */
+func (as *AttributeSource) Has(s string) bool {
+	_, ok := as.attributes[s]
+	return ok
+}
+
 /*
 The caller must pass in a Attribute instance. This method first
 checks if an instance of that type is already in this AttributeSource
