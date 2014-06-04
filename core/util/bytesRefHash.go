@@ -55,6 +55,10 @@ func (h *BytesRefHash) Size() int {
 	return h.count
 }
 
+func (h *BytesRefHash) equals(id int, b []byte) bool {
+	panic("not implemented yet")
+}
+
 func (h *BytesRefHash) shrink(targetSize int) bool {
 	// Cannot use util.Shrink because we require power of 2:
 	newSize := h.hashSize
@@ -94,7 +98,26 @@ func (h *BytesRefHash) Clear(resetPool bool) {
 
 /* Adds a new BytesRef with pre-calculated hash code. */
 func (h *BytesRefHash) Add(bytes []byte, code int) (int, bool) {
-	panic("not implemented yet")
+	assert2(bytes != nil, "Bytesstart is null - not initialized")
+	// length := len(bytes)
+	// final position
+	hashPos := h.findHash(bytes, code)
+	e := h.ids[hashPos]
+
+	if e == -1 {
+		panic("not implemented yet")
+	}
+	return -(e + 1), true
+}
+
+func (h *BytesRefHash) findHash(bytes []byte, code int) int {
+	assert2(bytes != nil, "bytesStart is null - not initialized")
+	// final position
+	hashPos := code & h.hashMask
+	if e := h.ids[hashPos]; e != -1 && !h.equals(e, bytes) {
+		panic("not implemented yet")
+	}
+	return hashPos
 }
 
 /*
