@@ -35,7 +35,7 @@ func newCharTermAttributeImpl() *util.AttributeImpl {
 }
 
 func (a *CharTermAttributeImpl) Interfaces() []string {
-	return []string{"CharTermAttribute"}
+	return []string{"CharTermAttribute", "TermToBytesRefAttribute"}
 }
 
 func (a *CharTermAttributeImpl) CopyBuffer(buffer []rune) {
@@ -53,6 +53,14 @@ func (a *CharTermAttributeImpl) growTermBuffer(newSize int) {
 		// not big enough: create a new slice with slight over allocation:
 		a.termBuffer = make([]rune, util.Oversize(newSize, util.NUM_BYTES_CHAR))
 	}
+}
+
+func (a *CharTermAttributeImpl) FillBytesRef() int {
+	panic("not implemented yet")
+}
+
+func (a *CharTermAttributeImpl) BytesRef() []byte {
+	panic("not implemented yet")
 }
 
 func (a *CharTermAttributeImpl) Length() int {
