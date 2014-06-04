@@ -1,5 +1,9 @@
 package tokenattributes
 
+import (
+	"github.com/balzaczyy/golucene/core/util"
+)
+
 /*
 This attribute is requested by TermsHashPerField to index the
 contents. This attribute can be used to customize the final []byte
@@ -38,5 +42,5 @@ type TermToBytesRefAttribute interface {
 	FillBytesRef() int
 	// Retrieve this attribute's BytesRef. The bytes are updated from
 	// the current term when the consumer calls FillBytesRef().
-	BytesRef() []byte
+	BytesRef() *util.BytesRef
 }

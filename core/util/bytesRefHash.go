@@ -98,7 +98,9 @@ func (h *BytesRefHash) Clear(resetPool bool) {
 
 /* Adds a new BytesRef with pre-calculated hash code. */
 func (h *BytesRefHash) Add(bytes []byte, code int) (int, bool) {
-	assert2(bytes != nil, "Bytesstart is null - not initialized")
+	assert(bytes != nil)
+	assert(len(bytes) > 0)
+	assert2(h.bytesStart != nil, "Bytesstart is null - not initialized")
 	// length := len(bytes)
 	// final position
 	hashPos := h.findHash(bytes, code)
@@ -111,7 +113,8 @@ func (h *BytesRefHash) Add(bytes []byte, code int) (int, bool) {
 }
 
 func (h *BytesRefHash) findHash(bytes []byte, code int) int {
-	assert2(bytes != nil, "bytesStart is null - not initialized")
+	assert(bytes != nil)
+	assert2(h.bytesStart != nil, "bytesStart is null - not initialized")
 	// final position
 	hashPos := code & h.hashMask
 	if e := h.ids[hashPos]; e != -1 && !h.equals(e, bytes) {

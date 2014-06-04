@@ -2,6 +2,24 @@ package util
 
 // util/BytesRef.java
 
+/*
+Represents []byte, as a slice (offset + length) into an existing
+[]byte, similar to Go's byte slice.
+
+Important note: Unless otherwise noted, GoLucene uses []byte directly
+to represent terms that are encoded as UTF8 bytes in the index. It
+uses this class in cases when caller needs to hold a reference, while
+allowing underlying []byte to change.
+*/
+type BytesRef struct {
+	// The contents of the BytesRef.
+	Value []byte
+}
+
+func NewBytesRef(bytes []byte) *BytesRef {
+	return &BytesRef{bytes}
+}
+
 func UTF8SortedAsUnicodeLess(aBytes, bBytes []byte) bool {
 	aLen, bLen := len(aBytes), len(bBytes)
 

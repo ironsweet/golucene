@@ -35,7 +35,7 @@ type TermsHashPerField struct {
 	docState     *docState
 	fieldState   *FieldInvertState
 	termAtt      ta.TermToBytesRefAttribute
-	termBytesRef []byte
+	termBytesRef *util.BytesRef
 
 	// Copied from our perThread
 	intPool      *util.IntBlockPool
@@ -104,6 +104,7 @@ func (h *TermsHashPerField) abort() {
 func (h *TermsHashPerField) startField(f model.IndexableField) {
 	h.termAtt = h.fieldState.attributeSource.Get("TermToBytesRefAttribute").(ta.TermToBytesRefAttribute)
 	h.termBytesRef = h.termAtt.BytesRef()
+	assert(h.termBytesRef != nil)
 	h.consumer.startField(f)
 	if h.nextPerField != nil {
 		h.nextPerField.startField(f)
@@ -138,7 +139,7 @@ func (h *TermsHashPerField) addFrom(textStart int) error {
 func (h *TermsHashPerField) add() error {
 	// We are first in the chain so we must "intern" the term text into
 	// textStart address. Get the text & hash of this term.
-	termId, ok := h.bytesHash.Add(h.termBytesRef, h.termAtt.FillBytesRef())
+	termId, ok := h.bytesHash.Add(h.termBytesRef.Value, h.termAtt.FillBytesRef())
 	if !ok {
 		// Not enough room in current block. Just skip this term, to
 		// remain as robust as ossible during indexing. A TokenFilter can
