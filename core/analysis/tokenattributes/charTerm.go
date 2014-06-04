@@ -31,7 +31,7 @@ type CharTermAttributeImpl struct {
 func newCharTermAttributeImpl() *util.AttributeImpl {
 	ans := &CharTermAttributeImpl{
 		termBuffer: make([]rune, util.Oversize(MIN_BUFFER_SIZE, util.NUM_BYTES_CHAR)),
-		bytes:      make([]byte, 0, MIN_BUFFER_SIZE),
+		// bytes:      make([]byte, 0, MIN_BUFFER_SIZE),
 	}
 	return util.NewAttributeImpl(ans)
 }
@@ -58,7 +58,21 @@ func (a *CharTermAttributeImpl) growTermBuffer(newSize int) {
 }
 
 func (a *CharTermAttributeImpl) FillBytesRef() int {
-	panic("not implemented yet")
+	s := string(a.termBuffer)
+	hash := hashstr(s)
+	a.bytes = []byte(s)
+	return hash
+}
+
+const primeRK = 16777619
+
+/* simple string hash used by Go strings package */
+func hashstr(sep string) int {
+	hash := uint32(0)
+	for i := 0; i < len(sep); i++ {
+		hash = hash*primeRK + uint32(sep[i])
+	}
+	return int(hash)
 }
 
 func (a *CharTermAttributeImpl) BytesRef() []byte {
