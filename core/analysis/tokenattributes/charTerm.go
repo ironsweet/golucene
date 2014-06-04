@@ -25,11 +25,13 @@ const MIN_BUFFER_SIZE = 10
 type CharTermAttributeImpl struct {
 	termBuffer []rune
 	termLength int
+	bytes      []byte
 }
 
 func newCharTermAttributeImpl() *util.AttributeImpl {
 	ans := &CharTermAttributeImpl{
 		termBuffer: make([]rune, util.Oversize(MIN_BUFFER_SIZE, util.NUM_BYTES_CHAR)),
+		bytes:      make([]byte, 0, MIN_BUFFER_SIZE),
 	}
 	return util.NewAttributeImpl(ans)
 }
@@ -60,7 +62,7 @@ func (a *CharTermAttributeImpl) FillBytesRef() int {
 }
 
 func (a *CharTermAttributeImpl) BytesRef() []byte {
-	panic("not implemented yet")
+	return a.bytes
 }
 
 func (a *CharTermAttributeImpl) Length() int {
