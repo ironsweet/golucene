@@ -156,8 +156,7 @@ func (h *TermsHashPerField) add() error {
 		h.bytesHash.ByteStart(termId)
 		// init stream slices
 		if h.numPostingInt+h.intPool.IntUpto > util.INT_BLOCK_SIZE {
-			// h.intPool.NextBuffer()
-			panic("not implemented yet")
+			h.intPool.NextBuffer()
 		}
 
 		if util.BYTE_BLOCK_SIZE-h.bytePool.ByteUpto < h.numPostingInt*util.FIRST_LEVEL_SIZE {

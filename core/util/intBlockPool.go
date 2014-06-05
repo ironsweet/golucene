@@ -17,6 +17,7 @@ type IntBlockPool struct {
 
 func NewIntBlockPool(allocator IntAllocator) *IntBlockPool {
 	return &IntBlockPool{
+		buffers:    make([][]int, 10),
 		bufferUpto: -1,
 		IntUpto:    INT_BLOCK_SIZE,
 		IntOffset:  -INT_BLOCK_SIZE,
@@ -54,6 +55,39 @@ func (pool *IntBlockPool) Reset(zeroFillBuffers, reuseFirst bool) {
 	}
 }
 
+/*
+Advances the pool to its next buffer. This mthod should be called
+once after the constructor to initialize the pool. In contrast to the
+constructor a IntBlockPool.reset() call will advance the pool to its
+first buffer immediately.
+*/
+func (p *IntBlockPool) NextBuffer() {
+	if 1+p.bufferUpto == len(p.buffers) {
+		newBuffers := make([][]int, len(p.buffers)+len(p.buffers)/2)
+		copy(newBuffers, p.buffers)
+		p.buffers = newBuffers
+	}
+	p.Buffer = p.allocator.allocate()
+	p.buffers[1+p.bufferUpto] = p.Buffer
+	p.bufferUpto++
+
+	p.IntUpto = 0
+	p.IntOffset += INT_BLOCK_SIZE
+}
+
 type IntAllocator interface {
 	Recycle(blocks [][]int)
+	allocate() []int
+}
+
+type IntAllocatorImpl struct {
+	blockSize int
+}
+
+func NewIntAllocator(blockSize int) *IntAllocatorImpl {
+	return &IntAllocatorImpl{blockSize}
+}
+
+func (a *IntAllocatorImpl) allocate() []int {
+	return make([]int, a.blockSize)
 }
