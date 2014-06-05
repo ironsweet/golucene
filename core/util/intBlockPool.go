@@ -9,17 +9,17 @@ const INT_BLOCK_SIZE = 1 << INT_BLOCK_SHIFT
 type IntBlockPool struct {
 	buffers    [][]int
 	bufferUpto int
-	intUpto    int
-	buffer     []int
-	intOffset  int
+	IntUpto    int
+	Buffer     []int
+	IntOffset  int
 	allocator  IntAllocator
 }
 
 func NewIntBlockPool(allocator IntAllocator) *IntBlockPool {
 	return &IntBlockPool{
 		bufferUpto: -1,
-		intUpto:    INT_BLOCK_SIZE,
-		intOffset:  -INT_BLOCK_SIZE,
+		IntUpto:    INT_BLOCK_SIZE,
+		IntOffset:  -INT_BLOCK_SIZE,
 		allocator:  allocator,
 	}
 }
@@ -47,9 +47,9 @@ func (pool *IntBlockPool) Reset(zeroFillBuffers, reuseFirst bool) {
 			panic("not implemented yet")
 		} else {
 			pool.bufferUpto = -1
-			pool.intUpto = INT_BLOCK_SIZE
-			pool.intOffset = -INT_BLOCK_SIZE
-			pool.buffer = nil
+			pool.IntUpto = INT_BLOCK_SIZE
+			pool.IntOffset = -INT_BLOCK_SIZE
+			pool.Buffer = nil
 		}
 	}
 }

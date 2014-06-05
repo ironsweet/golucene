@@ -53,6 +53,9 @@ type TermsHashPerField struct {
 	bytesUsed     util.Counter
 
 	doCall, doNextCall bool
+
+	intUptos     []int
+	intUptoStart int
 }
 
 func newTermsHashPerField(docInverterPerField *DocInverterPerField,
@@ -150,7 +153,33 @@ func (h *TermsHashPerField) add() error {
 	}
 
 	if termId >= 0 { // new posting
-		panic("not implemented yet")
+		h.bytesHash.ByteStart(termId)
+		// init stream slices
+		if h.numPostingInt+h.intPool.IntUpto > util.INT_BLOCK_SIZE {
+			// h.intPool.NextBuffer()
+			panic("not implemented yet")
+		}
+
+		if util.BYTE_BLOCK_SIZE-h.bytePool.ByteUpto < h.numPostingInt*util.FIRST_LEVEL_SIZE {
+			panic("not implemented yet")
+		}
+
+		h.intUptos = h.intPool.Buffer
+		h.intUptoStart = h.intPool.IntUpto
+		h.intPool.IntUpto += h.streamCount
+
+		h.postingsArray.intStarts[termId] = h.intUptoStart + h.intPool.IntOffset
+
+		for i := 0; i < h.streamCount; i++ {
+			upto := h.bytePool.NewSlice(util.FIRST_LEVEL_SIZE)
+			h.intUptos[h.intUptoStart+i] = upto + h.bytePool.ByteOffset
+		}
+		h.postingsArray.byteStarts[termId] = h.intUptos[h.intUptoStart]
+
+		err := h.consumer.newTerm(termId)
+		if err != nil {
+			return err
+		}
 	} else {
 		panic("not implemented yet")
 	}

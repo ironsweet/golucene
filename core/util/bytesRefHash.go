@@ -108,14 +108,14 @@ func (h *BytesRefHash) Add(bytes []byte, code int) (int, bool) {
 
 	if e == -1 {
 		// new entry
-		if len2 := 2 + len(bytes); len2+h.pool.byteUpto > BYTE_BLOCK_SIZE {
+		if len2 := 2 + len(bytes); len2+h.pool.ByteUpto > BYTE_BLOCK_SIZE {
 			if len2 > BYTE_BLOCK_SIZE {
 				return 0, false
 			}
 			h.pool.NextBuffer()
 		}
 		buffer := h.pool.buffer
-		bufferUpto := h.pool.byteUpto
+		bufferUpto := h.pool.ByteUpto
 		if h.count >= len(h.bytesStart) {
 			h.bytesStart = h.bytesStartArray.Grow()
 			assert2(h.count < len(h.bytesStart)+1, "count: %v len: %v", h.count, len(h.bytesStart))
@@ -123,7 +123,7 @@ func (h *BytesRefHash) Add(bytes []byte, code int) (int, bool) {
 		e = h.count
 		h.count++
 
-		h.bytesStart[e] = bufferUpto + h.pool.byteOffset
+		h.bytesStart[e] = bufferUpto + h.pool.ByteOffset
 
 		// We first encode the length, followed by the bytes. Length is
 		// encoded as vint, but will consume 1 or 2 bytes at most (we
@@ -131,14 +131,14 @@ func (h *BytesRefHash) Add(bytes []byte, code int) (int, bool) {
 		if length < 128 {
 			// 1 byte to store length
 			buffer[bufferUpto] = byte(length)
-			h.pool.byteUpto += length + 1
+			h.pool.ByteUpto += length + 1
 			assert2(length >= 0, "Length must be positive: %v", length)
 			copy(buffer[bufferUpto+1:], bytes)
 		} else {
 			// 2 bytes to store length
 			buffer[bufferUpto] = byte(0x80 | (length & 0x7f))
 			buffer[bufferUpto+1] = byte((length >> 7) & 0xff)
-			h.pool.byteUpto += length + 2
+			h.pool.ByteUpto += length + 2
 			copy(buffer[bufferUpto+2:], bytes)
 		}
 		assert(h.ids[hashPos] == -1)
@@ -180,6 +180,16 @@ func (h *BytesRefHash) Reinit() {
 		h.ids = make([]int, h.hashSize)
 		h.bytesUsed.AddAndGet(NUM_BYTES_INT * int64(h.hashSize))
 	}
+}
+
+/*
+Returns the bytesStart offset into the internally used ByteBlockPool
+for the given bytesID.
+*/
+func (h *BytesRefHash) ByteStart(bytesId int) int {
+	assert2(h.bytesStart != nil, "bytesStart is null - not initialized")
+	assert2(bytesId >= 0 && bytesId <= h.count, "%v", bytesId)
+	return h.bytesStart[bytesId]
 }
 
 /* Manages allocation of per-term addresses. */

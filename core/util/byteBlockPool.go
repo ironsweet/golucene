@@ -6,6 +6,12 @@ import (
 
 // util/ByteBlockPool.java
 
+/* An array holding the level sizes for byte slices. */
+var LEVEL_SIZE_ARRAY = []int{5, 14, 20, 30, 40, 40, 80, 80, 120, 200}
+
+/* THe first level size for new slices */
+var FIRST_LEVEL_SIZE = LEVEL_SIZE_ARRAY[0]
+
 /*
 Class that Posting and PostingVector use to writ ebyte streams into
 shared fixed-size []byte arrays. The idea is to allocate slices of
@@ -23,17 +29,17 @@ they hit a non-zero byte.
 type ByteBlockPool struct {
 	buffers    [][]byte
 	bufferUpto int
-	byteUpto   int
+	ByteUpto   int
 	buffer     []byte
-	byteOffset int
+	ByteOffset int
 	allocator  ByteAllocator
 }
 
 func NewByteBlockPool(allocator ByteAllocator) *ByteBlockPool {
 	return &ByteBlockPool{
 		bufferUpto: -1,
-		byteUpto:   BYTE_BLOCK_SIZE,
-		byteOffset: -BYTE_BLOCK_SIZE,
+		ByteUpto:   BYTE_BLOCK_SIZE,
+		ByteOffset: -BYTE_BLOCK_SIZE,
 		allocator:  allocator,
 	}
 }
@@ -62,8 +68,8 @@ func (pool *ByteBlockPool) Reset(zeroFillBuffers, reuseFirst bool) {
 			panic("not implemented yet")
 		} else {
 			pool.bufferUpto = -1
-			pool.byteUpto = BYTE_BLOCK_SIZE
-			pool.byteOffset = -BYTE_BLOCK_SIZE
+			pool.ByteUpto = BYTE_BLOCK_SIZE
+			pool.ByteOffset = -BYTE_BLOCK_SIZE
 			pool.buffer = nil
 		}
 	}
@@ -85,8 +91,19 @@ func (pool *ByteBlockPool) NextBuffer() {
 	pool.buffers[1+pool.bufferUpto] = pool.buffer
 	pool.bufferUpto++
 
-	pool.byteUpto = 0
-	pool.byteOffset += BYTE_BLOCK_SIZE
+	pool.ByteUpto = 0
+	pool.ByteOffset += BYTE_BLOCK_SIZE
+}
+
+/* Allocates a new slice with the given size. */
+func (pool *ByteBlockPool) NewSlice(size int) int {
+	if pool.ByteUpto > BYTE_BLOCK_SIZE-size {
+		pool.NextBuffer()
+	}
+	upto := pool.ByteUpto
+	pool.ByteUpto += size
+	pool.buffer[pool.ByteUpto-1] = 16
+	return upto
 }
 
 /* Abstract class for allocating and freeing byte blocks. */

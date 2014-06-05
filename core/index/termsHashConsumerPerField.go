@@ -9,6 +9,7 @@ import (
 type TermsHashConsumerPerField interface {
 	start([]model.IndexableField, int) (bool, error)
 	startField(model.IndexableField) error
+	newTerm(int) error
 	streamCount() int
 	createPostingsArray(int) *ParallelPostingsArray
 }
@@ -108,6 +109,10 @@ func (c *TermVectorsConsumerPerField) startField(f model.IndexableField) error {
 		c.payloadAttribute = nil
 	}
 	return nil
+}
+
+func (c *TermVectorsConsumerPerField) newTerm(termId int) error {
+	panic("not implemented yet")
 }
 
 func (c *TermVectorsConsumerPerField) createPostingsArray(size int) *ParallelPostingsArray {
@@ -213,6 +218,10 @@ func (w *FreqProxTermsWriterPerField) startField(f model.IndexableField) error {
 		w.offsetAttribute = nil
 	}
 	return nil
+}
+
+func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
+	panic("not implemented yet")
 }
 
 func (w *FreqProxTermsWriterPerField) createPostingsArray(size int) *ParallelPostingsArray {
