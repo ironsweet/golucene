@@ -76,11 +76,23 @@ constructor, a ByteBlockPool.Reset() call will advance the pool to
 its first buffer immediately.
 */
 func (pool *ByteBlockPool) NextBuffer() {
-	panic("not implemented yet")
+	if 1+pool.bufferUpto == len(pool.buffers) {
+		newBuffers := make([][]byte, Oversize(len(pool.buffers)+1, NUM_BYTES_OBJECT_REF))
+		copy(newBuffers, pool.buffers)
+		pool.buffers = newBuffers
+	}
+	pool.buffer = pool.allocator.allocate()
+	pool.buffers[1+pool.bufferUpto] = pool.buffer
+	pool.bufferUpto++
+
+	pool.byteUpto = 0
+	pool.byteOffset += BYTE_BLOCK_SIZE
 }
 
+/* Abstract class for allocating and freeing byte blocks. */
 type ByteAllocator interface {
 	recycle(blocks [][]byte)
+	allocate() []byte
 }
 
 type ByteAllocatorImpl struct {
@@ -89,6 +101,10 @@ type ByteAllocatorImpl struct {
 
 func newByteAllocator(blockSize int) *ByteAllocatorImpl {
 	return &ByteAllocatorImpl{blockSize}
+}
+
+func (a *ByteAllocatorImpl) allocate() []byte {
+	return make([]byte, a.blockSize)
 }
 
 /* A simple Allocator that never recycles, but tracks how much total RAM is in use. */
