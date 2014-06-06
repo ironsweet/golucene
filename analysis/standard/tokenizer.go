@@ -137,7 +137,15 @@ func (t *StandardTokenizer) IncrementToken() (bool, error) {
 }
 
 func (t *StandardTokenizer) End() error {
-	panic("not implemented yet")
+	err := t.Tokenizer.End()
+	if err == nil {
+		// set final offset
+		finalOffset := t.CorrectOffset(t.scanner.yychar() + t.scanner.yylength())
+		t.offsetAtt.SetOffset(finalOffset, finalOffset)
+		// adjust any skipped tokens
+		t.posIncrAtt.SetPositionIncrement(t.posIncrAtt.PositionIncrement() + t.skippedPositions)
+	}
+	return nil
 }
 
 func (t *StandardTokenizer) Reset() error {
