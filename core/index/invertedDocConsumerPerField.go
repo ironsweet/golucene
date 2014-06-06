@@ -211,7 +211,11 @@ func (h *TermsHashPerField) writeVInt(stream, i int) {
 }
 
 func (h *TermsHashPerField) finish() error {
-	panic("not implemented yet")
+	err := h.consumer.finish()
+	if err == nil && h.nextPerField != nil {
+		err = h.nextPerField.finish()
+	}
+	return err
 }
 
 type PostingsBytesStartArray struct {

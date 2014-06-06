@@ -162,6 +162,10 @@ func (tvc *TermVectorsConsumer) addField(termsHashPerField *TermsHashPerField,
 	return newTermVectorsConsumerPerField(termsHashPerField, tvc, fieldInfo)
 }
 
+func (c *TermVectorsConsumer) addFieldToFlush(fieldToFlush *TermVectorsConsumerPerField) {
+	panic("not implemented yet")
+}
+
 func (c *TermVectorsConsumer) startDocument() {
 	assert(c.clearLastVectorFieldName())
 	c.reset()

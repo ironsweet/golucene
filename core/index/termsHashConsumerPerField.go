@@ -8,6 +8,7 @@ import (
 
 type TermsHashConsumerPerField interface {
 	start([]model.IndexableField, int) (bool, error)
+	finish() error
 	startField(model.IndexableField) error
 	newTerm(int) error
 	streamCount() int
@@ -85,6 +86,19 @@ func (c *TermVectorsConsumerPerField) start(fields []model.IndexableField, count
 	// perThread.postingsCount = 0
 
 	return c.doVectors, nil
+}
+
+/*
+Called once per field per document if term vectors are enabled, to
+write the vectors to RAMOutputStream, which is then quickly flushed
+to the real term vectors files in the Directory.
+*/
+func (c *TermVectorsConsumerPerField) finish() error {
+	if !c.doVectors || c.termsHashPerField.bytesHash.Size() == 0 {
+		return nil
+	}
+	c.termsWriter.addFieldToFlush(c)
+	return nil
 }
 
 func (c *TermVectorsConsumerPerField) finishDocument() error {
@@ -176,6 +190,10 @@ func (w *FreqProxTermsWriterPerField) streamCount() int {
 		return 1
 	}
 	return 2
+}
+
+func (w *FreqProxTermsWriterPerField) finish() error {
+	panic("not implemented yet")
 }
 
 /* Called after flush */
