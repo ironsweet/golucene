@@ -168,6 +168,7 @@ type FreqProxTermsWriterPerField struct {
 	hasFreq           bool
 	hasProx           bool
 	hasOffsets        bool
+	hasPayloads       bool
 	payloadAttribute  PayloadAttribute
 	offsetAttribute   OffsetAttribute
 }
@@ -193,7 +194,11 @@ func (w *FreqProxTermsWriterPerField) streamCount() int {
 }
 
 func (w *FreqProxTermsWriterPerField) finish() error {
-	panic("not implemented yet")
+	if w.hasPayloads {
+		panic("not implemented yet")
+		// w.fieldInfo.SetStorePayloads()
+	}
+	return nil
 }
 
 /* Called after flush */
