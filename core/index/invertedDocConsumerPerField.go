@@ -189,6 +189,27 @@ func (h *TermsHashPerField) add() error {
 	return nil
 }
 
+func (h *TermsHashPerField) writeByte(stream int, b byte) {
+	upto := h.intUptos[h.intUptoStart+stream]
+	bytes := h.bytePool.Buffers[upto>>util.BYTE_BLOCK_SHIFT]
+	assert(bytes != nil)
+	offset := upto & util.BYTE_BLOCK_MASK
+	if bytes[offset] != 0 {
+		// end of slice; allocate a new one
+		panic("not implemented yet")
+	}
+	bytes[offset] = b
+	h.intUptos[h.intUptoStart+stream]++
+}
+
+func (h *TermsHashPerField) writeVInt(stream, i int) {
+	assert(stream < h.streamCount)
+	for (i & ^0x7F) != 0 {
+		h.writeByte(stream, byte((i&0x7F)|0x80))
+	}
+	h.writeByte(stream, byte(i))
+}
+
 func (h *TermsHashPerField) finish() error {
 	panic("not implemented yet")
 }

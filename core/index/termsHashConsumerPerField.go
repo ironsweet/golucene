@@ -220,6 +220,27 @@ func (w *FreqProxTermsWriterPerField) startField(f model.IndexableField) error {
 	return nil
 }
 
+func (w *FreqProxTermsWriterPerField) writeProx(termId, proxCode int) {
+	assert(w.hasProx)
+	var payload []byte
+	if w.payloadAttribute != nil {
+		payload = w.payloadAttribute.Payload()
+	}
+
+	if len(payload) > 0 {
+		panic("not implemented yet")
+	} else {
+		w.termsHashPerField.writeVInt(1, proxCode<<1)
+	}
+
+	postings := w.termsHashPerField.postingsArray.PostingsArray.(*FreqProxPostingsArray)
+	postings.lastPositions[termId] = w.fieldState.position
+}
+
+func (w *FreqProxTermsWriterPerField) writeOffsets(termId, offsetAccum int) {
+	panic("not implemented yet")
+}
+
 func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
 	// First time we're seeing this term since the last flush
 	w.docState.testPoint("FreqProxTermsWriterPerField.newTerm start")
@@ -227,9 +248,18 @@ func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
 	postings := w.termsHashPerField.postingsArray.PostingsArray.(*FreqProxPostingsArray)
 	postings.lastDocIDs[termId] = w.docState.docID
 	if !w.hasFreq {
-		postings.lastDocCodes[termId] = w.docState.docID << 1
+		postings.lastDocCodes[termId] = w.docState.docID
 	} else {
-		panic("not implemented yet")
+		postings.lastDocCodes[termId] = w.docState.docID << 1
+		postings.termFreqs[termId] = 1
+		if w.hasProx {
+			w.writeProx(termId, w.fieldState.position)
+			if w.hasOffsets {
+				w.writeOffsets(termId, w.fieldState.offset)
+			}
+		} else {
+			assert(!w.hasOffsets)
+		}
 	}
 	if 1 > w.fieldState.maxTermFrequency {
 		w.fieldState.maxTermFrequency = 1

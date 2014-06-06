@@ -20,4 +20,5 @@ they hit a non-zero byte.
 const (
 	BYTE_BLOCK_SHIFT = 15
 	BYTE_BLOCK_SIZE  = 1 << BYTE_BLOCK_SHIFT
+	BYTE_BLOCK_MASK  = BYTE_BLOCK_SIZE - 1
 )

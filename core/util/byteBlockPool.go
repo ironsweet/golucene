@@ -27,7 +27,7 @@ don't need to record its length and instead allocate a new slice once
 they hit a non-zero byte.
 */
 type ByteBlockPool struct {
-	buffers    [][]byte
+	Buffers    [][]byte
 	bufferUpto int
 	ByteUpto   int
 	buffer     []byte
@@ -59,9 +59,9 @@ func (pool *ByteBlockPool) Reset(zeroFillBuffers, reuseFirst bool) {
 				offset = 1
 			}
 			// Recycle all but the first buffer
-			pool.allocator.recycle(pool.buffers[offset : 1+pool.bufferUpto])
+			pool.allocator.recycle(pool.Buffers[offset : 1+pool.bufferUpto])
 			for i := offset; i <= pool.bufferUpto; i++ {
-				pool.buffers[i] = nil
+				pool.Buffers[i] = nil
 			}
 		}
 		if reuseFirst {
@@ -82,13 +82,13 @@ constructor, a ByteBlockPool.Reset() call will advance the pool to
 its first buffer immediately.
 */
 func (pool *ByteBlockPool) NextBuffer() {
-	if 1+pool.bufferUpto == len(pool.buffers) {
-		newBuffers := make([][]byte, Oversize(len(pool.buffers)+1, NUM_BYTES_OBJECT_REF))
-		copy(newBuffers, pool.buffers)
-		pool.buffers = newBuffers
+	if 1+pool.bufferUpto == len(pool.Buffers) {
+		newBuffers := make([][]byte, Oversize(len(pool.Buffers)+1, NUM_BYTES_OBJECT_REF))
+		copy(newBuffers, pool.Buffers)
+		pool.Buffers = newBuffers
 	}
 	pool.buffer = pool.allocator.allocate()
-	pool.buffers[1+pool.bufferUpto] = pool.buffer
+	pool.Buffers[1+pool.bufferUpto] = pool.buffer
 	pool.bufferUpto++
 
 	pool.ByteUpto = 0
