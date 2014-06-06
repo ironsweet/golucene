@@ -85,7 +85,11 @@ func (info *FieldInfo) NormType() DocValuesType {
 }
 
 func (info *FieldInfo) SetNormValueType(typ DocValuesType) {
-	panic("not implemented yet")
+	assert2(info.normType == DocValuesType(0) || info.normType == typ,
+		"cannot change Norm type from %v to %v for field '%v'",
+		info.normType, typ, info.Name)
+	info.normType = typ
+	info.checkConsistency()
 }
 
 /* Returns true if norms are explicitly omitted for this field */
