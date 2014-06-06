@@ -221,7 +221,21 @@ func (w *FreqProxTermsWriterPerField) startField(f model.IndexableField) error {
 }
 
 func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
-	panic("not implemented yet")
+	// First time we're seeing this term since the last flush
+	w.docState.testPoint("FreqProxTermsWriterPerField.newTerm start")
+
+	postings := w.termsHashPerField.postingsArray.PostingsArray.(*FreqProxPostingsArray)
+	postings.lastDocIDs[termId] = w.docState.docID
+	if !w.hasFreq {
+		postings.lastDocCodes[termId] = w.docState.docID << 1
+	} else {
+		panic("not implemented yet")
+	}
+	if 1 > w.fieldState.maxTermFrequency {
+		w.fieldState.maxTermFrequency = 1
+	}
+	w.fieldState.uniqueTermCount++
+	return nil
 }
 
 func (w *FreqProxTermsWriterPerField) createPostingsArray(size int) *ParallelPostingsArray {
