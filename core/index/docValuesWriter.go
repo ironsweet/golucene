@@ -2,6 +2,7 @@ package index
 
 import (
 	"github.com/balzaczyy/golucene/core/index/model"
+	"github.com/balzaczyy/golucene/core/util"
 )
 
 type DocValuesWriter interface {
@@ -15,6 +16,15 @@ type DocValuesWriter interface {
 /* Buffers up pending long per doc, then flushes when segment flushes. */
 type NumericDocValuesWriter struct {
 	fieldInfo *model.FieldInfo
+}
+
+func newNumericDocValuesWriter(fieldInfo *model.FieldInfo,
+	iwBytesUsed util.Counter, trackDocsWithField bool) *NumericDocValuesWriter {
+	panic("not implemented yet")
+}
+
+func (w *NumericDocValuesWriter) addValue(docId int, value int64) {
+	panic("not implemented yet")
 }
 
 func (w *NumericDocValuesWriter) finish(numDoc int) {}

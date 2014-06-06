@@ -67,37 +67,41 @@ func (info *FieldInfo) SetDocValueType(v DocValuesType) {
 }
 
 /* Returns IndexOptions for the field, or 0 if the field is not indexed */
-func (info FieldInfo) IndexOptions() IndexOptions { return info.indexOptions }
+func (info *FieldInfo) IndexOptions() IndexOptions { return info.indexOptions }
 
 /* Returns true if this field has any docValues. */
-func (info FieldInfo) HasDocValues() bool {
+func (info *FieldInfo) HasDocValues() bool {
 	return int(info.docValueType) != 0
 }
 
 /* Returns DocValueType of the docValues. This may be 0 if the fiel dhas no docValues. */
-func (info FieldInfo) DocValuesType() DocValuesType {
+func (info *FieldInfo) DocValuesType() DocValuesType {
 	return info.docValueType
 }
 
 /* Returns DocValuesType of the norm. This may be 0 if the field has no norms. */
-func (info FieldInfo) NormType() DocValuesType {
+func (info *FieldInfo) NormType() DocValuesType {
 	return info.normType
 }
 
+func (info *FieldInfo) SetNormValueType(typ DocValuesType) {
+	panic("not implemented yet")
+}
+
 /* Returns true if norms are explicitly omitted for this field */
-func (info FieldInfo) OmitsNorms() bool { return info.omitNorms }
+func (info *FieldInfo) OmitsNorms() bool { return info.omitNorms }
 
 /* Returns true if this field actually has any norms. */
-func (info FieldInfo) HasNorms() bool { return int(info.normType) != 0 }
+func (info *FieldInfo) HasNorms() bool { return int(info.normType) != 0 }
 
 /* Returns true if this field is indexed. */
-func (info FieldInfo) IsIndexed() bool { return info.indexed }
+func (info *FieldInfo) IsIndexed() bool { return info.indexed }
 
 /* Returns true if any payloads exist for this field. */
-func (info FieldInfo) HasPayloads() bool { return info.storePayloads }
+func (info *FieldInfo) HasPayloads() bool { return info.storePayloads }
 
 /* Returns true if any term vectors exist for this field. */
-func (info FieldInfo) HasVectors() bool { return info.storeTermVector }
+func (info *FieldInfo) HasVectors() bool { return info.storeTermVector }
 
 func (fi FieldInfo) String() string {
 	return fmt.Sprintf("%v-%v, isIndexed=%v, docValueType=%v, hasVectors=%v, normType=%v, omitNorms=%v, indexOptions=%v, hasPayloads=%v, attributes=%v",

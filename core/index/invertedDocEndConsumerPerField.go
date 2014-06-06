@@ -32,7 +32,14 @@ func newNormsConsumerPerField(docInverterPerField *DocInverterPerField,
 }
 
 func (nc *NormsConsumerPerField) finish() error {
-	panic("not implemented yet")
+	if nc.fieldInfo.IsIndexed() && !nc.fieldInfo.OmitsNorms() {
+		if nc.consumer == nil {
+			nc.fieldInfo.SetNormValueType(model.DOC_VALUES_TYPE_NUMERIC)
+			nc.consumer = newNumericDocValuesWriter(nc.fieldInfo, nc.docState.docWriter._bytesUsed, false)
+		}
+		nc.consumer.addValue(nc.docState.docID, nc.similarity.ComputeNorm(nc.fieldState))
+	}
+	return nil
 }
 
 func (nc *NormsConsumerPerField) flush(state SegmentWriteState, normsWriter DocValuesConsumer) error {
