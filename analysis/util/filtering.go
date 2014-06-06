@@ -105,5 +105,9 @@ func (f *FilteringTokenFilter) Reset() error {
 }
 
 func (f *FilteringTokenFilter) End() error {
-	panic("not implemented yet")
+	err := f.TokenFilter.End()
+	if err == nil && f.enablePositionIncrements {
+		f.posIncrAtt.SetPositionIncrement(f.posIncrAtt.PositionIncrement() + f.skippedPositions)
+	}
+	return err
 }
