@@ -1,5 +1,9 @@
 package packed
 
+import (
+	"github.com/balzaczyy/golucene/core/util"
+)
+
 // packed/AbstractAppendingLongBuffer.java
 
 const MIN_PAGE_SIZE = 64
@@ -12,6 +16,7 @@ const MAX_PAGE_SIZE = 1 << 20
 type abstractAppendingLongBuffer struct {
 	pageShift, pageMask     int
 	values                  []PackedIntsReader
+	valuesBytes             int64
 	pending                 []int64
 	acceptableOverheadRatio float32
 }
@@ -28,9 +33,22 @@ func newAbstractAppendingLongBuffer(initialPageCount,
 	}
 }
 
+func (buf *abstractAppendingLongBuffer) baseRamBytesUsed() int64 {
+	return util.NUM_BYTES_OBJECT_HEADER +
+		2*util.NUM_BYTES_OBJECT_REF + // the 2 arrays
+		2*util.NUM_BYTES_INT + // the 2 offsets
+		2*util.NUM_BYTES_INT + // pageShift, pageMask
+		util.NUM_BYTES_FLOAT + // acceptable overhead
+		util.NUM_BYTES_LONG // valuesBytes
+}
+
 /* Return the number of bytes used by this instance. */
 func (buf *abstractAppendingLongBuffer) RamBytesUsed() int64 {
-	panic("not implemented yet")
+	// TODO: this is called per-doc-per-norm/dv-field, can we optimize this?
+	return util.AlignObjectSize(buf.baseRamBytesUsed()) +
+		util.SizeOf(buf.pending) +
+		util.AlignObjectSize(util.NUM_BYTES_ARRAY_HEADER+util.NUM_BYTES_OBJECT_REF*int64(len(buf.values))) +
+		buf.valuesBytes
 }
 
 /*
@@ -60,5 +78,5 @@ func NewAppendingDeltaPackedLongBufferWithOverhead(acceptableOverheadRatio float
 }
 
 func (buf *AppendingDeltaPackedLongBuffer) RamBytesUsed() int64 {
-	panic("not implemented yet")
+	return buf.abstractAppendingLongBuffer.RamBytesUsed() + util.SizeOf(buf.minValues)
 }
