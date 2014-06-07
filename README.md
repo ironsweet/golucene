@@ -3,8 +3,6 @@ golucene
 
 A [Go](http://golang.org) port of [Apache Lucene](http://lucene.apache.org).
 
-I'm back!
-
 Milestones
 ----------
 - 2013/6/3    Initial code commited.
@@ -13,8 +11,10 @@ Milestones
 
 Progress
 --------
-34100/40000 LoC, 6 Weeks Left
-V1.0 ETA: 2014/6/1
+41400/40000 LoC, ? Weeks Left
+V1.0 ETA: 2014/?/?
+
+The original scope was expanded. Now I'm targeting a full functional Lucene port. The next test case is most probably in August.
 
 License
 -------
