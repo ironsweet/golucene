@@ -3,6 +3,7 @@ package index
 import (
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
+	"github.com/balzaczyy/golucene/core/util/packed"
 )
 
 type DocValuesWriter interface {
@@ -15,16 +16,35 @@ type DocValuesWriter interface {
 
 /* Buffers up pending long per doc, then flushes when segment flushes. */
 type NumericDocValuesWriter struct {
-	fieldInfo *model.FieldInfo
+	pending            *packed.AppendingDeltaPackedLongBuffer
+	iwBytesUsed        util.Counter
+	bytesUsed          int64
+	docsWithField      *util.OpenBitSet
+	fieldInfo          *model.FieldInfo
+	trackDocsWithField bool
 }
 
 func newNumericDocValuesWriter(fieldInfo *model.FieldInfo,
 	iwBytesUsed util.Counter, trackDocsWithField bool) *NumericDocValuesWriter {
-	panic("not implemented yet")
+	ans := &NumericDocValuesWriter{
+		pending:            packed.NewAppendingDeltaPackedLongBufferWithOverhead(packed.PackedInts.COMPACT),
+		docsWithField:      util.NewOpenBitSet(),
+		fieldInfo:          fieldInfo,
+		iwBytesUsed:        iwBytesUsed,
+		trackDocsWithField: trackDocsWithField,
+	}
+	ans.bytesUsed = ans.pending.RamBytesUsed() + ans.docsWithFieldBytesUsed()
+	ans.iwBytesUsed.AddAndGet(ans.bytesUsed)
+	return ans
 }
 
 func (w *NumericDocValuesWriter) addValue(docId int, value int64) {
 	panic("not implemented yet")
+}
+
+func (w *NumericDocValuesWriter) docsWithFieldBytesUsed() int64 {
+	// size of the []int64 + some overhead
+	return util.SizeOf(w.docsWithField.RealBits()) + 64
 }
 
 func (w *NumericDocValuesWriter) finish(numDoc int) {}
