@@ -275,21 +275,28 @@ type ITFIDFSimilarity interface {
 	 * @return a score factor based on the term's document frequency
 	 */
 	idf(docFreq int64, numDocs int64) float32
-	/**
-	 * Decodes a normalization factor stored in an index.
-	 *
-	 * @see #encodeNormValue(float)
-	 */
+	// Compute an index-time normalization value for this field instance.
+	//
+	// This value will be stored in a single byte lossy representation
+	// by encodeNormValue().
+	lengthNorm(*index.FieldInvertState) float32
+	// Decodes a normalization factor stored in an index.
 	decodeNormValue(norm int64) float32
+	// Encodes a normalization factor for storage in an index.
+	encodeNormValue(float32) int64
 }
 
 type TFIDFSimilarity struct {
-	ITFIDFSimilarity
+	spi ITFIDFSimilarity
+}
+
+func newTFIDSimilarity(spi ITFIDFSimilarity) *TFIDFSimilarity {
+	return &TFIDFSimilarity{spi}
 }
 
 func (ts *TFIDFSimilarity) idfExplainTerm(collectionStats CollectionStatistics, termStats TermStatistics) *Explanation {
 	df, max := termStats.DocFreq, collectionStats.maxDoc
-	idf := ts.idf(df, max)
+	idf := ts.spi.idf(df, max)
 	return newExplanation(idf, fmt.Sprintf("idf(docFreq=%v, maxDocs=%v)", df, max))
 }
 
@@ -304,7 +311,7 @@ func (ts *TFIDFSimilarity) idfExplainPhrase(collectionStats CollectionStatistics
 }
 
 func (ts *TFIDFSimilarity) ComputeNorm(state *index.FieldInvertState) int64 {
-	panic("not implemented yet")
+	return ts.spi.encodeNormValue(ts.spi.lengthNorm(state))
 }
 
 func (ts *TFIDFSimilarity) computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight {
@@ -327,7 +334,7 @@ func (ts *TFIDFSimilarity) simScorer(stats SimWeight, ctx *index.AtomicReaderCon
 }
 
 type tfIDFSimScorer struct {
-	*TFIDFSimilarity
+	owner       *TFIDFSimilarity
 	stats       *idfStats
 	weightValue float32
 	norms       index.NumericDocValues
@@ -338,11 +345,11 @@ func newTFIDSimScorer(owner *TFIDFSimilarity, stats *idfStats, norms index.Numer
 }
 
 func (ss *tfIDFSimScorer) Score(doc int, freq float32) float32 {
-	raw := ss.tf(freq) * ss.weightValue // compute tf(f)*weight
+	raw := ss.owner.spi.tf(freq) * ss.weightValue // compute tf(f)*weight
 	if ss.norms == nil {
 		return raw
 	}
-	return raw * ss.decodeNormValue(ss.norms(doc)) // normalize for field
+	return raw * ss.owner.spi.decodeNormValue(ss.norms(doc)) // normalize for field
 }
 
 /** Collection statistics for the TF-IDF model. The only statistic of interest
@@ -455,11 +462,8 @@ type DefaultSimilarity struct {
 }
 
 func NewDefaultSimilarity() *DefaultSimilarity {
-	ans := &DefaultSimilarity{
-		&TFIDFSimilarity{},
-		true,
-	}
-	ans.ITFIDFSimilarity = ans
+	ans := &DefaultSimilarity{discountOverlaps: true}
+	ans.TFIDFSimilarity = newTFIDSimilarity(ans)
 	return ans
 }
 
@@ -467,8 +471,32 @@ func (ds *DefaultSimilarity) QueryNorm(sumOfSquaredWeights float32) float32 {
 	return 1.0 / float32(math.Sqrt(float64(sumOfSquaredWeights)))
 }
 
+/*
+Encodes a normalization factor for storage in an index.
+
+The encoding uses a three-bit mantissa, a five-bit exponent, and the
+zero-exponent point at 15, thus representing values from around
+7x10^9 to 2x10^-9 with about one significant decimal digit of
+accuracy. Zero is also represented. Negative numbers are rounded up
+to zero. Values too large to represent are rounded down to the
+largest representable value. Positive values too small to represent
+are rounded up to the smallest positive representable value.
+*/
+func (ds *DefaultSimilarity) encodeNormValue(f float32) int64 {
+	return int64(util.FloatToByte315(f))
+}
+
 func (ds *DefaultSimilarity) decodeNormValue(norm int64) float32 {
 	return NORM_TABLE[int(norm&0xff)] // & 0xFF maps negative bytes to positive above 127
+}
+
+/*
+Implemented as state.boost() * lengthNorm(numTerms), where numTerms
+is FieldInvertState.length() if setDiscountOverlaps() is false, else
+it's FieldInvertState.length() - FieldInvertState.numOverlap().
+*/
+func (ds *DefaultSimilarity) lengthNorm(state *index.FieldInvertState) float32 {
+	panic("not implemented yet")
 }
 
 func (ds *DefaultSimilarity) tf(freq float32) float32 {
