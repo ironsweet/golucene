@@ -434,6 +434,26 @@ func MaxValue(bitsPerValue int) int64 {
 	return (1 << uint64(bitsPerValue)) - 1
 }
 
+var TrailingZeros = func() map[int]int {
+	ans := make(map[int]int)
+	var n = 1
+	for i := 0; i < 32; i++ {
+		ans[n] = i
+		n <<= 1
+	}
+	return ans
+}()
+
+/* Check that the block size is a power of 2, in the right bounds, and return its log in base 2. */
+func checkBlockSize(blockSize, minBlockSize, maxBlockSize int) int {
+	assert2(blockSize >= minBlockSize && blockSize <= maxBlockSize,
+		"blockSize must be >= %v and <= %v, got %v",
+		minBlockSize, maxBlockSize, blockSize)
+	assert2((blockSize&(blockSize-1)) == 0,
+		"blockSIze must be a power of 2, got %v", blockSize)
+	return TrailingZeros[blockSize]
+}
+
 // util/packed/PackedReaderIterator.java
 
 type PackedReaderIterator struct {
