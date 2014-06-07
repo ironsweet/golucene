@@ -496,7 +496,13 @@ is FieldInvertState.length() if setDiscountOverlaps() is false, else
 it's FieldInvertState.length() - FieldInvertState.numOverlap().
 */
 func (ds *DefaultSimilarity) lengthNorm(state *index.FieldInvertState) float32 {
-	panic("not implemented yet")
+	var numTerms int
+	if ds.discountOverlaps {
+		numTerms = state.Length() - state.NumOverlap()
+	} else {
+		numTerms = state.Length()
+	}
+	return state.Boost() * float32(1.0/math.Sqrt(float64(numTerms)))
 }
 
 func (ds *DefaultSimilarity) tf(freq float32) float32 {

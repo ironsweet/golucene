@@ -40,6 +40,24 @@ func (st *FieldInvertState) reset() {
 	st.attributeSource = nil
 }
 
+/* Get total number of terms in this field. */
+func (st *FieldInvertState) Length() int {
+	return st.length
+}
+
+/* Get the number of terms with positionIncrement == 0. */
+func (st *FieldInvertState) NumOverlap() int {
+	return st.numOverlap
+}
+
+/*
+Get boost value. This is the cumulative product of document boost and
+field boost for all field instances sharing the same field name.
+*/
+func (st *FieldInvertState) Boost() float32 {
+	return st.boost
+}
+
 /* Return the field's name */
 func (st *FieldInvertState) Name() string {
 	return st.name
