@@ -1,7 +1,6 @@
 package index
 
 import (
-	"fmt"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -190,13 +189,11 @@ func (w *FreqProxTermsWriter) abort() {}
 
 func (w *FreqProxTermsWriter) flush(fieldsToFlush map[string]TermsHashConsumerPerField,
 	state SegmentWriteState) (err error) {
-	fmt.Println("DEBUG2", fieldsToFlush)
 	// Gather all FieldData's that have postings, across all ThreadStates
 	var allFields []*FreqProxTermsWriterPerField
 
 	for _, f := range fieldsToFlush {
 		perField := f.(*FreqProxTermsWriterPerField)
-		fmt.Println("DEBUG3", perField.termsHashPerField.bytesHash)
 		if perField.termsHashPerField.bytesHash.Size() > 0 {
 			allFields = append(allFields, perField)
 		}
@@ -231,8 +228,6 @@ func (w *FreqProxTermsWriter) flush(fieldsToFlush map[string]TermsHashConsumerPe
 	// -> PositionsConsumer
 	// -> IMPL: FormatPostingsPositionsWriter
 
-	fmt.Println("DEBUG1", allFields)
-	panic("DEBUG")
 	for _, fieldWriter := range allFields {
 		fieldInfo := fieldWriter.fieldInfo
 

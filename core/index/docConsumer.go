@@ -1,7 +1,6 @@
 package index
 
 import (
-	"fmt"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -145,11 +144,8 @@ func (p *DocFieldProcessor) processDocument(fieldInfos *model.FieldInfosBuilder)
 	// any changes to fields we had already seen before (e.g. suddenly
 	// turning on norms or vectors, etc.)
 
-	fmt.Println("DEBUG7", p.docState.doc)
-
 	for _, field := range p.docState.doc {
 		fieldName := field.Name()
-		fmt.Println("DEBUG5", field)
 
 		// Make sure we have a PerField allocated
 		hashPos := hashstr(fieldName) & p.hashMask
@@ -171,19 +167,16 @@ func (p *DocFieldProcessor) processDocument(fieldInfos *model.FieldInfosBuilder)
 			p.totalFieldCount++
 
 			if p.totalFieldCount >= len(p.fieldHash)/2 {
-				fmt.Println("DEBUG8")
 				p.rehash()
 			}
 		} else {
 			panic("not implemented yet")
 		}
 
-		fmt.Println("DEBUG6", thisFieldGen, fp.lastGen)
 		if thisFieldGen != fp.lastGen {
 			// First time we're seeing this field for this doc
 			fp.fieldCount = 0
 
-			fmt.Println("DEBUG9", p.fieldCount, len(p._fields))
 			if p.fieldCount == len(p._fields) {
 				newSize := len(p._fields) * 2
 				newArray := make([]*DocFieldProcessorPerField, newSize)
@@ -199,8 +192,6 @@ func (p *DocFieldProcessor) processDocument(fieldInfos *model.FieldInfosBuilder)
 		fp.addField(field)
 		p.storedConsumer.addField(p.docState.docID, field, fp.fieldInfo)
 	}
-
-	fmt.Println("DEBUG4", p.fieldCount, p._fields[:p.fieldCount])
 
 	// If we are writing vectors then we must visit fields in sorted
 	// order so they are written in sorted order. TODO: we actually

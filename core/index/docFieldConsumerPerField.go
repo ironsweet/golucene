@@ -1,7 +1,6 @@
 package index
 
 import (
-	"fmt"
 	ta "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
@@ -92,8 +91,6 @@ func (di *DocInverterPerField) processFields(fields []model.IndexableField, coun
 
 						atts := stream.Attributes()
 						di.fieldState.attributeSource = atts
-
-						fmt.Println("DEBUGa", checkOffsets, lastStartOffset, hasMoreTokens)
 
 						offsetAttribute := atts.Add("OffsetAttribute").(ta.OffsetAttribute)
 						posIncrAttribute := atts.Add("PositionIncrementAttribute").(ta.PositionIncrementAttribute)
