@@ -136,7 +136,8 @@ func (buf *AppendingDeltaPackedLongBuffer) grow(newBlockCount int) {
 }
 
 func (buf *AppendingDeltaPackedLongBuffer) baseRamBytesUsed() int64 {
-	panic("not implemented yet")
+	return buf.abstractAppendingLongBuffer.baseRamBytesUsed() +
+		util.NUM_BYTES_OBJECT_REF
 }
 
 func (buf *AppendingDeltaPackedLongBuffer) RamBytesUsed() int64 {
