@@ -64,7 +64,9 @@ func (w *NumericDocValuesWriter) docsWithFieldBytesUsed() int64 {
 }
 
 func (w *NumericDocValuesWriter) updateBytesUsed() {
-	panic("not implemented yet")
+	newBytesUsed := w.pending.RamBytesUsed() + w.docsWithFieldBytesUsed()
+	w.iwBytesUsed.AddAndGet(newBytesUsed - w.bytesUsed)
+	w.bytesUsed = newBytesUsed
 }
 
 func (w *NumericDocValuesWriter) finish(numDoc int) {}
