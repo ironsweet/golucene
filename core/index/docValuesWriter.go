@@ -14,6 +14,8 @@ type DocValuesWriter interface {
 
 // index/NumericDocValuesWriter.java
 
+const MISSING int64 = 0
+
 /* Buffers up pending long per doc, then flushes when segment flushes. */
 type NumericDocValuesWriter struct {
 	pending            *packed.AppendingDeltaPackedLongBuffer
@@ -39,12 +41,30 @@ func newNumericDocValuesWriter(fieldInfo *model.FieldInfo,
 }
 
 func (w *NumericDocValuesWriter) addValue(docId int, value int64) {
-	panic("not implemented yet")
+	assert2(int64(docId) >= w.pending.Size(),
+		"DocValuesField '%v' appears more than once in this document (only one value is allowed per field)",
+		w.fieldInfo.Name)
+
+	// Fill in any holes
+	for i := int(w.pending.Size()); i < docId; i++ {
+		w.pending.Add(MISSING)
+	}
+
+	w.pending.Add(value)
+	if w.trackDocsWithField {
+		w.docsWithField.Set(int64(docId))
+	}
+
+	w.updateBytesUsed()
 }
 
 func (w *NumericDocValuesWriter) docsWithFieldBytesUsed() int64 {
 	// size of the []int64 + some overhead
 	return util.SizeOf(w.docsWithField.RealBits()) + 64
+}
+
+func (w *NumericDocValuesWriter) updateBytesUsed() {
+	panic("not implemented yet")
 }
 
 func (w *NumericDocValuesWriter) finish(numDoc int) {}

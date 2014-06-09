@@ -33,6 +33,16 @@ func newAbstractAppendingLongBuffer(initialPageCount,
 	}
 }
 
+/* Get the numbre of values that have been added to the buffer. */
+func (buf *abstractAppendingLongBuffer) Size() int64 {
+	panic("not implemented yet")
+}
+
+/* Append a value to this buffer. */
+func (buf *abstractAppendingLongBuffer) Add(l int64) {
+	panic("not implemented yet")
+}
+
 func (buf *abstractAppendingLongBuffer) baseRamBytesUsed() int64 {
 	return util.NUM_BYTES_OBJECT_HEADER +
 		2*util.NUM_BYTES_OBJECT_REF + // the 2 arrays
