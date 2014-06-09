@@ -12,8 +12,15 @@ const MIN_PAGE_SIZE = 64
 // since their goal is to try to have small number of bits per value
 const MAX_PAGE_SIZE = 1 << 20
 
+type abstractAppendingLongBufferSPI interface {
+	packPendingValues()
+	grow(int)
+	baseRamBytesUsed() int64
+}
+
 /* Common functionality shared by AppendingDeltaPackedLongBuffer and MonotonicAppendingLongBuffer. */
 type abstractAppendingLongBuffer struct {
+	spi                     abstractAppendingLongBufferSPI
 	pageShift, pageMask     int
 	values                  []PackedIntsReader
 	valuesBytes             int64
@@ -23,10 +30,11 @@ type abstractAppendingLongBuffer struct {
 	acceptableOverheadRatio float32
 }
 
-func newAbstractAppendingLongBuffer(initialPageCount,
-	pageSize int, acceptableOverheadRatio float32) *abstractAppendingLongBuffer {
+func newAbstractAppendingLongBuffer(spi abstractAppendingLongBufferSPI,
+	initialPageCount, pageSize int, acceptableOverheadRatio float32) *abstractAppendingLongBuffer {
 	ps := checkBlockSize(pageSize, MIN_PAGE_SIZE, MAX_PAGE_SIZE)
 	return &abstractAppendingLongBuffer{
+		spi:                     spi,
 		values:                  make([]PackedIntsReader, initialPageCount),
 		pending:                 make([]int64, pageSize),
 		pageShift:               ps,
@@ -53,7 +61,27 @@ func (buf *abstractAppendingLongBuffer) Size() int64 {
 
 /* Append a value to this buffer. */
 func (buf *abstractAppendingLongBuffer) Add(l int64) {
-	panic("not implemented yet")
+	assert2(buf.pending != nil, "This buffer is frozen")
+	if buf.pendingOff == len(buf.pending) {
+		// check size
+		if len(buf.values) == buf.valuesOff {
+			newLength := util.Oversize(buf.valuesOff+1, 8)
+			buf.spi.grow(newLength)
+		}
+		buf.spi.packPendingValues()
+		buf.valuesBytes += buf.values[buf.valuesOff].RamBytesUsed()
+		buf.valuesOff++
+		// reset pending buffer
+		buf.pendingOff = 0
+	}
+	buf.pending[buf.pendingOff] = 1
+	buf.pendingOff++
+}
+
+func (buf *abstractAppendingLongBuffer) grow(newBlockCount int) {
+	arr := make([]PackedIntsReader, newBlockCount)
+	copy(arr, buf.values)
+	buf.values = arr
 }
 
 func (buf *abstractAppendingLongBuffer) baseRamBytesUsed() int64 {
@@ -68,7 +96,7 @@ func (buf *abstractAppendingLongBuffer) baseRamBytesUsed() int64 {
 /* Return the number of bytes used by this instance. */
 func (buf *abstractAppendingLongBuffer) RamBytesUsed() int64 {
 	// TODO: this is called per-doc-per-norm/dv-field, can we optimize this?
-	return util.AlignObjectSize(buf.baseRamBytesUsed()) +
+	return util.AlignObjectSize(buf.spi.baseRamBytesUsed()) +
 		util.SizeOf(buf.pending) +
 		util.AlignObjectSize(util.NUM_BYTES_ARRAY_HEADER+util.NUM_BYTES_OBJECT_REF*int64(len(buf.values))) +
 		buf.valuesBytes
@@ -86,10 +114,9 @@ type AppendingDeltaPackedLongBuffer struct {
 
 func NewAppendingDeltaPackedLongBuffer(initialPageCount,
 	pageSize int, acceptableOverheadRatio float32) *AppendingDeltaPackedLongBuffer {
-	return &AppendingDeltaPackedLongBuffer{
-		newAbstractAppendingLongBuffer(initialPageCount, pageSize, acceptableOverheadRatio),
-		make([]int64, initialPageCount),
-	}
+	ans := &AppendingDeltaPackedLongBuffer{minValues: make([]int64, initialPageCount)}
+	ans.abstractAppendingLongBuffer = newAbstractAppendingLongBuffer(ans, initialPageCount, pageSize, acceptableOverheadRatio)
+	return ans
 }
 
 /*
@@ -98,6 +125,18 @@ pageSize=1024
 */
 func NewAppendingDeltaPackedLongBufferWithOverhead(acceptableOverheadRatio float32) *AppendingDeltaPackedLongBuffer {
 	return NewAppendingDeltaPackedLongBuffer(16, 1024, acceptableOverheadRatio)
+}
+
+func (buf *AppendingDeltaPackedLongBuffer) packPendingValues() {
+	panic("not implemented yet")
+}
+
+func (buf *AppendingDeltaPackedLongBuffer) grow(newBlockCount int) {
+	panic("not implemented yet")
+}
+
+func (buf *AppendingDeltaPackedLongBuffer) baseRamBytesUsed() int64 {
+	panic("not implemented yet")
 }
 
 func (buf *AppendingDeltaPackedLongBuffer) RamBytesUsed() int64 {

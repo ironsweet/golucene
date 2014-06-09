@@ -2,6 +2,7 @@ package packed
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/core/util"
 )
 
 func is64Supported(bitsPerValue uint32) bool {
@@ -15,8 +16,21 @@ type Packed64SingleBlock struct {
 	blocks []int64
 }
 
+func (p *Packed64SingleBlock) RamBytesUsed() int64 {
+	return util.AlignObjectSize(
+		util.NUM_BYTES_OBJECT_HEADER +
+			2*util.NUM_BYTES_INT +
+			util.NUM_BYTES_OBJECT_REF +
+			util.SizeOf(p.blocks))
+}
+
 func (p *Packed64SingleBlock) Get(index int) int64 {
 	return p.get(index)
+}
+
+func (p *Packed64SingleBlock) String() string {
+	return fmt.Sprintf("Packed64SingleBlock(bitsPerValue=%v, size=%v, elements.length=%v)",
+		p.bitsPerValue, p.Size(), len(p.blocks))
 }
 
 func newPacked64SingleBlock(valueCount int32, bitsPerValue uint32) *Packed64SingleBlock {

@@ -3,6 +3,7 @@
 		package packed
 
 		import (
+			"github.com/balzaczyy/golucene/core/util"
 		)
 
 		// Direct wrapping of 8-bits values to a backing array.
@@ -34,4 +35,11 @@ func newDirect8FromInput(version int32, in DataInput, valueCount int) (r PackedI
 
 func (d *Direct8) Get(index int) int64 {
 	return int64(d.values[index]) & 0xFF
+}
+func (d *Direct8) RamBytesUsed() int64 {
+	return util.AlignObjectSize(
+		util.NUM_BYTES_OBJECT_HEADER +
+		2*util.NUM_BYTES_INT +
+		util.NUM_BYTES_OBJECT_REF +
+		util.SizeOf(d.values))
 }

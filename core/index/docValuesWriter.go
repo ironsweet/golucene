@@ -29,12 +29,12 @@ type NumericDocValuesWriter struct {
 func newNumericDocValuesWriter(fieldInfo *model.FieldInfo,
 	iwBytesUsed util.Counter, trackDocsWithField bool) *NumericDocValuesWriter {
 	ans := &NumericDocValuesWriter{
-		pending:            packed.NewAppendingDeltaPackedLongBufferWithOverhead(packed.PackedInts.COMPACT),
 		docsWithField:      util.NewOpenBitSet(),
 		fieldInfo:          fieldInfo,
 		iwBytesUsed:        iwBytesUsed,
 		trackDocsWithField: trackDocsWithField,
 	}
+	ans.pending = packed.NewAppendingDeltaPackedLongBufferWithOverhead(packed.PackedInts.COMPACT)
 	ans.bytesUsed = ans.pending.RamBytesUsed() + ans.docsWithFieldBytesUsed()
 	ans.iwBytesUsed.AddAndGet(ans.bytesUsed)
 	return ans

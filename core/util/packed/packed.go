@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	"github.com/balzaczyy/golucene/core/util"
 	"math"
 	"strconv"
 )
@@ -154,6 +155,8 @@ type PackedIntsReader interface {
 	// bits.
 	BitsPerValue() int
 	Size() int32
+	// Return the in-memory size in bytes.
+	RamBytesUsed() int64
 }
 
 // Run-once iterator interface, to decode previously saved PackedInts
@@ -255,6 +258,7 @@ func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCo
 		package packed
 
 		import (
+			"github.com/balzaczyy/golucene/core/util"
 		)
 
 		`
@@ -316,6 +320,14 @@ func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCo
 
 				w(f, "func (d *Direct%v) Get(index int) int64 {\n", bpv)
 				w(f, "	return int64(d.values[index])%s\n", MASKS[bpv])
+				w(f, "}\n")
+
+				w(f, "func (d *Direct%v) RamBytesUsed() int64 {\n", bpv)
+				w(f, "	return util.AlignObjectSize(\n")
+				w(f, "		util.NUM_BYTES_OBJECT_HEADER +\n")
+				w(f, "		2*util.NUM_BYTES_INT +\n")
+				w(f, "		util.NUM_BYTES_OBJECT_REF +\n")
+				w(f, "		util.SizeOf(d.values))\n")
 				w(f, "}\n")
 
 				fmt.Printf("		case %v:\n", bpv)
@@ -578,6 +590,19 @@ func (r *Packed8ThreeBlocks) Get(index int) int64 {
 	return int64(r.blocks[o])<<16 | int64(r.blocks[o+1])<<8 | int64(r.blocks[o+2])
 }
 
+func (r *Packed8ThreeBlocks) RamBytesUsed() int64 {
+	return util.AlignObjectSize(
+		util.NUM_BYTES_OBJECT_HEADER +
+			2*util.NUM_BYTES_INT +
+			util.NUM_BYTES_OBJECT_REF +
+			util.SizeOf(r.blocks))
+}
+
+func (r *Packed8ThreeBlocks) String() string {
+	return fmt.Sprintf("Packed8ThreeBlocks(bitsPerValue=%v, size=%v, elements.length=%v)",
+		r.bitsPerValue, r.Size(), len(r.blocks))
+}
+
 var PACKED16_THREE_BLOCKS_MAX_SIZE = int32(math.MaxInt32 / 3)
 
 type Packed16ThreeBlocks struct {
@@ -616,6 +641,19 @@ func newPacked16ThreeBlocksFromInput(version int32, in DataInput, valueCount int
 func (p *Packed16ThreeBlocks) Get(index int) int64 {
 	o := index * 3
 	return int64(p.blocks[o])<<32 | int64(p.blocks[o+1])<<16 | int64(p.blocks[o])
+}
+
+func (p *Packed16ThreeBlocks) RamBytesUsed() int64 {
+	return util.AlignObjectSize(
+		util.NUM_BYTES_OBJECT_HEADER +
+			2*util.NUM_BYTES_INT +
+			util.NUM_BYTES_OBJECT_REF +
+			util.SizeOf(p.blocks))
+}
+
+func (p *Packed16ThreeBlocks) String() string {
+	return fmt.Sprintf("Packed16ThreeBlocks(bitsPerValue=%v, size=%v, elements.length=%v)",
+		p.bitsPerValue, p.Size(), len(p.blocks))
 }
 
 const (
@@ -686,6 +724,20 @@ func (p *Packed64) Get(index int) int64 {
 	return ((p.blocks[elementPos] << uint64(endBits)) |
 		int64(uint64(p.blocks[elementPos+1])>>(PACKED64_BLOCK_SIZE-uint64(endBits)))) &
 		int64(p.maskRight)
+}
+
+func (p *Packed64) String() string {
+	return fmt.Sprintf("Packed64(bitsPerValue=%v, size=%v, elements.length=%v)",
+		p.bitsPerValue, p.Size(), len(p.blocks))
+}
+
+func (p *Packed64) RamBytesUsed() int64 {
+	return util.AlignObjectSize(
+		util.NUM_BYTES_OBJECT_HEADER +
+			3*util.NUM_BYTES_INT +
+			util.NUM_BYTES_LONG +
+			util.NUM_BYTES_OBJECT_REF +
+			util.SizeOf(p.blocks))
 }
 
 type GrowableWriter struct {

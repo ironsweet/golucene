@@ -3,6 +3,7 @@
 		package packed
 
 		import (
+			"github.com/balzaczyy/golucene/core/util"
 		)
 
 		// Direct wrapping of 32-bits values to a backing array.
@@ -39,4 +40,11 @@ func newDirect32FromInput(version int32, in DataInput, valueCount int) (r Packed
 
 func (d *Direct32) Get(index int) int64 {
 	return int64(d.values[index]) & 0xFFFFFFFF
+}
+func (d *Direct32) RamBytesUsed() int64 {
+	return util.AlignObjectSize(
+		util.NUM_BYTES_OBJECT_HEADER +
+		2*util.NUM_BYTES_INT +
+		util.NUM_BYTES_OBJECT_REF +
+		util.SizeOf(d.values))
 }
