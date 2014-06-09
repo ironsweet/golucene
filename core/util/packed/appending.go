@@ -17,7 +17,9 @@ type abstractAppendingLongBuffer struct {
 	pageShift, pageMask     int
 	values                  []PackedIntsReader
 	valuesBytes             int64
+	valuesOff               int
 	pending                 []int64
+	pendingOff              int
 	acceptableOverheadRatio float32
 }
 
@@ -33,9 +35,20 @@ func newAbstractAppendingLongBuffer(initialPageCount,
 	}
 }
 
+func (buf *abstractAppendingLongBuffer) pageSize() int {
+	return buf.pageMask + 1
+}
+
 /* Get the numbre of values that have been added to the buffer. */
 func (buf *abstractAppendingLongBuffer) Size() int64 {
-	panic("not implemented yet")
+	size := int64(buf.pendingOff)
+	if buf.valuesOff > 0 {
+		size += int64(buf.values[buf.valuesOff-1].Size())
+	}
+	if buf.valuesOff > 1 {
+		size += int64((buf.valuesOff - 1) * buf.pageSize())
+	}
+	return size
 }
 
 /* Append a value to this buffer. */
