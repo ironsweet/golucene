@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
@@ -22,10 +23,11 @@ the format name. For example, in a per-field configuration instead of
 _1.prx fielnames would look like _1_Lucene40_0.prx.
 */
 type PerFieldPostingsFormat struct {
+	postingsFormatForField func(string) PostingsFormat
 }
 
 func newPerFieldPostingsFormat(f func(field string) PostingsFormat) *PerFieldPostingsFormat {
-	return &PerFieldPostingsFormat{}
+	return &PerFieldPostingsFormat{f}
 }
 
 func (pf *PerFieldPostingsFormat) Name() string {
@@ -33,7 +35,7 @@ func (pf *PerFieldPostingsFormat) Name() string {
 }
 
 func (pf *PerFieldPostingsFormat) FieldsConsumer(state SegmentWriteState) (FieldsConsumer, error) {
-	return newPerFieldPostingsWriter(state), nil
+	return newPerFieldPostingsWriter(pf, state), nil
 }
 
 func (pf *PerFieldPostingsFormat) FieldsProducer(state SegmentReadState) (FieldsProducer, error) {
@@ -55,13 +57,16 @@ func (fcas *FieldsConsumerAndSuffix) Close() error {
 }
 
 type PerFieldPostingsWriter struct {
+	owner             *PerFieldPostingsFormat
 	formats           map[PostingsFormat]*FieldsConsumerAndSuffix
 	suffixes          map[string]int
 	segmentWriteState SegmentWriteState
 }
 
-func newPerFieldPostingsWriter(state SegmentWriteState) FieldsConsumer {
+func newPerFieldPostingsWriter(owner *PerFieldPostingsFormat,
+	state SegmentWriteState) FieldsConsumer {
 	return &PerFieldPostingsWriter{
+		owner,
 		make(map[PostingsFormat]*FieldsConsumerAndSuffix),
 		make(map[string]int),
 		state,
@@ -69,7 +74,31 @@ func newPerFieldPostingsWriter(state SegmentWriteState) FieldsConsumer {
 }
 
 func (w *PerFieldPostingsWriter) addField(field *model.FieldInfo) (TermsConsumer, error) {
-	panic("not implemented yet")
+	format := w.owner.postingsFormatForField(field.Name)
+	assert2(format != nil, "invalid nil PostingsFormat for field='%v'", field.Name)
+	formatName := format.Name()
+
+	previousValue := field.PutAttribute(PER_FIELD_FORMAT_KEY, formatName)
+	assert(previousValue == "")
+
+	var suffix int
+
+	consumer, ok := w.formats[format]
+	if !ok {
+		panic("not implemented yet")
+	} else {
+		panic("not implemented yet")
+	}
+
+	previousValue = field.PutAttribute(PER_FIELD_SUFFIX_KEY, fmt.Sprintf("%v", suffix))
+	assert(previousValue == "")
+
+	// TODO: we should only provide the "slice" of FIS that this PF
+	// actually sees ... then stuff like .hasProx could work correctly?
+	// NOTE: .hasProx is already broken in the same way for the
+	// non-perfield case, if there is a fieldInfo with prox that has no
+	// postings, you get a 0 byte file.
+	return consumer.consumer.addField(field)
 }
 
 func (w *PerFieldPostingsWriter) Close() error {

@@ -107,7 +107,21 @@ func (info *FieldInfo) HasPayloads() bool { return info.storePayloads }
 /* Returns true if any term vectors exist for this field. */
 func (info *FieldInfo) HasVectors() bool { return info.storeTermVector }
 
-func (fi FieldInfo) String() string {
+/*
+Puts a codec attribute value.
+
+This is a key-value mapping for the field that the codec can use to
+store additional metadata, and will be available to the codec when
+reading the segment via Attribute()
+
+If a value already exists ofr the field, it will be replaced with the
+new value.
+*/
+func (fi *FieldInfo) PutAttribute(key, value string) string {
+	panic("not implemented yet")
+}
+
+func (fi *FieldInfo) String() string {
 	return fmt.Sprintf("%v-%v, isIndexed=%v, docValueType=%v, hasVectors=%v, normType=%v, omitNorms=%v, indexOptions=%v, hasPayloads=%v, attributes=%v",
 		fi.Number, fi.Name, fi.indexed, fi.docValueType, fi.storeTermVector, fi.normType, fi.omitNorms, fi.indexOptions, fi.storePayloads, fi.attributes)
 }
