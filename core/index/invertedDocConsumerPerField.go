@@ -104,6 +104,15 @@ func (h *TermsHashPerField) abort() {
 	}
 }
 
+func (h *TermsHashPerField) initReader(reader *ByteSliceReader, termId, stream int) {
+	panic("not implemented yet")
+}
+
+/* Collapse the hash table & sort in-place. */
+func (h *TermsHashPerField) sortPostings(termComp func(a, b []byte) bool) []int {
+	return h.bytesHash.Sort(termComp)
+}
+
 func (h *TermsHashPerField) startField(f model.IndexableField) {
 	h.termAtt = h.fieldState.attributeSource.Get("TermToBytesRefAttribute").(ta.TermToBytesRefAttribute)
 	h.termBytesRef = h.termAtt.BytesRef()

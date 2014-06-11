@@ -213,6 +213,8 @@ for the field.
 */
 type FieldsConsumer interface {
 	io.Closer
+	// Add a new field
+	addField(field *model.FieldInfo) (TermsConsumer, error)
 }
 
 // codecs/DocValuesFormat.java

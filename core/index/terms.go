@@ -27,6 +27,15 @@ func NewTerm(fld string, text string) Term {
 	return Term{fld, []byte(text)}
 }
 
+/*
+Constructs a Term with the given field and empty text. This serves
+two purposes: 1) reuse of a Term with the same field. 2) pattern for
+a query.
+*/
+func NewEmptyTerm(fld string) *Term {
+	return &Term{fld, nil}
+}
+
 type TermSorter []*Term
 
 func (s TermSorter) Len() int      { return len(s) }

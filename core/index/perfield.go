@@ -68,6 +68,10 @@ func newPerFieldPostingsWriter(state SegmentWriteState) FieldsConsumer {
 	}
 }
 
+func (w *PerFieldPostingsWriter) addField(field *model.FieldInfo) (TermsConsumer, error) {
+	panic("not implemented yet")
+}
+
 func (w *PerFieldPostingsWriter) Close() error {
 	var subs []io.Closer
 	for _, v := range w.formats {

@@ -106,6 +106,11 @@ func (pool *ByteBlockPool) NewSlice(size int) int {
 	return upto
 }
 
+/* Fill in a BytesRef from term's length & bytes encoded in byte block */
+func (p *ByteBlockPool) SetBytesRef(term *BytesRef, textStart int) {
+	panic("not implemented yet")
+}
+
 /* Abstract class for allocating and freeing byte blocks. */
 type ByteAllocator interface {
 	recycle(blocks [][]byte)

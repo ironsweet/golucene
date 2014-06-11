@@ -55,6 +55,16 @@ func (h *BytesRefHash) Size() int {
 	return h.count
 }
 
+/*
+Returns the values array sorted by the referenced byte values.
+
+Note: this is a destructive operation. clear() must be called in
+order to reuse this BytesRefHash instance.
+*/
+func (h *BytesRefHash) Sort(comp func(a, b []byte) bool) []int {
+	panic("not implemented yet")
+}
+
 func (h *BytesRefHash) equals(id int, b []byte) bool {
 	panic("not implemented yet")
 }
