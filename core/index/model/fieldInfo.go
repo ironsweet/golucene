@@ -118,7 +118,12 @@ If a value already exists ofr the field, it will be replaced with the
 new value.
 */
 func (fi *FieldInfo) PutAttribute(key, value string) string {
-	panic("not implemented yet")
+	if fi.attributes == nil {
+		fi.attributes = make(map[string]string)
+	}
+	var v string
+	v, fi.attributes[key] = fi.attributes[key], value
+	return v
 }
 
 func (fi *FieldInfo) String() string {
