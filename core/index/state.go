@@ -49,3 +49,21 @@ func newSegmentWriteState(infoStream util.InfoStream,
 		infoStream, dir, segmentInfo, fieldInfos, 0, segDeletes, nil, "",
 		termIndexInterval, ctx}
 }
+
+/* Create a shallow copy of SegmentWriteState with a new segment suffix. */
+func newSegmentWriteStateFrom(state SegmentWriteState,
+	segmentSuffix string) SegmentWriteState {
+
+	return SegmentWriteState{
+		state.infoStream,
+		state.directory,
+		state.segmentInfo,
+		state.fieldInfos,
+		state.delCountOnFlush,
+		state.segDeletes,
+		nil,
+		segmentSuffix,
+		state.termIndexInternal,
+		state.context,
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
 	"log"
+	"strconv"
 )
 
 // perfield/PerFieldPostingsFormat.java
@@ -85,7 +86,28 @@ func (w *PerFieldPostingsWriter) addField(field *model.FieldInfo) (TermsConsumer
 
 	consumer, ok := w.formats[format]
 	if !ok {
-		panic("not implemented yet")
+		// First time we are seeing this format; create a new instance
+
+		// bump the suffix
+		if suffix, ok = w.suffixes[formatName]; !ok {
+			suffix = 0
+		} else {
+			suffix = suffix + 1
+		}
+		w.suffixes[formatName] = suffix
+
+		segmentSuffix := fullSegmentSuffix(field.Name,
+			w.segmentWriteState.segmentSuffix,
+			_suffix(formatName, strconv.Itoa(suffix)))
+
+		consumer = new(FieldsConsumerAndSuffix)
+		var err error
+		consumer.consumer, err = format.FieldsConsumer(newSegmentWriteStateFrom(w.segmentWriteState, segmentSuffix))
+		if err != nil {
+			return nil, err
+		}
+		consumer.suffix = suffix
+		w.formats[format] = consumer
 	} else {
 		panic("not implemented yet")
 	}
@@ -107,6 +129,22 @@ func (w *PerFieldPostingsWriter) Close() error {
 		subs = append(subs, v)
 	}
 	return util.Close(subs...)
+}
+
+func _suffix(formatName, suffix string) string {
+	return formatName + "_" + suffix
+}
+
+func fullSegmentSuffix(fieldName, outerSegmentSuffix, segmentSuffix string) string {
+	if len(outerSegmentSuffix) == 0 {
+		return segmentSuffix
+	}
+	// TODO: support embedding; I think it should work but
+	// we need a test confirm to confirm
+	// return outerSegmentSuffix + "_" + segmentSuffix;
+	panic(fmt.Sprintf(
+		"cannot embed PerFieldPostingsFormat inside itself (field '%v' returned PerFieldPostingsFormat)",
+		fieldName))
 }
 
 type PerFieldPostingsReader struct {
