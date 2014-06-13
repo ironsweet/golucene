@@ -18,10 +18,26 @@ import (
 // codecs/lucene41/Lucene41PostingsFormat.java
 
 type Lucene41PostingsFormat struct {
+	minTermBlockSize int
+	maxTermBlockSize int
 }
 
+/* Creates Lucene41PostingsFormat wit hdefault settings. */
 func newLucene41PostingsFormat() *Lucene41PostingsFormat {
-	panic("not implemented yet")
+	return newLucene41PostingsFormatWith(codec.DEFAULT_MIN_BLOCK_SIZE, codec.DEFAULT_MAX_BLOCK_SIZE)
+}
+
+/*
+Creates Lucene41PostingsFormat with custom values for minBlockSize
+and maxBlockSize passed to block terms directory.
+*/
+func newLucene41PostingsFormatWith(minTermBlockSize, maxTermBlockSize int) *Lucene41PostingsFormat {
+	assert(minTermBlockSize > 1)
+	assert(minTermBlockSize <= maxTermBlockSize)
+	return &Lucene41PostingsFormat{
+		minTermBlockSize: minTermBlockSize,
+		maxTermBlockSize: maxTermBlockSize,
+	}
 }
 
 func (f *Lucene41PostingsFormat) Name() string {
