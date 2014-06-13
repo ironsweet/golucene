@@ -17,21 +17,32 @@ postings and docvalues formats.
 If you want to reuse functionality of this codec in another codec,
 extend FilterCodec.
 */
-var Lucene45Codec = &CodecImpl{
-	name:             "Lucene45",
-	fieldsFormat:     newLucene41StoredFieldsFormat(),
-	vectorsFormat:    newLucene42TermVectorsFormat(),
-	fieldInfosFormat: newLucene42FieldInfosFormat(),
-	infosFormat:      newLucene40SegmentInfoFormat(),
-	liveDocsFormat:   new(Lucene40LiveDocsFormat),
-	postingsFormat: newPerFieldPostingsFormat(func(field string) PostingsFormat {
-		panic("not implemented yet")
-	}),
-	docValuesFormat: newPerFieldDocValuesFormat(func(field string) DocValuesFormat {
-		panic("not implemented yet")
-	}),
-	normsFormat: newLucene42NormsFormat(),
+type Lucene45Codec struct {
+	*CodecImpl
+	PostingsFormatForField func(string) PostingsFormat
 }
+
+var Lucene45CodecImpl = func() *Lucene45Codec {
+	f := func(string) PostingsFormat {
+		return newLucene41PostingsFormat()
+	}
+	codec := &CodecImpl{
+		name:             "Lucene45",
+		fieldsFormat:     newLucene41StoredFieldsFormat(),
+		vectorsFormat:    newLucene42TermVectorsFormat(),
+		fieldInfosFormat: newLucene42FieldInfosFormat(),
+		infosFormat:      newLucene40SegmentInfoFormat(),
+		liveDocsFormat:   new(Lucene40LiveDocsFormat),
+		postingsFormat: newPerFieldPostingsFormat(func(field string) PostingsFormat {
+			return f(field)
+		}),
+		docValuesFormat: newPerFieldDocValuesFormat(func(field string) DocValuesFormat {
+			panic("not implemented yet")
+		}),
+		normsFormat: newLucene42NormsFormat(),
+	}
+	return &Lucene45Codec{codec, f}
+}()
 
 // codec/lucene45/Lucene45DocValuesFormat.java
 

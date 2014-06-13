@@ -100,7 +100,7 @@ func (codec *CodecImpl) String() string {
 
 var allCodecs = map[string]Codec{
 	"Lucene42": Lucene42Codec,
-	"Lucene45": Lucene45Codec,
+	"Lucene45": Lucene45CodecImpl,
 }
 
 // workaround Lucene Java's SPI mechanism

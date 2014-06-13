@@ -20,6 +20,10 @@ import (
 type Lucene41PostingsFormat struct {
 }
 
+func newLucene41PostingsFormat() *Lucene41PostingsFormat {
+	panic("not implemented yet")
+}
+
 func (f *Lucene41PostingsFormat) Name() string {
 	return "Lucene41"
 }
