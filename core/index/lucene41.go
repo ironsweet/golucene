@@ -24,7 +24,7 @@ type Lucene41PostingsFormat struct {
 
 /* Creates Lucene41PostingsFormat wit hdefault settings. */
 func newLucene41PostingsFormat() *Lucene41PostingsFormat {
-	return newLucene41PostingsFormatWith(codec.DEFAULT_MIN_BLOCK_SIZE, codec.DEFAULT_MAX_BLOCK_SIZE)
+	return newLucene41PostingsFormatWith(DEFAULT_MIN_BLOCK_SIZE, DEFAULT_MAX_BLOCK_SIZE)
 }
 
 /*
@@ -49,7 +49,22 @@ func (f *Lucene41PostingsFormat) String() {
 }
 
 func (f *Lucene41PostingsFormat) FieldsConsumer(state SegmentWriteState) (FieldsConsumer, error) {
-	panic("not implemented yet")
+	postingsWriter, err := newLucene41PostingsWriterCompact(state)
+	if err != nil {
+		return nil, err
+	}
+	var success = false
+	defer func() {
+		if !success {
+			util.CloseWhileSuppressingError(postingsWriter)
+		}
+	}()
+	ret, err := NewBlockTreeTermsWriter(state, postingsWriter, f.minTermBlockSize, f.maxTermBlockSize)
+	if err != nil {
+		return nil, err
+	}
+	success = true
+	return ret, nil
 }
 
 func (f *Lucene41PostingsFormat) FieldsProducer(state SegmentReadState) (FieldsProducer, error) {
@@ -85,6 +100,33 @@ func (f *Lucene41PostingsFormat) FieldsProducer(state SegmentReadState) (FieldsP
 	}
 	success = true
 	return fp, nil
+}
+
+// Lucene41PostingsWriter.java
+
+/*
+Concrete class that writes docId (maybe frq,pos,offset,payloads) list
+with postings format.
+
+Postings list for each term will be stored separately.
+*/
+type Lucene41PostingsWriter struct {
+}
+
+func newLucene41PostingsWriterCompact(state SegmentWriteState) (*Lucene41PostingsWriter, error) {
+	panic("not implemented yet")
+}
+
+func (w *Lucene41PostingsWriter) StartDoc(docId, termDocFreq int) error {
+	panic("not implemented yet")
+}
+
+func (w *Lucene41PostingsWriter) FinishDoc() error {
+	panic("not implemented yet")
+}
+
+func (w *Lucene41PostingsWriter) Close() error {
+	panic("not implemented yet")
 }
 
 // Lucene41PostingsReader.java

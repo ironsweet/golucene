@@ -1,12 +1,20 @@
 package codec
 
-// codec/BlockTreeTermsWriter.java
+import (
+	"io"
+)
 
-/* Suggested degault value for the minItemsInBlock parameter. */
-const DEFAULT_MIN_BLOCK_SIZE = 25
+// codec/PostingsWriterBase.java
 
-/* Suggested default value for the maxItemsInBlock parameter. */
-const DEFAULT_MAX_BLOCK_SIZE = 48
+/*
+Extension of PostingsConsumer to support pluggable term dictionaries.
 
-type BlockTreeTermsWriter struct {
+This class contains additional hooks to interact with the provided
+term dictionaries such as BlockTreeTermsWriter. If you want to re-use
+an existing implementation and are only interested in customizing the
+format of the postings list, extend this class instead.
+*/
+type PostingsWriterBase interface {
+	PostingsConsumer
+	io.Closer
 }
