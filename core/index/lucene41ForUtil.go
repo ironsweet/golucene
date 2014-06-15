@@ -60,11 +60,20 @@ type ForUtil struct {
 	iterations   []int32
 }
 
+type DataOutput interface {
+}
+
+/* Create a new ForUtil instance and save state into out. */
+func NewForUtilInto(accetableOverheadRatio float32, out DataOutput) (ForUtil, error) {
+	panic("not implemented yet")
+}
+
 type DataInput interface {
 	ReadVInt() (n int32, err error)
 }
 
-func NewForUtil(in DataInput) (fu ForUtil, err error) {
+/* Restore a ForUtil from a DataInput. */
+func NewForUtilFrom(in DataInput) (fu ForUtil, err error) {
 	self := ForUtil{}
 	packedIntsVersion, err := in.ReadVInt()
 	if err != nil {

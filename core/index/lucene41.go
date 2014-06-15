@@ -6,6 +6,7 @@ import (
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/codec/compressing"
 	"github.com/balzaczyy/golucene/core/codec/lucene40"
+	"github.com/balzaczyy/golucene/core/codec/lucene41"
 	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
@@ -111,10 +112,89 @@ with postings format.
 Postings list for each term will be stored separately.
 */
 type Lucene41PostingsWriter struct {
+	// Expert: The maximum number of skip levels. Smaller values result
+	// in slightly smaller indexes, but slower skipping in big posting
+	// lists.
+	maxSkipLevels int
+
+	docOut store.IndexOutput
+	posOut store.IndexOutput
+	payOut store.IndexOutput
+
+	docDeltaBuffer []int
+	freqBuffer     []int
+
+	encoded []byte
+
+	forUtil    ForUtil
+	skipWriter *lucene41.SkipWriter
 }
 
+/* Creates a postings writer with the specified PackedInts overhead ratio */
+func newLucene41PostingsWriter(state SegmentWriteState,
+	accetableOverheadRatio float32) (*Lucene41PostingsWriter, error) {
+	docOut, err := state.directory.CreateOutput(
+		util.SegmentFileName(state.segmentInfo.Name,
+			state.segmentSuffix,
+			LUCENE41_DOC_EXTENSION),
+		state.context)
+	if err != nil {
+		return nil, err
+	}
+
+	ans := &Lucene41PostingsWriter{
+		maxSkipLevels: 10,
+	}
+	if err = func() error {
+		var posOut store.IndexOutput
+		var payOut store.IndexOutput
+		var success = false
+		defer func() {
+			if !success {
+				util.CloseWhileSuppressingError(docOut, posOut, payOut)
+			}
+		}()
+
+		err := codec.WriteHeader(docOut, LUCENE41_DOC_CODEC, LUCENE41_VERSION_CURRENT)
+		if err != nil {
+			return err
+		}
+		ans.forUtil, err = NewForUtilInto(accetableOverheadRatio, docOut)
+		if err != nil {
+			return err
+		}
+		if state.fieldInfos.HasProx {
+			panic("not implemented yet")
+		} else {
+			panic("not implemented yet")
+		}
+		ans.payOut, ans.posOut = payOut, posOut
+		ans.docOut = docOut
+		success = true
+		return nil
+	}(); err != nil {
+		return nil, err
+	}
+
+	ans.docDeltaBuffer = make([]int, MAX_DATA_SIZE)
+	ans.freqBuffer = make([]int, MAX_DATA_SIZE)
+	ans.encoded = make([]byte, MAX_ENCODED_SIZE)
+
+	// TODO: should we try skipping every 2/4 blocks...?
+	ans.skipWriter = lucene41.NewSkipWriter(
+		ans.maxSkipLevels,
+		LUCENE41_BLOCK_SIZE,
+		state.segmentInfo.DocCount(),
+		ans.docOut,
+		ans.posOut,
+		ans.payOut)
+
+	return ans, nil
+}
+
+/* Creates a postings writer with PackedInts.COMPACT */
 func newLucene41PostingsWriterCompact(state SegmentWriteState) (*Lucene41PostingsWriter, error) {
-	panic("not implemented yet")
+	return newLucene41PostingsWriter(state, packed.PackedInts.COMPACT)
 }
 
 func (w *Lucene41PostingsWriter) StartDoc(docId, termDocFreq int) error {
@@ -183,7 +263,7 @@ func NewLucene41PostingsReader(dir store.Directory,
 	if err != nil {
 		return r, err
 	}
-	forUtil, err := NewForUtil(docIn)
+	forUtil, err := NewForUtilFrom(docIn)
 	if err != nil {
 		return r, err
 	}
