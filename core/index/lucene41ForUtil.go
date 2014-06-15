@@ -61,11 +61,39 @@ type ForUtil struct {
 }
 
 type DataOutput interface {
+	WriteVInt(int32) error
 }
 
 /* Create a new ForUtil instance and save state into out. */
 func NewForUtilInto(accetableOverheadRatio float32, out DataOutput) (ForUtil, error) {
-	panic("not implemented yet")
+	ans, err := ForUtil{}, out.WriteVInt(packed.VERSION_CURRENT)
+	if err != nil {
+		return ans, err
+	}
+	ans.encodedSizes = make([]int32, 33)
+	ans.encoders = make([]packed.PackedIntsEncoder, 33)
+	ans.decoders = make([]packed.PackedIntsDecoder, 33)
+	ans.iterations = make([]int32, 33)
+
+	packedIntsVersion := int32(packed.VERSION_CURRENT)
+	for bpv := 1; bpv <= 32; bpv++ {
+		formatAndBits := packed.FastestFormatAndBits(
+			LUCENE41_BLOCK_SIZE, bpv, accetableOverheadRatio)
+		format := formatAndBits.Format
+		bitsPerValue := uint32(formatAndBits.BitsPerValue)
+		assert(format.IsSupported(bitsPerValue))
+		assert(bitsPerValue <= 32)
+		ans.encodedSizes[bpv] = encodedSize(format, packedIntsVersion, bitsPerValue)
+		ans.encoders[bpv] = packed.GetPackedIntsEncoder(format, packedIntsVersion, bitsPerValue)
+		ans.decoders[bpv] = packed.GetPackedIntsDecoder(format, packedIntsVersion, bitsPerValue)
+		ans.iterations[bpv] = computeIterations(ans.decoders[bpv])
+
+		err = out.WriteVInt(int32(format.Id()<<5 | (int(bitsPerValue) - 1)))
+		if err != nil {
+			return ans, err
+		}
+	}
+	return ans, err
 }
 
 type DataInput interface {

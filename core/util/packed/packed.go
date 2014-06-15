@@ -66,6 +66,10 @@ const (
 	PACKED_SINGLE_BLOCK = 1
 )
 
+func (f PackedFormat) Id() int {
+	return int(f)
+}
+
 /**
  * Computes how many byte blocks are needed to store <code>values</code>
  * values of size <code>bitsPerValue</code>.
@@ -112,6 +116,33 @@ func (f PackedFormat) IsSupported(bitsPerValue uint32) bool {
 		return is64Supported(bitsPerValue)
 	}
 	return bitsPerValue >= 1 && bitsPerValue <= 64
+}
+
+/* Simple class that holds a format and a number of bits per value. */
+type FormatAndBits struct {
+	Format       PackedFormat
+	BitsPerValue int
+}
+
+func (v FormatAndBits) String() string {
+	return fmt.Sprintf("FormatAndBits(format=%v bitsPerValue=%v)", v.Format, v.BitsPerValue)
+}
+
+/*
+Try to find the Format and number of bits per value that would
+restore from disk the fastest reader whose overhead is less than
+acceptableOverheadRatio.
+
+The acceptableOverheadRatio parameter makes sense for random-access
+Readers. In case you only plan to perform sequential access on this
+stream later on, you should probably use COMPACT.
+
+If you don't know how many values you are going to write, use
+valueCount = -1.
+*/
+func FastestFormatAndBits(valueCount, bitsPerValue int,
+	acceptableOverheadRatio float32) FormatAndBits {
+	panic("not implemented yet")
 }
 
 type PackedIntsEncoder interface {
