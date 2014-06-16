@@ -124,6 +124,13 @@ type Lucene41PostingsWriter struct {
 	docDeltaBuffer []int
 	freqBuffer     []int
 
+	posDeltaBuffer         []int
+	payloadLengthBuffer    []int
+	offsetStartDeltaBuffer []int
+	offsetLengthBuffer     []int
+
+	payloadBytes []byte
+
 	encoded []byte
 
 	forUtil    ForUtil
@@ -164,9 +171,38 @@ func newLucene41PostingsWriter(state SegmentWriteState,
 			return err
 		}
 		if state.fieldInfos.HasProx {
-			panic("not implemented yet")
-		} else {
-			panic("not implemented yet")
+			ans.posDeltaBuffer = make([]int, MAX_DATA_SIZE)
+			posOut, err = state.directory.CreateOutput(util.SegmentFileName(
+				state.segmentInfo.Name, state.segmentSuffix, LUCENE41_POS_EXTENSION),
+				state.context)
+			if err != nil {
+				return err
+			}
+
+			err = codec.WriteHeader(posOut, LUCENE41_POS_CODEC, LUCENE41_VERSION_CURRENT)
+			if err != nil {
+				return err
+			}
+
+			if state.fieldInfos.HasPayloads {
+				ans.payloadBytes = make([]byte, 128)
+				ans.payloadLengthBuffer = make([]int, MAX_DATA_SIZE)
+			}
+
+			if state.fieldInfos.HasOffsets {
+				ans.offsetStartDeltaBuffer = make([]int, MAX_DATA_SIZE)
+				ans.offsetLengthBuffer = make([]int, MAX_DATA_SIZE)
+			}
+
+			if state.fieldInfos.HasPayloads || state.fieldInfos.HasOffsets {
+				payOut, err = state.directory.CreateOutput(util.SegmentFileName(
+					state.segmentInfo.Name, state.segmentSuffix, LUCENE41_PAY_EXTENSION),
+					state.context)
+				if err != nil {
+					return err
+				}
+				err = codec.WriteHeader(payOut, LUCENE41_PAY_CODEC, LUCENE41_VERSION_CURRENT)
+			}
 		}
 		ans.payOut, ans.posOut = payOut, posOut
 		ans.docOut = docOut
