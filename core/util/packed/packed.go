@@ -118,6 +118,18 @@ func (f PackedFormat) IsSupported(bitsPerValue uint32) bool {
 	return bitsPerValue >= 1 && bitsPerValue <= 64
 }
 
+/* Returns the overhead per value, in bits. */
+func (f PackedFormat) OverheadPerValue(bitsPerValue int) float32 {
+	switch int(f) {
+	case PACKED_SINGLE_BLOCK:
+		assert(f.IsSupported(uint32(bitsPerValue)))
+		valuesPerBlock := 64 / bitsPerValue
+		overhead := 64 % bitsPerValue
+		return float32(overhead) / float32(valuesPerBlock)
+	}
+	return 0
+}
+
 /* Simple class that holds a format and a number of bits per value. */
 type FormatAndBits struct {
 	Format       PackedFormat
@@ -142,7 +154,52 @@ valueCount = -1.
 */
 func FastestFormatAndBits(valueCount, bitsPerValue int,
 	acceptableOverheadRatio float32) FormatAndBits {
-	panic("not implemented yet")
+	if valueCount == -1 {
+		valueCount = int(math.MaxInt32)
+	}
+
+	if acceptableOverheadRatio < PackedInts.COMPACT {
+		acceptableOverheadRatio = PackedInts.COMPACT
+	}
+	if acceptableOverheadRatio < PackedInts.FASTEST {
+		acceptableOverheadRatio = PackedInts.FASTEST
+	}
+
+	maxBitsPerValue := bitsPerValue + int(acceptableOverheadRatio)
+
+	actualBitsPerValue := -1
+	format := PACKED
+
+	if bitsPerValue <= 8 && maxBitsPerValue >= 8 {
+		actualBitsPerValue = 8
+	} else if bitsPerValue <= 16 && maxBitsPerValue >= 16 {
+		actualBitsPerValue = 16
+	} else if bitsPerValue <= 32 && maxBitsPerValue >= 32 {
+		actualBitsPerValue = 32
+	} else if bitsPerValue <= 64 && maxBitsPerValue >= 64 {
+		actualBitsPerValue = 64
+	} else if valueCount <= int(PACKED8_THREE_BLOCKS_MAX_SIZE) && bitsPerValue <= 24 && maxBitsPerValue >= 24 {
+		actualBitsPerValue = 24
+	} else if valueCount <= int(PACKED16_THREE_BLOCKS_MAX_SIZE) && bitsPerValue <= 48 && maxBitsPerValue >= 48 {
+		actualBitsPerValue = 48
+	} else {
+		for bpv := bitsPerValue; bpv <= maxBitsPerValue; bpv++ {
+			if PackedFormat(PACKED_SINGLE_BLOCK).IsSupported(uint32(bpv)) {
+				overhead := PackedFormat(PACKED_SINGLE_BLOCK).OverheadPerValue(bpv)
+				acceptableOverhead := acceptableOverheadRatio + float32(bitsPerValue-bpv)
+				if overhead <= acceptableOverhead {
+					actualBitsPerValue = bpv
+					format = PACKED_SINGLE_BLOCK
+					break
+				}
+			}
+		}
+		if actualBitsPerValue < 0 {
+			actualBitsPerValue = bitsPerValue
+		}
+	}
+
+	return FormatAndBits{PackedFormat(format), actualBitsPerValue}
 }
 
 type PackedIntsEncoder interface {
