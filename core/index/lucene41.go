@@ -121,6 +121,8 @@ type Lucene41PostingsWriter struct {
 	posOut store.IndexOutput
 	payOut store.IndexOutput
 
+	termsOut store.IndexOutput
+
 	docDeltaBuffer []int
 	freqBuffer     []int
 
@@ -231,6 +233,15 @@ func newLucene41PostingsWriter(state SegmentWriteState,
 /* Creates a postings writer with PackedInts.COMPACT */
 func newLucene41PostingsWriterCompact(state SegmentWriteState) (*Lucene41PostingsWriter, error) {
 	return newLucene41PostingsWriter(state, packed.PackedInts.COMPACT)
+}
+
+func (w *Lucene41PostingsWriter) Start(termsOut store.IndexOutput) error {
+	w.termsOut = termsOut
+	err := codec.WriteHeader(termsOut, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_CURRENT)
+	if err == nil {
+		err = termsOut.WriteVInt(LUCENE41_BLOCK_SIZE)
+	}
+	return err
 }
 
 func (w *Lucene41PostingsWriter) StartDoc(docId, termDocFreq int) error {
