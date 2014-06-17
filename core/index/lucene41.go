@@ -244,6 +244,10 @@ func (w *Lucene41PostingsWriter) Start(termsOut store.IndexOutput) error {
 	return err
 }
 
+func (w *Lucene41PostingsWriter) SetField(fieldInfo *model.FieldInfo) {
+	panic("not implemented yet")
+}
+
 func (w *Lucene41PostingsWriter) StartDoc(docId, termDocFreq int) error {
 	panic("not implemented yet")
 }

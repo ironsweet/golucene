@@ -5,7 +5,10 @@ import (
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"github.com/balzaczyy/golucene/core/util/fst"
+	"github.com/balzaczyy/golucene/core/util/packed"
 	"io"
+	"math"
 )
 
 // codec/PostingsWriterBase.java
@@ -25,6 +28,8 @@ type PostingsWriterBase interface {
 	// Called once after startup, before any terms have been added.
 	// Implementations typically write a header to the provided termsOut.
 	Start(store.IndexOutput) error
+	// Called when the writing switches to another field.
+	SetField(fieldInfo *model.FieldInfo)
 }
 
 // codec/BlockTreeTermsWriter.java
@@ -69,6 +74,7 @@ type BlockTreeTermsWriter struct {
 
 	postingsWriter PostingsWriterBase
 	fieldInfos     model.FieldInfos
+	currentField   *model.FieldInfo
 }
 
 /*
@@ -144,9 +150,57 @@ func (w *BlockTreeTermsWriter) WriteIndexHeader(out store.IndexOutput) error {
 }
 
 func (w *BlockTreeTermsWriter) addField(field *model.FieldInfo) (TermsConsumer, error) {
-	panic("not implemented yet")
+	assert(w.currentField == nil || w.currentField.Name < field.Name)
+	w.currentField = field
+	return newTermsWriter(w, field), nil
 }
 
 func (w *BlockTreeTermsWriter) Close() error {
+	panic("not implemented yet")
+}
+
+type TermsWriter struct {
+	owner     *BlockTreeTermsWriter
+	fieldInfo *model.FieldInfo
+
+	// Used only to partition terms into the block tree; we don't pull
+	// an FST from this builder:
+	noOutputs    *fst.NoOutputs
+	blockBuilder *fst.Builder
+}
+
+func newTermsWriter(owner *BlockTreeTermsWriter,
+	fieldInfo *model.FieldInfo) *TermsWriter {
+	owner.postingsWriter.SetField(fieldInfo)
+	return &TermsWriter{
+		fieldInfo: fieldInfo,
+		noOutputs: fst.NO_OUTPUT,
+		// This builder is just used transiently to fragment terms into
+		// "good" blocks; we don't save the resulting FST:
+		blockBuilder: fst.NewBuilder(
+			fst.INPUT_TYPE_BYTE1, 0, 0, true, true,
+			int(math.MaxInt32), fst.NO_OUTPUT,
+			//Assign terms to blocks "naturally", ie, according to the number of
+			//terms under a given prefix that we encounter:
+			func(frontier []*fst.UnCompiledNode, prefixLenPlus1 int, lastInput []int) error {
+				panic("not implemented yet")
+			}, false, packed.PackedInts.COMPACT,
+			true, 15),
+	}
+}
+
+func (w *TermsWriter) comparator() func(a, b []byte) bool {
+	panic("not implemented yet")
+}
+
+func (w *TermsWriter) startTerm(text []byte) (codec.PostingsConsumer, error) {
+	panic("not implemented yet")
+}
+
+func (w *TermsWriter) finishTerm(text []byte, stats *codec.TermStats) error {
+	panic("not implemented yet")
+}
+
+func (w *TermsWriter) finish(sumTotalTermFreq, sumDocFreq int64, docCount int) error {
 	panic("not implemented yet")
 }
