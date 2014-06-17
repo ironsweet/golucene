@@ -123,6 +123,11 @@ type Lucene41PostingsWriter struct {
 
 	termsOut store.IndexOutput
 
+	fieldHasFreqs     bool
+	fieldHasPositions bool
+	fieldHasOffsets   bool
+	fieldHasPayloads  bool
+
 	docDeltaBuffer []int
 	freqBuffer     []int
 
@@ -245,7 +250,12 @@ func (w *Lucene41PostingsWriter) Start(termsOut store.IndexOutput) error {
 }
 
 func (w *Lucene41PostingsWriter) SetField(fieldInfo *model.FieldInfo) {
-	panic("not implemented yet")
+	n := int(fieldInfo.IndexOptions())
+	w.fieldHasFreqs = n >= int(model.INDEX_OPT_DOCS_AND_FREQS)
+	w.fieldHasPositions = n >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS)
+	w.fieldHasOffsets = n >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS)
+	w.fieldHasPayloads = fieldInfo.HasPayloads()
+	w.skipWriter.SetField(w.fieldHasPositions, w.fieldHasOffsets, w.fieldHasPayloads)
 }
 
 func (w *Lucene41PostingsWriter) StartDoc(docId, termDocFreq int) error {

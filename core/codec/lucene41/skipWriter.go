@@ -17,6 +17,10 @@ type SkipWriter struct {
 	docOut store.IndexOutput
 	posOut store.IndexOutput
 	payOut store.IndexOutput
+
+	fieldHasPositions bool
+	fieldHasOffsets   bool
+	fieldHasPayloads  bool
 }
 
 func NewSkipWriter(maxSkipLevels, blockSize, docCount int,
@@ -37,4 +41,10 @@ func NewSkipWriter(maxSkipLevels, blockSize, docCount int,
 		ans.lastPayloadByteUpto = make([]int, maxSkipLevels)
 	}
 	return ans
+}
+
+func (w *SkipWriter) SetField(fieldHasPositions, fieldHasOffsets, fieldHasPayloads bool) {
+	w.fieldHasPositions = fieldHasPositions
+	w.fieldHasOffsets = fieldHasOffsets
+	w.fieldHasPayloads = fieldHasPayloads
 }
