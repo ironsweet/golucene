@@ -18,6 +18,29 @@ containing more than 2.1B nodes are also now possible, however they
 cannot be packed.
 */
 type Builder struct {
+	dedupHash *NodeHash
+	fst       *FST
+	NO_OUTPUT interface{}
+
+	// simplistic pruning: we prune node (and all following nodes) if
+	// less than this number of terms go through it:
+	minSuffixCount1 int
+
+	// better pruning: we prune node (and all following nodes) if the
+	// prior node has less than this number of terms go through it:
+	minSuffixCount2 int
+
+	doShareNonSingletonNodes bool
+	shareMaxTailLength       int
+
+	// for packing
+	doPackFST               bool
+	acceptableOverheadRatio float32
+
+	// current frontier
+	frontier []*UnCompiledNode
+
+	freezeTail FreezeTail
 }
 
 /*
@@ -30,9 +53,45 @@ func NewBuilder(inputType InputType, minSuffixCount1, minSuffixCount2 int,
 	doShareSuffix, doShareNonSingletonNodes bool, shareMaxTailLength int,
 	outputs Outputs, freezeTail FreezeTail, doPackFST bool,
 	acceptableOverheadRatio float32, allowArrayArcs bool, bytesPageBits int) *Builder {
-	panic("not implemented yet")
+
+	fst := newFST(inputType, outputs, doPackFST, acceptableOverheadRatio, allowArrayArcs, bytesPageBits)
+	f := make([]*UnCompiledNode, 10)
+	ans := &Builder{
+		minSuffixCount1:          minSuffixCount1,
+		minSuffixCount2:          minSuffixCount2,
+		freezeTail:               freezeTail,
+		doShareNonSingletonNodes: doShareNonSingletonNodes,
+		shareMaxTailLength:       shareMaxTailLength,
+		doPackFST:                doPackFST,
+		acceptableOverheadRatio:  acceptableOverheadRatio,
+		fst:       fst,
+		NO_OUTPUT: outputs.NoOutput(),
+		frontier:  f,
+	}
+	if doShareSuffix {
+		ans.dedupHash = newNodeHash(fst, fst.bytes.reverseReaderAllowSingle(false))
+	}
+	for i, _ := range f {
+		f[i] = newUnCompiledNode(ans, i)
+	}
+	return ans
 }
 
 /* Expert: holds a pending (seen but not yet serialized) Node. */
 type UnCompiledNode struct {
+	owner  *Builder
+	arcs   []*Arc
+	output interface{}
+
+	// This node's depth, starting from the automaton root.
+	depth int
+}
+
+func newUnCompiledNode(owner *Builder, depth int) *UnCompiledNode {
+	return &UnCompiledNode{
+		owner:  owner,
+		arcs:   []*Arc{new(Arc)},
+		output: owner.NO_OUTPUT,
+		depth:  depth,
+	}
 }

@@ -478,6 +478,22 @@ func ReaderIteratorNoHeader(in DataInput, format PackedFormat, version,
 }
 
 /*
+Create a packed integer slice with the given amount of values
+initialized to 0. The valueCount and the bitsPerValue cannot be
+changed after creation. All Mutables known by this factory are kept
+fully in RAM.
+
+Positive values of acceptableOverheadRatio will trade space for speed
+by selecting a faster but potentially less memory-efficient
+implementation. An acceptableOverheadRatio of COMPACT will make sure
+that the most memory-efficient implementation is selected whereas
+FASTEST will make sure that the fastest implementation is selected.
+*/
+func MutableFor(valueCount, bitsPerValue int, acceptableOverheadRatio float32) Mutable {
+	panic("not implemented")
+}
+
+/*
 Expert: Create a packed integer array writer for the given output,
 format, value count, and number of bits per value.
 
@@ -829,7 +845,26 @@ func (p *Packed64) RamBytesUsed() int64 {
 }
 
 type GrowableWriter struct {
-	current Mutable
+	currentMask             int64
+	current                 Mutable
+	acceptableOverheadRatio float32
+}
+
+func NewGrowableWriter(startBitsPerValue, valueCount int,
+	acceptableOverheadRatio float32) *GrowableWriter {
+	m := MutableFor(valueCount, startBitsPerValue, acceptableOverheadRatio)
+	return &GrowableWriter{
+		acceptableOverheadRatio: acceptableOverheadRatio,
+		current:                 m,
+		currentMask:             mask(m.BitsPerValue()),
+	}
+}
+
+func mask(bitsPerValue int) int64 {
+	if bitsPerValue == 64 {
+		return ^0
+	}
+	return MaxValue(bitsPerValue)
 }
 
 func (w *GrowableWriter) Get(index int) int64 {

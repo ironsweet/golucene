@@ -31,6 +31,8 @@ const (
 	FST_VERSION_PACKED      = 3
 	FST_VERSION_VINT_TARGET = 4
 
+	VERSION_CURRENT = FST_VERSION_VINT_TARGET
+
 	FST_FINAL_END_NODE     = -1
 	FST_NON_FINAL_END_NODE = 0
 
@@ -133,12 +135,41 @@ type FST struct {
 	packed           bool
 	nodeRefToAddress packed.PackedIntsReader
 
+	allowArrayArcs bool
+
 	cachedRootArcs          []*Arc
 	assertingCachedRootArcs []*Arc // only set wit assert
 
 	version int32
 
 	nodeAddress *packed.GrowableWriter
+
+	// TODO: we could be smarter here, and prune periodically as we go;
+	// high in-count nodes will "usually" become clear early on:
+	inCounts *packed.GrowableWriter
+}
+
+/* Make a new empty FST, for building; Builder invokes this ctor */
+func newFST(inputType InputType, outputs Outputs, willPackFST bool,
+	acceptableOverheadRatio float32, allowArrayArcs bool,
+	bytesPageBits int) *FST {
+	bytes := newBytesStoreFromBits(uint32(bytesPageBits))
+	// pad: ensure no node gets address 0 which is reserved to mean
+	// the stop state w/ no arcs
+	bytes.WriteByte(0)
+	ans := &FST{
+		inputType:      inputType,
+		outputs:        outputs,
+		allowArrayArcs: allowArrayArcs,
+		version:        VERSION_CURRENT,
+		bytes:          bytes,
+		NO_OUTPUT:      outputs.NoOutput(),
+	}
+	if willPackFST {
+		ans.nodeAddress = packed.NewGrowableWriter(15, 8, acceptableOverheadRatio)
+		ans.inCounts = packed.NewGrowableWriter(1, 8, acceptableOverheadRatio)
+	}
+	return ans
 }
 
 func LoadFST(in util.DataInput, outputs Outputs) (fst *FST, err error) {
