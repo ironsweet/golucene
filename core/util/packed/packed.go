@@ -38,6 +38,9 @@ var PackedInts = struct {
 }{7, 0.5, 0.2, 0}
 
 const (
+	/* Default amount of memory to use for bulk operations. */
+	DEFAULT_BUFFER_SIZE = 1024 // 1K
+
 	PACKED_CODEC_NAME           = "PackedInts"
 	PACKED_VERSION_START        = 0
 	PACKED_VERSION_BYTE_ALIGNED = 1
@@ -550,6 +553,11 @@ func MaxValue(bitsPerValue int) int64 {
 	return (1 << uint64(bitsPerValue)) - 1
 }
 
+/* Copy src[srcPos:srcPos+len] into dest[destPos:destPos+len] using at most mem bytes. */
+func Copy(src PackedIntsReader, srcPos int, dest Mutable, destPos, length, mem int) {
+	panic("not implemented yet")
+}
+
 var TrailingZeros = func() map[int]int {
 	ans := make(map[int]int)
 	var n = 1
@@ -568,6 +576,16 @@ func checkBlockSize(blockSize, minBlockSize, maxBlockSize int) int {
 	assert2((blockSize&(blockSize-1)) == 0,
 		"blockSIze must be a power of 2, got %v", blockSize)
 	return TrailingZeros[blockSize]
+}
+
+/* Return the number of blocks required to store size values on blockSize. */
+func numBlocks(size int64, blockSize int) int {
+	numBlocks := int(size / int64(blockSize))
+	if size%int64(blockSize) != 0 {
+		numBlocks++
+	}
+	assert2(int64(numBlocks)*int64(blockSize) >= size, "size is too large for this block size")
+	return numBlocks
 }
 
 // util/packed/PackedReaderIterator.java
@@ -873,4 +891,40 @@ func (w *GrowableWriter) Get(index int) int64 {
 
 func (w *GrowableWriter) Size() int32 {
 	return w.current.Size()
+}
+
+func (w *GrowableWriter) BitsPerValue() int {
+	return w.current.BitsPerValue()
+}
+
+func (w *GrowableWriter) ensureCapacity(value int64) {
+	if (value & w.currentMask) == value {
+		return
+	}
+	var bitsRequired int
+	if value < 0 {
+		bitsRequired = 64
+	} else {
+		bitsRequired = BitsRequired(value)
+	}
+	assert(bitsRequired > w.current.BitsPerValue())
+	valueCount := int(w.Size())
+	next := MutableFor(valueCount, bitsRequired, w.acceptableOverheadRatio)
+	Copy(w.current, 0, next, 0, valueCount, DEFAULT_BUFFER_SIZE)
+	w.current = next
+	w.currentMask = mask(w.current.BitsPerValue())
+}
+
+func (w *GrowableWriter) Set(index int, value int64) {
+	w.ensureCapacity(value)
+	w.current.Set(index, value)
+}
+
+func (w *GrowableWriter) RamBytesUsed() int64 {
+	return util.AlignObjectSize(
+		util.NUM_BYTES_OBJECT_HEADER+
+			util.NUM_BYTES_OBJECT_REF+
+			util.NUM_BYTES_LONG+
+			util.NUM_BYTES_FLOAT) +
+		w.current.RamBytesUsed()
 }
