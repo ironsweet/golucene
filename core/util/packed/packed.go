@@ -411,7 +411,11 @@ func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCo
 
 				w(f, "func (d *Direct%v) Get(index int) int64 {\n", bpv)
 				w(f, "	return int64(d.values[index])%s\n", MASKS[bpv])
-				w(f, "}\n")
+				w(f, "}\n\n")
+
+				w(f, "func (d *Direct%v) Set(index int, value int64) {\n", bpv)
+				w(f, "  d.values[index] = %v(value)\n", typ)
+				w(f, "}\n\n")
 
 				w(f, "func (d *Direct%v) RamBytesUsed() int64 {\n", bpv)
 				w(f, "	return util.AlignObjectSize(\n")
@@ -493,7 +497,40 @@ that the most memory-efficient implementation is selected whereas
 FASTEST will make sure that the fastest implementation is selected.
 */
 func MutableFor(valueCount, bitsPerValue int, acceptableOverheadRatio float32) Mutable {
-	panic("not implemented")
+	formatAndBits := FastestFormatAndBits(valueCount, bitsPerValue, acceptableOverheadRatio)
+	return MutableForFormat(valueCount, formatAndBits.BitsPerValue, formatAndBits.Format)
+}
+
+/* Same as MutableFor() with a pre-computed number of bits per value and format. */
+func MutableForFormat(vc, bpv int, format PackedFormat) Mutable {
+	valueCount := int32(vc)
+	bitsPerValue := uint32(bpv)
+	assert(valueCount >= 0)
+	switch int(format) {
+	case PACKED_SINGLE_BLOCK:
+		return newPacked64SingleBlockBy(valueCount, bitsPerValue)
+	case PACKED:
+		switch bitsPerValue {
+		case 8:
+			return newDirect8(vc)
+		case 16:
+			return newDirect16(vc)
+		case 32:
+			return newDirect32(vc)
+		case 64:
+			return newDirect64(vc)
+		case 24:
+			if valueCount <= PACKED8_THREE_BLOCKS_MAX_SIZE {
+				return newPacked8ThreeBlocks(valueCount)
+			}
+		case 48:
+			if valueCount <= PACKED16_THREE_BLOCKS_MAX_SIZE {
+				return newPacked16ThreeBlocks(valueCount)
+			}
+		}
+		return newPacked64(valueCount, bitsPerValue)
+	}
+	panic(fmt.Sprintf("Invalid format: %v", format))
 }
 
 /*
@@ -712,6 +749,10 @@ func (r *Packed8ThreeBlocks) Get(index int) int64 {
 	return int64(r.blocks[o])<<16 | int64(r.blocks[o+1])<<8 | int64(r.blocks[o+2])
 }
 
+func (r *Packed8ThreeBlocks) Set(index int, value int64) {
+	panic("not implemented yet")
+}
+
 func (r *Packed8ThreeBlocks) RamBytesUsed() int64 {
 	return util.AlignObjectSize(
 		util.NUM_BYTES_OBJECT_HEADER +
@@ -763,6 +804,10 @@ func newPacked16ThreeBlocksFromInput(version int32, in DataInput, valueCount int
 func (p *Packed16ThreeBlocks) Get(index int) int64 {
 	o := index * 3
 	return int64(p.blocks[o])<<32 | int64(p.blocks[o+1])<<16 | int64(p.blocks[o])
+}
+
+func (r *Packed16ThreeBlocks) Set(index int, value int64) {
+	panic("not implemented yet")
 }
 
 func (p *Packed16ThreeBlocks) RamBytesUsed() int64 {
@@ -846,6 +891,10 @@ func (p *Packed64) Get(index int) int64 {
 	return ((p.blocks[elementPos] << uint64(endBits)) |
 		int64(uint64(p.blocks[elementPos+1])>>(PACKED64_BLOCK_SIZE-uint64(endBits)))) &
 		int64(p.maskRight)
+}
+
+func (p *Packed64) Set(index int, value int64) {
+	panic("not implemented yet")
 }
 
 func (p *Packed64) String() string {

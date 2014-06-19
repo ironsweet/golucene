@@ -36,6 +36,11 @@ func newDirect8FromInput(version int32, in DataInput, valueCount int) (r PackedI
 func (d *Direct8) Get(index int) int64 {
 	return int64(d.values[index]) & 0xFF
 }
+
+func (d *Direct8) Set(index int, value int64) {
+  d.values[index] = byte(value)
+}
+
 func (d *Direct8) RamBytesUsed() int64 {
 	return util.AlignObjectSize(
 		util.NUM_BYTES_OBJECT_HEADER +

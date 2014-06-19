@@ -34,6 +34,11 @@ func newDirect64FromInput(version int32, in DataInput, valueCount int) (r Packed
 func (d *Direct64) Get(index int) int64 {
 	return int64(d.values[index])
 }
+
+func (d *Direct64) Set(index int, value int64) {
+  d.values[index] = int64(value)
+}
+
 func (d *Direct64) RamBytesUsed() int64 {
 	return util.AlignObjectSize(
 		util.NUM_BYTES_OBJECT_HEADER +
