@@ -190,7 +190,7 @@ func newTermsWriter(owner *BlockTreeTermsWriter,
 }
 
 func (w *TermsWriter) comparator() func(a, b []byte) bool {
-	panic("not implemented yet")
+	return util.UTF8SortedAsUnicodeLess
 }
 
 func (w *TermsWriter) startTerm(text []byte) (codec.PostingsConsumer, error) {
