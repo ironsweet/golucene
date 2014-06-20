@@ -1,5 +1,9 @@
 package util
 
+import (
+	"sort"
+)
+
 /*
 BytesRefHash is a special purpose hash map like data structure
 optimized for BytesRef instances. BytesRefHash maintains mappings of
@@ -56,13 +60,68 @@ func (h *BytesRefHash) Size() int {
 }
 
 /*
+Returns the ids array in arbitrary order. Valid ids start at offset
+of 0 and end at a limit of size() - 1
+
+Note: This is a destructive operation. clear() must be called in
+order to reuse this BytesRefHash instance.
+*/
+func (h *BytesRefHash) compact() []int {
+	assert2(h.bytesStart != nil, "bytesStart is nil - not initialized")
+	upto := 0
+	for i := 0; i < h.hashSize; i++ {
+		if h.ids[i] != -1 {
+			if upto < i {
+				h.ids[upto] = h.ids[i]
+				h.ids[i] = -1
+			}
+			upto++
+		}
+	}
+
+	assert(upto == h.count)
+	h.lastCount = h.count
+	return h.ids
+}
+
+type bytesRefIntroSorter struct {
+	*IntroSorter
+	owner    *BytesRefHash
+	compact  []int
+	comp     sort.Interface
+	pivot    *BytesRef
+	scratch1 *BytesRef
+	scratch2 *BytesRef
+}
+
+func newBytesRefIntroSorter(owner *BytesRefHash, v []int) *bytesRefIntroSorter {
+	return &bytesRefIntroSorter{
+		IntroSorter: new(IntroSorter),
+		owner:       owner,
+		compact:     v,
+	}
+}
+
+func (a *bytesRefIntroSorter) Len() int      { return len(a.compact) }
+func (a *bytesRefIntroSorter) Swap(i, j int) { a.compact[i], a.compact[j] = a.compact[j], a.compact[i] }
+func (a *bytesRefIntroSorter) Less(i, j int) bool {
+	id1, id2 := a.compact[i], a.compact[j]
+	assert(len(a.owner.bytesStart) > id1 && len(a.owner.bytesStart) > id2)
+	a.owner.pool.SetBytesRef(a.scratch1, a.owner.bytesStart[id1])
+	a.owner.pool.SetBytesRef(a.scratch2, a.owner.bytesStart[id2])
+	return a.comp.Less(i, j)
+}
+
+/*
 Returns the values array sorted by the referenced byte values.
 
 Note: this is a destructive operation. clear() must be called in
 order to reuse this BytesRefHash instance.
 */
 func (h *BytesRefHash) Sort(comp func(a, b []byte) bool) []int {
-	panic("not implemented yet")
+	compact := h.compact()
+	newBytesRefIntroSorter(h, compact).Sort(0, h.count)
+	return compact
 }
 
 func (h *BytesRefHash) equals(id int, b []byte) bool {
