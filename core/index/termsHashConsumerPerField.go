@@ -514,7 +514,33 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 			// format to match Lucene's segment format.
 
 			if readPositions || readOffsets {
-				panic("not implemented yet")
+				// we did record positions (& maybe payload) and/or offsets
+				position := 0
+				// offset := 0
+				for j := 0; j < termFreq; j++ {
+					var thisPayload []byte
+
+					if readPositions {
+						code, err := prox.ReadVInt()
+						if err != nil {
+							return err
+						}
+						position += int(uint(code) >> 1)
+
+						if (code & 1) != 0 {
+							panic("not implemented yet")
+						}
+
+						if readOffsets {
+							panic("not implemented yet")
+						} else if writePositions {
+							err = postingsConsumer.AddPosition(position, thisPayload, -1, -1)
+							if err != nil {
+								return err
+							}
+						}
+					}
+				}
 			}
 			err = postingsConsumer.FinishDoc()
 			if err != nil {

@@ -141,6 +141,7 @@ type Lucene41PostingsWriter struct {
 	payloadLengthBuffer    []int
 	offsetStartDeltaBuffer []int
 	offsetLengthBuffer     []int
+	posBufferUpto          int
 
 	payloadBytes []byte
 
@@ -320,6 +321,30 @@ func (w *Lucene41PostingsWriter) StartDoc(docId, termDocFreq int) error {
 	w.lastDocId = docId
 	w.lastPosition = 0
 	w.lastStartOffset = 0
+	return nil
+}
+
+/* Add a new opsition & payload */
+func (w *Lucene41PostingsWriter) AddPosition(position int, payload []byte, startOffset, endOffset int) error {
+	w.posDeltaBuffer[w.posBufferUpto] = position - w.lastPosition
+	if w.fieldHasPayloads {
+		if len(payload) == 0 {
+			// no paylaod
+			w.payloadLengthBuffer[w.posBufferUpto] = 0
+		} else {
+			panic("not implemented yet")
+		}
+	}
+
+	if w.fieldHasOffsets {
+		panic("not implemented yet")
+	}
+
+	w.posBufferUpto++
+	w.lastPosition = position
+	if w.posBufferUpto == LUCENE41_BLOCK_SIZE {
+		panic("not implemented yet")
+	}
 	return nil
 }
 
