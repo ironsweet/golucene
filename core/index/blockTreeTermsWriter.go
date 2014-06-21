@@ -28,6 +28,9 @@ type PostingsWriterBase interface {
 	// Called once after startup, before any terms have been added.
 	// Implementations typically write a header to the provided termsOut.
 	Start(store.IndexOutput) error
+	// Start a new term. Note that a matching call to finishTerm() is
+	// done, only if the term has at least one document.
+	StartTerm() error
 	// Called when the writing switches to another field.
 	SetField(fieldInfo *model.FieldInfo)
 }
@@ -173,6 +176,7 @@ func newTermsWriter(owner *BlockTreeTermsWriter,
 	fieldInfo *model.FieldInfo) *TermsWriter {
 	owner.postingsWriter.SetField(fieldInfo)
 	return &TermsWriter{
+		owner:     owner,
 		fieldInfo: fieldInfo,
 		noOutputs: fst.NO_OUTPUT,
 		// This builder is just used transiently to fragment terms into
@@ -194,7 +198,10 @@ func (w *TermsWriter) comparator() func(a, b []byte) bool {
 }
 
 func (w *TermsWriter) startTerm(text []byte) (codec.PostingsConsumer, error) {
-	panic("not implemented yet")
+	assert(w.owner != nil)
+	assert(w.owner.postingsWriter != nil)
+	err := w.owner.postingsWriter.StartTerm()
+	return w.owner.postingsWriter, err
 }
 
 func (w *TermsWriter) finishTerm(text []byte, stats *codec.TermStats) error {

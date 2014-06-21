@@ -258,6 +258,10 @@ func (w *Lucene41PostingsWriter) SetField(fieldInfo *model.FieldInfo) {
 	w.skipWriter.SetField(w.fieldHasPositions, w.fieldHasOffsets, w.fieldHasPayloads)
 }
 
+func (w *Lucene41PostingsWriter) StartTerm() error {
+	panic("not implemented yet")
+}
+
 func (w *Lucene41PostingsWriter) StartDoc(docId, termDocFreq int) error {
 	panic("not implemented yet")
 }
