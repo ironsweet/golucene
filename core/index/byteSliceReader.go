@@ -23,6 +23,12 @@ type ByteSliceReader struct {
 	endIndex int
 }
 
+func newByteSliceReader() *ByteSliceReader {
+	ans := new(ByteSliceReader)
+	ans.DataInputImpl = &util.DataInputImpl{ans}
+	return ans
+}
+
 func (r *ByteSliceReader) init(pool *util.ByteBlockPool, startIndex, endIndex int) {
 	assert(endIndex-startIndex >= 0)
 	assert(startIndex >= 0)
@@ -50,4 +56,23 @@ func (r *ByteSliceReader) init(pool *util.ByteBlockPool, startIndex, endIndex in
 func (r *ByteSliceReader) eof() bool {
 	assert(r.upto+r.bufferOffset <= r.endIndex)
 	return r.upto+r.bufferOffset == r.endIndex
+}
+
+func (r *ByteSliceReader) ReadByte() (byte, error) {
+	assert(!r.eof())
+	assert(r.upto <= r.limit)
+	if r.upto == r.limit {
+		r.nextSlice()
+	}
+	b := r.buffer[r.upto]
+	r.upto++
+	return b, nil
+}
+
+func (r *ByteSliceReader) nextSlice() {
+	panic("not implemented yet")
+}
+
+func (r *ByteSliceReader) ReadBytes(buf []byte) error {
+	panic("not implemented yet")
 }
