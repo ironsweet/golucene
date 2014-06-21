@@ -15,9 +15,18 @@ func IntroSort(data sort.Interface) {
 
 type ListIntroSorter struct {
 	*IntroSorter
-	arr sort.Interface
 }
 
 func newListIntroSorter(data sort.Interface) *ListIntroSorter {
-	return &ListIntroSorter{new(IntroSorter), data}
+	ans := new(ListIntroSorter)
+	ans.IntroSorter = NewIntroSorter(ans, data)
+	return ans
+}
+
+func (s *ListIntroSorter) SetPivot(i int) {
+	panic("not implemented yet")
+}
+
+func (s *ListIntroSorter) ComparePivot(j int) bool {
+	panic("not implemented yet")
 }

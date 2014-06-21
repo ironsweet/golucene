@@ -34,6 +34,18 @@ func (sorter *Sorter) reverse(from, to int) {
 	}
 }
 
+func (sorter *Sorter) insertionSort(from, to int) {
+	for i := from + 1; i < to; i++ {
+		for j := i; j > from; j-- {
+			if sorter.Less(j, j-1) {
+				sorter.Swap(j-1, i)
+			} else {
+				break
+			}
+		}
+	}
+}
+
 func (sorter *Sorter) binarySort(from, to, i int) {
 	// log.Printf("Binary sort [%v,%v] at %v", from, to, i)
 	for ; i < to; i++ {
@@ -59,6 +71,10 @@ func (sorter *Sorter) binarySort(from, to, i int) {
 			}
 		}
 	}
+}
+
+func (s *Sorter) heapSort(from, to int) {
+	panic("not implemented yet")
 }
 
 // util/TimSorter.java
@@ -213,6 +229,13 @@ func (sorter *TimSorter) sort(from, to int) {
 
 // util/IntroSorter.java
 
+type IntroSorterSPI interface {
+	// Save the value at slot i so that it can later be used as a pivot.
+	SetPivot(int)
+	// Compare the pivot with the slot at j, similarly to Less(int,int).
+	ComparePivot(int) bool
+}
+
 /*
 Sorter implementation based on a variant of the quicksort algorithm
 called introsort: when the recursion level exceeds the log of the
@@ -221,8 +244,78 @@ quicksort from running into its worst-case quadratic runtime. Small
 arrays are sorted with insertion sort.
 */
 type IntroSorter struct {
+	spi IntroSorterSPI
+	*Sorter
+}
+
+func NewIntroSorter(spi IntroSorterSPI, arr sort.Interface) *IntroSorter {
+	return &IntroSorter{spi, newSorter(arr)}
+}
+
+func ceilLog2(n int) int {
+	if n < 0 {
+		return 0
+	}
+	if n == 0 {
+		return 64
+	}
+	ans := 0
+	for n > 0 {
+		n <<= 1
+		ans++
+	}
+	return ans
 }
 
 func (s *IntroSorter) Sort(from, to int) {
-	panic("not implemented yet")
+	s.checkRange(from, to)
+	s.quicksort(from, to, ceilLog2(to-from))
+}
+
+func (s *IntroSorter) quicksort(from, to, maxDepth int) {
+	if to-from < SORTER_THRESHOLD {
+		s.insertionSort(from, to)
+		return
+	}
+	if maxDepth--; maxDepth < 0 {
+		s.heapSort(from, to)
+		return
+	}
+
+	mid := (from + to) >> 1
+
+	if s.Less(mid, from) {
+		s.Swap(from, mid)
+	}
+
+	if s.Less(to-1, mid) {
+		s.Swap(mid, to-1)
+		if s.Less(mid, from) {
+			s.Swap(from, mid)
+		}
+	}
+
+	left := from + 1
+	right := to - 2
+
+	s.spi.SetPivot(mid)
+	for {
+		for s.spi.ComparePivot(right) {
+			right--
+		}
+
+		for left < right && !s.spi.ComparePivot(left) {
+			left++
+		}
+
+		if left < right {
+			s.Swap(left, right)
+			right--
+		} else {
+			break
+		}
+	}
+
+	s.quicksort(from, left+1, maxDepth)
+	s.quicksort(left+1, to, maxDepth)
 }

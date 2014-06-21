@@ -1,8 +1,6 @@
 package util
 
-import (
-	"sort"
-)
+import ()
 
 /*
 BytesRefHash is a special purpose hash map like data structure
@@ -88,18 +86,17 @@ type bytesRefIntroSorter struct {
 	*IntroSorter
 	owner    *BytesRefHash
 	compact  []int
-	comp     sort.Interface
+	comp     func([]byte, []byte) bool
 	pivot    *BytesRef
 	scratch1 *BytesRef
 	scratch2 *BytesRef
 }
 
-func newBytesRefIntroSorter(owner *BytesRefHash, v []int) *bytesRefIntroSorter {
-	return &bytesRefIntroSorter{
-		IntroSorter: new(IntroSorter),
-		owner:       owner,
-		compact:     v,
-	}
+func newBytesRefIntroSorter(owner *BytesRefHash, v []int,
+	comp func([]byte, []byte) bool) *bytesRefIntroSorter {
+	ans := &bytesRefIntroSorter{owner: owner, compact: v, comp: comp}
+	ans.IntroSorter = NewIntroSorter(ans, ans)
+	return ans
 }
 
 func (a *bytesRefIntroSorter) Len() int      { return len(a.compact) }
@@ -109,7 +106,20 @@ func (a *bytesRefIntroSorter) Less(i, j int) bool {
 	assert(len(a.owner.bytesStart) > id1 && len(a.owner.bytesStart) > id2)
 	a.owner.pool.SetBytesRef(a.scratch1, a.owner.bytesStart[id1])
 	a.owner.pool.SetBytesRef(a.scratch2, a.owner.bytesStart[id2])
-	return a.comp.Less(i, j)
+	return a.comp(a.scratch1.Value, a.scratch2.Value)
+}
+
+func (a *bytesRefIntroSorter) SetPivot(i int) {
+	id := a.compact[i]
+	assert(len(a.owner.bytesStart) > id)
+	a.owner.pool.SetBytesRef(a.pivot, a.owner.bytesStart[id])
+}
+
+func (a *bytesRefIntroSorter) ComparePivot(j int) bool {
+	id := a.compact[j]
+	assert(len(a.owner.bytesStart) > id)
+	a.owner.pool.SetBytesRef(a.scratch2, a.owner.bytesStart[id])
+	return a.comp(a.pivot.Value, a.scratch2.Value)
 }
 
 /*
@@ -120,7 +130,7 @@ order to reuse this BytesRefHash instance.
 */
 func (h *BytesRefHash) Sort(comp func(a, b []byte) bool) []int {
 	compact := h.compact()
-	newBytesRefIntroSorter(h, compact).Sort(0, h.count)
+	newBytesRefIntroSorter(h, compact, comp).Sort(0, h.count)
 	return compact
 }
 
