@@ -135,6 +135,7 @@ type Lucene41PostingsWriter struct {
 
 	docDeltaBuffer []int
 	freqBuffer     []int
+	docBufferUpto  int
 
 	posDeltaBuffer         []int
 	payloadLengthBuffer    []int
@@ -289,7 +290,37 @@ func (w *Lucene41PostingsWriter) StartTerm() error {
 }
 
 func (w *Lucene41PostingsWriter) StartDoc(docId, termDocFreq int) error {
-	panic("not implemented yet")
+	// Have collected a block of docs, and get a new doc. Should write
+	// skip data as well as postings list for current block.
+	if w.lastBlockDocId != -1 && w.docBufferUpto == 0 {
+		if err := w.skipWriter.BufferSkip(w.lastBlockDocId, w.docCount,
+			w.lastBlockPosFP, w.lastBlockPayFP, w.lastBlockPosBufferUpto,
+			w.lastBlockPayloadByteUpto); err != nil {
+			return err
+		}
+	}
+
+	docDelta := docId - w.lastDocId
+	if docId < 0 || (w.docCount > 0 && docDelta <= 0) {
+		return errors.New(fmt.Sprintf(
+			"docs out of order (%v <= %v) (docOut : %v)",
+			docId, w.lastDocId, w.docOut))
+	}
+	w.docDeltaBuffer[w.docBufferUpto] = docDelta
+	if w.fieldHasFreqs {
+		w.freqBuffer[w.docBufferUpto] = termDocFreq
+	}
+	w.docBufferUpto++
+	w.docCount++
+
+	if w.docBufferUpto == LUCENE41_BLOCK_SIZE {
+		panic("not implemented yet")
+	}
+
+	w.lastDocId = docId
+	w.lastPosition = 0
+	w.lastStartOffset = 0
+	return nil
 }
 
 func (w *Lucene41PostingsWriter) FinishDoc() error {

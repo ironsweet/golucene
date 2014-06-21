@@ -72,3 +72,8 @@ func (w *SkipWriter) ResetSkip() {
 		}
 	}
 }
+
+/* Sets the values for the current skip data. */
+func (w *SkipWriter) BufferSkip(doc, numDocs int, posFP, payFP int64, posBufferUpto, payloadByteUpto int) error {
+	panic("not implemented yet")
+}
