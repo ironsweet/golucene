@@ -39,5 +39,9 @@ func (b *FixedBitSet) Cardinality() int {
 }
 
 func (b *FixedBitSet) Set(index int) {
-	panic("not implemented yet")
+	assert2(index >= 0 && index < b.numBits, "index=%v numBits=%v", index, b.numBits)
+	wordNum := index >> 6     // div 64
+	bit := uint(index & 0x3f) // mod 64
+	bitmask := int64(1 << bit)
+	b.bits[wordNum] |= bitmask
 }
