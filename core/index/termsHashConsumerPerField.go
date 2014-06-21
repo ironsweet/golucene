@@ -400,8 +400,8 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 	text := new(util.BytesRef)
 	postings2 := w.termsHashPerField.postingsArray
 	postings := postings2.PostingsArray.(*FreqProxPostingsArray)
-	freq := newByteSliceReader()
-	prox := newByteSliceReader()
+	freq := new(ByteSliceReader)
+	prox := new(ByteSliceReader)
 
 	visitedDocs := util.NewFixedBitSetOf(state.segmentInfo.DocCount())
 	sumTotalTermFreq := int64(0)

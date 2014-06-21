@@ -7,10 +7,27 @@ OpenBitSet, this bit set does not auto-expand, cannot handle long
 index, and does not have fastXX/XX variants (just X).
 */
 type FixedBitSet struct {
+	bits       []int64
+	numBits    int
+	wordLength int
+}
+
+/* returns the number of 64 bit words it would take to hold numBits */
+func fbits2words(numBits int) int {
+	numLong := int(uint(numBits) >> 6)
+	if (numBits & 63) != 0 {
+		numLong++
+	}
+	return numLong
 }
 
 func NewFixedBitSetOf(numBits int) *FixedBitSet {
-	panic("not implemented yet")
+	wordLength := fbits2words(numBits)
+	return &FixedBitSet{
+		numBits:    numBits,
+		bits:       make([]int64, wordLength),
+		wordLength: wordLength,
+	}
 }
 
 /*
