@@ -143,7 +143,8 @@ type Lucene41PostingsWriter struct {
 	offsetLengthBuffer     []int
 	posBufferUpto          int
 
-	payloadBytes []byte
+	payloadBytes    []byte
+	payloadByteUpto int
 
 	lastBlockDocId           int
 	lastBlockPosFP           int64
@@ -349,7 +350,22 @@ func (w *Lucene41PostingsWriter) AddPosition(position int, payload []byte, start
 }
 
 func (w *Lucene41PostingsWriter) FinishDoc() error {
-	panic("not implemented yet")
+	// since we don't know df for current term, we had to buffer those
+	// skip data for each block, and when a new doc comes, write them
+	// to skip file.
+	if w.docBufferUpto == LUCENE41_BLOCK_SIZE {
+		w.lastBlockDocId = w.lastDocId
+		if w.posOut != nil {
+			if w.payOut != nil {
+				w.lastBlockPayFP = w.payOut.FilePointer()
+			}
+			w.lastBlockPosFP = w.posOut.FilePointer()
+			w.lastBlockPosBufferUpto = w.posBufferUpto
+			w.lastBlockPayloadByteUpto = w.payloadByteUpto
+		}
+		w.docBufferUpto = 0
+	}
+	return nil
 }
 
 func (w *Lucene41PostingsWriter) Close() error {
