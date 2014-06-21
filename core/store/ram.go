@@ -470,11 +470,26 @@ type RAMOutputStream struct {
 	bufferLength   int
 }
 
+/* Construct an empty output buffer. */
+func NewRAMOutputStreamBuffer() *RAMOutputStream {
+	return NewRAMOutputStream(NewRAMFileBuffer())
+}
+
 func NewRAMOutputStream(f *RAMFile) *RAMOutputStream {
 	// make sure that we switch to the first needed buffer lazily
 	out := &RAMOutputStream{file: f, currentBufferIndex: -1}
 	out.IndexOutputImpl = NewIndexOutput(out)
 	return out
+}
+
+/* Resets this to an empty file. */
+func (out *RAMOutputStream) Reset() {
+	out.currentBuffer = nil
+	out.currentBufferIndex = -1
+	out.bufferPosition = 0
+	out.bufferStart = 0
+	out.bufferLength = 0
+	out.file.SetLength(0)
 }
 
 func (out *RAMOutputStream) Close() error {

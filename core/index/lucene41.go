@@ -128,6 +128,11 @@ type Lucene41PostingsWriter struct {
 	fieldHasOffsets   bool
 	fieldHasPayloads  bool
 
+	// Holds starting file pointers for each term:
+	docTermStartFP int64
+	posTermStartFP int64
+	payTermStartFP int64
+
 	docDeltaBuffer []int
 	freqBuffer     []int
 
@@ -137,6 +142,17 @@ type Lucene41PostingsWriter struct {
 	offsetLengthBuffer     []int
 
 	payloadBytes []byte
+
+	lastBlockDocId           int
+	lastBlockPosFP           int64
+	lastBlockPayFP           int64
+	lastBlockPosBufferUpto   int
+	lastBlockPayloadByteUpto int
+
+	lastDocId       int
+	lastPosition    int
+	lastStartOffset int
+	docCount        int
 
 	encoded []byte
 
@@ -259,7 +275,17 @@ func (w *Lucene41PostingsWriter) SetField(fieldInfo *model.FieldInfo) {
 }
 
 func (w *Lucene41PostingsWriter) StartTerm() error {
-	panic("not implemented yet")
+	w.docTermStartFP = w.docOut.FilePointer()
+	if w.fieldHasPositions {
+		w.posTermStartFP = w.posOut.FilePointer()
+		if w.fieldHasPayloads || w.fieldHasOffsets {
+			w.payTermStartFP = w.payOut.FilePointer()
+		}
+	}
+	w.lastDocId = 0
+	w.lastBlockDocId = -1
+	w.skipWriter.ResetSkip()
+	return nil
 }
 
 func (w *Lucene41PostingsWriter) StartDoc(docId, termDocFreq int) error {
