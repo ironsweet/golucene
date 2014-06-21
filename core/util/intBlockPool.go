@@ -4,10 +4,11 @@ package util
 
 const INT_BLOCK_SHIFT = 13
 const INT_BLOCK_SIZE = 1 << INT_BLOCK_SHIFT
+const INT_BLOCK_MASK = INT_BLOCK_SIZE - 1
 
 /* A pool for int blocks similar to ByteBlockPool */
 type IntBlockPool struct {
-	buffers    [][]int
+	Buffers    [][]int
 	bufferUpto int
 	IntUpto    int
 	Buffer     []int
@@ -17,7 +18,7 @@ type IntBlockPool struct {
 
 func NewIntBlockPool(allocator IntAllocator) *IntBlockPool {
 	return &IntBlockPool{
-		buffers:    make([][]int, 10),
+		Buffers:    make([][]int, 10),
 		bufferUpto: -1,
 		IntUpto:    INT_BLOCK_SIZE,
 		IntOffset:  -INT_BLOCK_SIZE,
@@ -39,9 +40,9 @@ func (pool *IntBlockPool) Reset(zeroFillBuffers, reuseFirst bool) {
 				offset = 1
 			}
 			// Recycle all but the first buffer
-			pool.allocator.Recycle(pool.buffers[offset : 1+pool.bufferUpto])
+			pool.allocator.Recycle(pool.Buffers[offset : 1+pool.bufferUpto])
 			for i := offset; i <= pool.bufferUpto; i++ {
-				pool.buffers[i] = nil
+				pool.Buffers[i] = nil
 			}
 		}
 		if reuseFirst {
@@ -62,13 +63,13 @@ constructor a IntBlockPool.reset() call will advance the pool to its
 first buffer immediately.
 */
 func (p *IntBlockPool) NextBuffer() {
-	if 1+p.bufferUpto == len(p.buffers) {
-		newBuffers := make([][]int, len(p.buffers)+len(p.buffers)/2)
-		copy(newBuffers, p.buffers)
-		p.buffers = newBuffers
+	if 1+p.bufferUpto == len(p.Buffers) {
+		newBuffers := make([][]int, len(p.Buffers)+len(p.Buffers)/2)
+		copy(newBuffers, p.Buffers)
+		p.Buffers = newBuffers
 	}
 	p.Buffer = p.allocator.allocate()
-	p.buffers[1+p.bufferUpto] = p.Buffer
+	p.Buffers[1+p.bufferUpto] = p.Buffer
 	p.bufferUpto++
 
 	p.IntUpto = 0

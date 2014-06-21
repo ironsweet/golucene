@@ -14,6 +14,10 @@ type ByteSliceReader struct {
 	*util.DataInputImpl
 }
 
+func (r *ByteSliceReader) init(pool *util.ByteBlockPool, startIndex, endIndex int) {
+	panic("not implemented yet")
+}
+
 func (r *ByteSliceReader) eof() bool {
 	panic("not implemented yet")
 }

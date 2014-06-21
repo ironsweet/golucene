@@ -105,7 +105,13 @@ func (h *TermsHashPerField) abort() {
 }
 
 func (h *TermsHashPerField) initReader(reader *ByteSliceReader, termId, stream int) {
-	panic("not implemented yet")
+	assert(stream < h.streamCount)
+	intStart := h.postingsArray.intStarts[termId]
+	ints := h.intPool.Buffers[intStart>>util.INT_BLOCK_SHIFT]
+	upto := intStart & util.INT_BLOCK_MASK
+	reader.init(h.bytePool,
+		h.postingsArray.byteStarts[termId]+stream*util.FIRST_LEVEL_SIZE,
+		ints[upto+stream])
 }
 
 /* Collapse the hash table & sort in-place. */
