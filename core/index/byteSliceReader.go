@@ -48,5 +48,6 @@ func (r *ByteSliceReader) init(pool *util.ByteBlockPool, startIndex, endIndex in
 }
 
 func (r *ByteSliceReader) eof() bool {
-	panic("not implemented yet")
+	assert(r.upto+r.bufferOffset <= r.endIndex)
+	return r.upto+r.bufferOffset == r.endIndex
 }
