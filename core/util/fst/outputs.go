@@ -18,6 +18,8 @@ import (
 type Outputs interface {
 	/** Eg add("foo", "bar") -> "foobar" */
 	Add(prefix interface{}, output interface{}) interface{}
+	// Eg subtract("foobar", "foo") -> "bar"
+	Subtract(output1, output2 interface{}) interface{}
 	/** Decode an output value previously written with {@link
 	 *  #write(Object, DataOutput)}. */
 	Read(in util.DataInput) (e interface{}, err error)
@@ -29,6 +31,7 @@ type Outputs interface {
 	 *  ensure that all methods return the single object if
 	 *  it's really no output */
 	NoOutput() interface{}
+	merge(first, second interface{}) interface{}
 }
 
 type iOutputsReader interface {
@@ -42,6 +45,10 @@ type abstractOutputs struct {
 func (out *abstractOutputs) ReadFinalOutput(in util.DataInput) (e interface{}, err error) {
 	log.Printf("Reading final output from %v...", in)
 	return out.spi.Read(in)
+}
+
+func (out *abstractOutputs) merge(first, second interface{}) interface{} {
+	panic("not supported yet")
 }
 
 // fst/NoOutputs.java
@@ -59,8 +66,20 @@ func newNoOutputs() *NoOutputs {
 	return ans
 }
 
+func (o *NoOutputs) Subtract(output1, output2 interface{}) interface{} {
+	assert(output1 == NO_OUTPUT)
+	assert(output2 == NO_OUTPUT)
+	return NO_OUTPUT
+}
+
 func (o *NoOutputs) Add(prefix, output interface{}) interface{} {
 	panic("not implemented yet")
+}
+
+func (o *NoOutputs) merge(first, second interface{}) interface{} {
+	assert(first == NO_OUTPUT)
+	assert(second == NO_OUTPUT)
+	return NO_OUTPUT
 }
 
 func (o *NoOutputs) Read(in util.DataInput) (interface{}, error) {
@@ -90,6 +109,10 @@ func ByteSequenceOutputsSingleton() *ByteSequenceOutputs {
 		oneByteSequenceOutputs.abstractOutputs = &abstractOutputs{oneByteSequenceOutputs}
 	}
 	return oneByteSequenceOutputs
+}
+
+func (out *ByteSequenceOutputs) Subtract(output1, output2 interface{}) interface{} {
+	panic("not implemented yet")
 }
 
 func (out *ByteSequenceOutputs) Add(_prefix interface{}, _output interface{}) interface{} {

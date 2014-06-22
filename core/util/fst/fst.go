@@ -410,6 +410,15 @@ func CompareFSTValue(a, b interface{}) bool {
 	return equals(a, b)
 }
 
+// L493
+func (t *FST) setEmptyOutput(v interface{}) {
+	if t.emptyOutput != nil {
+		t.emptyOutput = t.outputs.merge(t.emptyOutput, v)
+	} else {
+		t.emptyOutput = v
+	}
+}
+
 func (t *FST) readLabel(in util.DataInput) (v int, err error) {
 	switch t.inputType {
 	case INPUT_TYPE_BYTE1: // Unsigned byte

@@ -235,7 +235,7 @@ func (w *TermsWriter) startTerm(text []byte) (codec.PostingsConsumer, error) {
 func (w *TermsWriter) finishTerm(text []byte, stats *codec.TermStats) error {
 	assert(stats.DocFreq > 0)
 
-	err := w.blockBuilder.Add(fst.ToIntsRef(text, w.scratchIntsRef).Value(), w.noOutputs.NoOutput())
+	err := w.blockBuilder.Add(fst.ToIntsRef(text, w.scratchIntsRef), w.noOutputs.NoOutput())
 	if err != nil {
 		return err
 	}

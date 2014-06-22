@@ -29,6 +29,15 @@ func (a *IntsRef) Value() []int {
 	return a.Ints[a.Offset : a.Offset+a.Length]
 }
 
+/* Signed int order comparison */
+func (a *IntsRef) CompareTo(other *IntsRef) bool {
+	panic("not implemented yet")
+}
+
+func (a *IntsRef) CopyInts(other *IntsRef) {
+	panic("not implemented yet")
+}
+
 /*
 Used to grow the reference slice.
 
