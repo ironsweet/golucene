@@ -39,7 +39,12 @@ func (a *IntsRef) CompareTo(other *IntsRef) bool {
 }
 
 func (a *IntsRef) CopyInts(other *IntsRef) {
-	panic("not implemented yet")
+	if len(a.Ints)-a.Offset < other.Length {
+		a.Ints = make([]int, other.Length)
+		a.Offset = 0
+	}
+	copy(a.Ints, other.Ints[other.Offset:other.Offset+other.Length])
+	a.Length = other.Length
 }
 
 /*
