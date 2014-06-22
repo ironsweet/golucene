@@ -272,5 +272,12 @@ func (w *TermsWriter) finishTerm(text []byte, stats *codec.TermStats) error {
 }
 
 func (w *TermsWriter) finish(sumTotalTermFreq, sumDocFreq int64, docCount int) error {
-	panic("not implemented yet")
+	if w.numTerms > 0 {
+		panic("not implemented yet")
+	} else {
+		assert(sumTotalTermFreq == 0 || w.fieldInfo.IndexOptions() == model.INDEX_OPT_DOCS_ONLY && sumTotalTermFreq == -1)
+		assert(sumDocFreq == 0)
+		assert(docCount == 0)
+	}
+	return nil
 }
