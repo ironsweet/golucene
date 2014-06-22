@@ -126,7 +126,8 @@ func NewBuilder(inputType InputType, minSuffixCount1, minSuffixCount2 int,
 
 func (b *Builder) freezeTail(prefixLenPlus1 int) error {
 	if b._freezeTail != nil {
-		panic("not implemented yet")
+		// Custom plugin:
+		return b._freezeTail(b.frontier, prefixLenPlus1, b.lastInput.Value())
 	}
 	panic("not implemented yet")
 }
