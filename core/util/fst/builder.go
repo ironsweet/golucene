@@ -6,7 +6,7 @@ import (
 )
 
 /* Expert: invoked by Builder whenever a suffix is serialized. */
-type FreezeTail func([]*UnCompiledNode, int, []int) error
+type FreezeTail func([]*UnCompiledNode, int, *util.IntsRef) error
 
 /*
 Builds a minimal FST (maps an []int term to an arbitrary output) from
@@ -50,6 +50,12 @@ type Builder struct {
 	_freezeTail FreezeTail
 }
 
+/* Expert: holds a pending (seen but not yet serialized) arc */
+type builderArc struct {
+	label  int // really an "unsigned" byte
+	Target Node
+}
+
 /*
 NOTE: not many instances of Node or CompiledNode are in memory while
 the FST is being built; it's only the current "frontier":
@@ -61,25 +67,36 @@ type Node interface {
 /* Expert: holds a pending (seen but not yet serialized) Node. */
 type UnCompiledNode struct {
 	owner      *Builder
-	arcs       []*Arc
+	NumArcs    int
+	Arcs       []*builderArc
 	output     interface{}
-	isFinal    bool
-	inputCount int64
+	IsFinal    bool
+	InputCount int64
 
 	// This node's depth, starting from the automaton root.
 	depth int
 }
 
-func newUnCompiledNode(owner *Builder, depth int) *UnCompiledNode {
+func NewUnCompiledNode(owner *Builder, depth int) *UnCompiledNode {
 	return &UnCompiledNode{
 		owner:  owner,
-		arcs:   []*Arc{new(Arc)},
+		Arcs:   []*builderArc{new(builderArc)},
 		output: owner.NO_OUTPUT,
 		depth:  depth,
 	}
 }
 
 func (n *UnCompiledNode) isCompiled() bool { return false }
+
+func (n *UnCompiledNode) Clear() {
+	n.NumArcs = 0
+	n.IsFinal = false
+	n.output = n.owner.NO_OUTPUT
+	n.InputCount = 0
+
+	// we don't clear the depth here becaues it never changes
+	// for nodes on the frontier (even when reused).
+}
 
 func (n *UnCompiledNode) lastOutput(labelToMatch int) interface{} {
 	panic("not implementd yet")
@@ -119,7 +136,7 @@ func NewBuilder(inputType InputType, minSuffixCount1, minSuffixCount2 int,
 		ans.dedupHash = newNodeHash(fst, fst.bytes.reverseReaderAllowSingle(false))
 	}
 	for i, _ := range f {
-		f[i] = newUnCompiledNode(ans, i)
+		f[i] = NewUnCompiledNode(ans, i)
 	}
 	return ans
 }
@@ -127,7 +144,7 @@ func NewBuilder(inputType InputType, minSuffixCount1, minSuffixCount2 int,
 func (b *Builder) freezeTail(prefixLenPlus1 int) error {
 	if b._freezeTail != nil {
 		// Custom plugin:
-		return b._freezeTail(b.frontier, prefixLenPlus1, b.lastInput.Value())
+		return b._freezeTail(b.frontier, prefixLenPlus1, b.lastInput)
 	}
 	panic("not implemented yet")
 }
@@ -150,8 +167,8 @@ func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
 		// case this becaues the packed FST format cannot represent the
 		// empty input since 'finalness' is stored on the incoming arc,
 		// not on the node
-		b.frontier[0].inputCount++
-		b.frontier[0].isFinal = true
+		b.frontier[0].InputCount++
+		b.frontier[0].IsFinal = true
 		b.fst.setEmptyOutput(output)
 		return nil
 	}
@@ -164,7 +181,7 @@ func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
 		pos1Stop = input.Length
 	}
 	for {
-		b.frontier[pos1].inputCount++
+		b.frontier[pos1].InputCount++
 		if pos1 >= pos1Stop || b.lastInput.Ints[pos1] != input.Ints[pos2] {
 			break
 		}
@@ -177,7 +194,7 @@ func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
 		next := make([]*UnCompiledNode, util.Oversize(input.Length+1, util.NUM_BYTES_OBJECT_REF))
 		copy(next, b.frontier)
 		for idx := len(b.frontier); idx < len(next); idx++ {
-			next[idx] = newUnCompiledNode(b, idx)
+			next[idx] = NewUnCompiledNode(b, idx)
 		}
 		b.frontier = next
 	}
@@ -191,12 +208,12 @@ func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
 	// init tail states for current input
 	for idx := prefixLenPlus1; idx <= input.Length; idx++ {
 		b.frontier[idx-1].addArc(input.Ints[input.Offset+idx-1], b.frontier[idx])
-		b.frontier[idx].inputCount++
+		b.frontier[idx].InputCount++
 	}
 
 	lastNode := b.frontier[input.Length]
 	if b.lastInput.Length != input.Length || prefixLenPlus1 != input.Length+1 {
-		lastNode.isFinal = true
+		lastNode.IsFinal = true
 		lastNode.output = b.NO_OUTPUT
 	}
 

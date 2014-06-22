@@ -202,23 +202,49 @@ type TermsWriter struct {
 func newTermsWriter(owner *BlockTreeTermsWriter,
 	fieldInfo *model.FieldInfo) *TermsWriter {
 	owner.postingsWriter.SetField(fieldInfo)
-	return &TermsWriter{
-		owner:     owner,
-		fieldInfo: fieldInfo,
-		noOutputs: fst.NO_OUTPUT,
-		// This builder is just used transiently to fragment terms into
-		// "good" blocks; we don't save the resulting FST:
-		blockBuilder: fst.NewBuilder(
-			fst.INPUT_TYPE_BYTE1, 0, 0, true, true,
-			int(math.MaxInt32), fst.NO_OUTPUT,
-			//Assign terms to blocks "naturally", ie, according to the number of
-			//terms under a given prefix that we encounter:
-			func(frontier []*fst.UnCompiledNode, prefixLenPlus1 int, lastInput []int) error {
-				panic("not implemented yet")
-			}, false, packed.PackedInts.COMPACT,
-			true, 15),
+	ans := &TermsWriter{
+		owner:          owner,
+		fieldInfo:      fieldInfo,
+		noOutputs:      fst.NO_OUTPUT,
 		scratchIntsRef: util.NewEmptyIntsRef(),
 	}
+	// This builder is just used transiently to fragment terms into
+	// "good" blocks; we don't save the resulting FST:
+	ans.blockBuilder = fst.NewBuilder(
+		fst.INPUT_TYPE_BYTE1, 0, 0, true, true,
+		int(math.MaxInt32), fst.NO_OUTPUT,
+		//Assign terms to blocks "naturally", ie, according to the number of
+		//terms under a given prefix that we encounter:
+		func(frontier []*fst.UnCompiledNode, prefixLenPlus1 int, lastInput *util.IntsRef) error {
+			for idx := lastInput.Length; idx >= prefixLenPlus1; idx-- {
+				node := frontier[idx]
+
+				totCount := int64(0)
+
+				if node.IsFinal {
+					totCount++
+				}
+
+				for arcIdx := 0; arcIdx < node.NumArcs; arcIdx++ {
+					target := node.Arcs[arcIdx].Target.(*fst.UnCompiledNode)
+					totCount += target.InputCount
+					target.Clear()
+					node.Arcs[arcIdx].Target = nil
+				}
+				node.NumArcs = 0
+
+				if totCount >= int64(ans.owner.minItemsInBlock) || idx == 0 {
+					panic("not implemented yet")
+				} else {
+					// stragglers! carry count upwards
+					node.InputCount = totCount
+				}
+				frontier[idx] = fst.NewUnCompiledNode(ans.blockBuilder, idx)
+			}
+			return nil
+		}, false, packed.PackedInts.COMPACT,
+		true, 15)
+	return ans
 }
 
 func (w *TermsWriter) comparator() func(a, b []byte) bool {
