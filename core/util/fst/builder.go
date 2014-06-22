@@ -43,6 +43,25 @@ type Builder struct {
 	freezeTail FreezeTail
 }
 
+/* Expert: holds a pending (seen but not yet serialized) Node. */
+type UnCompiledNode struct {
+	owner  *Builder
+	arcs   []*Arc
+	output interface{}
+
+	// This node's depth, starting from the automaton root.
+	depth int
+}
+
+func newUnCompiledNode(owner *Builder, depth int) *UnCompiledNode {
+	return &UnCompiledNode{
+		owner:  owner,
+		arcs:   []*Arc{new(Arc)},
+		output: owner.NO_OUTPUT,
+		depth:  depth,
+	}
+}
+
 /*
 Instantiates an FST/FSA builder with all the possible tuning and
 construction tweaks. Read parameter documentation carefully.
@@ -77,21 +96,14 @@ func NewBuilder(inputType InputType, minSuffixCount1, minSuffixCount2 int,
 	return ans
 }
 
-/* Expert: holds a pending (seen but not yet serialized) Node. */
-type UnCompiledNode struct {
-	owner  *Builder
-	arcs   []*Arc
-	output interface{}
-
-	// This node's depth, starting from the automaton root.
-	depth int
-}
-
-func newUnCompiledNode(owner *Builder, depth int) *UnCompiledNode {
-	return &UnCompiledNode{
-		owner:  owner,
-		arcs:   []*Arc{new(Arc)},
-		output: owner.NO_OUTPUT,
-		depth:  depth,
-	}
+/*
+It's OK to add the same input twice in a row with different outputs,
+as long as outputs impls the merge method. Note that input is fully
+consumed after this method is returned (so caller is free to reuse),
+but output is not. So if your outputs are changeable (eg
+ByteSequenceOutputs or IntSequenceOutputs) then you cannot reuse
+across calls.
+*/
+func (b *Builder) Add(input []int, output interface{}) error {
+	panic("not implemented yet")
 }

@@ -368,6 +368,11 @@ func (w *Lucene41PostingsWriter) FinishDoc() error {
 	return nil
 }
 
+/* Called when we are done adding docs to this term */
+func (w *Lucene41PostingsWriter) FinishTerm(stats *codec.TermStats) error {
+	panic("not implemented yet")
+}
+
 func (w *Lucene41PostingsWriter) Close() error {
 	panic("not implemented yet")
 }

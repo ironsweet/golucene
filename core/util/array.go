@@ -76,6 +76,17 @@ func Oversize(minTargetSize int, bytesPerElement int) int {
 	// }
 }
 
+// L285
+func GrowIntSlice(arr []int, minSize int) []int {
+	assert2(minSize >= 0, "size must be positive (got %v): likely integer overflow?", minSize)
+	if len(arr) < minSize {
+		newArr := make([]int, Oversize(minSize, NUM_BYTES_INT))
+		copy(newArr, arr)
+		return newArr
+	}
+	return arr
+}
+
 // L699
 /*
 Sorts the given array slice in its own order. This method uses the

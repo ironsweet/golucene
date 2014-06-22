@@ -31,6 +31,9 @@ type PostingsWriterBase interface {
 	// Start a new term. Note that a matching call to finishTerm() is
 	// done, only if the term has at least one document.
 	StartTerm() error
+	// Finishes the current term. The provided TermStats contains the
+	// term's summary statistics.
+	FinishTerm(stats *codec.TermStats) error
 	// Called when the writing switches to another field.
 	SetField(fieldInfo *model.FieldInfo)
 }
@@ -162,14 +165,38 @@ func (w *BlockTreeTermsWriter) Close() error {
 	panic("not implemented yet")
 }
 
+type PendingEntry interface {
+	isTerm() bool
+}
+
+type PendingTerm struct {
+	term  []byte
+	stats *codec.TermStats
+}
+
+func newPendingTerm(term []byte, stats *codec.TermStats) *PendingTerm {
+	return &PendingTerm{term, stats}
+}
+
+func (t *PendingTerm) isTerm() bool { return true }
+
+type PendingBlock struct {
+}
+
 type TermsWriter struct {
 	owner     *BlockTreeTermsWriter
 	fieldInfo *model.FieldInfo
+	numTerms  int64
 
 	// Used only to partition terms into the block tree; we don't pull
 	// an FST from this builder:
 	noOutputs    *fst.NoOutputs
 	blockBuilder *fst.Builder
+
+	// PendingTerm or PendingBlock:
+	pending []PendingEntry
+
+	scratchIntsRef *util.IntsRef
 }
 
 func newTermsWriter(owner *BlockTreeTermsWriter,
@@ -190,6 +217,7 @@ func newTermsWriter(owner *BlockTreeTermsWriter,
 				panic("not implemented yet")
 			}, false, packed.PackedInts.COMPACT,
 			true, 15),
+		scratchIntsRef: util.NewEmptyIntsRef(),
 	}
 }
 
@@ -205,7 +233,16 @@ func (w *TermsWriter) startTerm(text []byte) (codec.PostingsConsumer, error) {
 }
 
 func (w *TermsWriter) finishTerm(text []byte, stats *codec.TermStats) error {
-	panic("not implemented yet")
+	assert(stats.DocFreq > 0)
+
+	err := w.blockBuilder.Add(fst.ToIntsRef(text, w.scratchIntsRef).Value(), w.noOutputs.NoOutput())
+	if err != nil {
+		return err
+	}
+	w.pending = append(w.pending, newPendingTerm(util.DeepCopyOf(util.NewBytesRef(text)).Value, stats))
+	err = w.owner.postingsWriter.FinishTerm(stats)
+	w.numTerms++
+	return err
 }
 
 func (w *TermsWriter) finish(sumTotalTermFreq, sumDocFreq int64, docCount int) error {
