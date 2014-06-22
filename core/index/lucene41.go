@@ -398,7 +398,45 @@ func (w *Lucene41PostingsWriter) FinishTerm(stats *codec.TermStats) error {
 
 	var lastPosBlockOffset int64
 	if w.fieldHasPositions {
-		panic("not implemented yet")
+		// totalTermFreq is just total number of positions (or payloads,
+		// or offsets) associated with current term.
+		assert(stats.TotalTermFreq != -1)
+		if stats.TotalTermFreq > LUCENE41_BLOCK_SIZE {
+			// record file offset for last pos in last block
+			lastPosBlockOffset = w.posOut.FilePointer() - w.posTermStartFP
+		} else {
+			lastPosBlockOffset = -1
+		}
+		if w.posBufferUpto > 0 {
+			// TODO: should we send offsets/payloads to .pay...? seems
+			// wasteful (have to store extra vlong for low (< BLOCK_SIZE)
+			// DF terms = vast vast majority)
+
+			// vInt encode the remaining positions/payloads/offsets:
+			// lastPayloadLength := -1 // force first payload length to be written
+			// lastOffsetLength := -1  // force first offset length to be written
+			payloadBytesReadUpto := 0
+			for i := 0; i < w.posBufferUpto; i++ {
+				posDelta := w.posDeltaBuffer[i]
+				if w.fieldHasPayloads {
+					panic("not implemented yet")
+				} else {
+					err := w.posOut.WriteVInt(int32(posDelta))
+					if err != nil {
+						return err
+					}
+				}
+
+				if w.fieldHasOffsets {
+					panic("not implemented yet")
+				}
+			}
+
+			if w.fieldHasPayloads {
+				assert(payloadBytesReadUpto == w.payloadByteUpto)
+				w.payloadByteUpto = 0
+			}
+		}
 	} else {
 		lastPosBlockOffset = -1
 	}
