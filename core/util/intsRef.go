@@ -25,6 +25,10 @@ func NewEmptyIntsRef() *IntsRef {
 	return &IntsRef{Ints: EMPTY_INTS}
 }
 
+func (a *IntsRef) At(i int) int {
+	return a.Ints[a.Offset+i]
+}
+
 func (a *IntsRef) Value() []int {
 	return a.Ints[a.Offset : a.Offset+a.Length]
 }

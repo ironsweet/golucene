@@ -50,82 +50,6 @@ type Builder struct {
 	_freezeTail FreezeTail
 }
 
-/* Expert: holds a pending (seen but not yet serialized) arc */
-type builderArc struct {
-	label           int // really an "unsigned" byte
-	Target          Node
-	isFinal         bool
-	output          interface{}
-	nextFinalOutput interface{}
-}
-
-/*
-NOTE: not many instances of Node or CompiledNode are in memory while
-the FST is being built; it's only the current "frontier":
-*/
-type Node interface {
-	isCompiled() bool
-}
-
-/* Expert: holds a pending (seen but not yet serialized) Node. */
-type UnCompiledNode struct {
-	owner      *Builder
-	NumArcs    int
-	Arcs       []*builderArc
-	output     interface{}
-	IsFinal    bool
-	InputCount int64
-
-	// This node's depth, starting from the automaton root.
-	depth int
-}
-
-func NewUnCompiledNode(owner *Builder, depth int) *UnCompiledNode {
-	return &UnCompiledNode{
-		owner:  owner,
-		Arcs:   []*builderArc{new(builderArc)},
-		output: owner.NO_OUTPUT,
-		depth:  depth,
-	}
-}
-
-func (n *UnCompiledNode) isCompiled() bool { return false }
-
-func (n *UnCompiledNode) Clear() {
-	n.NumArcs = 0
-	n.IsFinal = false
-	n.output = n.owner.NO_OUTPUT
-	n.InputCount = 0
-
-	// we don't clear the depth here becaues it never changes
-	// for nodes on the frontier (even when reused).
-}
-
-func (n *UnCompiledNode) lastOutput(labelToMatch int) interface{} {
-	panic("not implementd yet")
-}
-
-func (n *UnCompiledNode) addArc(label int, target Node) {
-	assert(label >= 0)
-	if n.NumArcs != 0 {
-		assert2(label > n.Arcs[n.NumArcs-1].label,
-			"arc[-1].label=%v new label=%v numArcs=%v",
-			n.Arcs[n.NumArcs-1].label, label, n.NumArcs)
-	}
-	if n.NumArcs == len(n.Arcs) {
-		newArcs := make([]*builderArc, util.Oversize(n.NumArcs+1, util.NUM_BYTES_OBJECT_REF))
-		copy(newArcs, n.Arcs)
-		n.Arcs = newArcs
-	}
-	arc := n.Arcs[n.NumArcs]
-	n.NumArcs++
-	arc.label = label
-	arc.Target = target
-	arc.output = n.owner.NO_OUTPUT
-	arc.nextFinalOutput = n.owner.NO_OUTPUT
-	arc.isFinal = false
-}
-
 /*
 Instantiates an FST/FSA builder with all the possible tuning and
 construction tweaks. Read parameter documentation carefully.
@@ -260,7 +184,9 @@ func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
 		// same input more than 1 time in a row, mapping to multiple outputs
 		panic("not implemented yet")
 	} else {
-		panic("not implemented yet")
+		// this new arc is private to this new input; set its arc output
+		// to the leftover output:
+		b.frontier[prefixLenPlus1-1].setLastOutput(input.At(prefixLenPlus1-1), output)
 	}
 
 	// save last input
@@ -276,4 +202,87 @@ func assert2(ok bool, msg string, args ...interface{}) {
 	if !ok {
 		panic(fmt.Sprintf(msg, args...))
 	}
+}
+
+/* Expert: holds a pending (seen but not yet serialized) arc */
+type builderArc struct {
+	label           int // really an "unsigned" byte
+	Target          Node
+	isFinal         bool
+	output          interface{}
+	nextFinalOutput interface{}
+}
+
+/*
+NOTE: not many instances of Node or CompiledNode are in memory while
+the FST is being built; it's only the current "frontier":
+*/
+type Node interface {
+	isCompiled() bool
+}
+
+/* Expert: holds a pending (seen but not yet serialized) Node. */
+type UnCompiledNode struct {
+	owner      *Builder
+	NumArcs    int
+	Arcs       []*builderArc
+	output     interface{}
+	IsFinal    bool
+	InputCount int64
+
+	// This node's depth, starting from the automaton root.
+	depth int
+}
+
+func NewUnCompiledNode(owner *Builder, depth int) *UnCompiledNode {
+	return &UnCompiledNode{
+		owner:  owner,
+		Arcs:   []*builderArc{new(builderArc)},
+		output: owner.NO_OUTPUT,
+		depth:  depth,
+	}
+}
+
+func (n *UnCompiledNode) isCompiled() bool { return false }
+
+func (n *UnCompiledNode) Clear() {
+	n.NumArcs = 0
+	n.IsFinal = false
+	n.output = n.owner.NO_OUTPUT
+	n.InputCount = 0
+
+	// we don't clear the depth here becaues it never changes
+	// for nodes on the frontier (even when reused).
+}
+
+func (n *UnCompiledNode) lastOutput(labelToMatch int) interface{} {
+	panic("not implementd yet")
+}
+
+func (n *UnCompiledNode) addArc(label int, target Node) {
+	assert(label >= 0)
+	if n.NumArcs != 0 {
+		assert2(label > n.Arcs[n.NumArcs-1].label,
+			"arc[-1].label=%v new label=%v numArcs=%v",
+			n.Arcs[n.NumArcs-1].label, label, n.NumArcs)
+	}
+	if n.NumArcs == len(n.Arcs) {
+		newArcs := make([]*builderArc, util.Oversize(n.NumArcs+1, util.NUM_BYTES_OBJECT_REF))
+		copy(newArcs, n.Arcs)
+		n.Arcs = newArcs
+	}
+	arc := n.Arcs[n.NumArcs]
+	n.NumArcs++
+	arc.label = label
+	arc.Target = target
+	arc.output = n.owner.NO_OUTPUT
+	arc.nextFinalOutput = n.owner.NO_OUTPUT
+	arc.isFinal = false
+}
+
+func (n *UnCompiledNode) setLastOutput(labelToMatch int, newOutput interface{}) {
+	assert(n.NumArcs > 0)
+	arc := n.Arcs[n.NumArcs-1]
+	assert(arc.label == labelToMatch)
+	arc.output = newOutput
 }
