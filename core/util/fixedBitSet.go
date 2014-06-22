@@ -35,7 +35,7 @@ Returns number of set bits. NOTE: this visits every int64 in the
 backing bits slice, and the result is not internaly cached!
 */
 func (b *FixedBitSet) Cardinality() int {
-	panic("not implemented yet")
+	return int(pop_array(b.bits))
 }
 
 func (b *FixedBitSet) Set(index int) {

@@ -1,5 +1,7 @@
 package util
 
+// util/BitUtil.java
+
 var BYTE_COUNTS = []int{ // table of bits/byte
 	0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
 	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
@@ -71,4 +73,16 @@ var BIT_LISTS = []int{
 /* Return the number of bits sets in b. */
 func BitCount(b byte) int {
 	return BYTE_COUNTS[b&0xFF]
+}
+
+/* Returns the number of set bits in a slice of int64. */
+func pop_array(arr []int64) int {
+	popCount := 0
+	for _, v := range arr {
+		for v > 0 {
+			popCount += BitCount(byte(v & 0xff))
+			v >>= 8
+		}
+	}
+	return popCount
 }
