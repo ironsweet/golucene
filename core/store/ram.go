@@ -482,6 +482,31 @@ func NewRAMOutputStream(f *RAMFile) *RAMOutputStream {
 	return out
 }
 
+/* Copy the current contents of this buffer to the named output. */
+func (out *RAMOutputStream) WriteTo(output IndexOutput) error {
+	err := out.Flush()
+	if err != nil {
+		return err
+	}
+	end := out.file.length
+	pos := int64(0)
+	buffer := 0
+	for pos < end {
+		length := BUFFER_SIZE
+		nextPos := pos + int64(length)
+		if nextPos > end { // at the last buffer
+			length = int(end - pos)
+		}
+		err = output.WriteBytes(out.file.Buffer(buffer)[:length])
+		if err != nil {
+			return err
+		}
+		buffer++
+		pos = nextPos
+	}
+	return nil
+}
+
 /* Resets this to an empty file. */
 func (out *RAMOutputStream) Reset() {
 	out.currentBuffer = nil

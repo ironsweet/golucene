@@ -58,3 +58,25 @@ func (w *MultiLevelSkipListWriter) ResetSkip() {
 		}
 	}
 }
+
+/* Writes the buffered skip lists to the given output. */
+func (w *MultiLevelSkipListWriter) WriteSkip(output IndexOutput) (int64, error) {
+	skipPointer := output.FilePointer()
+	if len(w.skipBuffer) == 0 {
+		return skipPointer, nil
+	}
+
+	for level := w.numberOfSkipLevels - 1; level > 0; level-- {
+		if length := w.skipBuffer[level].FilePointer(); length > 0 {
+			err := output.WriteVLong(length)
+			if err != nil {
+				return 0, err
+			}
+			err = w.skipBuffer[level].WriteTo(output)
+			if err != nil {
+				return 0, err
+			}
+		}
+	}
+	return skipPointer, w.skipBuffer[0].WriteTo(output)
+}

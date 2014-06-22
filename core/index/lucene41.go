@@ -161,6 +161,8 @@ type Lucene41PostingsWriter struct {
 
 	forUtil    ForUtil
 	skipWriter *lucene41.SkipWriter
+
+	pendingTerms []*pwPendingTerm
 }
 
 /* Creates a postings writer with the specified PackedInts overhead ratio */
@@ -368,9 +370,65 @@ func (w *Lucene41PostingsWriter) FinishDoc() error {
 	return nil
 }
 
+type pwPendingTerm struct {
+	docStartFP         int64
+	posStartFP         int64
+	payStartFP         int64
+	skipOffset         int64
+	lastPosBlockOffset int64
+	singletonDocId     int
+}
+
 /* Called when we are done adding docs to this term */
 func (w *Lucene41PostingsWriter) FinishTerm(stats *codec.TermStats) error {
-	panic("not implemented yet")
+	assert(stats.DocFreq > 0)
+
+	// TODO: wasteful we are couting this (counting # docs for this term) in two places?
+	assert2(stats.DocFreq == w.docCount, "%v vs %v", stats.DocFreq, w.docCount)
+
+	// docFreq == 1, don't write the single docId/freq to a separate
+	// file along with a pointer to it.
+	var singletonDocId int
+	if stats.DocFreq == 1 {
+		// pulse the singleton docId into the term dictionary, freq is implicitly totalTermFreq
+		singletonDocId = w.docDeltaBuffer[0]
+	} else {
+		panic("not implemented yet")
+	}
+
+	var lastPosBlockOffset int64
+	if w.fieldHasPositions {
+		panic("not implemented yet")
+	} else {
+		lastPosBlockOffset = -1
+	}
+
+	var skipOffset int64
+	if w.docCount > LUCENE41_BLOCK_SIZE {
+		n, err := w.skipWriter.WriteSkip(w.docOut)
+		if err != nil {
+			return err
+		}
+		skipOffset = n - w.docTermStartFP
+	} else {
+		skipOffset = -1
+	}
+
+	var payStartFP int64
+	if stats.TotalTermFreq >= LUCENE41_BLOCK_SIZE {
+		payStartFP = w.payTermStartFP
+	} else {
+		payStartFP = -1
+	}
+
+	w.pendingTerms = append(w.pendingTerms, &pwPendingTerm{
+		w.docTermStartFP, w.posTermStartFP, payStartFP, skipOffset, lastPosBlockOffset, singletonDocId,
+	})
+	w.docBufferUpto = 0
+	w.posBufferUpto = 0
+	w.lastDocId = 0
+	w.docCount = 0
+	return nil
 }
 
 func (w *Lucene41PostingsWriter) Close() error {
