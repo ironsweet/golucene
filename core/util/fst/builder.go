@@ -52,8 +52,11 @@ type Builder struct {
 
 /* Expert: holds a pending (seen but not yet serialized) arc */
 type builderArc struct {
-	label  int // really an "unsigned" byte
-	Target Node
+	label           int // really an "unsigned" byte
+	Target          Node
+	isFinal         bool
+	output          interface{}
+	nextFinalOutput interface{}
 }
 
 /*
@@ -103,7 +106,24 @@ func (n *UnCompiledNode) lastOutput(labelToMatch int) interface{} {
 }
 
 func (n *UnCompiledNode) addArc(label int, target Node) {
-	panic("not implemented yet")
+	assert(label >= 0)
+	if n.NumArcs != 0 {
+		assert2(label > n.Arcs[n.NumArcs-1].label,
+			"arc[-1].label=%v new label=%v numArcs=%v",
+			n.Arcs[n.NumArcs-1].label, label, n.NumArcs)
+	}
+	if n.NumArcs == len(n.Arcs) {
+		newArcs := make([]*builderArc, util.Oversize(n.NumArcs+1, util.NUM_BYTES_OBJECT_REF))
+		copy(newArcs, n.Arcs)
+		n.Arcs = newArcs
+	}
+	arc := n.Arcs[n.NumArcs]
+	n.NumArcs++
+	arc.label = label
+	arc.Target = target
+	arc.output = n.owner.NO_OUTPUT
+	arc.nextFinalOutput = n.owner.NO_OUTPUT
+	arc.isFinal = false
 }
 
 /*
