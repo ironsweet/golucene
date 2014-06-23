@@ -37,6 +37,10 @@ type PostingsWriterBase interface {
 	FinishTerm(stats *codec.TermStats) error
 	// Called when the writing switches to another field.
 	SetField(fieldInfo *model.FieldInfo)
+	// Flush count terms starting at start "backwards", as a block.
+	// start is a negative offset from the end of the terms stack, ie
+	// bigger start means further back in the stack.
+	flushTermsBlock(start, count int) error
 }
 
 // codec/BlockTreeTermsWriter.java
@@ -93,6 +97,11 @@ type BlockTreeTermsWriter struct {
 	currentField   *model.FieldInfo
 
 	fields []*FieldMetaData
+
+	scratchBytes *store.RAMOutputStream
+
+	bytesWriter  *store.RAMOutputStream
+	bytesWriter2 *store.RAMOutputStream
 }
 
 /*
@@ -117,6 +126,9 @@ func NewBlockTreeTermsWriter(state SegmentWriteState,
 		minItemsInBlock: minItemsInBlock,
 		maxItemsInBlock: maxItemsInBlock,
 		postingsWriter:  postingsWriter,
+		scratchBytes:    store.NewRAMOutputStreamBuffer(),
+		bytesWriter:     store.NewRAMOutputStreamBuffer(),
+		bytesWriter2:    store.NewRAMOutputStreamBuffer(),
 	}
 	ans.spi = ans
 	var out, indexOut store.IndexOutput
@@ -197,10 +209,20 @@ type PendingBlock struct {
 	index  *fst.FST
 }
 
+func newPendingBlock(prefix []byte, fp int64, hasTerms, isFloor bool,
+	floorLeadByte int, subIndices []*fst.FST) *PendingBlock {
+	panic("not implemented yet")
+}
+
 func (b *PendingBlock) isTerm() bool { return false }
 
 func (b *PendingBlock) String() string {
 	return fmt.Sprintf("BLOCK: %v", utf8ToString(b.prefix))
+}
+
+func (b *PendingBlock) compileIndex(floorBlocks []*PendingBlock,
+	sctrachBytes *store.RAMOutputStream) error {
+	panic("not implemented yet")
 }
 
 type TermsWriter struct {
@@ -220,6 +242,9 @@ type TermsWriter struct {
 	// PendingTerm or PendingBlock:
 	pending []PendingEntry
 
+	// Index into pending of most recently written block
+	lastBlockIndex int
+
 	scratchIntsRef *util.IntsRef
 }
 
@@ -230,6 +255,7 @@ func newTermsWriter(owner *BlockTreeTermsWriter,
 		owner:          owner,
 		fieldInfo:      fieldInfo,
 		noOutputs:      fst.NO_OUTPUT,
+		lastBlockIndex: -1,
 		scratchIntsRef: util.NewEmptyIntsRef(),
 	}
 	// This builder is just used transiently to fragment terms into
@@ -258,7 +284,14 @@ func newTermsWriter(owner *BlockTreeTermsWriter,
 				node.NumArcs = 0
 
 				if totCount >= int64(ans.owner.minItemsInBlock) || idx == 0 {
-					panic("not implemented yet")
+					// we are on a prefix node that has enough entries (terms
+					// or sub-blocks) under it to let us write a new block or
+					// multiple blocks (main block + follow on floor blocks):
+					err := ans.writeBlocks(lastInput, idx, int(totCount))
+					if err != nil {
+						return err
+					}
+					node.InputCount = 1
 				} else {
 					// stragglers! carry count upwards
 					node.InputCount = totCount
@@ -269,6 +302,142 @@ func newTermsWriter(owner *BlockTreeTermsWriter,
 		}, false, packed.PackedInts.COMPACT,
 		true, 15)
 	return ans
+}
+
+/*
+Write the top count entries on the pending stack as one or more
+blocks. Returns how many blocks were written. If the entry count is
+<= maxItemsPerBlock we just write a single blocks; else we break into
+primary (initial) block and then one or more following floor blocks:
+*/
+func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count int) error {
+	if prefixLength == 0 || count <= w.owner.maxItemsInBlock {
+		// Easy case: not floor block. Eg, prefix is "foo", and we found
+		// 30 terms/sub-blocks starting w/ that prefix, and
+		// minItemsInBlock <= 30 <= maxItemsInBlock.
+		nonFloorBlock, err := w.writeBlock(prevTerm, prefixLength, prefixLength, count, count, 0, false, -1, true)
+		if err != nil {
+			return err
+		}
+		err = nonFloorBlock.compileIndex(nil, w.owner.scratchBytes)
+		if err != nil {
+			return err
+		}
+		w.pending = append(w.pending, nonFloorBlock)
+	} else {
+		panic("not implemented yet")
+	}
+	w.lastBlockIndex = len(w.pending) - 1
+	return nil
+}
+
+/* Write all entries in the pending slice as a single block: */
+func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
+	indexPrefixLength, startBackwards, length, futureTermCount int,
+	isFloor bool, floorLeadByte int, isLastInFloor bool) (*PendingBlock, error) {
+
+	assert(length > 0)
+
+	start := len(w.pending) - startBackwards
+
+	assert2(start >= 0, "len(pending)=%v startBackward=%v length=%v",
+		len(w.pending), startBackwards, length)
+
+	slice := w.pending[start : start+length]
+
+	startFP := w.owner.out.FilePointer()
+
+	prefix := make([]byte, indexPrefixLength)
+	for m, _ := range prefix {
+		prefix[m] = byte(prevTerm.At(m))
+	}
+
+	// write block header:
+	err := w.owner.out.WriteVInt(int32(length<<1) | (map[bool]int32{true: 1, false: 0}[isLastInFloor]))
+	if err != nil {
+		return nil, err
+	}
+
+	// 1st pass: pack term suffix bytes into []byte blob
+	// TODO: cutover to bulk int codec... simple64?
+
+	var isLeafBlock bool
+	if w.lastBlockIndex < start {
+		// this block defintely does not contain sub-blocks:
+		isLeafBlock = true
+		fmt.Printf("no scan true isFloor=%v\n", isFloor)
+	} else if !isFloor {
+		// this block definitely does contain at least one sub-block:
+		isLeafBlock = false
+		fmt.Printf("no scan false %v vs start=%v len=%v", w.lastBlockIndex, start, length)
+	} else {
+		// must scan up-front to see if there is a sub-block
+		v := true
+		fmt.Printf("scan %v vs start=%v len=%v", w.lastBlockIndex, start, length)
+		for _, ent := range slice {
+			if !ent.isTerm() {
+				v = false
+				break
+			}
+		}
+		isLeafBlock = v
+	}
+
+	var subIndices []*fst.FST
+
+	var termCount int
+	if isLeafBlock {
+		panic("not implemented yet")
+	} else {
+		panic("not implemented yet")
+	}
+
+	// TODO: we could block-write the term suffix pointer
+	// this would take more space but would enable binary
+	// search on lookup
+
+	// write suffixes []byte blob to terms dict output:
+	err = w.owner.out.WriteVInt(int32(w.owner.bytesWriter.FilePointer()<<1) | (map[bool]int32{true: 1, false: 0}[isLeafBlock]))
+	if err == nil {
+		err = w.owner.bytesWriter.WriteTo(w.owner.out)
+		if err != nil {
+			w.owner.bytesWriter.Reset()
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// write term stats []byte blob
+	err = w.owner.out.WriteVInt(int32(w.owner.bytesWriter2.FilePointer()))
+	if err == nil {
+		err = w.owner.bytesWriter2.WriteTo(w.owner.out)
+		if err != nil {
+			w.owner.bytesWriter2.Reset()
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// have postings writer write block
+	err = w.owner.postingsWriter.flushTermsBlock(futureTermCount+termCount, termCount)
+	if err != nil {
+		return nil, err
+	}
+
+	// remove slice replaced by block:
+	slice = nil
+
+	if w.lastBlockIndex >= start {
+		if w.lastBlockIndex < start+length {
+			w.lastBlockIndex = start
+		} else {
+			w.lastBlockIndex -= length
+		}
+	}
+
+	return newPendingBlock(prefix, startFP, termCount != 0, isFloor, floorLeadByte, subIndices), nil
 }
 
 func (w *TermsWriter) comparator() func(a, b []byte) bool {

@@ -469,6 +469,10 @@ func (w *Lucene41PostingsWriter) FinishTerm(stats *codec.TermStats) error {
 	return nil
 }
 
+func (w *Lucene41PostingsWriter) flushTermsBlock(start, count int) error {
+	panic("not implemented yet")
+}
+
 func (w *Lucene41PostingsWriter) Close() error {
 	panic("not implemented yet")
 }
