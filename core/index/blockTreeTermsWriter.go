@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
@@ -71,6 +72,15 @@ type BlockTreeTermsWriterSPI interface {
 	WriteIndexHeader(store.IndexOutput) error
 }
 
+type FieldMetaData struct {
+}
+
+func newFieldMetaData(fieldInfo *model.FieldInfo,
+	rootCode []byte, numTerms, indexStartFP, sumTotalTermFreq, sumDocFreq int64,
+	docCount int) *FieldMetaData {
+	panic("not implemented yet")
+}
+
 type BlockTreeTermsWriter struct {
 	spi             BlockTreeTermsWriterSPI
 	out             store.IndexOutput
@@ -81,6 +91,8 @@ type BlockTreeTermsWriter struct {
 	postingsWriter PostingsWriterBase
 	fieldInfos     model.FieldInfos
 	currentField   *model.FieldInfo
+
+	fields []*FieldMetaData
 }
 
 /*
@@ -181,12 +193,24 @@ func newPendingTerm(term []byte, stats *codec.TermStats) *PendingTerm {
 func (t *PendingTerm) isTerm() bool { return true }
 
 type PendingBlock struct {
+	prefix []byte
+	index  *fst.FST
+}
+
+func (b *PendingBlock) isTerm() bool { return false }
+
+func (b *PendingBlock) String() string {
+	return fmt.Sprintf("BLOCK: %v", utf8ToString(b.prefix))
 }
 
 type TermsWriter struct {
-	owner     *BlockTreeTermsWriter
-	fieldInfo *model.FieldInfo
-	numTerms  int64
+	owner            *BlockTreeTermsWriter
+	fieldInfo        *model.FieldInfo
+	numTerms         int64
+	sumTotalTermFreq int64
+	sumDocFreq       int64
+	docCount         int
+	indexStartFP     int64
 
 	// Used only to partition terms into the block tree; we don't pull
 	// an FST from this builder:
@@ -273,7 +297,38 @@ func (w *TermsWriter) finishTerm(text []byte, stats *codec.TermStats) error {
 
 func (w *TermsWriter) finish(sumTotalTermFreq, sumDocFreq int64, docCount int) error {
 	if w.numTerms > 0 {
-		panic("not implemented yet")
+		_, err := w.blockBuilder.Finish()
+		if err != nil {
+			return err
+		}
+
+		// we better have one final "root" block:
+		assert2(len(w.pending) == 1 && !w.pending[0].isTerm(),
+			"len(pending) = %v pending=%v", len(w.pending), w.pending)
+		root := w.pending[0].(*PendingBlock)
+		assert(len(root.prefix) == 0)
+		assert(root.index.EmptyOutput() != nil)
+
+		w.sumTotalTermFreq = sumTotalTermFreq
+		w.sumDocFreq = sumDocFreq
+		w.docCount = docCount
+
+		// Write FST to index
+		w.indexStartFP = w.owner.indexOut.FilePointer()
+		err = root.index.Save(w.owner.indexOut)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("  write FST %v field=%v\n", w.indexStartFP, w.fieldInfo.Name)
+
+		w.owner.fields = append(w.owner.fields, newFieldMetaData(
+			w.fieldInfo,
+			w.pending[0].(*PendingBlock).index.EmptyOutput().([]byte),
+			w.numTerms,
+			w.indexStartFP,
+			sumTotalTermFreq,
+			sumDocFreq,
+			docCount))
 	} else {
 		assert(sumTotalTermFreq == 0 || w.fieldInfo.IndexOptions() == model.INDEX_OPT_DOCS_ONLY && sumTotalTermFreq == -1)
 		assert(sumDocFreq == 0)

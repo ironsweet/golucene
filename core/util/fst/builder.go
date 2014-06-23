@@ -204,6 +204,14 @@ func assert2(ok bool, msg string, args ...interface{}) {
 	}
 }
 
+/*
+Returns final FST. NOTE: this will return nil if nothing is accepted
+by the FST.
+*/
+func (b *Builder) Finish() (*FST, error) {
+	panic("not implemented yet")
+}
+
 /* Expert: holds a pending (seen but not yet serialized) arc */
 type builderArc struct {
 	label           int // really an "unsigned" byte
