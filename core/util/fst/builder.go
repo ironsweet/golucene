@@ -85,6 +85,10 @@ func NewBuilder(inputType InputType, minSuffixCount1, minSuffixCount2 int,
 	return ans
 }
 
+func (b *Builder) compileNode(nodeIn *UnCompiledNode, tailLength int) (*CompiledNode, error) {
+	panic("not implemented yet")
+}
+
 func (b *Builder) freezeTail(prefixLenPlus1 int) error {
 	if b._freezeTail != nil {
 		// Custom plugin:
@@ -209,6 +213,49 @@ Returns final FST. NOTE: this will return nil if nothing is accepted
 by the FST.
 */
 func (b *Builder) Finish() (*FST, error) {
+	root := b.frontier[0]
+
+	// minimize nodes in the last word's suffix
+	err := b.freezeTail(0)
+	if err != nil {
+		return nil, err
+	}
+	if root.InputCount < int64(b.minSuffixCount1) ||
+		root.InputCount < int64(b.minSuffixCount2) || root.NumArcs == 0 {
+		if b.fst.emptyOutput == nil {
+			return nil, nil
+		} else if b.minSuffixCount1 > 0 || b.minSuffixCount2 > 0 {
+			// emtpy string got pruned
+			return nil, nil
+		}
+	} else {
+		if b.minSuffixCount2 != 0 {
+			err = b.compileAllTargets(root, b.lastInput.Length)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	d, err := b.compileNode(root, b.lastInput.Length)
+	if err != nil {
+		return nil, err
+	}
+	err = b.fst.finish(d.node)
+	if err != nil {
+		return nil, err
+	}
+
+	if b.doPackFST {
+		n := b.fst.NodeCount() / 4
+		if n < 10 {
+			n = 10
+		}
+		return b.fst.pack(3, int(n), b.acceptableOverheadRatio)
+	}
+	return b.fst, nil
+}
+
+func (b *Builder) compileAllTargets(node *UnCompiledNode, tailLength int) error {
 	panic("not implemented yet")
 }
 
@@ -228,6 +275,12 @@ the FST is being built; it's only the current "frontier":
 type Node interface {
 	isCompiled() bool
 }
+
+type CompiledNode struct {
+	node int64
+}
+
+func (n *CompiledNode) isCompiled() bool { return true }
 
 /* Expert: holds a pending (seen but not yet serialized) Node. */
 type UnCompiledNode struct {

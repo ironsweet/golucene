@@ -282,6 +282,10 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 	return fst, err
 }
 
+func (t *FST) finish(startNode int64) error {
+	panic("not implemented yet")
+}
+
 func (t *FST) getNodeAddress(node int64) int64 {
 	if t.nodeAddress != nil { // Deref
 		return t.nodeAddress.Get(int(node))
@@ -753,6 +757,10 @@ func (t *FST) seekToNextNode(in BytesReader) error {
 	}
 }
 
+func (t *FST) NodeCount() int64 {
+	return t.nodeCount + 1
+}
+
 func (t *FST) BytesReader() BytesReader {
 	if t.packed {
 		return t.bytes.forwardReader()
@@ -771,4 +779,22 @@ type BytesReader interface {
 	// *util.DataInputImpl
 	util.DataInput
 	RandomAccess
+}
+
+// L1464
+/*
+Expert: creates an FST by packing this one. This process requires
+substantial additional RAM (currently up to ~8 bytes per node
+depending on acceptableOverheadRatio), but then should produce a
+smaller FST.
+
+The implementation of this method uses ideas from
+<a target="_blank" href="http://www.cs.put.poznan.pl/dweiss/site/publications/download/fsacomp.pdf">Smaller Representation of Finite State Automata</a>
+which describes techniques to reduce the size of a FST. However, this
+is not a strict implementation of the algorithms described in this
+paper.
+*/
+func (t *FST) pack(minInCountDeref, maxDerefNodes int,
+	acceptableOverheadRatio float32) (*FST, error) {
+	panic("not implemented yet")
 }
