@@ -163,6 +163,8 @@ type Lucene41PostingsWriter struct {
 	skipWriter *lucene41.SkipWriter
 
 	pendingTerms []*pwPendingTerm
+
+	bytesWriter *store.RAMOutputStream
 }
 
 /* Creates a postings writer with the specified PackedInts overhead ratio */
@@ -179,6 +181,7 @@ func newLucene41PostingsWriter(state SegmentWriteState,
 
 	ans := &Lucene41PostingsWriter{
 		maxSkipLevels: 10,
+		bytesWriter:   store.NewRAMOutputStreamBuffer(),
 	}
 	if err = func() error {
 		var posOut store.IndexOutput
@@ -470,7 +473,73 @@ func (w *Lucene41PostingsWriter) FinishTerm(stats *codec.TermStats) error {
 }
 
 func (w *Lucene41PostingsWriter) flushTermsBlock(start, count int) error {
-	panic("not implemented yet")
+	if count == 0 {
+		return w.termsOut.WriteByte(0)
+	}
+
+	assert(start <= len(w.pendingTerms))
+	assert(count <= start)
+
+	limit := len(w.pendingTerms) - start + count
+
+	lastDocStartFP := int64(0)
+	lastPosStartFP := int64(0)
+	lastPayStartFP := int64(0)
+	for _, term := range w.pendingTerms[limit-count : limit] {
+		if term.singletonDocId == -1 {
+			err := w.bytesWriter.WriteVLong(term.docStartFP - lastDocStartFP)
+			if err != nil {
+				return err
+			}
+			lastDocStartFP = term.docStartFP
+		} else {
+			err := w.bytesWriter.WriteVInt(int32(term.singletonDocId))
+			if err != nil {
+				return err
+			}
+		}
+
+		if w.fieldHasPositions {
+			err := w.bytesWriter.WriteVLong(term.posStartFP - lastPosStartFP)
+			if err == nil {
+				lastPosStartFP = term.posStartFP
+				if term.lastPosBlockOffset != -1 {
+					err = w.bytesWriter.WriteVLong(term.lastPosBlockOffset)
+				}
+			}
+			if err == nil && (w.fieldHasPayloads || w.fieldHasOffsets) && term.payStartFP != -1 {
+				err = w.bytesWriter.WriteVLong(term.payStartFP - lastPayStartFP)
+				if err == nil {
+					lastPayStartFP = term.payStartFP
+				}
+			}
+			if err != nil {
+				return err
+			}
+		}
+
+		if term.skipOffset != -1 {
+			err := w.bytesWriter.WriteVLong(term.skipOffset)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	err := w.termsOut.WriteVInt(int32(w.bytesWriter.FilePointer()))
+	if err == nil {
+		err = w.bytesWriter.WriteTo(w.termsOut)
+		if err == nil {
+			w.bytesWriter.Reset()
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	// remove the terms we just wrote:
+	w.pendingTerms = append(w.pendingTerms[:limit-count], w.pendingTerms[limit:]...)
+	return nil
 }
 
 func (w *Lucene41PostingsWriter) Close() error {
