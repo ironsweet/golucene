@@ -189,6 +189,18 @@ func (w *BlockTreeTermsWriter) Close() error {
 	panic("not implemented yet")
 }
 
+func encodeOutput(fp int64, hasTerms bool, isFloor bool) int64 {
+	assert(fp < (1 << 62))
+	ans := (fp << 2)
+	if hasTerms {
+		ans |= BTT_OUTPUT_FLAG_HAS_TERMS
+	}
+	if isFloor {
+		ans |= BTT_OUTPUT_FLAG_IS_FLOOR
+	}
+	return ans
+}
+
 type PendingEntry interface {
 	isTerm() bool
 }
@@ -229,8 +241,56 @@ func (b *PendingBlock) String() string {
 }
 
 func (b *PendingBlock) compileIndex(floorBlocks []*PendingBlock,
-	sctrachBytes *store.RAMOutputStream) error {
-	panic("not implemented yet")
+	scratchBytes *store.RAMOutputStream) error {
+	assert2(b.isFloor && len(floorBlocks) > 0 || (!b.isFloor && len(floorBlocks) == 0),
+		"isFloor=%v floorBlocks=%v", b.isFloor, floorBlocks)
+
+	assert(scratchBytes.FilePointer() == 0)
+
+	// TODO: try writing the leading vLong in MSB order
+	// (opposite of what Lucene does today), for better
+	// outputs sharing in the FST
+	err := scratchBytes.WriteVLong(encodeOutput(b.fp, b.hasTerms, b.isFloor))
+	if err != nil {
+		return err
+	}
+	if b.isFloor {
+		panic("not implemented yet")
+	}
+
+	outputs := fst.ByteSequenceOutputsSingleton()
+	indexBuilder := fst.NewBuilder(fst.INPUT_TYPE_BYTE1,
+		0, 0, true, false, int(math.MaxInt32),
+		outputs, nil, false,
+		packed.PackedInts.COMPACT, true, 15)
+
+	bytes := make([]byte, scratchBytes.FilePointer())
+	assert(len(bytes) > 0)
+	err = scratchBytes.WriteToBytes(bytes)
+	if err != nil {
+		return err
+	}
+	err = indexBuilder.Add(fst.ToIntsRef(b.prefix, b.sctrachIntsRef), util.NewBytesRef(bytes))
+	if err != nil {
+		return err
+	}
+	scratchBytes.Reset()
+
+	// copy over index for all sub-blocks
+	if b.subIndeces != nil {
+		panic("not implemented yet")
+	}
+
+	if floorBlocks != nil {
+		panic("not implemented yet")
+	}
+
+	b.index, err = indexBuilder.Finish()
+	if err != nil {
+		return err
+	}
+	b.subIndeces = nil
+	return nil
 }
 
 type TermsWriter struct {

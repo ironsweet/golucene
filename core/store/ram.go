@@ -507,6 +507,11 @@ func (out *RAMOutputStream) WriteTo(output IndexOutput) error {
 	return nil
 }
 
+/* Copy the current contents of this buffer to output byte slice */
+func (out *RAMOutputStream) WriteToBytes(bytes []byte) error {
+	panic("not implemented yet")
+}
+
 /* Resets this to an empty file. */
 func (out *RAMOutputStream) Reset() {
 	out.currentBuffer = nil
