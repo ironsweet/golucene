@@ -387,7 +387,32 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 
 	var termCount int
 	if isLeafBlock {
-		panic("not implemented yet")
+		subIndices = nil
+		for _, ent := range slice {
+			assert(ent.isTerm())
+			term := ent.(*PendingTerm)
+			suffix := len(term.term) - prefixLength
+			// for leaf block we write suffix straight
+			err := w.owner.bytesWriter.WriteVInt(int32(suffix))
+			if err == nil {
+				err = w.owner.bytesWriter.WriteBytes(term.term[prefixLength : prefixLength+suffix])
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			// write term stats, to separate []byte blob:
+			err = w.owner.bytesWriter2.WriteVInt(int32(term.stats.DocFreq))
+			if err == nil && w.fieldInfo.IndexOptions() != model.INDEX_OPT_DOCS_ONLY {
+				assert2(term.stats.TotalTermFreq >= int64(term.stats.DocFreq),
+					"%v vs %v", term.stats.TotalTermFreq, term.stats.DocFreq)
+				err = w.owner.bytesWriter2.WriteVLong(term.stats.TotalTermFreq - int64(term.stats.DocFreq))
+			}
+			if err != nil {
+				return nil, err
+			}
+		}
+		termCount = length
 	} else {
 		panic("not implemented yet")
 	}
