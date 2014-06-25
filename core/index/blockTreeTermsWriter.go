@@ -205,13 +205,21 @@ func newPendingTerm(term []byte, stats *codec.TermStats) *PendingTerm {
 func (t *PendingTerm) isTerm() bool { return true }
 
 type PendingBlock struct {
-	prefix []byte
-	index  *fst.FST
+	prefix         []byte
+	fp             int64
+	index          *fst.FST
+	subIndeces     []*fst.FST
+	hasTerms       bool
+	isFloor        bool
+	floorLeadByte  int
+	sctrachIntsRef *util.IntsRef
 }
 
 func newPendingBlock(prefix []byte, fp int64, hasTerms, isFloor bool,
 	floorLeadByte int, subIndices []*fst.FST) *PendingBlock {
-	panic("not implemented yet")
+	return &PendingBlock{
+		prefix, fp, nil, subIndices, hasTerms, isFloor, floorLeadByte, util.NewEmptyIntsRef(),
+	}
 }
 
 func (b *PendingBlock) isTerm() bool { return false }
