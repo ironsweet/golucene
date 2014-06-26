@@ -205,7 +205,10 @@ func (w *FreqProxTermsWriterPerField) finish() error {
 
 /* Called after flush */
 func (w *FreqProxTermsWriterPerField) reset() {
-	panic("not implemented yet")
+	// record, up front, whether our in-RAM format will be
+	// with or without term freqs:
+	w.setIndexOptions(w.fieldInfo.IndexOptions())
+	w.payloadAttribute = nil
 }
 
 func (w *FreqProxTermsWriterPerField) setIndexOptions(indexOptions model.IndexOptions) {
