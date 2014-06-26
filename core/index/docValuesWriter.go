@@ -81,9 +81,29 @@ func (w *NumericDocValuesWriter) flush(state model.SegmentWriteState,
 func (w *NumericDocValuesWriter) abort() {}
 
 /* Iterates over the values we have in ram */
-type NumericIterator struct {
-}
+type NumericIterator struct{}
 
 func newNumericIterator(maxDoc int, owner *NumericDocValuesWriter) func() (interface{}, bool) {
-	panic("not implemented yet")
+	upto, size := 0, int(owner.pending.Size())
+	iter := owner.pending.Iterator()
+	return func() (interface{}, bool) {
+		if upto >= maxDoc {
+			return nil, false
+		}
+		var value interface{}
+		if upto < size {
+			v, _ := iter()
+			if !owner.trackDocsWithField || owner.docsWithField.Get(int64(upto)) {
+				value = v
+			} else {
+				value = nil
+			}
+		} else if owner.trackDocsWithField {
+			value = nil
+		} else {
+			value = MISSING
+		}
+		upto++
+		return value, true
+	}
 }

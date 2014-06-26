@@ -16,6 +16,7 @@ type abstractAppendingLongBufferSPI interface {
 	packPendingValues()
 	grow(int)
 	baseRamBytesUsed() int64
+	getBulk(int, int, []int64) int
 }
 
 /* Common functionality shared by AppendingDeltaPackedLongBuffer and MonotonicAppendingLongBuffer. */
@@ -84,6 +85,49 @@ func (buf *abstractAppendingLongBuffer) grow(newBlockCount int) {
 	buf.values = arr
 }
 
+func (buf *abstractAppendingLongBuffer) Iterator() func() (int64, bool) {
+	var currentValues []int64
+	vOff, pOff := 0, 0
+	var currentCount int // number of entries of the current page
+
+	fillValues := func() {
+		if vOff == buf.valuesOff {
+			currentValues = buf.pending
+			currentCount = buf.pendingOff
+		} else {
+			currentCount = int(buf.values[vOff].Size())
+			for k := 0; k < currentCount; {
+				k += buf.spi.getBulk(vOff, k, currentValues[k:currentCount])
+			}
+		}
+	}
+
+	if buf.valuesOff == 0 {
+		currentValues = buf.pending
+		currentCount = buf.pendingOff
+	} else {
+		currentValues = make([]int64, len(buf.values))
+		fillValues()
+	}
+
+	return func() (int64, bool) {
+		if pOff >= currentCount {
+			return 0, false
+		}
+		result := currentValues[pOff]
+		if pOff == currentCount {
+			vOff++
+			pOff = 0
+			if vOff <= buf.valuesOff {
+				fillValues()
+			} else {
+				currentCount = 0
+			}
+		}
+		return result, true
+	}
+}
+
 func (buf *abstractAppendingLongBuffer) baseRamBytesUsed() int64 {
 	return util.NUM_BYTES_OBJECT_HEADER +
 		2*util.NUM_BYTES_OBJECT_REF + // the 2 arrays
@@ -125,6 +169,10 @@ pageSize=1024
 */
 func NewAppendingDeltaPackedLongBufferWithOverhead(acceptableOverheadRatio float32) *AppendingDeltaPackedLongBuffer {
 	return NewAppendingDeltaPackedLongBuffer(16, 1024, acceptableOverheadRatio)
+}
+
+func (buf *AppendingDeltaPackedLongBuffer) getBulk(block, element int, arr []int64) int {
+	panic("not implemented yet")
 }
 
 func (buf *AppendingDeltaPackedLongBuffer) packPendingValues() {

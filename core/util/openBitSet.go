@@ -20,6 +20,17 @@ func NewOpenBitSet() *OpenBitSet {
 	return NewOpenBitSetOf(64)
 }
 
+/* Returns true or false for the specified bit index */
+func (b *OpenBitSet) Get(index int64) bool {
+	i := int(index >> 6) // div 64
+	if i >= len(b.bits) {
+		return false
+	}
+	bit := uint(index & 0x3f) // mod 64
+	bitmask := int64(1) << bit
+	return (b.bits[i] & bitmask) != 0
+}
+
 /* Sets a bit, expanding the set size if necessary */
 func (b *OpenBitSet) Set(index int64) {
 	panic("not implemented yet")
