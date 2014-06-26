@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/codec/compressing"
+	"github.com/balzaczyy/golucene/core/codec/lucene42"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -49,7 +50,7 @@ type readonlyLucene42NormsFormat struct {
 	*Lucene42NormsFormat
 }
 
-func (f *readonlyLucene42NormsFormat) NormsConsumer(state SegmentWriteState) (w DocValuesConsumer, err error) {
+func (f *readonlyLucene42NormsFormat) NormsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("this codec can only be used for reading")
 }
 
@@ -539,8 +540,11 @@ func newLucene42NormsFormatWithOverhead(acceptableOverheadRatio float32) *Lucene
 	return &Lucene42NormsFormat{acceptableOverheadRatio}
 }
 
-func (f *Lucene42NormsFormat) NormsConsumer(state SegmentWriteState) (w DocValuesConsumer, err error) {
-	panic("not implemented yet")
+func (f *Lucene42NormsFormat) NormsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
+	return lucene42.NewNormsConsumer(state,
+		LUCENE42_DV_DATA_CODEC, LUCENE42_DV_DATA_EXTENSION,
+		LUCENE42_DV_METADATA_CODEC, LUCENE42_DV_METADATA_EXTENSION,
+		f.acceptableOverheadRatio)
 }
 
 func (f *Lucene42NormsFormat) NormsProducer(state SegmentReadState) (r DocValuesProducer, err error) {
@@ -676,7 +680,7 @@ func (f *Lucene42DocValuesFormat) Name() string {
 	return "Lucene42"
 }
 
-func (f *Lucene42DocValuesFormat) FieldsConsumer(state SegmentWriteState) (w DocValuesConsumer, err error) {
+func (f *Lucene42DocValuesFormat) FieldsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("this codec can only be used for reading")
 }
 

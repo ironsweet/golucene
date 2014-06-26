@@ -10,7 +10,7 @@ type InvertedDocConsumer interface {
 	abort()
 	addField(*DocInverterPerField, *model.FieldInfo) InvertedDocConsumerPerField
 	// Flush a new segment
-	flush(map[string]InvertedDocConsumerPerField, SegmentWriteState) error
+	flush(map[string]InvertedDocConsumerPerField, model.SegmentWriteState) error
 	startDocument()
 	finishDocument() error
 }
@@ -79,7 +79,8 @@ func (hash *TermsHash) reset() {
 	hash.bytePool.Reset(false, false)
 }
 
-func (hash *TermsHash) flush(fieldsToFlush map[string]InvertedDocConsumerPerField, state SegmentWriteState) error {
+func (hash *TermsHash) flush(fieldsToFlush map[string]InvertedDocConsumerPerField,
+	state model.SegmentWriteState) error {
 	childFields := make(map[string]TermsHashConsumerPerField)
 	var nextChildFieldFields map[string]InvertedDocConsumerPerField
 	if hash.nextTermsHash != nil {

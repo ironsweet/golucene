@@ -6,7 +6,7 @@ import (
 
 type DocFieldConsumer interface {
 	// Called when DWPT decides to create a new segment
-	flush(fieldsToFlush map[string]DocFieldConsumerPerField, state SegmentWriteState) error
+	flush(fieldsToFlush map[string]DocFieldConsumerPerField, state model.SegmentWriteState) error
 	// Called when an aborting error is hit
 	abort()
 	startDocument()
@@ -30,7 +30,8 @@ func newDocInverter(docState *docState, consumer InvertedDocConsumer,
 	return &DocInverter{consumer, endConsumer, docState}
 }
 
-func (di *DocInverter) flush(fieldsToFlush map[string]DocFieldConsumerPerField, state SegmentWriteState) error {
+func (di *DocInverter) flush(fieldsToFlush map[string]DocFieldConsumerPerField,
+	state model.SegmentWriteState) error {
 	childFieldsToFlush := make(map[string]InvertedDocConsumerPerField)
 	endChildFieldsToFlush := make(map[string]InvertedDocEndConsumerPerField)
 	for k, v := range fieldsToFlush {

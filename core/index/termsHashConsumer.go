@@ -9,7 +9,7 @@ import (
 // index/TermsHashConsumer.java
 
 type TermsHashConsumer interface {
-	flush(map[string]TermsHashConsumerPerField, SegmentWriteState) error
+	flush(map[string]TermsHashConsumerPerField, model.SegmentWriteState) error
 	abort()
 	startDocument()
 	finishDocument(*TermsHash) error
@@ -39,9 +39,9 @@ func newTermVectorsConsumer(docWriter *DocumentsWriterPerThread) *TermVectorsCon
 }
 
 func (tvc *TermVectorsConsumer) flush(fieldsToFlush map[string]TermsHashConsumerPerField,
-	state SegmentWriteState) (err error) {
+	state model.SegmentWriteState) (err error) {
 	if tvc.writer != nil {
-		numDocs := state.segmentInfo.DocCount()
+		numDocs := state.SegmentInfo.DocCount()
 		assert(numDocs > 0)
 		// At least one doc in this run had term vectors enabled
 		func() {
@@ -54,7 +54,7 @@ func (tvc *TermVectorsConsumer) flush(fieldsToFlush map[string]TermsHashConsumer
 
 			err = tvc.fill(numDocs)
 			if err == nil {
-				err = tvc.writer.finish(state.fieldInfos, numDocs)
+				err = tvc.writer.finish(state.FieldInfos, numDocs)
 			}
 		}()
 		if err != nil {
@@ -188,7 +188,7 @@ func (w *FreqProxTermsWriter) abort() {}
 // presumably share a lot of this...
 
 func (w *FreqProxTermsWriter) flush(fieldsToFlush map[string]TermsHashConsumerPerField,
-	state SegmentWriteState) (err error) {
+	state model.SegmentWriteState) (err error) {
 	// Gather all FieldData's that have postings, across all ThreadStates
 	var allFields []*FreqProxTermsWriterPerField
 
@@ -203,7 +203,7 @@ func (w *FreqProxTermsWriter) flush(fieldsToFlush map[string]TermsHashConsumerPe
 	util.IntroSort(FreqProxTermsWriterPerFields(allFields))
 
 	var consumer FieldsConsumer
-	consumer, err = state.segmentInfo.Codec().(Codec).PostingsFormat().FieldsConsumer(state)
+	consumer, err = state.SegmentInfo.Codec().(Codec).PostingsFormat().FieldsConsumer(state)
 	if err != nil {
 		return err
 	}

@@ -126,7 +126,7 @@ Create a new writer. The number of items (terms or sub-blocks) per
 block will aim tobe between minItermsPerBlock and maxItemsPerBlock,
 though in some cases, the blocks may be smaller than the min.
 */
-func NewBlockTreeTermsWriter(state SegmentWriteState,
+func NewBlockTreeTermsWriter(state model.SegmentWriteState,
 	postingsWriter PostingsWriterBase,
 	minItemsInBlock, maxItemsInBlock int) (*BlockTreeTermsWriter, error) {
 	assert2(minItemsInBlock >= 2, "minItemsInBlock must be >= 2; got %v", minItemsInBlock)
@@ -139,7 +139,7 @@ func NewBlockTreeTermsWriter(state SegmentWriteState,
 		maxItemsInBlock, minItemsInBlock)
 
 	ans := &BlockTreeTermsWriter{
-		fieldInfos:      state.fieldInfos,
+		fieldInfos:      state.FieldInfos,
 		minItemsInBlock: minItemsInBlock,
 		maxItemsInBlock: maxItemsInBlock,
 		postingsWriter:  postingsWriter,
@@ -158,16 +158,16 @@ func NewBlockTreeTermsWriter(state SegmentWriteState,
 		}()
 
 		var err error
-		termsFileName := util.SegmentFileName(state.segmentInfo.Name, state.segmentSuffix, TERMS_EXTENSION)
-		if out, err = state.directory.CreateOutput(termsFileName, state.context); err != nil {
+		termsFileName := util.SegmentFileName(state.SegmentInfo.Name, state.SegmentSuffix, TERMS_EXTENSION)
+		if out, err = state.Directory.CreateOutput(termsFileName, state.Context); err != nil {
 			return err
 		}
 		if err = ans.spi.WriteHeader(out); err != nil {
 			return err
 		}
 
-		termsIndexFileName := util.SegmentFileName(state.segmentInfo.Name, state.segmentSuffix, TERMS_INDEX_EXTENSION)
-		if indexOut, err = state.directory.CreateOutput(termsIndexFileName, state.context); err != nil {
+		termsIndexFileName := util.SegmentFileName(state.SegmentInfo.Name, state.SegmentSuffix, TERMS_INDEX_EXTENSION)
+		if indexOut, err = state.Directory.CreateOutput(termsIndexFileName, state.Context); err != nil {
 			return err
 		}
 		if err = ans.spi.WriteIndexHeader(indexOut); err != nil {

@@ -145,7 +145,7 @@ type PostingsFormat interface {
 	// Returns this posting format's name
 	Name() string
 	// Writes a new segment
-	FieldsConsumer(state SegmentWriteState) (FieldsConsumer, error)
+	FieldsConsumer(state model.SegmentWriteState) (FieldsConsumer, error)
 	// Reads a segment. NOTE: by the time this call returns, it must
 	// hold open any files it will need to use; else, those files may
 	// be deleted. Additionally, required fiels may be deleted during
@@ -234,7 +234,7 @@ included.
 type DocValuesFormat interface {
 	Name() string
 	// Returns a DocValuesConsumer to write docvalues to the index.
-	FieldsConsumer(state SegmentWriteState) (w DocValuesConsumer, err error)
+	FieldsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error)
 	// Returns a DocValuesProducer to read docvalues from the index.
 	//
 	// NOTE: by the time this call returns, it must
@@ -432,7 +432,7 @@ type SegmentInfoWriter func(d store.Directory, info *model.SegmentInfo, infos mo
 // Encodes/decodes per-document score normalization values.
 type NormsFormat interface {
 	// Returns a DocValuesConsumer to write norms to the index.
-	NormsConsumer(state SegmentWriteState) (w DocValuesConsumer, err error)
+	NormsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error)
 	// Returns a DocValuesProducer to read norms from the index.
 	//
 	// NOTE: by the time this call returns, it must

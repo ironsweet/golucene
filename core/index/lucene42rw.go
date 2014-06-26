@@ -1,5 +1,9 @@
 package index
 
+import (
+	"github.com/balzaczyy/golucene/core/index/model"
+)
+
 // lucene42/Lucene42RWCodec.java
 
 var dv = newLucene42RWDocValuesFormat()
@@ -35,7 +39,7 @@ type Lucene42RWDocValuesFormat struct {
 	*Lucene42DocValuesFormat
 }
 
-func (f *Lucene42RWDocValuesFormat) FieldsConsumer(state SegmentWriteState) (w DocValuesConsumer, err error) {
+func (f *Lucene42RWDocValuesFormat) FieldsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("not implemented yet")
 }
 

@@ -11,7 +11,7 @@ import (
 type DocConsumer interface {
 	processDocument(fieldInfos *model.FieldInfosBuilder) error
 	finishDocument() error
-	flush(state SegmentWriteState) error
+	flush(state model.SegmentWriteState) error
 	abort()
 }
 
@@ -60,7 +60,7 @@ func newDocFieldProcessor(docWriter *DocumentsWriterPerThread,
 	}
 }
 
-func (p *DocFieldProcessor) flush(state SegmentWriteState) error {
+func (p *DocFieldProcessor) flush(state model.SegmentWriteState) error {
 	childFields := make(map[string]DocFieldConsumerPerField)
 	for _, f := range p.fields() {
 		childFields[f.fieldInfo().Name] = f
@@ -80,8 +80,8 @@ func (p *DocFieldProcessor) flush(state SegmentWriteState) error {
 	// this with FieldInfo.storePayload.
 	infosWriter := p.codec.FieldInfosFormat().FieldInfosWriter()
 	assert(infosWriter != nil)
-	return infosWriter(state.directory, state.segmentInfo.Name,
-		state.fieldInfos, store.IO_CONTEXT_DEFAULT)
+	return infosWriter(state.Directory, state.SegmentInfo.Name,
+		state.FieldInfos, store.IO_CONTEXT_DEFAULT)
 }
 
 func (p *DocFieldProcessor) abort() {

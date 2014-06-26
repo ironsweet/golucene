@@ -9,7 +9,7 @@ import (
 type DocValuesWriter interface {
 	abort()
 	finish(int)
-	flush(SegmentWriteState, DocValuesConsumer) error
+	flush(model.SegmentWriteState, DocValuesConsumer) error
 }
 
 // index/NumericDocValuesWriter.java
@@ -71,8 +71,9 @@ func (w *NumericDocValuesWriter) updateBytesUsed() {
 
 func (w *NumericDocValuesWriter) finish(numDoc int) {}
 
-func (w *NumericDocValuesWriter) flush(state SegmentWriteState, dvConsumer DocValuesConsumer) error {
-	maxDoc := state.segmentInfo.DocCount()
+func (w *NumericDocValuesWriter) flush(state model.SegmentWriteState,
+	dvConsumer DocValuesConsumer) error {
+	maxDoc := state.SegmentInfo.DocCount()
 	dvConsumer.AddNumericField(w.fieldInfo, newNumericIterator(maxDoc, w))
 	return nil
 }

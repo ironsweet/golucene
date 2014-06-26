@@ -355,7 +355,7 @@ Walk through all unique text tokens (Posting instances) found in this
 field and serialie them into a single RAM segment.
 */
 func (w *FreqProxTermsWriterPerField) flush(fieldName string,
-	consumer FieldsConsumer, state SegmentWriteState) error {
+	consumer FieldsConsumer, state model.SegmentWriteState) error {
 	if !w.fieldInfo.IsIndexed() {
 		return nil // nothing to flush, don't bother the codc with the unindexed field
 	}
@@ -394,8 +394,8 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 	assert(!writeOffsets || writePositions)
 
 	var segDeletes map[*Term]int
-	if state.segDeletes != nil && len(state.segDeletes.terms) > 0 {
-		segDeletes = state.segDeletes.terms
+	if state.SegDeletes != nil && len(state.SegDeletes.(*BufferedDeletes).terms) > 0 {
+		segDeletes = state.SegDeletes.(*BufferedDeletes).terms
 	}
 
 	termIDs := w.termsHashPerField.sortPostings(termComp)
@@ -406,7 +406,7 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 	freq := newByteSliceReader()
 	prox := newByteSliceReader()
 
-	visitedDocs := util.NewFixedBitSetOf(state.segmentInfo.DocCount())
+	visitedDocs := util.NewFixedBitSetOf(state.SegmentInfo.DocCount())
 	sumTotalTermFreq := int64(0)
 	sumDocFreq := int64(0)
 
@@ -489,8 +489,8 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 			}
 
 			docFreq++
-			assert2(docId < state.segmentInfo.DocCount(),
-				"doc=%v maxDoc=%v", docId, state.segmentInfo.DocCount())
+			assert2(docId < state.SegmentInfo.DocCount(),
+				"doc=%v maxDoc=%v", docId, state.SegmentInfo.DocCount())
 
 			// NOTE: we could check here if the docID was deleted, and skip
 			// it. However, this is somewhat dangerous because it can yield

@@ -6,7 +6,7 @@ import (
 )
 
 type InvertedDocEndConsumer interface {
-	flush(map[string]InvertedDocEndConsumerPerField, SegmentWriteState) error
+	flush(map[string]InvertedDocEndConsumerPerField, model.SegmentWriteState) error
 	abort()
 	addField(*DocInverterPerField, *model.FieldInfo) InvertedDocEndConsumerPerField
 	startDocument()
@@ -24,7 +24,7 @@ type NormsConsumer struct {
 func (nc *NormsConsumer) abort() {}
 
 func (nc *NormsConsumer) flush(fieldsToFlush map[string]InvertedDocEndConsumerPerField,
-	state SegmentWriteState) (err error) {
+	state model.SegmentWriteState) (err error) {
 	var success = false
 	var normsConsumer DocValuesConsumer
 	defer func() {
@@ -35,15 +35,15 @@ func (nc *NormsConsumer) flush(fieldsToFlush map[string]InvertedDocEndConsumerPe
 		}
 	}()
 
-	if state.fieldInfos.HasNorms {
-		normsFormat := state.segmentInfo.Codec().(Codec).NormsFormat()
+	if state.FieldInfos.HasNorms {
+		normsFormat := state.SegmentInfo.Codec().(Codec).NormsFormat()
 		assert(normsFormat != nil)
 		normsConsumer, err = normsFormat.NormsConsumer(state)
 		if err != nil {
 			return err
 		}
 
-		for _, fi := range state.fieldInfos.Values {
+		for _, fi := range state.FieldInfos.Values {
 			toWrite := fieldsToFlush[fi.Name].(*NormsConsumerPerField)
 			// we must check the final value of omitNorms for the fieldinfo,
 			// it could have changed for this field since the first time we

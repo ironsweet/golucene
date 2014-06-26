@@ -327,7 +327,7 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 	assert2(dwpt.deleteSlice.isEmpty(), "all deletes must be applied in prepareFlush")
 	dwpt.segmentInfo.SetDocCount(dwpt.numDocsInRAM)
 	numBytesUsed := dwpt.bytesUsed()
-	flushState := newSegmentWriteState(dwpt.infoStream, dwpt.directory,
+	flushState := model.NewSegmentWriteState(dwpt.infoStream, dwpt.directory,
 		dwpt.segmentInfo, dwpt.fieldInfos.Finish(),
 		dwpt.indexWriterConfig.termIndexInterval, dwpt.pendingDeletes,
 		store.NewIOContextForFlush(&store.FlushInfo{dwpt.numDocsInRAM, numBytesUsed}))
@@ -337,11 +337,11 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 	// error is hit processing that doc, e.g., if analyzer has some
 	// problem with the text):
 	if delCount := len(dwpt.pendingDeletes.docIDs); delCount > 0 {
-		flushState.liveDocs = dwpt.codec.LiveDocsFormat().NewLiveDocs(dwpt.numDocsInRAM)
+		flushState.LiveDocs = dwpt.codec.LiveDocsFormat().NewLiveDocs(dwpt.numDocsInRAM)
 		for _, delDocID := range dwpt.pendingDeletes.docIDs {
-			flushState.liveDocs.Clear(delDocID)
+			flushState.LiveDocs.Clear(delDocID)
 		}
-		flushState.delCountOnFlush = delCount
+		flushState.DelCountOnFlush = delCount
 		atomic.AddInt64(&dwpt.pendingDeletes.bytesUsed, -int64(delCount)*BYTES_PER_DEL_DOCID)
 		dwpt.pendingDeletes.docIDs = nil
 	}
@@ -355,7 +355,7 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 
 	if dwpt.infoStream.IsEnabled("DWPT") {
 		dwpt.infoStream.Message("DWPT", "flush postings as segment %v numDocs=%v",
-			flushState.segmentInfo.Name, dwpt.numDocsInRAM)
+			flushState.SegmentInfo.Name, dwpt.numDocsInRAM)
 	}
 
 	var success = false
@@ -379,14 +379,14 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 	info := NewSegmentInfoPerCommit(dwpt.segmentInfo, 0, -1)
 	if dwpt.infoStream.IsEnabled("DWPT") {
 		dwpt.infoStream.Message("DWPT", "new segment has %v deleted docs",
-			check(flushState.liveDocs == nil, 0,
-				flushState.segmentInfo.DocCount()-flushState.delCountOnFlush))
+			check(flushState.LiveDocs == nil, 0,
+				flushState.SegmentInfo.DocCount()-flushState.DelCountOnFlush))
 		dwpt.infoStream.Message("DWPT", "new segment has %v; %v; %v; %v; %v",
-			check(flushState.fieldInfos.HasVectors, "vectors", "no vectors"),
-			check(flushState.fieldInfos.HasNorms, "norms", "no norms"),
-			check(flushState.fieldInfos.HasDocValues, "docValues", "no docValues"),
-			check(flushState.fieldInfos.HasProx, "prox", "no prox"),
-			check(flushState.fieldInfos.HasFreq, "freqs", "no freqs"))
+			check(flushState.FieldInfos.HasVectors, "vectors", "no vectors"),
+			check(flushState.FieldInfos.HasNorms, "norms", "no norms"),
+			check(flushState.FieldInfos.HasDocValues, "docValues", "no docValues"),
+			check(flushState.FieldInfos.HasProx, "prox", "no prox"),
+			check(flushState.FieldInfos.HasFreq, "freqs", "no freqs"))
 		dwpt.infoStream.Message("DWPT", "flushedFiles=%v", info.Files())
 		dwpt.infoStream.Message("DWPT", "flushed codec=%v", dwpt.codec)
 	}
@@ -405,13 +405,13 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 		dwpt.infoStream.Message("DWPT",
 			"flushed: segment=%v ramUsed=%v MB newFlushedSize(includes docstores)=%v MB docs/MB=%v",
 			dwpt.segmentInfo.Name, startMBUsed, newSegmentSize,
-			float64(flushState.segmentInfo.DocCount())/newSegmentSize)
+			float64(flushState.SegmentInfo.DocCount())/newSegmentSize)
 	}
 
 	assert(dwpt.segmentInfo != nil)
 
-	fs = newFlushedSegment(info, flushState.fieldInfos, segmentDeletes,
-		flushState.liveDocs, flushState.delCountOnFlush)
+	fs = newFlushedSegment(info, flushState.FieldInfos, segmentDeletes,
+		flushState.LiveDocs, flushState.DelCountOnFlush)
 	err = dwpt.sealFlushedSegment(fs)
 	if err != nil {
 		return nil, err

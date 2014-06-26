@@ -49,7 +49,7 @@ func (f *Lucene41PostingsFormat) String() {
 	panic("not implemented yet")
 }
 
-func (f *Lucene41PostingsFormat) FieldsConsumer(state SegmentWriteState) (FieldsConsumer, error) {
+func (f *Lucene41PostingsFormat) FieldsConsumer(state model.SegmentWriteState) (FieldsConsumer, error) {
 	postingsWriter, err := newLucene41PostingsWriterCompact(state)
 	if err != nil {
 		return nil, err
@@ -168,13 +168,13 @@ type Lucene41PostingsWriter struct {
 }
 
 /* Creates a postings writer with the specified PackedInts overhead ratio */
-func newLucene41PostingsWriter(state SegmentWriteState,
+func newLucene41PostingsWriter(state model.SegmentWriteState,
 	accetableOverheadRatio float32) (*Lucene41PostingsWriter, error) {
-	docOut, err := state.directory.CreateOutput(
-		util.SegmentFileName(state.segmentInfo.Name,
-			state.segmentSuffix,
+	docOut, err := state.Directory.CreateOutput(
+		util.SegmentFileName(state.SegmentInfo.Name,
+			state.SegmentSuffix,
 			LUCENE41_DOC_EXTENSION),
-		state.context)
+		state.Context)
 	if err != nil {
 		return nil, err
 	}
@@ -201,11 +201,11 @@ func newLucene41PostingsWriter(state SegmentWriteState,
 		if err != nil {
 			return err
 		}
-		if state.fieldInfos.HasProx {
+		if state.FieldInfos.HasProx {
 			ans.posDeltaBuffer = make([]int, MAX_DATA_SIZE)
-			posOut, err = state.directory.CreateOutput(util.SegmentFileName(
-				state.segmentInfo.Name, state.segmentSuffix, LUCENE41_POS_EXTENSION),
-				state.context)
+			posOut, err = state.Directory.CreateOutput(util.SegmentFileName(
+				state.SegmentInfo.Name, state.SegmentSuffix, LUCENE41_POS_EXTENSION),
+				state.Context)
 			if err != nil {
 				return err
 			}
@@ -215,20 +215,20 @@ func newLucene41PostingsWriter(state SegmentWriteState,
 				return err
 			}
 
-			if state.fieldInfos.HasPayloads {
+			if state.FieldInfos.HasPayloads {
 				ans.payloadBytes = make([]byte, 128)
 				ans.payloadLengthBuffer = make([]int, MAX_DATA_SIZE)
 			}
 
-			if state.fieldInfos.HasOffsets {
+			if state.FieldInfos.HasOffsets {
 				ans.offsetStartDeltaBuffer = make([]int, MAX_DATA_SIZE)
 				ans.offsetLengthBuffer = make([]int, MAX_DATA_SIZE)
 			}
 
-			if state.fieldInfos.HasPayloads || state.fieldInfos.HasOffsets {
-				payOut, err = state.directory.CreateOutput(util.SegmentFileName(
-					state.segmentInfo.Name, state.segmentSuffix, LUCENE41_PAY_EXTENSION),
-					state.context)
+			if state.FieldInfos.HasPayloads || state.FieldInfos.HasOffsets {
+				payOut, err = state.Directory.CreateOutput(util.SegmentFileName(
+					state.SegmentInfo.Name, state.SegmentSuffix, LUCENE41_PAY_EXTENSION),
+					state.Context)
 				if err != nil {
 					return err
 				}
@@ -251,7 +251,7 @@ func newLucene41PostingsWriter(state SegmentWriteState,
 	ans.skipWriter = lucene41.NewSkipWriter(
 		ans.maxSkipLevels,
 		LUCENE41_BLOCK_SIZE,
-		state.segmentInfo.DocCount(),
+		state.SegmentInfo.DocCount(),
 		ans.docOut,
 		ans.posOut,
 		ans.payOut)
@@ -260,7 +260,7 @@ func newLucene41PostingsWriter(state SegmentWriteState,
 }
 
 /* Creates a postings writer with PackedInts.COMPACT */
-func newLucene41PostingsWriterCompact(state SegmentWriteState) (*Lucene41PostingsWriter, error) {
+func newLucene41PostingsWriterCompact(state model.SegmentWriteState) (*Lucene41PostingsWriter, error) {
 	return newLucene41PostingsWriter(state, packed.PackedInts.COMPACT)
 }
 

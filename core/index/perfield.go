@@ -35,7 +35,7 @@ func (pf *PerFieldPostingsFormat) Name() string {
 	return "PerField40"
 }
 
-func (pf *PerFieldPostingsFormat) FieldsConsumer(state SegmentWriteState) (FieldsConsumer, error) {
+func (pf *PerFieldPostingsFormat) FieldsConsumer(state model.SegmentWriteState) (FieldsConsumer, error) {
 	return newPerFieldPostingsWriter(pf, state), nil
 }
 
@@ -61,11 +61,11 @@ type PerFieldPostingsWriter struct {
 	owner             *PerFieldPostingsFormat
 	formats           map[PostingsFormat]*FieldsConsumerAndSuffix
 	suffixes          map[string]int
-	segmentWriteState SegmentWriteState
+	segmentWriteState model.SegmentWriteState
 }
 
 func newPerFieldPostingsWriter(owner *PerFieldPostingsFormat,
-	state SegmentWriteState) FieldsConsumer {
+	state model.SegmentWriteState) FieldsConsumer {
 	return &PerFieldPostingsWriter{
 		owner,
 		make(map[PostingsFormat]*FieldsConsumerAndSuffix),
@@ -97,12 +97,13 @@ func (w *PerFieldPostingsWriter) addField(field *model.FieldInfo) (TermsConsumer
 		w.suffixes[formatName] = suffix
 
 		segmentSuffix := fullSegmentSuffix(field.Name,
-			w.segmentWriteState.segmentSuffix,
+			w.segmentWriteState.SegmentSuffix,
 			_suffix(formatName, strconv.Itoa(suffix)))
 
 		consumer = new(FieldsConsumerAndSuffix)
 		var err error
-		consumer.consumer, err = format.FieldsConsumer(newSegmentWriteStateFrom(w.segmentWriteState, segmentSuffix))
+		consumer.consumer, err = format.FieldsConsumer(
+			model.NewSegmentWriteStateFrom(w.segmentWriteState, segmentSuffix))
 		if err != nil {
 			return nil, err
 		}
@@ -253,7 +254,7 @@ func (pf *PerFieldDocValuesFormat) Name() string {
 	return "PerFieldDV40"
 }
 
-func (pf *PerFieldDocValuesFormat) FieldsConsumer(state SegmentWriteState) (w DocValuesConsumer, err error) {
+func (pf *PerFieldDocValuesFormat) FieldsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("not implemented yet")
 }
 

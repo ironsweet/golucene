@@ -9,7 +9,7 @@ import (
 
 type StoredFieldsConsumer interface {
 	addField(docId int, field model.IndexableField, fieldInfo *model.FieldInfo)
-	flush(state SegmentWriteState) error
+	flush(state model.SegmentWriteState) error
 	abort()
 	startDocument()
 	finishDocument() error
@@ -35,7 +35,7 @@ func (p *TwoStoredFieldsConsumers) addField(docId int, field model.IndexableFiel
 	p.second.addField(docId, field, fieldInfo)
 }
 
-func (p *TwoStoredFieldsConsumers) flush(state SegmentWriteState) error {
+func (p *TwoStoredFieldsConsumers) flush(state model.SegmentWriteState) error {
 	err := p.first.flush(state)
 	if err == nil {
 		err = p.second.flush(state)
@@ -99,13 +99,13 @@ func (p *StoredFieldsProcessor) startDocument() {
 	p.reset()
 }
 
-func (p *StoredFieldsProcessor) flush(state SegmentWriteState) (err error) {
-	numDocs := state.segmentInfo.DocCount()
+func (p *StoredFieldsProcessor) flush(state model.SegmentWriteState) (err error) {
+	numDocs := state.SegmentInfo.DocCount()
 	if numDocs > 0 {
 		// It's possible that all documents seen in this segment hit
 		// non-aborting errors, in which case we will not have yet init'd
 		// the FieldsWriter:
-		err = p.initFieldsWriter(state.context)
+		err = p.initFieldsWriter(state.Context)
 		if err == nil {
 			err = p.fill(numDocs)
 		}
@@ -121,7 +121,7 @@ func (p *StoredFieldsProcessor) flush(state SegmentWriteState) (err error) {
 				}
 			}()
 
-			err = w.Finish(state.fieldInfos, numDocs)
+			err = w.Finish(state.FieldInfos, numDocs)
 			if err != nil {
 				return err
 			}
@@ -267,9 +267,9 @@ func (p *DocValuesProcessor) addField(docId int, field model.IndexableField, fie
 	}
 }
 
-func (p *DocValuesProcessor) flush(state SegmentWriteState) (err error) {
+func (p *DocValuesProcessor) flush(state model.SegmentWriteState) (err error) {
 	if len(p.writers) != 0 {
-		codec := state.segmentInfo.Codec().(Codec)
+		codec := state.SegmentInfo.Codec().(Codec)
 		var dvConsumer DocValuesConsumer
 		dvConsumer, err = codec.DocValuesFormat().FieldsConsumer(state)
 		if err != nil {
@@ -285,7 +285,7 @@ func (p *DocValuesProcessor) flush(state SegmentWriteState) (err error) {
 		}()
 
 		for _, writer := range p.writers {
-			writer.finish(state.segmentInfo.DocCount())
+			writer.finish(state.SegmentInfo.DocCount())
 			err = writer.flush(state, dvConsumer)
 			if err != nil {
 				return err

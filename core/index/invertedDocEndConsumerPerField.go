@@ -42,7 +42,8 @@ func (nc *NormsConsumerPerField) finish() error {
 	return nil
 }
 
-func (nc *NormsConsumerPerField) flush(state SegmentWriteState, normsWriter DocValuesConsumer) error {
+func (nc *NormsConsumerPerField) flush(state model.SegmentWriteState,
+	normsWriter DocValuesConsumer) error {
 	panic("not implemented yet")
 }
 
