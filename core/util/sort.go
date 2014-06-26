@@ -253,18 +253,16 @@ func NewIntroSorter(spi IntroSorterSPI, arr sort.Interface) *IntroSorter {
 }
 
 func ceilLog2(n int) int {
-	if n < 0 {
+	assert(n >= 1)
+	if n == 1 {
 		return 0
-	}
-	if n == 0 {
-		return 64
 	}
 	ans := 0
 	for n > 0 {
-		n <<= 1
+		n >>= 1
 		ans++
 	}
-	return ans
+	return 32 - ans
 }
 
 func (s *IntroSorter) Sort(from, to int) {
