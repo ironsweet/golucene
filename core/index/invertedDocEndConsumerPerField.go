@@ -44,7 +44,15 @@ func (nc *NormsConsumerPerField) finish() error {
 
 func (nc *NormsConsumerPerField) flush(state model.SegmentWriteState,
 	normsWriter DocValuesConsumer) error {
-	panic("not implemented yet")
+
+	docCount := state.SegmentInfo.DocCount()
+	if nc.consumer == nil {
+		return nil // nil type - not omitted but not written -
+		// meaning the only docs that had
+		// norms hit erros (but indexed=true is set...)
+	}
+	nc.consumer.finish(docCount)
+	return nc.consumer.flush(state, normsWriter)
 }
 
 func (nc *NormsConsumerPerField) isEmpty() bool {
