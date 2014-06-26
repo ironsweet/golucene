@@ -585,7 +585,7 @@ func (w *TermsWriter) finish(sumTotalTermFreq, sumDocFreq int64, docCount int) e
 
 		w.owner.fields = append(w.owner.fields, newFieldMetaData(
 			w.fieldInfo,
-			w.pending[0].(*PendingBlock).index.EmptyOutput().([]byte),
+			w.pending[0].(*PendingBlock).index.EmptyOutput().(*util.BytesRef).Value,
 			w.numTerms,
 			w.indexStartFP,
 			sumTotalTermFreq,

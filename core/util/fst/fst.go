@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
 	"log"
@@ -449,7 +450,35 @@ func (t *FST) Save(out util.DataOutput) error {
 	// TODO: really we should encode this as an arc, arriving
 	// to the root node, instead of special casing here:
 	if err == nil && t.emptyOutput != nil {
-		panic("not implemented yet")
+		// accepts empty string
+		err = out.WriteByte(1)
+
+		if err == nil {
+			// serialize empty-string output:
+			ros := store.NewRAMOutputStreamBuffer()
+			err = t.outputs.writeFinalOutput(t.emptyOutput, ros)
+
+			if err == nil {
+				emptyOutputBytes := make([]byte, ros.FilePointer())
+				err = ros.WriteToBytes(emptyOutputBytes)
+
+				length := len(emptyOutputBytes)
+				if err == nil && !t.packed {
+					// reverse
+					stopAt := length / 2
+					for upto := 0; upto < stopAt; upto++ {
+						emptyOutputBytes[upto], emptyOutputBytes[length-upto-1] =
+							emptyOutputBytes[length-upto-1], emptyOutputBytes[upto]
+					}
+				}
+				if err == nil {
+					err = out.WriteVInt(int32(length))
+					if err == nil {
+						err = out.WriteBytes(emptyOutputBytes)
+					}
+				}
+			}
+		}
 	} else if err == nil {
 		err = out.WriteByte(0)
 	}

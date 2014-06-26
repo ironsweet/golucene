@@ -1,8 +1,8 @@
 package fst
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
 )
 
 // util/fst/Outputs.java
@@ -20,6 +20,9 @@ type Outputs interface {
 	Add(prefix interface{}, output interface{}) interface{}
 	// Eg subtract("foobar", "foo") -> "bar"
 	Subtract(output1, output2 interface{}) interface{}
+	// Encode an final node output value into a DataOutput. By default
+	// this just calls write()
+	writeFinalOutput(interface{}, util.DataOutput) error
 	/** Decode an output value previously written with {@link
 	 *  #write(Object, DataOutput)}. */
 	Read(in util.DataInput) (e interface{}, err error)
@@ -36,14 +39,19 @@ type Outputs interface {
 
 type iOutputsReader interface {
 	Read(in util.DataInput) (e interface{}, err error)
+	Write(interface{}, util.DataOutput) error
 }
 
 type abstractOutputs struct {
 	spi iOutputsReader
 }
 
+func (out *abstractOutputs) writeFinalOutput(output interface{}, o util.DataOutput) error {
+	return out.spi.Write(output, o)
+}
+
 func (out *abstractOutputs) ReadFinalOutput(in util.DataInput) (e interface{}, err error) {
-	log.Printf("Reading final output from %v...", in)
+	fmt.Printf("Reading final output from %v...", in)
 	return out.spi.Read(in)
 }
 
@@ -80,6 +88,10 @@ func (o *NoOutputs) merge(first, second interface{}) interface{} {
 	assert(first == NO_OUTPUT)
 	assert(second == NO_OUTPUT)
 	return NO_OUTPUT
+}
+
+func (o *NoOutputs) Write(prefix interface{}, out util.DataOutput) error {
+	return nil
 }
 
 func (o *NoOutputs) Read(in util.DataInput) (interface{}, error) {
@@ -137,10 +149,21 @@ func (out *ByteSequenceOutputs) Add(_prefix interface{}, _output interface{}) in
 	}
 }
 
+func (o *ByteSequenceOutputs) Write(obj interface{}, out util.DataOutput) error {
+	assert(obj != nil)
+	prefix, ok := obj.(*util.BytesRef)
+	assert(ok)
+	err := out.WriteVInt(int32(len(prefix.Value)))
+	if err == nil {
+		err = out.WriteBytes(prefix.Value)
+	}
+	return err
+}
+
 func (out *ByteSequenceOutputs) Read(in util.DataInput) (e interface{}, err error) {
-	log.Printf("Reading from %v...", in)
+	fmt.Printf("Reading from %v...", in)
 	if length, err := in.ReadVInt(); err == nil {
-		log.Printf("Length: %v", length)
+		fmt.Printf("Length: %v", length)
 		if length == 0 {
 			e = out.NoOutput()
 		} else {
@@ -149,7 +172,7 @@ func (out *ByteSequenceOutputs) Read(in util.DataInput) (e interface{}, err erro
 			err = in.ReadBytes(buf)
 		}
 	} else {
-		log.Printf("Failed to read length due to %v", err)
+		fmt.Printf("Failed to read length due to %v", err)
 	}
 	return e, err
 }
