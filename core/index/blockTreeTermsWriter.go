@@ -520,7 +520,7 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 	}
 
 	// remove slice replaced by block:
-	slice = nil
+	w.pending = append(w.pending[:start], w.pending[start+length:]...)
 
 	if w.lastBlockIndex >= start {
 		if w.lastBlockIndex < start+length {

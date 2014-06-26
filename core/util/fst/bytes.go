@@ -99,6 +99,15 @@ func (s *BytesStore) position() int64 {
 	return int64(len(s.blocks)-1)*int64(s.blockSize) + int64(s.nextWrite)
 }
 
+func (s *BytesStore) finish() {
+	if s.current != nil {
+		lastBuffer := make([]byte, s.nextWrite)
+		copy(lastBuffer, s.current[:s.nextWrite])
+		s.blocks[len(s.blocks)-1] = lastBuffer
+		s.current = nil
+	}
+}
+
 func (s *BytesStore) String() string {
 	return fmt.Sprintf("%v-bits x%v bytes store", s.blockBits, len(s.blocks))
 }

@@ -164,6 +164,7 @@ func newFST(inputType InputType, outputs Outputs, willPackFST bool,
 		version:        VERSION_CURRENT,
 		bytes:          bytes,
 		NO_OUTPUT:      outputs.NoOutput(),
+		startNode:      -1,
 	}
 	if willPackFST {
 		ans.nodeAddress = packed.NewGrowableWriter(15, 8, acceptableOverheadRatio)
@@ -283,7 +284,14 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 }
 
 func (t *FST) finish(startNode int64) error {
-	panic("not implemented yet")
+	assert2(t.startNode == -1, "already finished")
+	if startNode == FST_FINAL_END_NODE && t.emptyOutput != nil {
+		startNode = 0
+	}
+	t.startNode = startNode
+	t.bytes.finish()
+
+	return t.cacheRootArcs()
 }
 
 func (t *FST) getNodeAddress(node int64) int64 {
