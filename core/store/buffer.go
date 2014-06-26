@@ -40,10 +40,14 @@ func (in *BufferedIndexInput) newBuffer(newBuffer []byte) {
 
 func (in *BufferedIndexInput) ReadByte() (b byte, err error) {
 	if in.bufferPosition >= in.bufferLength {
-		in.refill()
+		err = in.refill()
+		if err != nil {
+			return 0, err
+		}
 	}
+	b = in.buffer[in.bufferPosition]
 	in.bufferPosition++
-	return in.buffer[in.bufferPosition-1], nil
+	return
 }
 
 func checkBufferSize(bufferSize int) {
