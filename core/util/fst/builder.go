@@ -94,7 +94,45 @@ func (b *Builder) freezeTail(prefixLenPlus1 int) error {
 		// Custom plugin:
 		return b._freezeTail(b.frontier, prefixLenPlus1, b.lastInput)
 	}
-	panic("not implemented yet")
+	fmt.Printf("  compileTail %v\n", prefixLenPlus1)
+	downTo := prefixLenPlus1
+	if downTo < 1 {
+		downTo = 1
+	}
+	for idx := b.lastInput.Length; idx >= downTo; idx-- {
+		doPrune := false
+		doCompile := false
+
+		node := b.frontier[idx]
+		parent := b.frontier[idx-1]
+
+		if node.InputCount < int64(b.minSuffixCount1) {
+			doPrune = true
+			doCompile = true
+		} else if idx > prefixLenPlus1 {
+			panic("not implemented yet")
+		} else {
+			// if pruning is disabled (count is 0) we can always compile current node
+			doCompile = b.minSuffixCount2 == 0
+		}
+
+		fmt.Printf("    label=%c idx=%v inputCount=%v doCompile=%v doPrune=%v",
+			b.lastInput.At(idx-1), idx, b.frontier[idx].InputCount, doCompile, doPrune)
+		if node.InputCount < int64(b.minSuffixCount2) ||
+			(b.minSuffixCount2 == 1 && node.InputCount == 1 && idx > 1) {
+			// drop all arcs
+			panic("not implemented yet")
+		}
+
+		if doPrune {
+			// tihs node doesn't make it -- deref it
+			node.Clear()
+			parent.deleteLast(b.lastInput.At(idx-1), node)
+		} else {
+			panic("not implemented yet")
+		}
+	}
+	return nil
 }
 
 /*
@@ -339,6 +377,13 @@ func (n *UnCompiledNode) addArc(label int, target Node) {
 	arc.output = n.owner.NO_OUTPUT
 	arc.nextFinalOutput = n.owner.NO_OUTPUT
 	arc.isFinal = false
+}
+
+func (n *UnCompiledNode) deleteLast(label int, target Node) {
+	assert(n.NumArcs > 0)
+	assert(label == n.Arcs[n.NumArcs-1].label)
+	assert(target == n.Arcs[n.NumArcs-1].Target)
+	n.NumArcs--
 }
 
 func (n *UnCompiledNode) setLastOutput(labelToMatch int, newOutput interface{}) {
