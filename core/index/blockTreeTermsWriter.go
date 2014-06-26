@@ -77,12 +77,29 @@ type BlockTreeTermsWriterSPI interface {
 }
 
 type FieldMetaData struct {
+	fieldInfo        *model.FieldInfo
+	rootCode         []byte
+	numTerms         int64
+	indexStartFP     int64
+	sumTotalTermFreq int64
+	sumDocFreq       int64
+	docCount         int
 }
 
 func newFieldMetaData(fieldInfo *model.FieldInfo,
 	rootCode []byte, numTerms, indexStartFP, sumTotalTermFreq, sumDocFreq int64,
 	docCount int) *FieldMetaData {
-	panic("not implemented yet")
+	assert(numTerms > 0)
+	assert2(rootCode != nil, "field=%v numTerms=%v", fieldInfo.Name, numTerms)
+	return &FieldMetaData{
+		fieldInfo,
+		rootCode,
+		numTerms,
+		indexStartFP,
+		sumTotalTermFreq,
+		sumDocFreq,
+		docCount,
+	}
 }
 
 type BlockTreeTermsWriter struct {
