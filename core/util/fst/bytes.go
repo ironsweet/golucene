@@ -95,6 +95,10 @@ func (bs *BytesStore) WriteBytes(buf []byte) error {
 	return nil
 }
 
+func (s *BytesStore) position() int64 {
+	return int64(len(s.blocks)-1)*int64(s.blockSize) + int64(s.nextWrite)
+}
+
 func (s *BytesStore) String() string {
 	return fmt.Sprintf("%v-bits x%v bytes store", s.blockBits, len(s.blocks))
 }

@@ -453,6 +453,14 @@ func targetHasArcs(arc *Arc) bool {
 
 /* Serializes new node by appending its bytes to the end of the current []byte */
 func (t *FST) addNode(nodeIn *UnCompiledNode) (int64, error) {
+	fmt.Printf("FST.addNode pos=%v numArcs=%v\n", t.bytes.position(), nodeIn.NumArcs)
+	if nodeIn.NumArcs == 0 {
+		if nodeIn.IsFinal {
+			return FST_FINAL_END_NODE, nil
+		}
+		return FST_NON_FINAL_END_NODE, nil
+	}
+
 	panic("not implemented yet")
 }
 
