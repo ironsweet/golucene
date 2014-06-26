@@ -118,7 +118,7 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 	if currentSegmentsFile != "" {
 		m := model.CODEC_FILE_PATTERN
 		for _, filename := range files {
-			if !strings.HasSuffix(filename, "write.lock") &&
+			if !strings.HasSuffix(filename, WRITE_LOCK_NAME) &&
 				filename != INDEX_FILENAME_SEGMENTS_GEN &&
 				(m.MatchString(filename) || strings.HasPrefix(filename, util.SEGMENTS)) {
 
@@ -291,7 +291,7 @@ func (fd *IndexFileDeleter) refresh(segmentName string) error {
 		_, hasRef := fd.refCounts[filename]
 		if (segmentName == "" || strings.HasPrefix(filename, prefix1) ||
 			strings.HasPrefix(filename, prefix2)) &&
-			!strings.HasSuffix(filename, "write.lock") &&
+			!strings.HasSuffix(filename, WRITE_LOCK_NAME) &&
 			!hasRef && filename != INDEX_FILENAME_SEGMENTS_GEN &&
 			(m.MatchString(filename) || strings.HasPrefix(filename, INDEX_FILENAME_SEGMENTS)) {
 

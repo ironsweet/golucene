@@ -39,7 +39,7 @@ func main() {
 	assert(err == nil)
 
 	reader, err := index.OpenDirectoryReader(directory)
-	assert(err == nil)
+	assert2(err == nil, "%v", err)
 	defer reader.Close()
 
 	searcher := search.NewIndexSearcher(reader)

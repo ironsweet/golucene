@@ -35,7 +35,7 @@ func (lock *SimpleFSLock) Obtain() (ok bool, err error) {
 			return
 		}
 	} else if os.IsNotExist(err) {
-		err = os.Mkdir(lock.dir, 0600)
+		err = os.Mkdir(lock.dir, 0755)
 		if err != nil { // IO error
 			return
 		}
@@ -43,7 +43,7 @@ func (lock *SimpleFSLock) Obtain() (ok bool, err error) {
 		return
 	}
 	var f *os.File
-	if f, err = os.OpenFile(lock.file, os.O_CREATE, 0666); err == nil {
+	if f, err = os.Create(lock.file); err == nil {
 		log.Printf("File '%v' is created.", f.Name())
 		ok = true
 		defer f.Close()

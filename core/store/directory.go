@@ -140,8 +140,9 @@ func (lock *LockImpl) ObtainWithin(lockWaitTimeout int64) (locked bool, err erro
 	if err != nil {
 		return
 	}
-	assert2(lockWaitTimeout >= 0 || lockWaitTimeout == LOCK_OBTAIN_WAIT_FOREVER, fmt.Sprintf(
-		"lockWaitTimeout should be LOCK_OBTAIN_WAIT_FOREVER or a non-negative number (got %v)", lockWaitTimeout))
+	assert2(lockWaitTimeout >= 0 || lockWaitTimeout == LOCK_OBTAIN_WAIT_FOREVER,
+		"lockWaitTimeout should be LOCK_OBTAIN_WAIT_FOREVER or a non-negative number (got %v)",
+		lockWaitTimeout)
 
 	maxSleepCount := lockWaitTimeout / LOCK_POOL_INTERVAL
 	for sleepCount := int64(0); !locked; locked, err = lock.self.Obtain() {
