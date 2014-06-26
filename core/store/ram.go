@@ -509,7 +509,26 @@ func (out *RAMOutputStream) WriteTo(output IndexOutput) error {
 
 /* Copy the current contents of this buffer to output byte slice */
 func (out *RAMOutputStream) WriteToBytes(bytes []byte) error {
-	panic("not implemented yet")
+	err := out.Flush()
+	if err != nil {
+		return err
+	}
+	end := out.file.length
+	pos := int64(0)
+	buffer := 0
+	bytesUpto := 0
+	for pos < end {
+		length := BUFFER_SIZE
+		nextPos := pos + int64(length)
+		if nextPos > end {
+			length = int(end - pos)
+		}
+		copy(bytes[bytesUpto:], out.file.Buffer(buffer)[:length])
+		buffer++
+		bytesUpto += length
+		pos = nextPos
+	}
+	return nil
 }
 
 /* Resets this to an empty file. */
