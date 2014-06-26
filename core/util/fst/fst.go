@@ -451,6 +451,11 @@ func targetHasArcs(arc *Arc) bool {
 	return arc.target > 0
 }
 
+/* Serializes new node by appending its bytes to the end of the current []byte */
+func (t *FST) addNode(nodeIn *UnCompiledNode) (int64, error) {
+	panic("not implemented yet")
+}
+
 func (t *FST) FirstArc(arc *Arc) *Arc {
 	if t.emptyOutput != nil {
 		arc.flags = FST_BIT_FINAL_ARC | FST_BIT_LAST_ARC

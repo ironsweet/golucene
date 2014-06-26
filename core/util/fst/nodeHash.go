@@ -20,3 +20,7 @@ func newNodeHash(fst *FST, in BytesReader) *NodeHash {
 		in:    in,
 	}
 }
+
+func (h *NodeHash) add(nodeIn *UnCompiledNode) (int64, error) {
+	panic("not implemented yet")
+}

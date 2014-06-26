@@ -86,7 +86,27 @@ func NewBuilder(inputType InputType, minSuffixCount1, minSuffixCount2 int,
 }
 
 func (b *Builder) compileNode(nodeIn *UnCompiledNode, tailLength int) (*CompiledNode, error) {
-	panic("not implemented yet")
+	var node int64
+	var err error
+	if b.dedupHash != nil &&
+		(b.doShareNonSingletonNodes || nodeIn.NumArcs <= 1) &&
+		tailLength <= b.shareMaxTailLength {
+		if nodeIn.NumArcs == 0 {
+			node, err = b.fst.addNode(nodeIn)
+		} else {
+			node, err = b.dedupHash.add(nodeIn)
+		}
+	} else {
+		node, err = b.fst.addNode(nodeIn)
+	}
+	if err != nil {
+		return nil, err
+	}
+	assert(node != -2)
+
+	nodeIn.Clear()
+
+	return &CompiledNode{node}, nil
 }
 
 func (b *Builder) freezeTail(prefixLenPlus1 int) error {
