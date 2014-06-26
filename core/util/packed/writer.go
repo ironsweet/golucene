@@ -2,12 +2,14 @@ package packed
 
 import (
 	"errors"
+	"github.com/balzaczyy/golucene/core/codec"
 )
 
 // util/packed/PackedInts.java#Writer
 
 /* A write-once Writer. */
 type Writer interface {
+	writeHeader() error
 	// Add a value to the stream.
 	Add(v int64) error
 	// The number of bits per value.
@@ -20,12 +22,29 @@ type WriterImpl struct {
 	out          DataOutput
 	valueCount   int
 	bitsPerValue int
+	format       PackedFormat
 }
 
-func newWriter(out DataOutput, valueCount, bitsPerValue int) *WriterImpl {
+func newWriter(out DataOutput, valueCount, bitsPerValue int,
+	format PackedFormat) *WriterImpl {
 	assert(bitsPerValue <= 64)
 	assert(valueCount >= 0 || valueCount == -1)
-	return &WriterImpl{out, valueCount, bitsPerValue}
+	return &WriterImpl{out, valueCount, bitsPerValue, format}
+}
+
+func (w *WriterImpl) writeHeader() error {
+	assert(w.valueCount != -1)
+	err := codec.WriteHeader(w.out, PACKED_CODEC_NAME, VERSION_CURRENT)
+	if err == nil {
+		err = w.out.WriteVInt(int32(w.bitsPerValue))
+		if err == nil {
+			err = w.out.WriteVInt(int32(w.valueCount))
+			if err == nil {
+				err = w.out.WriteVInt(int32(PackedFormat(w.format).Id()))
+			}
+		}
+	}
+	return err
 }
 
 func (w *WriterImpl) BitsPerValue() int {
@@ -51,7 +70,7 @@ func newPackedWriter(format PackedFormat, out DataOutput,
 	encoder := newBulkOperation(format, uint32(bitsPerValue))
 	iterations := encoder.computeIterations(valueCount, mem)
 	return &PackedWriter{
-		WriterImpl: newWriter(out, valueCount, bitsPerValue),
+		WriterImpl: newWriter(out, valueCount, bitsPerValue, format),
 		format:     format,
 		encoder:    encoder,
 		iterations: iterations,

@@ -108,6 +108,17 @@ func (s *BytesStore) finish() {
 	}
 }
 
+/* Writes all of our bytes to the target DataOutput. */
+func (s *BytesStore) writeTo(out util.DataOutput) error {
+	for _, block := range s.blocks {
+		err := out.WriteBytes(block)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *BytesStore) String() string {
 	return fmt.Sprintf("%v-bits x%v bytes store", s.blockBits, len(s.blocks))
 }

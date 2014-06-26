@@ -436,7 +436,61 @@ func (t *FST) setEmptyOutput(v interface{}) {
 }
 
 func (t *FST) Save(out util.DataOutput) error {
-	panic("not implemented yet")
+	assert2(t.startNode != -1, "call finish first")
+	assert2(t.nodeAddress == nil, "cannot save an FST pre-packaged FST; it must first be packed")
+	_, ok := t.nodeRefToAddress.(packed.Mutable)
+	assert2(!t.packed || ok, "cannot save a FST which has been loaded from disk ")
+	err := codec.WriteHeader(out, FST_FILE_FORMAT_NAME, VERSION_CURRENT)
+	if err == nil && t.packed {
+		err = out.WriteByte(1)
+	} else {
+		err = out.WriteByte(0)
+	}
+	// TODO: really we should encode this as an arc, arriving
+	// to the root node, instead of special casing here:
+	if err == nil && t.emptyOutput != nil {
+		panic("not implemented yet")
+	} else if err == nil {
+		err = out.WriteByte(0)
+	}
+	if err != nil {
+		return err
+	}
+
+	var tb byte
+	switch int(t.inputType) {
+	case INPUT_TYPE_BYTE1:
+		tb = 0
+	case INPUT_TYPE_BYTE2:
+		tb = 1
+	default:
+		tb = 2
+	}
+	err = out.WriteByte(tb)
+	if err == nil && t.packed {
+		err = t.nodeRefToAddress.(packed.Mutable).Save(out)
+	}
+	if err != nil {
+		return err
+	}
+
+	err = out.WriteVLong(t.startNode)
+	if err == nil {
+		err = out.WriteVLong(t.nodeCount)
+		if err == nil {
+			err = out.WriteVLong(t.arcCount)
+			if err == nil {
+				err = out.WriteVLong(t.arcWithOutputCount)
+				if err == nil {
+					err = out.WriteVLong(t.bytes.position())
+					if err == nil {
+						err = t.bytes.writeTo(out)
+					}
+				}
+			}
+		}
+	}
+	return err
 }
 
 func (t *FST) readLabel(in util.DataInput) (v int, err error) {

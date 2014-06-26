@@ -8,15 +8,16 @@
 
 		// Direct wrapping of 8-bits values to a backing array.
 type Direct8 struct {
-	PackedIntsReaderImpl
+	*MutableImpl
 	values []byte
 }
 
 func newDirect8(valueCount int) *Direct8 {
-	return &Direct8{
-		PackedIntsReaderImpl: newPackedIntsReaderImpl(valueCount, 8),
+	ans := &Direct8{
 		values: make([]byte, valueCount),
 	}
+	ans.MutableImpl = newMutableImpl(valueCount, 8, ans)
+  return ans
 }
 
 func newDirect8FromInput(version int32, in DataInput, valueCount int) (r PackedIntsReader, err error) {
@@ -38,13 +39,13 @@ func (d *Direct8) Get(index int) int64 {
 }
 
 func (d *Direct8) Set(index int, value int64) {
-  d.values[index] = byte(value)
+	d.values[index] = byte(value)
 }
 
 func (d *Direct8) RamBytesUsed() int64 {
 	return util.AlignObjectSize(
 		util.NUM_BYTES_OBJECT_HEADER +
-		2*util.NUM_BYTES_INT +
-		util.NUM_BYTES_OBJECT_REF +
-		util.SizeOf(d.values))
+			2*util.NUM_BYTES_INT +
+			util.NUM_BYTES_OBJECT_REF +
+			util.SizeOf(d.values))
 }

@@ -23,6 +23,9 @@ type DataInput interface {
 
 type DataOutput interface {
 	WriteBytes(buf []byte) error
+	WriteInt(int32) error
+	WriteVInt(int32) error
+	WriteString(string) error
 }
 
 /*
@@ -305,6 +308,10 @@ type Mutable interface {
 	PackedIntsReader
 	// Set the value at the given index in the array.
 	Set(index int, value int64)
+	// Save this mutable into out. Instantiating a reader from the
+	// generated data will return a reader with the same number of bits
+	// per value.
+	Save(out util.DataOutput) error
 }
 
 type PackedIntsReaderImpl struct {
@@ -325,8 +332,33 @@ func (p PackedIntsReaderImpl) Size() int32 {
 	return p.valueCount
 }
 
+type MutableImplSPI interface {
+	Get(int) int64
+}
+
 type MutableImpl struct {
 	PackedIntsReaderImpl
+	spi    MutableImplSPI
+	format PackedFormat
+}
+
+func newMutableImpl(valueCount, bitsPerValue int, spi MutableImplSPI) *MutableImpl {
+	return &MutableImpl{newPackedIntsReaderImpl(valueCount, bitsPerValue), spi, PACKED}
+}
+
+func (m *MutableImpl) Save(out util.DataOutput) error {
+	writer := WriterNoHeader(out, m.format, int(m.valueCount), m.bitsPerValue, DEFAULT_BUFFER_SIZE)
+	err := writer.writeHeader()
+	if err != nil {
+		return err
+	}
+	for i := 0; i < int(m.valueCount); i++ {
+		err = writer.Add(m.spi.Get(i))
+		if err != nil {
+			return err
+		}
+	}
+	return writer.Finish()
 }
 
 func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
@@ -373,15 +405,16 @@ func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCo
 				w(f, HEADER)
 				w(f, "// Direct wrapping of %d-bits values to a backing array.\n", bpv)
 				w(f, "type Direct%d struct {\n", bpv)
-				w(f, "	PackedIntsReaderImpl\n")
+				w(f, "	*MutableImpl\n")
 				w(f, "	values []%v\n", typ)
 				w(f, "}\n\n")
 
 				w(f, "func newDirect%d(valueCount int) *Direct%d {\n", bpv, bpv)
-				w(f, "	return &Direct%d{\n", bpv)
-				w(f, "		PackedIntsReaderImpl: newPackedIntsReaderImpl(valueCount, %v),\n", bpv)
+				w(f, "	ans := &Direct%d{\n", bpv)
 				w(f, "		values: make([]%v, valueCount),\n", typ)
 				w(f, "	}\n")
+				w(f, "	ans.MutableImpl = newMutableImpl(valueCount, %v, ans)\n", bpv)
+				w(f, "  return ans\n")
 				w(f, "}\n\n")
 
 				w(f, "func newDirect%dFromInput(version int32, in DataInput, valueCount int) (r PackedIntsReader, err error) {\n", bpv)
@@ -414,15 +447,15 @@ func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCo
 				w(f, "}\n\n")
 
 				w(f, "func (d *Direct%v) Set(index int, value int64) {\n", bpv)
-				w(f, "  d.values[index] = %v(value)\n", typ)
+				w(f, "	d.values[index] = %v(value)\n", typ)
 				w(f, "}\n\n")
 
 				w(f, "func (d *Direct%v) RamBytesUsed() int64 {\n", bpv)
 				w(f, "	return util.AlignObjectSize(\n")
 				w(f, "		util.NUM_BYTES_OBJECT_HEADER +\n")
-				w(f, "		2*util.NUM_BYTES_INT +\n")
-				w(f, "		util.NUM_BYTES_OBJECT_REF +\n")
-				w(f, "		util.SizeOf(d.values))\n")
+				w(f, "			2*util.NUM_BYTES_INT +\n")
+				w(f, "			util.NUM_BYTES_OBJECT_REF +\n")
+				w(f, "			util.SizeOf(d.values))\n")
 				w(f, "}\n")
 
 				fmt.Printf("		case %v:\n", bpv)
@@ -430,14 +463,14 @@ func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCo
 			}
 		}
 				gocog]]] */
-		case 8:
-			return newDirect8FromInput(version, in, int(valueCount))
 		case 16:
 			return newDirect16FromInput(version, in, int(valueCount))
 		case 32:
 			return newDirect32FromInput(version, in, int(valueCount))
 		case 64:
 			return newDirect64FromInput(version, in, int(valueCount))
+		case 8:
+			return newDirect8FromInput(version, in, int(valueCount))
 		// [[[end]]]
 		case 24:
 			if valueCount <= PACKED8_THREE_BLOCKS_MAX_SIZE {
@@ -717,16 +750,14 @@ func (it *PackedReaderIterator) ord() int {
 var PACKED8_THREE_BLOCKS_MAX_SIZE = int32(math.MaxInt32 / 3)
 
 type Packed8ThreeBlocks struct {
-	PackedIntsReaderImpl
+	*MutableImpl
 	blocks []byte
 }
 
 func newPacked8ThreeBlocks(valueCount int32) *Packed8ThreeBlocks {
-	if valueCount > PACKED8_THREE_BLOCKS_MAX_SIZE {
-		panic("MAX_SIZE exceeded")
-	}
+	assert2(valueCount <= PACKED8_THREE_BLOCKS_MAX_SIZE, "MAX_SIZE exceeded")
 	ans := &Packed8ThreeBlocks{blocks: make([]byte, valueCount*3)}
-	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(int(valueCount), 24)
+	ans.MutableImpl = newMutableImpl(int(valueCount), 24, ans)
 	return ans
 }
 
@@ -769,16 +800,14 @@ func (r *Packed8ThreeBlocks) String() string {
 var PACKED16_THREE_BLOCKS_MAX_SIZE = int32(math.MaxInt32 / 3)
 
 type Packed16ThreeBlocks struct {
-	PackedIntsReaderImpl
+	*MutableImpl
 	blocks []int16
 }
 
 func newPacked16ThreeBlocks(valueCount int32) *Packed16ThreeBlocks {
-	if valueCount > PACKED16_THREE_BLOCKS_MAX_SIZE {
-		panic("MAX_SIZE exceeded")
-	}
+	assert2(valueCount <= PACKED16_THREE_BLOCKS_MAX_SIZE, "MAX_SIZE exceeded")
 	ans := &Packed16ThreeBlocks{blocks: make([]int16, valueCount*3)}
-	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(int(valueCount), 48)
+	ans.MutableImpl = newMutableImpl(int(valueCount), 48, ans)
 	return ans
 }
 
@@ -830,7 +859,7 @@ const (
 )
 
 type Packed64 struct {
-	PackedIntsReaderImpl
+	*MutableImpl
 	blocks            []int64
 	maskRight         uint64
 	bpvMinusBlockSize int32
@@ -842,7 +871,7 @@ func newPacked64(valueCount int32, bitsPerValue uint32) *Packed64 {
 		blocks:            make([]int64, longCount),
 		maskRight:         uint64(^(int64(0))<<(PACKED64_BLOCK_SIZE-bitsPerValue)) >> (PACKED64_BLOCK_SIZE - bitsPerValue),
 		bpvMinusBlockSize: int32(bitsPerValue) - PACKED64_BLOCK_SIZE}
-	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(int(valueCount), int(bitsPerValue))
+	ans.MutableImpl = newMutableImpl(int(valueCount), int(bitsPerValue), ans)
 	return ans
 }
 
@@ -976,4 +1005,8 @@ func (w *GrowableWriter) RamBytesUsed() int64 {
 			util.NUM_BYTES_LONG+
 			util.NUM_BYTES_FLOAT) +
 		w.current.RamBytesUsed()
+}
+
+func (w *GrowableWriter) Save(out util.DataOutput) error {
+	return w.current.Save(out)
 }

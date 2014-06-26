@@ -8,15 +8,16 @@
 
 		// Direct wrapping of 32-bits values to a backing array.
 type Direct32 struct {
-	PackedIntsReaderImpl
+	*MutableImpl
 	values []int32
 }
 
 func newDirect32(valueCount int) *Direct32 {
-	return &Direct32{
-		PackedIntsReaderImpl: newPackedIntsReaderImpl(valueCount, 32),
+	ans := &Direct32{
 		values: make([]int32, valueCount),
 	}
+	ans.MutableImpl = newMutableImpl(valueCount, 32, ans)
+  return ans
 }
 
 func newDirect32FromInput(version int32, in DataInput, valueCount int) (r PackedIntsReader, err error) {
@@ -43,13 +44,13 @@ func (d *Direct32) Get(index int) int64 {
 }
 
 func (d *Direct32) Set(index int, value int64) {
-  d.values[index] = int32(value)
+	d.values[index] = int32(value)
 }
 
 func (d *Direct32) RamBytesUsed() int64 {
 	return util.AlignObjectSize(
 		util.NUM_BYTES_OBJECT_HEADER +
-		2*util.NUM_BYTES_INT +
-		util.NUM_BYTES_OBJECT_REF +
-		util.SizeOf(d.values))
+			2*util.NUM_BYTES_INT +
+			util.NUM_BYTES_OBJECT_REF +
+			util.SizeOf(d.values))
 }

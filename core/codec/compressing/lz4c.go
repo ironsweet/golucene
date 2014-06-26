@@ -11,6 +11,7 @@ type DataOutput interface {
 	WriteBytes(buf []byte) error
 	WriteInt(i int32) error
 	WriteVInt(i int32) error
+	WriteString(string) error
 }
 
 func hash(i, hashBits int) int {

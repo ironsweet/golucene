@@ -8,15 +8,16 @@
 
 		// Direct wrapping of 16-bits values to a backing array.
 type Direct16 struct {
-	PackedIntsReaderImpl
+	*MutableImpl
 	values []int16
 }
 
 func newDirect16(valueCount int) *Direct16 {
-	return &Direct16{
-		PackedIntsReaderImpl: newPackedIntsReaderImpl(valueCount, 16),
+	ans := &Direct16{
 		values: make([]int16, valueCount),
 	}
+	ans.MutableImpl = newMutableImpl(valueCount, 16, ans)
+  return ans
 }
 
 func newDirect16FromInput(version int32, in DataInput, valueCount int) (r PackedIntsReader, err error) {
@@ -43,13 +44,13 @@ func (d *Direct16) Get(index int) int64 {
 }
 
 func (d *Direct16) Set(index int, value int64) {
-  d.values[index] = int16(value)
+	d.values[index] = int16(value)
 }
 
 func (d *Direct16) RamBytesUsed() int64 {
 	return util.AlignObjectSize(
 		util.NUM_BYTES_OBJECT_HEADER +
-		2*util.NUM_BYTES_INT +
-		util.NUM_BYTES_OBJECT_REF +
-		util.SizeOf(d.values))
+			2*util.NUM_BYTES_INT +
+			util.NUM_BYTES_OBJECT_REF +
+			util.SizeOf(d.values))
 }
