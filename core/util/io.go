@@ -2,7 +2,7 @@ package util
 
 import (
 	// "errors"
-	"fmt"
+	// "fmt"
 	"io"
 )
 
@@ -70,12 +70,12 @@ func Close(objects ...io.Closer) error {
 }
 
 func safeClose(obj io.Closer) (err error) {
-	defer func() {
-		if p := recover(); p != nil {
-			// err = errors.New(fmt.Sprintf("%v", p))
-			fmt.Println("Uncaught nil pointer of closer.", obj, p)
-		}
-	}()
+	// defer func() {
+	// 	if p := recover(); p != nil {
+	// 		// err = errors.New(fmt.Sprintf("%v", p))
+	// 		fmt.Println("Uncaught nil pointer of closer.", obj, p)
+	// 	}
+	// }()
 	if obj != nil {
 		err = obj.Close()
 	}

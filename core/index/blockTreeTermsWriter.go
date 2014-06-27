@@ -202,7 +202,15 @@ func (w *BlockTreeTermsWriter) addField(field *model.FieldInfo) (TermsConsumer, 
 	return newTermsWriter(w, field), nil
 }
 
-func (w *BlockTreeTermsWriter) Close() error {
+func (w *BlockTreeTermsWriter) Close() (err error) {
+	defer func() {
+		err = util.CloseWhileHandlingError(err, w.out, w.indexOut, w.postingsWriter)
+	}()
+
+	// dirStart := w.out.FilePointer()
+	// indexDirStart := w.indexOut.FilePointer()
+
+	// err := w.out.WriteVInt(len(w.fields))
 	panic("not implemented yet")
 }
 
