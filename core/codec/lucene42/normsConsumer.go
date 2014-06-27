@@ -164,6 +164,19 @@ func assert2(ok bool, msg string, args ...interface{}) {
 	}
 }
 
-func (nc *NormsConsumer) Close() error {
-	panic("no timplemented yet")
+func (nc *NormsConsumer) Close() (err error) {
+	var success = false
+	defer func() {
+		if success {
+			err = util.Close(nc.data, nc.meta)
+		} else {
+			util.CloseWhileSuppressingError(nc.data, nc.meta)
+		}
+	}()
+
+	if nc.meta != nil {
+		err = nc.meta.WriteVInt(-1) // write EOF marker
+	}
+	success = err == nil
+	return
 }

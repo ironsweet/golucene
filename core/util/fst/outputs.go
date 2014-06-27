@@ -50,8 +50,8 @@ func (out *abstractOutputs) writeFinalOutput(output interface{}, o util.DataOutp
 	return out.spi.Write(output, o)
 }
 
+/* Decode an output value previously written with writeFinalOutput(). By default this just calls read(). */
 func (out *abstractOutputs) ReadFinalOutput(in util.DataInput) (e interface{}, err error) {
-	fmt.Printf("Reading final output from %v...", in)
 	return out.spi.Read(in)
 }
 
@@ -161,7 +161,6 @@ func (o *ByteSequenceOutputs) Write(obj interface{}, out util.DataOutput) error 
 }
 
 func (out *ByteSequenceOutputs) Read(in util.DataInput) (e interface{}, err error) {
-	fmt.Printf("Reading from %v...", in)
 	if length, err := in.ReadVInt(); err == nil {
 		fmt.Printf("Length: %v", length)
 		if length == 0 {

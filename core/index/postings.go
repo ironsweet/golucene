@@ -227,7 +227,6 @@ func newBlockTreeTermsReader(dir store.Directory,
 		if err != nil {
 			return fp, err
 		}
-		log.Print("DEBUG field processed.")
 	}
 
 	if indexDivisor != -1 {

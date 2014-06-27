@@ -226,7 +226,7 @@ func (w *BlockTreeTermsWriter) Close() (err error) {
 	}
 
 	for _, field := range w.fields {
-		fmt.Printf("  field %v %v terms", field.fieldInfo.Name, field.numTerms)
+		fmt.Printf("  field %v %v terms\n", field.fieldInfo.Name, field.numTerms)
 		err = w.out.WriteVInt(field.fieldInfo.Number)
 		if err == nil {
 			err = w.out.WriteVLong(field.numTerms)

@@ -229,7 +229,7 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 						reader.setPosition(int64(numBytes - 1))
 					}
 				}
-				log.Printf("Reading final output from %v to %v...", reader, outputs)
+				log.Printf("Reading final output from %v to %v...\n", reader, outputs)
 				fst.emptyOutput, err = outputs.ReadFinalOutput(reader)
 			}
 		} // else emptyOutput = nil
