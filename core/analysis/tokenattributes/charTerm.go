@@ -17,6 +17,13 @@ type CharTermAttribute interface {
 	// NOTE: the returned buffer may be larger than the valid Length().
 	Buffer() []rune
 	Length() int
+	// Appends teh specified string to this character sequence.
+	//
+	// The character of the string argument are appended, in order,
+	// increasing the length of this sequence by the length of the
+	// argument. If argument is "", then the three characters "nil" are
+	// appended.
+	AppendString(string) CharTermAttribute
 }
 
 const MIN_BUFFER_SIZE = 10
@@ -81,6 +88,25 @@ func (a *CharTermAttributeImpl) BytesRef() *util.BytesRef {
 
 func (a *CharTermAttributeImpl) Length() int {
 	return a.termLength
+}
+
+func (a *CharTermAttributeImpl) AppendString(s string) CharTermAttribute {
+	if s == "" { // needed for Appendable compliance
+		return a.appendNil()
+	}
+	for _, ch := range s {
+		a.termBuffer = append(a.termBuffer, ch)
+		a.termLength++
+	}
+	return a
+}
+
+func (a *CharTermAttributeImpl) appendNil() CharTermAttribute {
+	a.termBuffer = append(a.termBuffer, 'n')
+	a.termBuffer = append(a.termBuffer, 'i')
+	a.termBuffer = append(a.termBuffer, 'l')
+	a.termLength += 3
+	return a
 }
 
 func (a *CharTermAttributeImpl) Clear() {

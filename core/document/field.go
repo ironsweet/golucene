@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
+	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"io"
 	"log"
@@ -113,7 +114,12 @@ func (f *Field) TokenStream(analyzer analysis.Analyzer) (ts analysis.TokenStream
 	}
 
 	if !f.FieldType().Tokenized() {
-		panic("not implemented yet")
+		assert2(f.StringValue() != "", "Non-Tokenized Fields must have a string value")
+		if _, ok := f.internalTokenStream.(*StringTokenStream); !ok {
+			f.internalTokenStream = newStringTokenStream()
+		}
+		f.internalTokenStream.(*StringTokenStream).setValue(f.StringValue())
+		return f.internalTokenStream, nil
 	}
 
 	if f._tokenStream != nil {
@@ -125,6 +131,41 @@ func (f *Field) TokenStream(analyzer analysis.Analyzer) (ts analysis.TokenStream
 	}
 
 	panic("Field must have either TokenStream, String, Reader, or Number value")
+}
+
+type StringTokenStream struct {
+	*analysis.TokenStreamImpl
+	termAttribute   CharTermAttribute
+	offsetAttribute OffsetAttribute
+	used            bool
+	value           string
+}
+
+/*
+Creates a new TokenStream that returns a string as single token.
+
+Warning: Does not initialize the value, you must call setValue() afterwards!
+*/
+func newStringTokenStream() *StringTokenStream {
+	ans := &StringTokenStream{TokenStreamImpl: analysis.NewTokenStream()}
+	ans.termAttribute = ans.Attributes().Add("CharTermAttribute").(CharTermAttribute)
+	ans.offsetAttribute = ans.Attributes().Add("OffsetAttribute").(OffsetAttribute)
+	return ans
+}
+
+func (ts *StringTokenStream) setValue(value string) {
+	ts.value = value
+}
+
+func (ts *StringTokenStream) IncrementToken() (bool, error) {
+	if ts.used {
+		return false, nil
+	}
+	ts.Attributes().Clear()
+	ts.termAttribute.AppendString(ts.value)
+	ts.offsetAttribute.SetOffset(0, len(ts.value))
+	ts.used = true
+	return true, nil
 }
 
 /* Specifies whether and how a field should be stored. */
