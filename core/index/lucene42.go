@@ -297,14 +297,16 @@ var Lucene42FieldInfosWriter = func(dir store.Directory,
 	for _, fi := range infos.Values {
 		indexOptions := fi.IndexOptions()
 		bits := byte(0x0)
-		switch {
-		case fi.HasVectors():
+		if fi.HasVectors() {
 			bits |= LUCENE42_FI_STORE_TERMVECTOR
-		case fi.OmitsNorms():
+		}
+		if fi.OmitsNorms() {
 			bits |= LUCENE42_FI_OMIT_NORMS
-		case fi.HasPayloads():
+		}
+		if fi.HasPayloads() {
 			bits |= LUCENE42_FI_STORE_PAYLOADS
-		case fi.IsIndexed():
+		}
+		if fi.IsIndexed() {
 			bits |= LUCENE42_FI_IS_INDEXED
 			assert(int(indexOptions) >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS) || !fi.HasPayloads())
 			switch indexOptions {

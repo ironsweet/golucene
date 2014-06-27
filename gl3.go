@@ -19,8 +19,8 @@ func main() {
 	q.SetBoost(-42)
 	assert(q.Boost() == -42)
 
-	directory, err := store.OpenFSDirectory(".gltest")
 	// directory, err := store.OpenFSDirectory("../../../../../lucene-solr2/gltest")
+	directory, err := store.OpenFSDirectory(".gltest")
 	assert(err == nil)
 	assert(directory != nil)
 	fmt.Println("Directory", directory)
@@ -37,7 +37,7 @@ func main() {
 	err = writer.AddDocument(d.Fields())
 	assert(err == nil)
 	err = writer.Close() // ensure index is written
-	assert(err == nil)
+	assert2(err == nil, "%v", err)
 
 	reader, err := index.OpenDirectoryReader(directory)
 	assert2(err == nil, "%v", err)
