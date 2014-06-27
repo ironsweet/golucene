@@ -522,8 +522,8 @@ NOTE: this uses the same format as Lucene42DocValuesFormat Numeric
 DocValues, but with different fiel extensions, and passing FASTEST
 for uncompressed encoding: trading off space for performance.
 
-Fiels:
-- .nvd: Docvalues data
+Fields:
+- .nvd: DocValues data
 - .nvm: DocValues metadata
 */
 type Lucene42NormsFormat struct {
@@ -541,12 +541,14 @@ func newLucene42NormsFormatWithOverhead(acceptableOverheadRatio float32) *Lucene
 }
 
 func (f *Lucene42NormsFormat) NormsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
+	panic("should not be here")
 	return lucene42.NewNormsConsumer(state,
 		"Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm",
 		f.acceptableOverheadRatio)
 }
 
 func (f *Lucene42NormsFormat) NormsProducer(state SegmentReadState) (r DocValuesProducer, err error) {
+	panic("should not be here")
 	return newLucene42DocValuesProducer(state, "Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm")
 }
 

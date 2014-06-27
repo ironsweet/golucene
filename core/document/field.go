@@ -31,6 +31,8 @@ type Field struct {
 
 // Create field with String value
 func NewStringField(name, value string, ft *FieldType) *Field {
+	assert2(name != "", "name cannot be empty")
+	assert2(value != "", "value cannot be empty")
 	assert2(ft.stored || ft.indexed,
 		"it doesn't make sense to have a field that is neither indexed nor stored")
 	assert2(ft.indexed || !ft.storeTermVectors,
@@ -146,7 +148,9 @@ var (
 	TEXT_FIELD_TYPE_NOT_STORED = func() *FieldType {
 		ft := newFieldType()
 		ft.indexed = true
-		ft._tokenized = true
+		ft._omitNorms = true
+		ft._indexOptions = model.INDEX_OPT_DOCS_ONLY
+		ft._tokenized = false
 		ft.frozen = true
 		return ft
 	}()
@@ -154,8 +158,10 @@ var (
 	TEXT_FIELD_TYPE_STORED = func() *FieldType {
 		ft := newFieldType()
 		ft.indexed = true
-		ft._tokenized = true
+		ft._omitNorms = true
+		ft._indexOptions = model.INDEX_OPT_DOCS_ONLY
 		ft.stored = true
+		ft._tokenized = false
 		ft.frozen = true
 		return ft
 	}()
