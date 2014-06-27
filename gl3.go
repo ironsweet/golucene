@@ -44,7 +44,7 @@ func main() {
 
 	searcher := search.NewIndexSearcher(reader)
 	res, err := searcher.Search(q, nil, 1000)
-	assert(err == nil)
+	assert2(err == nil, "%v", err)
 	hits := res.ScoreDocs
 	assert2(len(hits) == 1, "Expect 1 hits, but %v only.", len(hits))
 	assert2(hits[0].Score < 0, "score is not negative: %v", hits[0].Score)
