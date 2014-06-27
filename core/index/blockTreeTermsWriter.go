@@ -196,6 +196,16 @@ func (w *BlockTreeTermsWriter) WriteIndexHeader(out store.IndexOutput) error {
 	return codec.WriteHeader(out, TERMS_INDEX_CODEC_NAME, TERMS_INDEX_VERSION_CURRENT)
 }
 
+/* Writes the terms file trailer. */
+func (w *BlockTreeTermsWriter) writeTrailer(out store.IndexOutput, dirStart int64) error {
+	return out.WriteLong(dirStart)
+}
+
+/* Writes the index file trailer. */
+func (w *BlockTreeTermsWriter) writeIndexTrailer(indexOut store.IndexOutput, dirStart int64) error {
+	return indexOut.WriteLong(dirStart)
+}
+
 func (w *BlockTreeTermsWriter) addField(field *model.FieldInfo) (TermsConsumer, error) {
 	assert(w.currentField == nil || w.currentField.Name < field.Name)
 	w.currentField = field
@@ -207,11 +217,46 @@ func (w *BlockTreeTermsWriter) Close() (err error) {
 		err = util.CloseWhileHandlingError(err, w.out, w.indexOut, w.postingsWriter)
 	}()
 
-	// dirStart := w.out.FilePointer()
-	// indexDirStart := w.indexOut.FilePointer()
+	dirStart := w.out.FilePointer()
+	indexDirStart := w.indexOut.FilePointer()
 
-	// err := w.out.WriteVInt(len(w.fields))
-	panic("not implemented yet")
+	err = w.out.WriteVInt(int32(len(w.fields)))
+	if err != nil {
+		return
+	}
+
+	for _, field := range w.fields {
+		fmt.Printf("  field %v %v terms", field.fieldInfo.Name, field.numTerms)
+		err = w.out.WriteVInt(field.fieldInfo.Number)
+		if err == nil {
+			err = w.out.WriteVLong(field.numTerms)
+			if err == nil {
+				err = w.out.WriteVInt(int32(len(field.rootCode)))
+				if err == nil {
+					err = w.out.WriteBytes(field.rootCode)
+					if err == nil && field.fieldInfo.IndexOptions() != model.INDEX_OPT_DOCS_ONLY {
+						err = w.out.WriteVLong(field.sumTotalTermFreq)
+					}
+					if err == nil {
+						err = w.out.WriteVLong(field.sumDocFreq)
+						if err == nil {
+							err = w.out.WriteVInt(int32(field.docCount))
+							if err == nil {
+								err = w.indexOut.WriteVLong(field.indexStartFP)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	if err == nil {
+		err = w.writeTrailer(w.out, dirStart)
+		if err == nil {
+			err = w.writeIndexTrailer(w.indexOut, indexDirStart)
+		}
+	}
+	return
 }
 
 func encodeOutput(fp int64, hasTerms bool, isFloor bool) int64 {

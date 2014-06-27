@@ -444,3 +444,7 @@ func (in *SlicedIndexInput) Clone() IndexInput {
 		in.length,
 	}
 }
+
+func (in *SlicedIndexInput) String() string {
+	return in.desc
+}

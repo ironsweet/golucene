@@ -543,7 +543,7 @@ func (w *Lucene41PostingsWriter) flushTermsBlock(start, count int) error {
 }
 
 func (w *Lucene41PostingsWriter) Close() error {
-	panic("not implemented yet")
+	return util.Close(w.docOut, w.posOut, w.payOut)
 }
 
 // Lucene41PostingsReader.java

@@ -234,3 +234,14 @@ func (in *SimpleFSIndexInput) Clone() IndexInput {
 	ans.SeekReader = ans
 	return ans
 }
+
+func (in *SimpleFSIndexInput) Close() error {
+	if in == nil {
+		return nil
+	}
+	return in.FSIndexInput.Close()
+}
+
+func (in *SimpleFSIndexInput) String() string {
+	return in.desc
+}
