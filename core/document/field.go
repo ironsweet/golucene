@@ -37,7 +37,7 @@ func NewStringField(name, value string, ft *FieldType) *Field {
 		"it doesn't make sense to have a field that is neither indexed nor stored")
 	assert2(ft.indexed || !ft.storeTermVectors,
 		"can not store term vector information for a field that is not indexed")
-	return &Field{_type: ft, _name: name, _data: value}
+	return &Field{_type: ft, _name: name, _data: value, _boost: 1}
 }
 
 func (f *Field) StringValue() string {
