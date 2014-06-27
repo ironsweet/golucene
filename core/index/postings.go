@@ -524,7 +524,6 @@ func (e *SegmentTermsEnum) pushFrameAt(arc *fst.Arc, fp int64, length int) (f *s
 			panic("assert fail")
 		}
 	} else {
-		fmt.Println("DEBUG1")
 		f.nextEnt = -1
 		f.prefix = length
 		f.state.termBlockOrd = 0
@@ -714,7 +713,6 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 				return false, nil
 			}
 
-			fmt.Println("DEBUG3")
 			if err := e.currentFrame.loadBlock(); err != nil {
 				return false, err
 			}
@@ -1097,14 +1095,12 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 		// Already loaded
 		return
 	}
-	fmt.Println("DEBUG4a")
 
 	f.in.Seek(f.fp)
 	code, err := asInt(f.in.ReadVInt())
 	if err != nil {
 		return err
 	}
-	fmt.Println("DEBUG4b")
 	f.entCount = int(uint(code) >> 1)
 	assert(f.entCount > 0)
 	f.isLastInFloor = (code & 1) != 0
@@ -1120,17 +1116,15 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 	if err != nil {
 		return err
 	}
-	fmt.Println("DEBUG4f")
 	f.isLeafBlock = (code & 1) != 0
 	numBytes := int(uint(code) >> 1)
 	if len(f.suffixBytes) < numBytes {
 		f.suffixBytes = make([]byte, numBytes)
 	}
-	err = f.in.ReadBytes(f.suffixBytes)
+	err = f.in.ReadBytes(f.suffixBytes[:numBytes])
 	if err != nil {
 		return err
 	}
-	fmt.Println("DEBUG4c")
 	f.suffixesReader.Reset(f.suffixBytes)
 
 	if f.arc == nil {
@@ -1146,20 +1140,17 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 	if err != nil {
 		return err
 	}
-	fmt.Println("DEBUG4d")
 	if len(f.statBytes) < numBytes {
 		f.statBytes = make([]byte, numBytes)
 	}
-	err = f.in.ReadBytes(f.statBytes)
+	err = f.in.ReadBytes(f.statBytes[:numBytes])
 	if err != nil {
 		return err
 	}
-	fmt.Println("DEBUG4e")
 	f.statsReader.Reset(f.statBytes)
 	f.metaDataUpto = 0
 
 	f.state.termBlockOrd = 0
-	fmt.Println("DEBUG4")
 	f.nextEnt = 0
 	f.lastSubFP = -1
 
@@ -1177,7 +1168,6 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 func (f *segmentTermsEnumFrame) rewind() {
 	// Force reload:
 	f.fp = f.fpOrig
-	fmt.Println("DEBUG2")
 	f.nextEnt = -1
 	f.hasTerms = f.hasTermsOrig
 	if f.isFloor {
