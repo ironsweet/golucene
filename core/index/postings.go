@@ -1280,9 +1280,7 @@ func (f *segmentTermsEnumFrame) scanToTerm(target []byte, exactOnly bool) (statu
 func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (status SeekStatus, err error) {
 	log.Printf("    scanToTermLeaf: block fp=%v prefix=%v nextEnt=%v (of %v) target=%v term=%v",
 		f.fp, f.prefix, f.nextEnt, f.entCount, brToString(target), f.term)
-	if f.nextEnt == -1 {
-		panic("assert fail")
-	}
+	assert(f.nextEnt != -1)
 
 	f.termExists = true
 	f.subCode = 0

@@ -542,8 +542,7 @@ func newLucene42NormsFormatWithOverhead(acceptableOverheadRatio float32) *Lucene
 
 func (f *Lucene42NormsFormat) NormsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
 	return lucene42.NewNormsConsumer(state,
-		LUCENE42_DV_DATA_CODEC, LUCENE42_DV_DATA_EXTENSION,
-		LUCENE42_DV_METADATA_CODEC, LUCENE42_DV_METADATA_EXTENSION,
+		"Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm",
 		f.acceptableOverheadRatio)
 }
 
