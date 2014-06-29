@@ -95,7 +95,11 @@ func (a *CharTermAttributeImpl) AppendString(s string) CharTermAttribute {
 		return a.appendNil()
 	}
 	for _, ch := range s {
-		a.termBuffer = append(a.termBuffer, ch)
+		if a.termLength < len(a.termBuffer) {
+			a.termBuffer[a.termLength] = ch
+		} else {
+			a.termBuffer = append(a.termBuffer, ch)
+		}
 		a.termLength++
 	}
 	return a
