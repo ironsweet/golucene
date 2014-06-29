@@ -10,10 +10,7 @@ import (
 
 func main() {
 	log.Print("Oepning FSDirectory...")
-	// path := "src/github.com/balzaczyy/golucene/search/testdata/win8/belfrysample"
 	path := "core/search/testdata/win8/belfrysample"
-	// path := "/private/tmp/kc/index/belfrysample"
-	// path := "c:/tmp/kc/index/belfrysample"
 	d, err := store.OpenFSDirectory(path)
 	if err != nil {
 		panic(err)

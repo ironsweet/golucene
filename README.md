@@ -6,15 +6,19 @@ A [Go](http://golang.org) port of [Apache Lucene](http://lucene.apache.org).
 Milestones
 ----------
 - 2013/6/3    Initial code commited.
-- 2013/11/11  First test case that search for specific keyword has passed with number of hits.
-- 2013/12/3   Second test case that fetch string field has passed.
+- 2013/11/11  First test case (gl.go) that search for specific keyword has passed with number of hits.
+- 2013/12/3   Second test case (gl.go) that fetch string field has passed.
+- 2014/6/29		Third test case (gl3.go) that index string field has passed.
 
 Progress
 --------
-41400/40000 LoC, ? Weeks Left
-V1.0 ETA: 2014/?/?
+V1.0 ETA: 2014/12/1
 
-The original scope was expanded. Now I'm targeting a full functional Lucene port. The next test case is most probably in August.
+TODOs
+-----
+- Move to Lucene 4.9.0 code base.
+- Finish fourth test case (gl2.go) with Lucene's test framework.
+- Support basic explain function.
 
 License
 -------
