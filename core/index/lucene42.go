@@ -468,53 +468,6 @@ func newLucene42TermVectorsFormat() *Lucene42TermVectorsFormat {
 	}
 }
 
-type Lucene42TermVectorsReader struct {
-	*CompressingTermVectorsReader
-}
-
-func newLucene42TermVectorsReader(d store.Directory,
-	si *model.SegmentInfo, fn model.FieldInfos,
-	ctx store.IOContext) (r TermVectorsReader, err error) {
-
-	formatName := "Lucene41StoredFields"
-	compressionMode := compressing.COMPRESSION_MODE_FAST
-	// chunkSize := 1 << 12
-	p, err := newCompressingTermVectorsReader(d, si, "", fn, ctx, formatName, compressionMode)
-	if err == nil {
-		r = &Lucene42TermVectorsReader{p}
-	}
-	return r, nil
-}
-
-type CompressingTermVectorsReader struct {
-	vectorsStream store.IndexInput
-	closed        bool
-}
-
-func newCompressingTermVectorsReader(d store.Directory,
-	si *model.SegmentInfo, segmentSuffix string,
-	fn model.FieldInfos, ctx store.IOContext, formatName string,
-	compressionMode compressing.CompressionMode) (r *CompressingTermVectorsReader, err error) {
-
-	panic("not implemented yet")
-}
-
-func (r *CompressingTermVectorsReader) Close() (err error) {
-	if !r.closed {
-		err = util.Close(r.vectorsStream)
-		r.closed = true
-	}
-	return err
-}
-
-func (r *CompressingTermVectorsReader) get(doc int) Fields {
-	panic("not implemented yet")
-}
-
-func (r *CompressingTermVectorsReader) clone() TermVectorsReader {
-	panic("not implemented yet")
-}
-
 // lucene42/Lucene42NormsFormat.java
 
 /*

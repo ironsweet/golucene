@@ -1168,24 +1168,6 @@ func newLucene41StoredFieldsFormat() *Lucene41StoredFieldsFormat {
 	}
 }
 
-type Lucene41StoredFieldsReader struct {
-	*CompressingStoredFieldsReader
-}
-
-func newLucene41StoredFieldsReader(d store.Directory,
-	si *model.SegmentInfo, fn model.FieldInfos,
-	ctx store.IOContext) (r StoredFieldsReader, err error) {
-
-	formatName := "Lucene41StoredFields"
-	compressionMode := compressing.COMPRESSION_MODE_FAST
-	// chunkSize := 1 << 14
-	p, err := newCompressingStoredFieldsReader(d, si, "", fn, ctx, formatName, compressionMode)
-	if err == nil {
-		r = &Lucene41StoredFieldsReader{p}
-	}
-	return r, nil
-}
-
 // codec/compressing/CompressingStoredFieldsReader.java
 
 const (
