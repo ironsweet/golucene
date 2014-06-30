@@ -1002,6 +1002,10 @@ func (de *blockDocsEnum) NextDoc() (n int, err error) {
 	}
 }
 
+func (de *blockDocsEnum) Advance(target int) (int, error) {
+	panic("not implemented yet")
+}
+
 type intBlockTermState struct {
 	*BlockTermState
 	docStartFP         int64

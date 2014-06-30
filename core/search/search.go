@@ -1,7 +1,6 @@
 package search
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/util"
@@ -125,7 +124,7 @@ This is intended to be used in developing Similiarity implemenations, and, for
 good performance, should not be displayed with every hit. Computing an
 explanation is as expensive as executing the query over the entire index.
 */
-func (ss *IndexSearcher) Explain(query Query, doc int) (exp *Explanation, err error) {
+func (ss *IndexSearcher) Explain(query Query, doc int) (exp Explanation, err error) {
 	w, err := ss.spi.CreateNormalizedWeight(query)
 	if err == nil {
 		return ss.explain(w, doc)
@@ -143,7 +142,7 @@ explanation is as expensive as executing the query over the entire index.
 
 Applications should call explain(Query, int).
 */
-func (ss *IndexSearcher) explain(weight Weight, doc int) (exp *Explanation, err error) {
+func (ss *IndexSearcher) explain(weight Weight, doc int) (exp Explanation, err error) {
 	n := index.SubIndex(doc, ss.leafContexts)
 	ctx := ss.leafContexts[n]
 	deBasedDoc := doc - ctx.DocBase
@@ -240,6 +239,8 @@ type SimScorer interface {
 	 * @return document's score
 	 */
 	Score(doc int, freq float32) float32
+	// Explain the score for a single document
+	explain(int, Explanation) Explanation
 }
 
 type SimWeight interface {
@@ -293,24 +294,26 @@ type TFIDFSimilarity struct {
 	spi ITFIDFSimilarity
 }
 
-func newTFIDSimilarity(spi ITFIDFSimilarity) *TFIDFSimilarity {
+func newTFIDFSimilarity(spi ITFIDFSimilarity) *TFIDFSimilarity {
 	return &TFIDFSimilarity{spi}
 }
 
-func (ts *TFIDFSimilarity) idfExplainTerm(collectionStats CollectionStatistics, termStats TermStatistics) *Explanation {
+func (ts *TFIDFSimilarity) idfExplainTerm(collectionStats CollectionStatistics, termStats TermStatistics) Explanation {
 	df, max := termStats.DocFreq, collectionStats.maxDoc
 	idf := ts.spi.idf(df, max)
 	return newExplanation(idf, fmt.Sprintf("idf(docFreq=%v, maxDocs=%v)", df, max))
 }
 
-func (ts *TFIDFSimilarity) idfExplainPhrase(collectionStats CollectionStatistics, termStats []TermStatistics) *Explanation {
-	details := make([]*Explanation, len(termStats))
+func (ts *TFIDFSimilarity) idfExplainPhrase(collectionStats CollectionStatistics, termStats []TermStatistics) Explanation {
+	details := make([]Explanation, len(termStats))
 	var idf float32 = 0
 	for i, stat := range termStats {
 		details[i] = ts.idfExplainTerm(collectionStats, stat)
-		idf += details[i].value
+		idf += details[i].(*ExplanationImpl).value
 	}
-	return newExplanation(idf, fmt.Sprintf("idf(), sum of:"))
+	ans := newExplanation(idf, fmt.Sprintf("idf(), sum of:"))
+	ans.details = details
+	return ans
 }
 
 func (ts *TFIDFSimilarity) ComputeNorm(state *index.FieldInvertState) int64 {
@@ -318,7 +321,7 @@ func (ts *TFIDFSimilarity) ComputeNorm(state *index.FieldInvertState) int64 {
 }
 
 func (ts *TFIDFSimilarity) computeWeight(queryBoost float32, collectionStats CollectionStatistics, termStats ...TermStatistics) SimWeight {
-	var idf *Explanation
+	var idf Explanation
 	if len(termStats) == 1 {
 		idf = ts.idfExplainTerm(collectionStats, termStats[0])
 	} else {
@@ -333,7 +336,7 @@ func (ts *TFIDFSimilarity) simScorer(stats SimWeight, ctx *index.AtomicReaderCon
 	if err != nil {
 		return nil, err
 	}
-	return newTFIDSimScorer(ts, idfstats, ndv), nil
+	return newTFIDFSimScorer(ts, idfstats, ndv), nil
 }
 
 type tfIDFSimScorer struct {
@@ -343,7 +346,7 @@ type tfIDFSimScorer struct {
 	norms       index.NumericDocValues
 }
 
-func newTFIDSimScorer(owner *TFIDFSimilarity, stats *idfStats, norms index.NumericDocValues) *tfIDFSimScorer {
+func newTFIDFSimScorer(owner *TFIDFSimilarity, stats *idfStats, norms index.NumericDocValues) *tfIDFSimScorer {
 	return &tfIDFSimScorer{owner, stats, stats.value, norms}
 }
 
@@ -355,25 +358,29 @@ func (ss *tfIDFSimScorer) Score(doc int, freq float32) float32 {
 	return raw * ss.owner.spi.decodeNormValue(ss.norms(doc)) // normalize for field
 }
 
+func (ss *tfIDFSimScorer) explain(doc int, freq Explanation) Explanation {
+	panic("not implemented yet")
+}
+
 /** Collection statistics for the TF-IDF model. The only statistic of interest
  * to this model is idf. */
 type idfStats struct {
 	field string
 	/** The idf and its explanation */
-	idf         *Explanation
+	idf         Explanation
 	queryNorm   float32
 	queryWeight float32
 	queryBoost  float32
 	value       float32
 }
 
-func newIDFStats(field string, idf *Explanation, queryBoost float32) *idfStats {
+func newIDFStats(field string, idf Explanation, queryBoost float32) *idfStats {
 	// TODO: validate?
 	return &idfStats{
 		field:       field,
 		idf:         idf,
 		queryBoost:  queryBoost,
-		queryWeight: idf.value * queryBoost, // compute query weight
+		queryWeight: idf.(*ExplanationImpl).value * queryBoost, // compute query weight
 	}
 }
 
@@ -384,66 +391,8 @@ func (stats *idfStats) ValueForNormalization() float32 {
 
 func (stats *idfStats) Normalize(queryNorm float32, topLevelBoost float32) {
 	stats.queryNorm = queryNorm * topLevelBoost
-	stats.queryWeight *= stats.queryNorm              // normalize query weight
-	stats.value = stats.queryWeight * stats.idf.value // idf for document
-}
-
-// search/Explanation.java
-
-/* Expert: Describes the score computation for document and query. */
-type Explanation struct {
-	value       float32        // the value of this node
-	description string         // what it represents
-	details     []*Explanation // sub-explanations
-}
-
-func newExplanation(value float32, description string) *Explanation {
-	return &Explanation{value: value, description: description}
-}
-
-// Indicate whether or not this Explanation models a good match.
-// By default, an Explanation represents a "match" if the value is positive.
-func (exp *Explanation) IsMatch() bool {
-	return exp.value > 0.0
-}
-
-func (exp *Explanation) Value() float32      { return exp.value }
-func (exp *Explanation) Description() string { return exp.description }
-
-// A short one line summary which should contian all high level information
-// about this Explanation, without the Details.
-func (exp *Explanation) Summary() string {
-	return fmt.Sprintf("%v = %v", exp.value, exp.description)
-}
-
-// The sub-nodes of this explanation node.
-func (exp *Explanation) Details() []*Explanation {
-	return exp.details
-}
-
-// Adds a sub-node to this explanation node
-func (exp *Explanation) addDetail(detail *Explanation) {
-	exp.details = append(exp.details, detail)
-}
-
-// Render an explanation as text.
-func (exp *Explanation) String() string {
-	return explanationToString(exp, 0)
-}
-
-func explanationToString(exp *Explanation, depth int) string {
-	var buf bytes.Buffer
-	for i := 0; i < depth; i++ {
-		buf.WriteString("  ")
-	}
-	buf.WriteString(exp.Summary())
-	buf.WriteString("\n")
-
-	for _, v := range exp.details {
-		buf.WriteString(explanationToString(v, depth+1))
-	}
-
-	return buf.String()
+	stats.queryWeight *= stats.queryNorm                                 // normalize query weight
+	stats.value = stats.queryWeight * stats.idf.(*ExplanationImpl).value // idf for document
 }
 
 // search/similarities/DefaultSimilarity.java
@@ -466,7 +415,7 @@ type DefaultSimilarity struct {
 
 func NewDefaultSimilarity() *DefaultSimilarity {
 	ans := &DefaultSimilarity{discountOverlaps: true}
-	ans.TFIDFSimilarity = newTFIDSimilarity(ans)
+	ans.TFIDFSimilarity = newTFIDFSimilarity(ans)
 	return ans
 }
 

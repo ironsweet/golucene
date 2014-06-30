@@ -62,7 +62,7 @@ type DocIdSetIterator interface {
 	 *
 	 * @since 2.9
 	 */
-	// Advance(target int) (doc int, err error)
+	Advance(target int) (doc int, err error)
 	/**
 	 * Returns the estimated cost of this {@link DocIdSetIterator}.
 	 * <p>

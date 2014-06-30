@@ -32,7 +32,7 @@ A Weight is used in the following way:
 */
 type Weight interface {
 	// An explanation of the score computation for the named document.
-	Explain(*index.AtomicReaderContext, int) (*Explanation, error)
+	Explain(*index.AtomicReaderContext, int) (Explanation, error)
 	/** The value for normalization of contained query clauses (e.g. sum of squared weights). */
 	ValueForNormalization() float32
 	/** Assigns the query normalization factor and boost from parent queries to this. */

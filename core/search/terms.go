@@ -128,8 +128,35 @@ func (tw *TermWeight) termNotInReader(reader index.IndexReader, term index.Term)
 	return n == 0
 }
 
-func (tw *TermWeight) Explain(contxt *index.AtomicReaderContext, doc int) (*Explanation, error) {
-	panic("not implemented yet")
+func (tw *TermWeight) Explain(ctx *index.AtomicReaderContext, doc int) (Explanation, error) {
+	scorer, err := tw.Scorer(ctx, true, false, ctx.Reader().(index.AtomicReader).LiveDocs())
+	if err != nil {
+		return nil, err
+	}
+	if scorer != nil {
+		newDoc, err := scorer.Advance(doc)
+		if err != nil {
+			return nil, err
+		}
+		if newDoc == doc {
+			freq, err := scorer.Freq()
+			if err != nil {
+				return nil, err
+			}
+			docScorer, err := tw.similarity.simScorer(tw.stats, ctx)
+			if err != nil {
+				return nil, err
+			}
+			scoreExplanation := docScorer.explain(doc,
+				newExplanation(float32(freq), fmt.Sprintf("termFreq=%v", freq)))
+			ans := newComplexExplanation(true,
+				scoreExplanation.(*ExplanationImpl).value,
+				fmt.Sprintf("weight(%v in %v) [%v], result of:"))
+			ans.details = []Explanation{scoreExplanation}
+			return ans, nil
+		}
+	}
+	return newComplexExplanation(false, 0, "no matching term"), nil
 }
 
 // search/TermScorer.java
@@ -151,6 +178,10 @@ func (ts *TermScorer) DocId() int {
 	return ts.docsEnum.DocId()
 }
 
+func (ts *TermScorer) Freq() (int, error) {
+	return ts.docsEnum.Freq()
+}
+
 /**
  * Advances to the next document matching the query. <br>
  *
@@ -167,6 +198,14 @@ func (ts *TermScorer) Score() (s float64, err error) {
 		return 0, err
 	}
 	return float64(ts.docScorer.Score(ts.docsEnum.DocId(), float32(freq))), nil
+}
+
+/*
+Advances to the first match beyond the current whose document number
+is greater than or equal to a given target.
+*/
+func (ts *TermScorer) Advance(target int) (int, error) {
+	return ts.docsEnum.Advance(target)
 }
 
 func (ts *TermScorer) String() string {
