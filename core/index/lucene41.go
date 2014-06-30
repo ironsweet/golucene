@@ -1003,7 +1003,54 @@ func (de *blockDocsEnum) NextDoc() (n int, err error) {
 }
 
 func (de *blockDocsEnum) Advance(target int) (int, error) {
-	panic("not implemented yet")
+	// TODO: make frq block load lazy/skippable
+	fmt.Printf("  FPR.advance target=%v\n", target)
+
+	// current skip docID < docIDs generated from current buffer <= next
+	// skip docID, we don't need to skip if target is buffered already
+	if de.docFreq > LUCENE41_BLOCK_SIZE && target > de.nextSkipDoc {
+		fmt.Println("load skipper")
+
+		panic("not implemented yet")
+	}
+	if de.docUpto == de.docFreq {
+		de.doc = NO_MORE_DOCS
+		return de.doc, nil
+	}
+	if de.docBufferUpto == LUCENE41_BLOCK_SIZE {
+		err := de.refillDocs()
+		if err != nil {
+			return 0, nil
+		}
+	}
+
+	// Now scan.. this is an inlined/pared down version of nextDoc():
+	for {
+		fmt.Printf("  scan doc=%v docBufferUpto=%v\n", de.accum, de.docBufferUpto)
+		de.accum += de.docDeltaBuffer[de.docBufferUpto]
+		de.docUpto++
+
+		if de.accum >= target {
+			break
+		}
+		de.docBufferUpto++
+		if de.docUpto == de.docFreq {
+			de.doc = NO_MORE_DOCS
+			return de.doc, nil
+		}
+	}
+
+	if de.liveDocs == nil || de.liveDocs.At(de.accum) {
+		fmt.Printf("  return doc=%v\n", de.accum)
+		de.freq = de.freqBuffer[de.docBufferUpto]
+		de.docBufferUpto++
+		de.doc = de.accum
+		return de.doc, nil
+	} else {
+		fmt.Println("  now do nextDoc()")
+		de.docBufferUpto++
+		return de.NextDoc()
+	}
 }
 
 type intBlockTermState struct {
