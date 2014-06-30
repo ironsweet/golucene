@@ -8,6 +8,7 @@ import (
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"os"
 )
 
 func main() {
@@ -19,7 +20,8 @@ func main() {
 	q.SetBoost(-42)
 	assert(q.Boost() == -42)
 
-	// directory, err := store.OpenFSDirectory("../../../../../lucene-solr2/gltest")
+	os.RemoveAll(".gltest")
+
 	directory, err := store.OpenFSDirectory(".gltest")
 	assert(err == nil)
 	assert(directory != nil)
