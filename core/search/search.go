@@ -125,7 +125,7 @@ This is intended to be used in developing Similiarity implemenations, and, for
 good performance, should not be displayed with every hit. Computing an
 explanation is as expensive as executing the query over the entire index.
 */
-func (ss *IndexSearcher) Explain(query Query, doc int) (exp Explanation, err error) {
+func (ss *IndexSearcher) Explain(query Query, doc int) (exp *Explanation, err error) {
 	w, err := ss.spi.CreateNormalizedWeight(query)
 	if err == nil {
 		return ss.explain(w, doc)
@@ -143,8 +143,11 @@ explanation is as expensive as executing the query over the entire index.
 
 Applications should call explain(Query, int).
 */
-func (ss *IndexSearcher) explain(weight Weight, doc int) (exp Explanation, err error) {
-	panic("not implemented yet")
+func (ss *IndexSearcher) explain(weight Weight, doc int) (exp *Explanation, err error) {
+	n := index.SubIndex(doc, ss.leafContexts)
+	ctx := ss.leafContexts[n]
+	deBasedDoc := doc - ctx.DocBase
+	return weight.Explain(ctx, deBasedDoc)
 }
 
 func (ss *IndexSearcher) CreateNormalizedWeight(q Query) (w Weight, err error) {

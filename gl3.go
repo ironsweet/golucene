@@ -52,10 +52,10 @@ func main() {
 	assert2(len(hits) == 1, "Expect 1 hits, but %v only.", len(hits))
 	assert2(hits[0].Score < 0, "score is not negative: %v", hits[0].Score)
 
-	// explain, err := searcher.Explain(q, hits[0].Doc)
-	// assert(err == nil)
-	// assert2(isSimilar(hits[0].Score, explain.Value(), 0.01), "score doesn't match explanation")
-	// assert2(explain.IsMatch(), "explain doesn't think doc is a match")
+	explain, err := searcher.Explain(q, hits[0].Doc)
+	assert(err == nil)
+	assert2(isSimilar(hits[0].Score, explain.Value(), 0.01), "score doesn't match explanation")
+	assert2(explain.IsMatch(), "explain doesn't think doc is a match")
 }
 
 func isSimilar(f1, f2, delta float32) bool {

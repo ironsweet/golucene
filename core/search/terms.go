@@ -128,6 +128,10 @@ func (tw *TermWeight) termNotInReader(reader index.IndexReader, term index.Term)
 	return n == 0
 }
 
+func (tw *TermWeight) Explain(contxt *index.AtomicReaderContext, doc int) (*Explanation, error) {
+	panic("not implemented yet")
+}
+
 // search/TermScorer.java
 /** Expert: A <code>Scorer</code> for documents matching a <code>Term</code>.
  */
