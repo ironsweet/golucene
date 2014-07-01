@@ -359,7 +359,7 @@ func (ss *tfIDFSimScorer) Score(doc int, freq float32) float32 {
 }
 
 func (ss *tfIDFSimScorer) explain(doc int, freq Explanation) Explanation {
-	panic("not implemented yet")
+	return ss.owner.explainScore(doc, freq, ss.stats, ss.norms)
 }
 
 /** Collection statistics for the TF-IDF model. The only statistic of interest
@@ -395,6 +395,49 @@ func (stats *idfStats) Normalize(queryNorm float32, topLevelBoost float32) {
 	stats.value = stats.queryWeight * stats.idf.(*ExplanationImpl).value // idf for document
 }
 
+func (ss *TFIDFSimilarity) explainScore(doc int, freq Explanation,
+	stats *idfStats, norms index.NumericDocValues) Explanation {
+
+	// explain query weight
+	boostExpl := newExplanation(stats.queryBoost, "boost")
+	queryNormExpl := newExplanation(stats.queryNorm, "queryNorm")
+	queryExpl := newExplanation(
+		boostExpl.value*stats.idf.Value()*queryNormExpl.value,
+		"queryWeight, product of:")
+	if stats.queryBoost != 1 {
+		queryExpl.addDetail(boostExpl)
+	}
+	queryExpl.addDetail(stats.idf)
+	queryExpl.addDetail(queryNormExpl)
+
+	// explain field weight
+	tfExplanation := newExplanation(ss.spi.tf(freq.Value()),
+		fmt.Sprintf("tf(freq=%v), with freq of:", freq.Value()))
+	tfExplanation.addDetail(freq)
+	fieldNorm := float32(1)
+	if norms != nil {
+		fieldNorm = ss.spi.decodeNormValue(norms(doc))
+	}
+	fieldNormExpl := newExplanation(fieldNorm, fmt.Sprintf("fieldNorm(doc=%v)", doc))
+	fieldExpl := newExplanation(
+		tfExplanation.value*stats.idf.Value()*fieldNormExpl.value,
+		fmt.Sprintf("fieldWeight in %v, product of:", doc))
+	fieldExpl.addDetail(tfExplanation)
+	fieldExpl.addDetail(stats.idf)
+	fieldExpl.addDetail(fieldNormExpl)
+
+	if queryExpl.value == 1 {
+		return fieldExpl
+	}
+
+	// combine them
+	ans := newExplanation(queryExpl.value*fieldExpl.value,
+		fmt.Sprintf("score(doc=%v,freq=%v), product of:", doc, freq))
+	ans.addDetail(queryExpl)
+	ans.addDetail(fieldExpl)
+	return ans
+}
+
 // search/similarities/DefaultSimilarity.java
 
 /** Cache of decoded bytes. */
@@ -420,7 +463,7 @@ func NewDefaultSimilarity() *DefaultSimilarity {
 }
 
 func (ds *DefaultSimilarity) QueryNorm(sumOfSquaredWeights float32) float32 {
-	return 1.0 / float32(math.Sqrt(float64(sumOfSquaredWeights)))
+	return float32(1.0 / math.Sqrt(float64(sumOfSquaredWeights)))
 }
 
 /*

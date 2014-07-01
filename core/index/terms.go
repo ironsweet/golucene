@@ -330,7 +330,7 @@ func NewTermContextFromTerm(ctx IndexReaderContext, t Term) (tc *TermContext, er
 	return perReaderTermState, nil
 }
 
-func (tc TermContext) register(state TermState, ord, docFreq int, totalTermFreq int64) {
+func (tc *TermContext) register(state TermState, ord, docFreq int, totalTermFreq int64) {
 	// assert ord >= 0 && ord < len(states)
 	// assert states[ord] == null : "state for ord: " + ord + " already registered";
 	tc.DocFreq += docFreq
@@ -342,7 +342,7 @@ func (tc TermContext) register(state TermState, ord, docFreq int, totalTermFreq 
 	tc.states[ord] = &state
 }
 
-func (tc TermContext) State(ord int) *TermState {
+func (tc *TermContext) State(ord int) *TermState {
 	// asert ord >= 0 && ord < len(states)
 	return tc.states[ord]
 }

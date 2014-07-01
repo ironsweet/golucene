@@ -8,18 +8,19 @@ import (
 // search/Explanation.java
 
 type Explanation interface {
-	ExplanationSPI
-}
-
-type ExplanationSPI interface {
 	// Indicate whether or not this Explanation models a good match.
 	// By default, an Explanation represents a "match" if the value is positive.
 	IsMatch() bool
 	// The value assigned to this explanation node.
 	Value() float32
+}
+
+type ExplanationSPI interface {
+	Explanation
 	// A short one line summary which should contian all high level information
 	// about this Explanation, without the Details.
 	Summary() string
+	Details() []Explanation
 }
 
 /* Expert: Describes the score computation for document and query. */
@@ -56,10 +57,11 @@ func (exp *ExplanationImpl) addDetail(detail Explanation) {
 
 // Render an explanation as text.
 func (exp *ExplanationImpl) String() string {
-	return explanationToString(exp, 0)
+	return explanationToString(exp.spi, 0)
 }
 
-func explanationToString(exp Explanation, depth int) string {
+func explanationToString(exp ExplanationSPI, depth int) string {
+	assert(depth <= 1000) // potential dead loop
 	var buf bytes.Buffer
 	for i := 0; i < depth; i++ {
 		buf.WriteString("  ")
@@ -67,8 +69,8 @@ func explanationToString(exp Explanation, depth int) string {
 	buf.WriteString(exp.Summary())
 	buf.WriteString("\n")
 
-	for _, v := range exp.(*ExplanationImpl).details {
-		buf.WriteString(explanationToString(v, depth+1))
+	for _, v := range exp.Details() {
+		buf.WriteString(explanationToString(v.(ExplanationSPI), depth+1))
 	}
 
 	return buf.String()

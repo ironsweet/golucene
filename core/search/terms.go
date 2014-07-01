@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/util"
+	"reflect"
 )
 
 type TermQuery struct {
@@ -151,7 +152,8 @@ func (tw *TermWeight) Explain(ctx *index.AtomicReaderContext, doc int) (Explanat
 				newExplanation(float32(freq), fmt.Sprintf("termFreq=%v", freq)))
 			ans := newComplexExplanation(true,
 				scoreExplanation.(*ExplanationImpl).value,
-				fmt.Sprintf("weight(%v in %v) [%v], result of:"))
+				fmt.Sprintf("weight(%v in %v) [%v], result of:",
+					tw.TermQuery, doc, reflect.TypeOf(tw.similarity)))
 			ans.details = []Explanation{scoreExplanation}
 			return ans, nil
 		}

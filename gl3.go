@@ -54,13 +54,13 @@ func main() {
 
 	explain, err := searcher.Explain(q, hits[0].Doc)
 	assert(err == nil)
-	assert2(isSimilar(hits[0].Score, explain.Value(), 0.01), "score doesn't match explanation")
+	assert2(isSimilar(hits[0].Score, explain.Value(), 0.001), "score doesn't match explanation")
 	assert2(explain.IsMatch(), "explain doesn't think doc is a match")
 }
 
 func isSimilar(f1, f2, delta float32) bool {
 	diff := f1 - f2
-	return diff > 0 && diff < delta || diff < 0 && -diff < delta
+	return diff == 0 || diff > 0 && diff < delta || diff < 0 && -diff < delta
 }
 
 func assert(ok bool) {
