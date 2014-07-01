@@ -166,9 +166,7 @@ func (as *AttributeSource) Add(s string) Attribute {
 
 /* Returns the instance of the passe in Attribute contained in this AttributeSource */
 func (as *AttributeSource) Get(s string) Attribute {
-	attImpl, ok := as.attributes[s]
-	assert2(ok, "This AttributeSource does not have the attribute '%v'.", s)
-	return attImpl.Value
+	return as.attributes[s].Value
 }
 
 func (as *AttributeSource) currentState() *AttributeState {
@@ -198,4 +196,13 @@ func (as *AttributeSource) Clear() {
 	for state := as.currentState(); state != nil; state = state.next {
 		state.attribute.Clear()
 	}
+}
+
+/*
+Returns a string consisting of the class's simple name, the hex
+representation of the identity hash code, and the current reflection
+of all attributes.
+*/
+func (as *AttributeSource) String() string {
+	panic("not implemented yet")
 }

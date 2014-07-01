@@ -7,9 +7,9 @@ OpenBitSet, this bit set does not auto-expand, cannot handle long
 index, and does not have fastXX/XX variants (just X).
 */
 type FixedBitSet struct {
-	bits       []int64
-	numBits    int
-	wordLength int
+	bits     []int64
+	numBits  int
+	numWords int
 }
 
 /* returns the number of 64 bit words it would take to hold numBits */
@@ -24,9 +24,9 @@ func fbits2words(numBits int) int {
 func NewFixedBitSetOf(numBits int) *FixedBitSet {
 	wordLength := fbits2words(numBits)
 	return &FixedBitSet{
-		numBits:    numBits,
-		bits:       make([]int64, wordLength),
-		wordLength: wordLength,
+		numBits:  numBits,
+		bits:     make([]int64, wordLength),
+		numWords: wordLength,
 	}
 }
 
@@ -39,7 +39,7 @@ func (b *FixedBitSet) Cardinality() int {
 }
 
 func (b *FixedBitSet) Set(index int) {
-	assert2(index >= 0 && index < b.numBits, "index=%v numBits=%v", index, b.numBits)
+	assert2(index >= 0 && index < b.numBits, "index=%v, numBits=%v", index, b.numBits)
 	wordNum := index >> 6     // div 64
 	bit := uint(index & 0x3f) // mod 64
 	bitmask := int64(1 << bit)

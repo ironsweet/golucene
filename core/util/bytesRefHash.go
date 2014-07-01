@@ -175,14 +175,14 @@ func (h *BytesRefHash) Clear(resetPool bool) {
 	}
 }
 
-/* Adds a new BytesRef with pre-calculated hash code. */
-func (h *BytesRefHash) Add(bytes []byte, code int) (int, bool) {
+/* Adds a new BytesRef. */
+func (h *BytesRefHash) Add(bytes []byte) (int, bool) {
 	assert(bytes != nil)
 	assert(len(bytes) > 0)
 	assert2(h.bytesStart != nil, "Bytesstart is null - not initialized")
 	length := len(bytes)
 	// final position
-	hashPos := h.findHash(bytes, code)
+	hashPos := h.findHash(bytes)
 	e := h.ids[hashPos]
 
 	if e == -1 {
@@ -231,9 +231,9 @@ func (h *BytesRefHash) Add(bytes []byte, code int) (int, bool) {
 	return -(e + 1), true
 }
 
-func (h *BytesRefHash) findHash(bytes []byte, code int) int {
-	assert(bytes != nil)
+func (h *BytesRefHash) findHash(bytes []byte) int {
 	assert2(h.bytesStart != nil, "bytesStart is null - not initialized")
+	code := h.doHash(bytes)
 	// final position
 	hashPos := code & h.hashMask
 	if e := h.ids[hashPos]; e != -1 && !h.equals(e, bytes) {
@@ -244,6 +244,10 @@ func (h *BytesRefHash) findHash(bytes []byte, code int) int {
 
 /* Claled when has is too small (> 50% occupied) or too large (< 20% occupied). */
 func (h *BytesRefHash) rehash(newSize int, hashOnData bool) {
+	panic("not implemented yet")
+}
+
+func (h *BytesRefHash) doHash(p []byte) int {
 	panic("not implemented yet")
 }
 

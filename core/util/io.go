@@ -81,9 +81,7 @@ func safeClose(obj io.Closer) (err error) {
 }
 
 func addSuppressed(err error, suppressed error) error {
-	if err == suppressed {
-		panic("Self-suppression not permitted")
-	}
+	assert2(err != suppressed, "Self-suppression not permitted")
 	if suppressed == nil {
 		return err
 	}
