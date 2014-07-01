@@ -205,11 +205,11 @@ var PER_FIELD_REUSE_STRATEGY = &PerFieldReuseStrategy{}
 type PerFieldReuseStrategy struct {
 }
 
-func (rs *PerFieldReuseStrategy) ReusableComponents(a Analyzer, fieldName string) *TokenStreamComponents {
+func (rs *PerFieldReuseStrategy) ReusableComponents(a *AnalyzerImpl, fieldName string) *TokenStreamComponents {
 	panic("not implemented yet")
 }
 
-func (rs *PerFieldReuseStrategy) SetReusableComponents(a Analyzer, fieldName string, components *TokenStreamComponents) {
+func (rs *PerFieldReuseStrategy) SetReusableComponents(a *AnalyzerImpl, fieldName string, components *TokenStreamComponents) {
 	panic("not implemneted yet")
 }
 

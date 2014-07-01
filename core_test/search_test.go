@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"fmt"
+	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
 	. "github.com/balzaczyy/golucene/test_framework"
@@ -45,7 +46,7 @@ func TestNegativeQueryBoost(t *testing.T) {
 		}
 		defer writer.Close()
 
-		d := index.NewDocument()
+		d := docu.NewDocument()
 		d.Add(NewTextField("foo", "bar", true))
 		writer.AddDocument(d.Fields())
 		writer.Close() // ensure index is written
@@ -69,7 +70,7 @@ func TestNegativeQueryBoost(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		t.Assert2(isSimilar(hits[0].Score, explain.Value(), 0.01), "score doesn't match explanation")
+		t.Assert2(isSimilar(hits[0].Score, explain.Value(), 0.001), "score doesn't match explanation")
 		t.Assert2(explain.IsMatch(), "explain doesn't think doc is a match")
 	})
 }

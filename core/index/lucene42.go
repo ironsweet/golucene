@@ -496,14 +496,12 @@ func newLucene42NormsFormatWithOverhead(acceptableOverheadRatio float32) *Lucene
 }
 
 func (f *Lucene42NormsFormat) NormsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
-	panic("should not be here")
 	return lucene42.NewNormsConsumer(state,
 		"Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm",
 		f.acceptableOverheadRatio)
 }
 
 func (f *Lucene42NormsFormat) NormsProducer(state SegmentReadState) (r DocValuesProducer, err error) {
-	panic("should not be here")
 	return newLucene42DocValuesProducer(state, "Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm")
 }
 

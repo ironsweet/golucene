@@ -3,6 +3,7 @@ package test_framework
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
+	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
@@ -259,21 +260,21 @@ func wrapDirectory(random *rand.Rand, directory store.Directory, bare bool) Base
 }
 
 // L1064
-func NewTextField(name, value string, stored bool) *index.Field {
-	flag := index.TEXT_FIELD_TYPE_STORED
+func NewTextField(name, value string, stored bool) *docu.Field {
+	flag := docu.TEXT_FIELD_TYPE_STORED
 	if !stored {
-		flag = index.TEXT_FIELD_TYPE_NOT_STORED
+		flag = docu.TEXT_FIELD_TYPE_NOT_STORED
 	}
 	return NewField(Random(), name, value, flag)
 }
 
-func NewField(r *rand.Rand, name, value string, typ *index.FieldType) *index.Field {
+func NewField(r *rand.Rand, name, value string, typ *docu.FieldType) *docu.Field {
 	if Usually(r) || !typ.Indexed() {
 		// most of the time, don't modify the params
-		return index.NewStringField(name, value, typ)
+		return docu.NewStringField(name, value, typ)
 	}
 
-	newType := index.NewFieldTypeFrom(typ)
+	newType := docu.NewFieldTypeFrom(typ)
 	if !newType.Stored() && r.Intn(2) == 0 {
 		newType.SetStored(true) // randonly store it
 	}
@@ -292,7 +293,7 @@ func NewField(r *rand.Rand, name, value string, typ *index.FieldType) *index.Fie
 		}
 	}
 
-	return index.NewStringField(name, value, newType)
+	return docu.NewStringField(name, value, newType)
 }
 
 // Ian: Different from Lucene's default random class initializer, I have to
