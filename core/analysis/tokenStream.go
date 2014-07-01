@@ -62,6 +62,10 @@ import (
  */
 type TokenStream interface {
 	// Releases resouces associated with this stream.
+	//
+	// If you override this method, always call TokenStreamImpl.Close(),
+	// otherwise some internal state will not be correctly reset (e.g.,
+	// Tokenizer will panic on reuse).
 	io.Closer
 	Attributes() *util.AttributeSource
 	// Consumers (i.e., IndexWriter) use this method to advance the
@@ -101,6 +105,8 @@ type TokenStream interface {
 	// stopFilter) can be applied to the position increment, or any
 	// adjustment or other attributes where the end-of-stream value may
 	// be important.
+	//
+	// If you override this method, alwasy call TokenStreamImpl.End().
 	End() error
 	// This method is called by a consumer before it begins consumption
 	// using IncrementToken().
@@ -108,12 +114,29 @@ type TokenStream interface {
 	// Resets this stream to a clean state. Stateful implementation
 	// must implement this method so that they can be reused, just as
 	// if they had been created fresh.
+	//
+	// If you override this method, alwasy call TokenStreamImpl.Reset(),
+	// otherwise some internal state will not be correctly reset (e.g.,
+	// Tokenizer will panic on further usage).
 	Reset() error
 }
 
 type TokenStreamImpl struct {
 	atts *util.AttributeSource
 }
+
+var DEFAULT_TOKEN_ATTRIBUTE_FACTORY = assembleAttributeFactory(
+	DEFAULT_ATTRIBUTE_FACTORY,
+	map[string]bool{
+		"CharTermAttribute":          true,
+		"TermToBytesRefAttribute":    true,
+		"TypeAttribute":              true,
+		"PositionIncrementAttribute": true,
+		"PositionLengthAttribute":    true,
+		"OffsetAttribute":            true,
+	},
+	NewPackedTokenAttribute,
+)
 
 /* A TokenStream using the default attribute factory. */
 func NewTokenStream() *TokenStreamImpl {
@@ -130,6 +153,12 @@ func NewTokenStreamWith(input *util.AttributeSource) *TokenStreamImpl {
 }
 
 func (ts *TokenStreamImpl) Attributes() *util.AttributeSource { return ts.atts }
-func (ts *TokenStreamImpl) End() error                        { return nil }
-func (ts *TokenStreamImpl) Reset() error                      { return nil }
-func (ts *TokenStreamImpl) Close() error                      { return nil }
+func (ts *TokenStreamImpl) End() error {
+	ts.atts.Clear() // LUCENE-3849: don't consume dirty atts
+	if posIncAtt := ts.atts.Get("PositionIncrementAttribute").(PositionIncrementAttribute); posIncAtt != nil {
+		posIncAtt.SetPositionIncrement(0)
+	}
+	return nil
+}
+func (ts *TokenStreamImpl) Reset() error { return nil }
+func (ts *TokenStreamImpl) Close() error { return nil }

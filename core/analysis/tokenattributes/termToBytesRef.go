@@ -17,7 +17,7 @@ FillBytesRef() for each term. Examle:
 
 	var err error
 	var ok bool
-	for ok, err = termAtt.IncrementToken(); ok && err == nil; ok, err = termAtt.IncrementToken() {
+	for ok, err = tokenStream.IncrementToken(); ok && err == nil; ok, err = tokenStream.IncrementToken() {
 
 		// you must call termAtt.FillBytesRef() before doing something with the bytes.
 		// this encodes the term value (internally it might be a []rune, etc) into the bytes.
@@ -38,8 +38,8 @@ FillBytesRef() for each term. Examle:
 */
 type TermToBytesRefAttribute interface {
 	// Updates the bytes BytesRef() to contain this term's final
-	// encoding, and returns its hashcode.
-	FillBytesRef() int
+	// encoding.
+	FillBytesRef()
 	// Retrieve this attribute's BytesRef. The bytes are updated from
 	// the current term when the consumer calls FillBytesRef().
 	BytesRef() *util.BytesRef

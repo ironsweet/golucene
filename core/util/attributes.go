@@ -39,12 +39,14 @@ func (v *AttributeImpl) Clone() *AttributeImpl {
 	panic("not implemented yet")
 }
 
-// util/AttributeSource.java
+// util/AttributeFactory.java
 
 /* An AttributeFactory creates instances of AttributeImpls. */
 type AttributeFactory interface {
 	Create(string) *AttributeImpl
 }
+
+// util/AttributeSource.java
 
 /* This class holds the state of an AttributeSource */
 type AttributeState struct {

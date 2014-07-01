@@ -64,11 +64,9 @@ func (a *CharTermAttributeImpl) growTermBuffer(newSize int) {
 	}
 }
 
-func (a *CharTermAttributeImpl) FillBytesRef() int {
+func (a *CharTermAttributeImpl) FillBytesRef() {
 	s := string(a.termBuffer[:a.termLength])
-	hash := hashstr(s)
 	a.bytes.Value = []byte(s)
-	return hash
 }
 
 const primeRK = 16777619
