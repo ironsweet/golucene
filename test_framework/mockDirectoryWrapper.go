@@ -257,7 +257,7 @@ func (w *MockDirectoryWrapper) _crash() error {
 			action = "zeroes"
 			// Zero out file entirely
 			var length int64
-			length, err = w.FileLength(name)
+			length, err = w._fileLength(name)
 			if err == nil {
 				zeroes := make([]byte, 256)
 				var upto int64 = 0
@@ -547,8 +547,10 @@ func handleName(handle Handle) string {
 }
 
 func (w *MockDirectoryWrapper) addFileHandle(c io.Closer, name string, handle Handle) {
-	w.Lock() // synchronized
-	defer w.Unlock()
+	if !w.isLocked {
+		w.Lock() // synchronized
+		defer w.Unlock()
+	}
 	w._addFileHandle(c, name, handle)
 }
 
@@ -910,10 +912,14 @@ func (w *MockDirectoryWrapper) FileExists(name string) bool {
 	return w.Directory.FileExists(name)
 }
 
-func (w *MockDirectoryWrapper) FileLength(name string) (n int64, err error) {
+func (w *MockDirectoryWrapper) FileLength(name string) (int64, error) {
 	w.Lock() // synchronized
 	defer w.Unlock()
 
+	return w._fileLength(name)
+}
+
+func (w *MockDirectoryWrapper) _fileLength(name string) (int64, error) {
 	w.maybeYield()
 	return w.Directory.FileLength(name)
 }
@@ -988,8 +994,10 @@ func (w *MockDirectoryWrapper) Copy(to store.Directory, src string, dest string,
 func (w *MockDirectoryWrapper) CreateSlicer(name string,
 	context store.IOContext) (store.IndexInputSlicer, error) {
 
-	w.Lock() // synchronized
-	defer w.Unlock()
+	if !w.isLocked {
+		w.Lock() // synchronized
+		defer w.Unlock()
+	}
 
 	w.maybeYield()
 	if !w.Directory.FileExists(name) {
