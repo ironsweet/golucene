@@ -16,20 +16,26 @@ import (
  * #getNoOutput}.</p>
  */
 type Outputs interface {
-	/** Eg add("foo", "bar") -> "foobar" */
-	Add(prefix interface{}, output interface{}) interface{}
 	// Eg subtract("foobar", "foo") -> "bar"
 	Subtract(output1, output2 interface{}) interface{}
+	/** Eg add("foo", "bar") -> "foobar" */
+	Add(prefix interface{}, output interface{}) interface{}
 	// Encode an final node output value into a DataOutput. By default
 	// this just calls write()
 	writeFinalOutput(interface{}, util.DataOutput) error
 	/** Decode an output value previously written with {@link
 	 *  #write(Object, DataOutput)}. */
 	Read(in util.DataInput) (e interface{}, err error)
+	// Skip the output; defaults to just calling Read() and discarding the result
+	SkipOutput(util.DataInput) error
 	/** Decode an output value previously written with {@link
 	 *  #writeFinalOutput(Object, DataOutput)}.  By default this
 	 *  just calls {@link #read(DataInput)}. */
 	ReadFinalOutput(in util.DataInput) (e interface{}, err error)
+	// Skip the output previously written with WriteFinalOutput;
+	// defaults to just calling ReadFinalOutput and discarding the
+	// result.
+	SkipFinalOutput(util.DataInput) error
 	/** NOTE: this output is compared with == so you must
 	 *  ensure that all methods return the single object if
 	 *  it's really no output */
@@ -50,9 +56,18 @@ func (out *abstractOutputs) writeFinalOutput(output interface{}, o util.DataOutp
 	return out.spi.Write(output, o)
 }
 
+func (out *abstractOutputs) SkipOutput(in util.DataInput) error {
+	_, err := out.spi.Read(in)
+	return err
+}
+
 /* Decode an output value previously written with writeFinalOutput(). By default this just calls read(). */
 func (out *abstractOutputs) ReadFinalOutput(in util.DataInput) (e interface{}, err error) {
 	return out.spi.Read(in)
+}
+
+func (out *abstractOutputs) SkipFinalOutput(in util.DataInput) error {
+	return out.SkipOutput(in)
 }
 
 func (out *abstractOutputs) merge(first, second interface{}) interface{} {

@@ -165,8 +165,8 @@ func (r *BytesStoreForwardReader) ReadBytes(buf []byte) error {
 	return nil
 }
 
-func (r *BytesStoreForwardReader) skipBytes(count int) {
-	r.setPosition(r.getPosition() + int64(count))
+func (r *BytesStoreForwardReader) skipBytes(count int64) {
+	r.setPosition(r.getPosition() + count)
 }
 
 func (r *BytesStoreForwardReader) getPosition() int64 {
@@ -227,8 +227,8 @@ func (r *BytesStoreReverseReader) ReadBytes(buf []byte) error {
 	return err
 }
 
-func (r *BytesStoreReverseReader) skipBytes(count int) {
-	r.setPosition(r.getPosition() - int64(count))
+func (r *BytesStoreReverseReader) skipBytes(count int64) {
+	r.setPosition(r.getPosition() - count)
 }
 
 func (r *BytesStoreReverseReader) getPosition() int64 {
@@ -281,8 +281,8 @@ func (r *ForwardBytesReader) ReadBytes(buf []byte) error {
 	return nil
 }
 
-func (r *ForwardBytesReader) skipBytes(count int) {
-	r.pos += count
+func (r *ForwardBytesReader) skipBytes(count int64) {
+	r.pos += int(count)
 }
 
 func (r *ForwardBytesReader) getPosition() int64 {
@@ -328,8 +328,8 @@ func newReverseBytesReader(bytes []byte) BytesReader {
 	return ans
 }
 
-func (r *ReverseBytesReader) skipBytes(count int) {
-	r.pos -= count
+func (r *ReverseBytesReader) skipBytes(count int64) {
+	r.pos -= int(count)
 }
 
 func (r *ReverseBytesReader) getPosition() int64 {

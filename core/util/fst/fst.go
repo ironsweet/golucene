@@ -89,15 +89,18 @@ func (arc *Arc) IsFinal() bool {
 
 func (arc *Arc) String() string {
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "node=%v target=%v label=%v", arc.node, arc.target, arc.Label)
-	if arc.flag(FST_BIT_LAST_ARC) {
-		fmt.Fprintf(&b, " last")
-	}
+	fmt.Fprintf(&b, "node=%v target=%v label=%v", arc.node, arc.target, iToHex(arc.Label))
 	if arc.flag(FST_BIT_FINAL_ARC) {
 		fmt.Fprintf(&b, " final")
 	}
+	if arc.flag(FST_BIT_LAST_ARC) {
+		fmt.Fprintf(&b, " last")
+	}
 	if arc.flag(FST_BIT_TARGET_NEXT) {
 		fmt.Fprintf(&b, " targetNext")
+	}
+	if arc.flag(FST_BIT_STOP_NODE) {
+		fmt.Fprintf(&b, " stop")
 	}
 	if arc.flag(FST_BIT_ARC_HAS_OUTPUT) {
 		fmt.Fprintf(&b, " output=%v", arc.Output)
@@ -109,6 +112,10 @@ func (arc *Arc) String() string {
 		fmt.Fprintf(&b, " arcArray(idx=%v of %v)", arc.arcIdx, arc.numArcs)
 	}
 	return b.String()
+}
+
+func iToHex(i int) string {
+	panic("not implemented yet")
 }
 
 func hasFlag(flags, bit byte) bool {
@@ -559,6 +566,9 @@ func (t *FST) FirstArc(arc *Arc) *Arc {
 	if t.emptyOutput != nil {
 		arc.flags = FST_BIT_FINAL_ARC | FST_BIT_LAST_ARC
 		arc.NextFinalOutput = t.emptyOutput
+		if t.emptyOutput != NO_OUTPUT {
+			arc.flags |= FST_BIT_ARC_HAS_FINAL_OUTPUT
+		}
 	} else {
 		arc.flags = FST_BIT_LAST_ARC
 		arc.NextFinalOutput = t.NO_OUTPUT
@@ -632,7 +642,7 @@ func (t *FST) readNextRealArc(arc *Arc, in BytesReader) (ans *Arc, err error) {
 		arc.arcIdx++
 		// assert arc.arcIdx < arc.numArcs
 		in.setPosition(arc.posArcsStart)
-		in.skipBytes(int(arc.arcIdx * arc.bytesPerArc))
+		in.skipBytes(int64(arc.arcIdx * arc.bytesPerArc))
 	} else { // arcs are packed
 		in.setPosition(arc.nextArc)
 	}
@@ -678,7 +688,7 @@ func (t *FST) readNextRealArc(arc *Arc, in BytesReader) (ans *Arc, err error) {
 					t.seekToNextNode(in)
 				} else {
 					in.setPosition(arc.posArcsStart)
-					in.skipBytes(arc.bytesPerArc * arc.numArcs)
+					in.skipBytes(int64(arc.bytesPerArc * arc.numArcs))
 				}
 			}
 			arc.target = in.getPosition()
@@ -783,7 +793,7 @@ func (t *FST) FindTargetArc(labelToMatch int, follow *Arc, arc *Arc, in BytesRea
 			log.Println("    cycle")
 			mid := int(uint(low+high) / 2)
 			in.setPosition(arc.posArcsStart)
-			in.skipBytes(arc.bytesPerArc*mid + 1)
+			in.skipBytes(int64(arc.bytesPerArc*mid) + 1)
 			midLabel, err := t.readLabel(in)
 			if err != nil {
 				return nil, err
@@ -838,8 +848,13 @@ func (t *FST) seekToNextNode(in BytesReader) error {
 		}
 
 		if hasFlag(flags, FST_BIT_ARC_HAS_OUTPUT) {
-			_, err = t.outputs.Read(in)
-			if err != nil {
+			if err = t.outputs.SkipOutput(in); err != nil {
+				return err
+			}
+		}
+
+		if hasFlag(flags, FST_BIT_ARC_HAS_FINAL_OUTPUT) {
+			if err = t.outputs.SkipFinalOutput(in); err != nil {
 				return err
 			}
 		}
@@ -876,7 +891,7 @@ type RandomAccess interface {
 	getPosition() int64
 	setPosition(pos int64)
 	reversed() bool
-	skipBytes(count int)
+	skipBytes(count int64)
 }
 
 type BytesReader interface {
