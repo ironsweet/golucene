@@ -87,7 +87,7 @@ func (p *BulkOperationPacked) encodeLongToByte(values []int64, blocks []byte, it
 	for i, limit := 0, p.byteValueCount*iterations; i < limit; i++ {
 		v := values[valuesOffset]
 		valuesOffset++
-		assert(p.bitsPerValue == 64 || BitsRequired(v) <= p.bitsPerValue)
+		assert(UnsignedBitsRequired(v) <= p.bitsPerValue)
 		if p.bitsPerValue < bitsLeft { // just buffer
 			nextBlock |= int(v << uint(bitsLeft-p.bitsPerValue))
 			bitsLeft -= p.bitsPerValue

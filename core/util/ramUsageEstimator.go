@@ -41,3 +41,12 @@ func SizeOf(arr interface{}) int64 {
 	}
 	panic("not supported yet")
 }
+
+/*
+Estimates a "shallow" memory usage of the given object. For slices,
+this will be the memory taken by slice storage (no subreferences will
+be followed). For objects, this will be the memory taken by the fields.
+*/
+func ShallowSizeOf(obj interface{}) int64 {
+	panic("not implemented yet")
+}

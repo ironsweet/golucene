@@ -30,7 +30,7 @@ var MAX_DATA_SIZE int = computeMaxDataSize()
 func computeMaxDataSize() int {
 	maxDataSize := 0
 	// for each version
-	for version := packed.PACKED_VERSION_START; version <= packed.PACKED_VERSION_CURRENT; version++ {
+	for version := packed.PACKED_VERSION_START; version <= packed.VERSION_CURRENT; version++ {
 		// for each packed format
 		for format := packed.PACKED; format <= packed.PACKED_SINGLE_BLOCK; format++ {
 			// for each bit-per-value

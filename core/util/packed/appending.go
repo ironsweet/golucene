@@ -142,7 +142,7 @@ func (buf *abstractAppendingLongBuffer) RamBytesUsed() int64 {
 	// TODO: this is called per-doc-per-norm/dv-field, can we optimize this?
 	return util.AlignObjectSize(buf.spi.baseRamBytesUsed()) +
 		util.SizeOf(buf.pending) +
-		util.AlignObjectSize(util.NUM_BYTES_ARRAY_HEADER+util.NUM_BYTES_OBJECT_REF*int64(len(buf.values))) +
+		util.ShallowSizeOf(buf.values) +
 		buf.valuesBytes
 }
 

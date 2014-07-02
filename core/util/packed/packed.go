@@ -36,27 +36,27 @@ packed ints, with each value consuming a fixed number of bits.
 var PackedInts = struct {
 	FASTEST float32 // At most 700% memory overhead, always select a direct implementation.
 	FAST    float32 // At most 50% memory overhead, always elect a reasonable fast implementation.
-	DEFAULT float32 // At most 20% memory overhead.
+	DEFAULT float32 // At most 25% memory overhead.
 	COMPACT float32 // No memory overhead at all, but hte returned implementation may be slow.
-}{7, 0.5, 0.2, 0}
+}{7, 0.5, 0.25, 0}
 
 const (
 	/* Default amount of memory to use for bulk operations. */
 	DEFAULT_BUFFER_SIZE = 1024 // 1K
 
-	PACKED_CODEC_NAME           = "PackedInts"
-	PACKED_VERSION_START        = 0
-	PACKED_VERSION_BYTE_ALIGNED = 1
-	PACKED_VERSION_CURRENT      = PACKED_VERSION_BYTE_ALIGNED
-	VERSION_CURRENT             = PACKED_VERSION_CURRENT
+	PACKED_CODEC_NAME                = "PackedInts"
+	PACKED_VERSION_START             = 0
+	PACKED_VERSION_BYTE_ALIGNED      = 1
+	VERSION_MONOTONIC_WITHOUT_ZIGZAG = 2
+	VERSION_CURRENT                  = VERSION_MONOTONIC_WITHOUT_ZIGZAG
 )
 
 // Ceck the validity of a version number
 func CheckVersion(version int32) {
 	if version < PACKED_VERSION_START {
 		panic(fmt.Sprintf("Version is too old, should be at least %v (got %v)", PACKED_VERSION_START, version))
-	} else if version > PACKED_VERSION_CURRENT {
-		panic(fmt.Sprintf("Version is too new, should be at most %v (got %v)", PACKED_VERSION_CURRENT, version))
+	} else if version > VERSION_CURRENT {
+		panic(fmt.Sprintf("Version is too new, should be at most %v (got %v)", VERSION_CURRENT, version))
 	}
 }
 
@@ -242,15 +242,9 @@ func GetPackedIntsDecoder(format PackedFormat, version int32, bitsPerValue uint3
 
 /* A read-only random access array of positive integers. */
 type PackedIntsReader interface {
+	util.Accountable
 	Get(index int) int64
-	// Returns the number of bits used to store any given value. Note:
-	// this does not imply that memory usage is bpv * values() as
-	// implementations are free to use non-space-optimal packing of
-	// bits.
-	BitsPerValue() int
 	Size() int32
-	// Return the in-memory size in bytes.
-	RamBytesUsed() int64
 }
 
 // Run-once iterator interface, to decode previously saved PackedInts
@@ -306,6 +300,11 @@ func assert(ok bool) {
 /* A packed integer array that can be modified. */
 type Mutable interface {
 	PackedIntsReader
+	// Returns the number of bits used to store any given value. Note:
+	// this does not imply that memory usage is bpv * values() as
+	// implementations are free to use non-space-optimal packing of
+	// bits.
+	BitsPerValue() int
 	// Set the value at the given index in the array.
 	Set(index int, value int64)
 	// Save this mutable into out. Instantiating a reader from the
@@ -315,17 +314,11 @@ type Mutable interface {
 }
 
 type PackedIntsReaderImpl struct {
-	bitsPerValue int
-	valueCount   int32
+	valueCount int32
 }
 
-func newPackedIntsReaderImpl(valueCount int, bitsPerValue int) PackedIntsReaderImpl {
-	assert(bitsPerValue > 0 && bitsPerValue <= 64)
-	return PackedIntsReaderImpl{bitsPerValue, int32(valueCount)}
-}
-
-func (p PackedIntsReaderImpl) BitsPerValue() int {
-	return p.bitsPerValue
+func newPackedIntsReaderImpl(valueCount int) PackedIntsReaderImpl {
+	return PackedIntsReaderImpl{int32(valueCount)}
 }
 
 func (p PackedIntsReaderImpl) Size() int32 {
@@ -338,12 +331,18 @@ type MutableImplSPI interface {
 
 type MutableImpl struct {
 	PackedIntsReaderImpl
-	spi    MutableImplSPI
-	format PackedFormat
+	spi          MutableImplSPI
+	format       PackedFormat
+	bitsPerValue int
 }
 
 func newMutableImpl(valueCount, bitsPerValue int, spi MutableImplSPI) *MutableImpl {
-	return &MutableImpl{newPackedIntsReaderImpl(valueCount, bitsPerValue), spi, PACKED}
+	assert(bitsPerValue > 0 && bitsPerValue <= 64)
+	return &MutableImpl{newPackedIntsReaderImpl(valueCount), spi, PACKED, bitsPerValue}
+}
+
+func (p *MutableImpl) BitsPerValue() int {
+	return p.bitsPerValue
 }
 
 func (m *MutableImpl) Save(out util.DataOutput) error {
@@ -483,7 +482,7 @@ func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCo
 		}
 		return newPacked64FromInput(version, in, valueCount, bitsPerValue)
 	default:
-		panic(fmt.Sprintf("Unknown Writer foramt: %v", format))
+		panic(fmt.Sprintf("Unknown Writer format: %v", format))
 	}
 }
 
@@ -492,7 +491,7 @@ func asUint32(n int32, err error) (n2 uint32, err2 error) {
 }
 
 func NewPackedReader(in DataInput) (r PackedIntsReader, err error) {
-	if version, err := codec.CheckHeader(in, PACKED_CODEC_NAME, PACKED_VERSION_START, PACKED_VERSION_CURRENT); err == nil {
+	if version, err := codec.CheckHeader(in, PACKED_CODEC_NAME, PACKED_VERSION_START, VERSION_CURRENT); err == nil {
 		if bitsPerValue, err := asUint32(in.ReadVInt()); err == nil {
 			// assert bitsPerValue > 0 && bitsPerValue <= 64
 			if valueCount, err := in.ReadVInt(); err == nil {
@@ -602,11 +601,23 @@ func WriterNoHeader(out DataOutput, format PackedFormat,
 	return newPackedWriter(format, out, valueCount, bitsPerValue, mem)
 }
 
-// Returns how many bits are required to hold values up to and including maxValue
+/*
+Returns how many bits are required to hold values up to and including maxValue
+NOTE: This method returns at least 1.
+*/
 func BitsRequired(maxValue int64) int {
 	assert2(maxValue >= 0, fmt.Sprintf("maxValue must be non-negative (got: %v)", maxValue))
+	return UnsignedBitsRequired(maxValue)
+}
+
+/*
+Returns how many bits are required to store bits, interpreted as an
+unsigned value.
+NOTE: This method returns at least 1.
+*/
+func UnsignedBitsRequired(bits int64) int {
 	// TODO not efficient
-	return len(strconv.FormatInt(maxValue, 2))
+	return len(strconv.FormatInt(bits, 2))
 }
 
 func assert2(ok bool, msg string, args ...interface{}) {
@@ -866,7 +877,7 @@ type Packed64 struct {
 }
 
 func newPacked64(valueCount int32, bitsPerValue uint32) *Packed64 {
-	longCount := PackedFormat(PACKED).longCount(PACKED_VERSION_CURRENT, valueCount, bitsPerValue)
+	longCount := PackedFormat(PACKED).longCount(VERSION_CURRENT, valueCount, bitsPerValue)
 	ans := &Packed64{
 		blocks:            make([]int64, longCount),
 		maskRight:         uint64(^(int64(0))<<(PACKED64_BLOCK_SIZE-bitsPerValue)) >> (PACKED64_BLOCK_SIZE - bitsPerValue),
@@ -878,7 +889,7 @@ func newPacked64(valueCount int32, bitsPerValue uint32) *Packed64 {
 func newPacked64FromInput(version int32, in DataInput, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
 	ans := newPacked64(valueCount, bitsPerValue)
 	byteCount := PackedFormat(PACKED).ByteCount(version, valueCount, bitsPerValue)
-	longCount := PackedFormat(PACKED).longCount(PACKED_VERSION_CURRENT, valueCount, bitsPerValue)
+	longCount := PackedFormat(PACKED).longCount(VERSION_CURRENT, valueCount, bitsPerValue)
 	ans.blocks = make([]int64, longCount)
 	// read as many longs as we can
 	for i := int64(0); i < byteCount/8; i++ {
@@ -983,7 +994,7 @@ func (w *GrowableWriter) ensureCapacity(value int64) {
 	if value < 0 {
 		bitsRequired = 64
 	} else {
-		bitsRequired = BitsRequired(value)
+		bitsRequired = UnsignedBitsRequired(value)
 	}
 	assert(bitsRequired > w.current.BitsPerValue())
 	valueCount := int(w.Size())

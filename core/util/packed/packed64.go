@@ -10,11 +10,28 @@ func is64Supported(bitsPerValue uint32) bool {
 	return packedSingleBlockBulkOps[bitsPerValue-1] != nil
 }
 
+func requiredCapacity(valueCount, valuesPerBlock int32) int32 {
+	fit := (valueCount % valuesPerBlock) != 0
+	ans := valueCount / valuesPerBlock
+	if fit {
+		ans++
+	}
+	return ans
+}
+
 type Packed64SingleBlock struct {
 	*MutableImpl
 	get    func(int) int64
 	set    func(int, int64)
 	blocks []int64
+}
+
+func newPacked64SingleBlock(valueCount int32, bitsPerValue uint32) *Packed64SingleBlock {
+	// assert isSupported(bitsPerValue)
+	valuesPerBlock := int32(64 / bitsPerValue)
+	ans := &Packed64SingleBlock{blocks: make([]int64, requiredCapacity(valueCount, valuesPerBlock))}
+	ans.MutableImpl = newMutableImpl(int(valueCount), int(bitsPerValue), ans)
+	return ans
 }
 
 func (p *Packed64SingleBlock) RamBytesUsed() int64 {
@@ -36,23 +53,6 @@ func (p *Packed64SingleBlock) Set(index int, value int64) {
 func (p *Packed64SingleBlock) String() string {
 	return fmt.Sprintf("Packed64SingleBlock(bitsPerValue=%v, size=%v, elements.length=%v)",
 		p.bitsPerValue, p.Size(), len(p.blocks))
-}
-
-func newPacked64SingleBlock(valueCount int32, bitsPerValue uint32) *Packed64SingleBlock {
-	// assert isSupported(bitsPerValue)
-	valuesPerBlock := int32(64 / bitsPerValue)
-	ans := &Packed64SingleBlock{blocks: make([]int64, requiredCapacity(valueCount, valuesPerBlock))}
-	ans.PackedIntsReaderImpl = newPackedIntsReaderImpl(int(valueCount), int(bitsPerValue))
-	return ans
-}
-
-func requiredCapacity(valueCount, valuesPerBlock int32) int32 {
-	fit := (valueCount % valuesPerBlock) != 0
-	ans := valueCount / valuesPerBlock
-	if fit {
-		ans++
-	}
-	return ans
 }
 
 func newPacked64SingleBlockFromInput(in DataInput, valueCount int32, bitsPerValue uint32) (reader PackedIntsReader, err error) {

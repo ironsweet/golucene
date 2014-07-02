@@ -80,8 +80,7 @@ func newPackedWriter(format PackedFormat, out DataOutput,
 }
 
 func (w *PackedWriter) Add(v int64) error {
-	assert2(w.bitsPerValue == 64 || (v >= 0 && v <= MaxValue(w.bitsPerValue)),
-		"%v", w.bitsPerValue)
+	assert(UnsignedBitsRequired(v) <= w.bitsPerValue)
 	assert(!w.finished)
 	if w.valueCount != -1 && w.written >= w.valueCount {
 		return errors.New("Writing past end of stream")
@@ -114,7 +113,7 @@ func (w *PackedWriter) Finish() error {
 
 func (w *PackedWriter) flush() error {
 	w.encoder.encodeLongToByte(w.nextValues, w.nextBlocks, w.iterations)
-	blockCount := int(w.format.ByteCount(PACKED_VERSION_CURRENT,
+	blockCount := int(w.format.ByteCount(VERSION_CURRENT,
 		int32(w.off), uint32(w.bitsPerValue)))
 	err := w.out.WriteBytes(w.nextBlocks[:blockCount])
 	if err != nil {
