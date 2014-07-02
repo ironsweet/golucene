@@ -26,8 +26,6 @@ type Field struct {
 		customize how it's tokenized
 	*/
 	_tokenStream analysis.TokenStream
-
-	internalTokenStream analysis.TokenStream
 }
 
 // Create field with String value
@@ -36,8 +34,6 @@ func NewStringField(name, value string, ft *FieldType) *Field {
 	assert2(value != "", "value cannot be empty")
 	assert2(ft.stored || ft.indexed,
 		"it doesn't make sense to have a field that is neither indexed nor stored")
-	assert2(ft.indexed || !ft.storeTermVectors,
-		"can not store term vector information for a field that is not indexed")
 	return &Field{_type: ft, _name: name, _data: value, _boost: 1}
 }
 
@@ -104,7 +100,7 @@ func (f *Field) FieldType() model.IndexableFieldType {
 	return f._type
 }
 
-func (f *Field) TokenStream(analyzer analysis.Analyzer) (ts analysis.TokenStream, err error) {
+func (f *Field) TokenStream(analyzer analysis.Analyzer, reuse analysis.TokenStream) (ts analysis.TokenStream, err error) {
 	if !f.FieldType().Indexed() {
 		return nil, nil
 	}
@@ -115,11 +111,11 @@ func (f *Field) TokenStream(analyzer analysis.Analyzer) (ts analysis.TokenStream
 
 	if !f.FieldType().Tokenized() {
 		assert2(f.StringValue() != "", "Non-Tokenized Fields must have a string value")
-		if _, ok := f.internalTokenStream.(*StringTokenStream); !ok {
-			f.internalTokenStream = newStringTokenStream()
+		if _, ok := reuse.(*StringTokenStream); !ok {
+			reuse = newStringTokenStream()
 		}
-		f.internalTokenStream.(*StringTokenStream).setValue(f.StringValue())
-		return f.internalTokenStream, nil
+		reuse.(*StringTokenStream).setValue(f.StringValue())
+		return reuse, nil
 	}
 
 	if f._tokenStream != nil {
@@ -130,7 +126,7 @@ func (f *Field) TokenStream(analyzer analysis.Analyzer) (ts analysis.TokenStream
 		return analyzer.TokenStreamForString(f._name, f.StringValue())
 	}
 
-	panic("Field must have either TokenStream, String, Reader, or Number value")
+	panic(fmt.Sprintf("Field must have either TokenStream, String, Reader, or Number value; got %v", f))
 }
 
 type StringTokenStream struct {

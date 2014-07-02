@@ -118,9 +118,9 @@ func (ft *FieldType) String() string {
 		}
 		if ft.StoreTermVectorPositions() {
 			buf.WriteString(",termVectorPosition")
-			if ft.StoreTermVectorPayloads() {
-				buf.WriteString(",termVectorPayloads")
-			}
+		}
+		if ft.StoreTermVectorPayloads() {
+			buf.WriteString(",termVectorPayloads")
 		}
 		if ft.OmitNorms() {
 			buf.WriteString(",omitNorms")

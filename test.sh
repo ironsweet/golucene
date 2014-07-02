@@ -8,6 +8,7 @@ go test github.com/balzaczyy/golucene/core/analysis
 go test github.com/balzaczyy/golucene/core/codec
 go test github.com/balzaczyy/golucene/core/document
 go test github.com/balzaczyy/golucene/core/store
+go test github.com/balzaczyy/golucene/core/index/model
 go test github.com/balzaczyy/golucene/core/index
 go test github.com/balzaczyy/golucene/core/search
 go test github.com/balzaczyy/golucene/core_test

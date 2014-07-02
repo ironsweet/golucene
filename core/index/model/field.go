@@ -54,14 +54,7 @@ type IndexableField interface {
 	/** Non-null if this field has a numeric value */
 	NumericValue() interface{}
 
-	/**
-	 * Creates the TokenStream used for indexing this field.  If appropriate,
-	 * implementations should use the given Analyzer to create the TokenStreams.
-	 *
-	 * @param analyzer Analyzer that should be used to create the TokenStreams from
-	 * @return TokenStream value for indexing the document.  Should always return
-	 *         a non-null value if the field is to be indexed
-	 * @throws IOException Can be thrown while creating the TokenStream
-	 */
-	TokenStream(analysis.Analyzer) (analysis.TokenStream, error)
+	// Creates the TokenStream used for indexing this field.  If appropriate,
+	// implementations should use the given Analyzer to create the TokenStreams.
+	TokenStream(analysis.Analyzer, analysis.TokenStream) (analysis.TokenStream, error)
 }
