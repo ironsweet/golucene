@@ -88,14 +88,14 @@ func (a *Automaton) NumberedStates() []*State {
 		a.ExpandSingleton()
 		visited := make(map[int]bool)
 		worklist := list.New()
-		a.numberedStates = make([]*State, 0, 4) // pre-allocate 4 slots
+		states := make([]*State, 0, 4) // pre-allocate 4 slots
 		// Lucence use its own append algorithm
 		// here I use Go's default append, witout 'upto' as index
 		upto := 0
 		worklist.PushBack(a.initial)
 		visited[a.initial.id] = true
 		a.initial.number = upto
-		a.numberedStates = append(a.numberedStates, a.initial)
+		states = append(a.numberedStates, a.initial)
 		upto++
 		for worklist.Len() > 0 {
 			s := worklist.Front().Value.(*State)
@@ -105,11 +105,12 @@ func (a *Automaton) NumberedStates() []*State {
 					visited[t.to.id] = true
 					worklist.PushBack(t.to)
 					t.to.number = upto
-					a.numberedStates = append(a.numberedStates, t.to)
+					states = append(states, t.to)
 					upto++
 				}
 			}
 		}
+		a.numberedStates = states[:upto]
 	}
 	return a.numberedStates
 }
