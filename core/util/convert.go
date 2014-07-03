@@ -19,3 +19,7 @@ func Byte315ToFloat(b byte) float32 {
 	bits += (63 - 15) << 24
 	return math.Float32frombits(bits)
 }
+
+func ItoHex(i int) string {
+	panic("not implemented yet")
+}

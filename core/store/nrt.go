@@ -1,7 +1,6 @@
 package store
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -30,7 +29,7 @@ Here's a simple example usage:
 
 	fsDir, _ := OpenFSDirectory("/path/to/index")
 	cachedFSDir := NewNRTCachingDirectory(fsDir, 5.0, 60.0)
-	conf := NewIndexWriterConfig(VERSION_45, analyzer)
+	conf := NewIndexWriterConfig(VERSION_4_9, analyzer)
 	writer := NewIndexWriter(cachedFSDir, conf)
 
 This will cache all newly flushed segments, all merged whose expected
@@ -79,7 +78,7 @@ func NewNRTCachingDirectory(delegate Directory, maxMergeSizeMB, maxCachedMB floa
 		}
 		return name != "segments.gen" &&
 			bytes <= nrt.maxMergeSizeBytes &&
-			bytes+nrt.cache.sizeInBytes <= nrt.maxCachedBytes
+			bytes+nrt.cache.RamBytesUsed() <= nrt.maxCachedBytes
 	}
 	return
 }
@@ -154,7 +153,6 @@ func (nrt *NRTCachingDirectory) DeleteFile(name string) error {
 		log.Printf("nrtdir.deleteFile name=%v", name)
 	}
 	if nrt.cache.FileExists(name) {
-		assert2(!nrt.Directory.FileExists(name), "name=%v", name)
 		return nrt.cache.DeleteFile(name)
 	} else {
 		return nrt.Directory.DeleteFile(name)
@@ -220,19 +218,19 @@ func (nrt *NRTCachingDirectory) OpenInput(name string, context IOContext) (in In
 	return nrt.Directory.OpenInput(name, context)
 }
 
-func (nrt *NRTCachingDirectory) CreateSlicer(name string, context IOContext) (slicer IndexInputSlicer, err error) {
-	nrt.EnsureOpen()
-	if NRT_VERBOSE {
-		log.Println("nrtdir.openInput name=%v", name)
-	}
-	if nrt.cache.FileExists(name) {
-		if NRT_VERBOSE {
-			log.Println("  from cache")
-		}
-		return nrt.cache.CreateSlicer(name, context)
-	}
-	return nrt.Directory.CreateSlicer(name, context)
-}
+// func (nrt *NRTCachingDirectory) CreateSlicer(name string, context IOContext) (slicer IndexInputSlicer, err error) {
+// 	nrt.EnsureOpen()
+// 	if NRT_VERBOSE {
+// 		log.Println("nrtdir.openInput name=%v", name)
+// 	}
+// 	if nrt.cache.FileExists(name) {
+// 		if NRT_VERBOSE {
+// 			log.Println("  from cache")
+// 		}
+// 		return nrt.cache.CreateSlicer(name, context)
+// 	}
+// 	return nrt.Directory.CreateSlicer(name, context)
+// }
 
 // Close this directory, which flushes any cached files to the
 // delegate and then closes the delegate.
@@ -266,9 +264,6 @@ func (nrt *NRTCachingDirectory) unCache(fileName string) (err error) {
 	if !nrt.cache.FileExists(fileName) {
 		// Another goroutine beat us...
 		return
-	}
-	if nrt.Directory.FileExists(fileName) {
-		return errors.New(fmt.Sprintf("canno uncache file='%v': it was separately also created in the delegate directory", fileName))
 	}
 	context := IO_CONTEXT_DEFAULT
 	var out IndexOutput

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
-	"log"
 	"time"
 )
 
@@ -109,15 +108,15 @@ Typical use might look like:
 	})
 */
 type Lock interface {
+	// Releases exclusive access.
+	io.Closer
 	// Attempts to obtain exclusive access and immediately return
-	// upon success or failure
+	// upon success or failure. Use Close() to release the lock.
 	Obtain() (ok bool, err error)
 	// Attempts to obtain an exclusive lock within amount of time
 	// given. Pools once per LOCK_POLL_INTERVAL (currently 1000)
 	// milliseconds until lockWaitTimeout is passed.
 	ObtainWithin(lockWaitTimeout int64) (ok bool, err error)
-	// Releases exclusive access.
-	Release() error
 	// Returns true if the resource is currently locked. Note that one
 	// must still call obtain() before using the resource.
 	IsLocked() bool
@@ -223,6 +222,7 @@ type Directory interface {
 	// Files related methods
 	ListAll() (paths []string, err error)
 	// Returns true iff a file with the given name exists.
+	// @deprecated This method will be removed in 5.0
 	FileExists(name string) bool
 	// Removes an existing file in the directory.
 	DeleteFile(name string) error
@@ -244,6 +244,8 @@ type Directory interface {
 	// the operation can be a noop, for various reasons.
 	Sync(names []string) error
 	OpenInput(name string, context IOContext) (in IndexInput, err error)
+	// Returns a stream reading an existing file, computing checksum as it reads
+	OpenChecksumInput(name string, ctx IOContext) (ChecksumIndexInput, error)
 	// Locks related methods
 	MakeLock(name string) Lock
 	ClearLock(name string) error
@@ -252,52 +254,25 @@ type Directory interface {
 	LockID() string
 	// Utilities
 	Copy(to Directory, src, dest string, ctx IOContext) error
-	// Experimental methods
-	CreateSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error)
 
 	EnsureOpen()
 }
 
-type directoryService interface {
-	OpenInput(name string, context IOContext) (in IndexInput, err error)
+type DirectoryImplSPI interface {
+	OpenInput(string, IOContext) (IndexInput, error)
+	LockFactory() LockFactory
 }
 
 type DirectoryImpl struct {
-	directoryService
-	IsOpen      bool
-	lockFactory LockFactory
+	spi DirectoryImplSPI
 }
 
-func NewDirectoryImpl(self directoryService) *DirectoryImpl {
-	return &DirectoryImpl{directoryService: self, IsOpen: true}
+func NewDirectoryImpl(spi DirectoryImplSPI) *DirectoryImpl {
+	return &DirectoryImpl{spi}
 }
 
-func (d *DirectoryImpl) MakeLock(name string) Lock {
-	return d.lockFactory.Make(name)
-}
-
-func (d *DirectoryImpl) ClearLock(name string) error {
-	if d.lockFactory != nil {
-		return d.lockFactory.Clear(name)
-	}
-	return nil
-}
-
-func (d *DirectoryImpl) SetLockFactory(lockFactory LockFactory) {
-	assert(d != nil && lockFactory != nil)
-	d.LockID()
-	d.lockFactory = lockFactory
-	d.lockFactory.SetLockPrefix(d.LockID())
-}
-
-func assert(ok bool) {
-	if !ok {
-		panic("assert fail")
-	}
-}
-
-func (d *DirectoryImpl) LockFactory() LockFactory {
-	return d.lockFactory
+func (d *DirectoryImpl) OpenChecksumInput(name string, ctx IOContext) (ChecksumIndexInput, error) {
+	panic("not implemented yet")
 }
 
 /*
@@ -313,7 +288,7 @@ func (d *DirectoryImpl) LockID() string {
 }
 
 func (d *DirectoryImpl) String() string {
-	return fmt.Sprintf("Directory lockFactory=%v", d.lockFactory)
+	return fmt.Sprintf("@hex lockFactory=%v", d.spi.LockFactory)
 }
 
 /*
@@ -334,117 +309,120 @@ overwrite it if it does.
 func (d *DirectoryImpl) Copy(to Directory, src, dest string, ctx IOContext) (err error) {
 	var os IndexOutput
 	var is IndexInput
+	var success = false
 	defer func() {
-		var success = false
-		defer func() {
-			if !success {
-				to.DeleteFile(dest) // ignore error
-			}
-		}()
-
-		err = util.CloseWhileHandlingError(err, os, is)
-		success = true
+		if success {
+			err = util.Close(os, is)
+		} else {
+			util.CloseWhileSuppressingError(os, is)
+		}
+		to.DeleteFile(dest) // ignore error
 	}()
 
 	os, err = to.CreateOutput(dest, ctx)
 	if err != nil {
 		return err
 	}
-	is, err = d.OpenInput(src, ctx)
+	is, err = d.spi.OpenInput(src, ctx)
 	if err != nil {
 		return err
 	}
-	return os.CopyBytes(is, is.Length())
-}
-
-func (d *DirectoryImpl) CreateSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {
-	d.EnsureOpen()
-	base, err := d.OpenInput(name, context)
+	err = os.CopyBytes(is, is.Length())
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return simpleIndexInputSlicer{base}, nil
+	success = true
+	return nil
 }
 
-func (d *DirectoryImpl) EnsureOpen() {
-	if !d.IsOpen {
-		log.Print("This Directory is closed.")
-		panic("this Directory is closed")
-	}
-}
+// func (d *DirectoryImpl) CreateSlicer(name string, context IOContext) (is IndexInputSlicer, err error) {
+// 	d.EnsureOpen()
+// 	base, err := d.OpenInput(name, context)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return simpleIndexInputSlicer{base}, nil
+// }
 
-type IndexInputSlicer interface {
-	io.Closer
-	OpenSlice(desc string, offset, length int64) IndexInput
-	OpenFullSlice() IndexInput
-}
+// func (d *DirectoryImpl) EnsureOpen() {
+// 	if !d.IsOpen {
+// 		log.Print("This Directory is closed.")
+// 		panic("this Directory is closed")
+// 	}
+// }
 
-type simpleIndexInputSlicer struct {
-	base IndexInput
-}
+// type IndexInputSlicer interface {
+// 	io.Closer
+// 	OpenSlice(desc string, offset, length int64) IndexInput
+// 	OpenFullSlice() IndexInput
+// }
 
-func (is simpleIndexInputSlicer) OpenSlice(desc string, offset, length int64) IndexInput {
-	return newSlicedIndexInput(fmt.Sprintf("SlicedIndexInput(%v in %v)", desc, is.base),
-		is.base, offset, length)
-}
+// type simpleIndexInputSlicer struct {
+// 	base IndexInput
+// }
 
-func (is simpleIndexInputSlicer) Close() error {
-	return is.base.Close()
-}
+// func (is simpleIndexInputSlicer) OpenSlice(desc string, offset, length int64) IndexInput {
+// 	return newSlicedIndexInput(fmt.Sprintf("SlicedIndexInput(%v in %v)", desc, is.base),
+// 		is.base, offset, length)
+// }
 
-func (is simpleIndexInputSlicer) OpenFullSlice() IndexInput {
-	return is.base
-}
+// func (is simpleIndexInputSlicer) Close() error {
+// 	return is.base.Close()
+// }
 
-type SlicedIndexInput struct {
-	*BufferedIndexInput
-	base       IndexInput
-	fileOffset int64
-	length     int64
-}
+// func (is simpleIndexInputSlicer) OpenFullSlice() IndexInput {
+// 	return is.base
+// }
 
-func newSlicedIndexInput(desc string, base IndexInput, fileOffset, length int64) *SlicedIndexInput {
-	return newSlicedIndexInputBySize(desc, base, fileOffset, length, BUFFER_SIZE)
-}
+// type SlicedIndexInput struct {
+// 	*BufferedIndexInput
+// 	base       IndexInput
+// 	fileOffset int64
+// 	length     int64
+// }
 
-func newSlicedIndexInputBySize(desc string, base IndexInput, fileOffset, length int64, bufferSize int) *SlicedIndexInput {
-	ans := &SlicedIndexInput{base: base, fileOffset: fileOffset, length: length}
-	ans.BufferedIndexInput = newBufferedIndexInputBySize(ans, fmt.Sprintf(
-		"SlicedIndexInput(%v in %v slice=%v:%v)",
-		desc, base, fileOffset, fileOffset+length), bufferSize)
-	return ans
-}
+// func newSlicedIndexInput(desc string, base IndexInput, fileOffset, length int64) *SlicedIndexInput {
+// 	return newSlicedIndexInputBySize(desc, base, fileOffset, length, BUFFER_SIZE)
+// }
 
-func (in *SlicedIndexInput) readInternal(buf []byte) (err error) {
-	start := in.FilePointer()
-	if start+int64(len(buf)) > in.length {
-		return errors.New(fmt.Sprintf("read past EOF: %v", in))
-	}
-	in.base.Seek(in.fileOffset + start)
-	return in.base.ReadBytesBuffered(buf, false)
-}
+// func newSlicedIndexInputBySize(desc string, base IndexInput, fileOffset, length int64, bufferSize int) *SlicedIndexInput {
+// 	ans := &SlicedIndexInput{base: base, fileOffset: fileOffset, length: length}
+// 	ans.BufferedIndexInput = newBufferedIndexInputBySize(ans, fmt.Sprintf(
+// 		"SlicedIndexInput(%v in %v slice=%v:%v)",
+// 		desc, base, fileOffset, fileOffset+length), bufferSize)
+// 	return ans
+// }
 
-func (in *SlicedIndexInput) seekInternal(pos int64) error {
-	return nil // nothing
-}
+// func (in *SlicedIndexInput) readInternal(buf []byte) (err error) {
+// 	start := in.FilePointer()
+// 	if start+int64(len(buf)) > in.length {
+// 		return errors.New(fmt.Sprintf("read past EOF: %v", in))
+// 	}
+// 	in.base.Seek(in.fileOffset + start)
+// 	return in.base.ReadBytesBuffered(buf, false)
+// }
 
-func (in *SlicedIndexInput) Close() error {
-	return in.base.Close()
-}
+// func (in *SlicedIndexInput) seekInternal(pos int64) error {
+// 	return nil // nothing
+// }
 
-func (in *SlicedIndexInput) Length() int64 {
-	return in.length
-}
+// func (in *SlicedIndexInput) Close() error {
+// 	return in.base.Close()
+// }
 
-func (in *SlicedIndexInput) Clone() IndexInput {
-	return &SlicedIndexInput{
-		in.BufferedIndexInput.Clone(),
-		in.base.Clone(),
-		in.fileOffset,
-		in.length,
-	}
-}
+// func (in *SlicedIndexInput) Length() int64 {
+// 	return in.length
+// }
 
-func (in *SlicedIndexInput) String() string {
-	return in.desc
-}
+// func (in *SlicedIndexInput) Clone() IndexInput {
+// 	return &SlicedIndexInput{
+// 		in.BufferedIndexInput.Clone(),
+// 		in.base.Clone(),
+// 		in.fileOffset,
+// 		in.length,
+// 	}
+// }
+
+// func (in *SlicedIndexInput) String() string {
+// 	return in.desc
+// }

@@ -114,3 +114,35 @@ func NewIndexFormatTooOldError(in DataInput, version, minVersion, maxVersion int
 		"Format version is not supported (resource: %v): %v (needs to be between %v and %v). This version of Lucene only supports indexes created with release 3.0 and later.",
 		in, version, minVersion, maxVersion))
 }
+
+type IndexOutput interface{}
+
+/*
+Writes a codec footer, which records both a checksum algorithm ID and
+a checksum. This footer can be parsed and validated with CheckFooter().
+
+CodecFooter --> Magic,AlgorithmID,Checksum
+	- Magic --> uint32. This identifies the start of the footer. It is
+		always FOOTER_MAGIC.
+	- AlgorithmID --> uing32. This indicates the checksum algorithm
+		used. Currently this is always 0, for zlib-crc32.
+	- Checksum --> uint64. The actual checksum value for all previous
+		bytes in the stream, including the bytes from Magic and AlgorithmID.
+*/
+func WriteFooter(out IndexOutput) error {
+	panic("not implemented yet")
+}
+
+type ChecksumIndexInput interface{}
+
+/* Validates the codec footer previously written by WriteFooter(). */
+func CheckFooter(in ChecksumIndexInput) (int64, error) {
+	panic("not implemented yet")
+}
+
+type IndexInput interface{}
+
+/* Checks that the stream is positioned at the end, and returns error if it is not. */
+func CheckEOF(in IndexInput) error {
+	panic("not implementd yet")
+}

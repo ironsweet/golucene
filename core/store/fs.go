@@ -25,7 +25,7 @@ func (err *NoSuchDirectoryError) Error() string {
 }
 
 type FSDirectory struct {
-	*DirectoryImpl
+	*BaseDirectory
 	sync.Locker
 	path           string
 	staleFiles     map[string]bool // synchronized, files written, but not yet sync'ed
@@ -36,7 +36,7 @@ type FSDirectory struct {
 // TODO support lock factory
 func newFSDirectory(self Directory, path string) (d *FSDirectory, err error) {
 	d = &FSDirectory{
-		DirectoryImpl:  NewDirectoryImpl(self),
+		BaseDirectory:  NewBaseDirectory(self),
 		Locker:         &sync.Mutex{},
 		path:           path,
 		staleFiles:     make(map[string]bool),
@@ -63,7 +63,7 @@ func OpenFSDirectory(path string) (d Directory, err error) {
 }
 
 func (d *FSDirectory) SetLockFactory(lockFactory LockFactory) {
-	d.DirectoryImpl.SetLockFactory(lockFactory)
+	d.BaseDirectory.SetLockFactory(lockFactory)
 
 	// for filesystem based LockFactory, delete the lockPrefix, if the locks are placed
 	// in index dir. If no index dir is given, set ourselves
@@ -156,10 +156,15 @@ func (d *FSDirectory) ensureCanWrite(name string) error {
 	return nil
 }
 
-func (d *FSDirectory) onIndexOutputClosed(io *FSIndexOutput) {
+/*
+Sub classes should call this method on closing an open IndexOuput,
+reporting the name of the file that was closed. FSDirectory needs
+this information to take care of syncing stale files.
+*/
+func (d *FSDirectory) onIndexOutputClosed(name string) {
 	d.staleFilesLock.Lock()
 	defer d.staleFilesLock.Unlock()
-	d.staleFiles[io.name] = true
+	d.staleFiles[name] = true
 }
 
 func (d *FSDirectory) Sync(names []string) (err error) {
@@ -177,6 +182,16 @@ func (d *FSDirectory) Sync(names []string) (err error) {
 
 	for name, _ := range toSync {
 		err = d.fsync(name)
+		if err != nil {
+			return err
+		}
+	}
+
+	// fsync the directory itself, but only if there was any file
+	// fsynced before (otherwise it can happen that the directory does
+	// not yet exist)!
+	if len(toSync) > 0 {
+		err = util.Fsync(d.path, true)
 		if err != nil {
 			return err
 		}
@@ -231,130 +246,126 @@ func (d *FSDirectory) String() string {
 	return fmt.Sprintf("FSDirectory@%v", d.DirectoryImpl.String())
 }
 
-type FSIndexInput struct {
-	*BufferedIndexInput
-	file      *os.File
-	isClone   bool
-	chunkSize int
-	off       int64
-	end       int64
-}
+// type FSIndexInput struct {
+// 	*BufferedIndexInput
+// 	file      *os.File
+// 	isClone   bool
+// 	chunkSize int
+// 	off       int64
+// 	end       int64
+// }
 
-func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (*FSIndexInput, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	ans := &FSIndexInput{nil, f, false, chunkSize, 0, fi.Size()}
-	ans.BufferedIndexInput = newBufferedIndexInput(ans, desc, context)
-	return ans, nil
-}
+// func newFSIndexInput(desc, path string, context IOContext, chunkSize int) (*FSIndexInput, error) {
+// 	f, err := os.Open(path)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	fi, err := f.Stat()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	ans := &FSIndexInput{nil, f, false, chunkSize, 0, fi.Size()}
+// 	ans.BufferedIndexInput = newBufferedIndexInput(ans, desc, context)
+// 	return ans, nil
+// }
 
-func newFSIndexInputFromFileSlice(desc string, f *os.File, off, length int64, bufferSize, chunkSize int) *FSIndexInput {
-	ans := &FSIndexInput{nil, f, true, chunkSize, off, off + length}
-	ans.BufferedIndexInput = newBufferedIndexInputBySize(ans, desc, bufferSize)
-	return ans
-}
+// func newFSIndexInputFromFileSlice(desc string, f *os.File, off, length int64, bufferSize, chunkSize int) *FSIndexInput {
+// 	ans := &FSIndexInput{nil, f, true, chunkSize, off, off + length}
+// 	ans.BufferedIndexInput = newBufferedIndexInputBySize(ans, desc, bufferSize)
+// 	return ans
+// }
 
-func (in *FSIndexInput) Close() error {
-	// only close the file if this is not a clone
-	if !in.isClone {
-		in.file.Close()
-	}
-	return nil
-}
+// func (in *FSIndexInput) Close() error {
+// 	// only close the file if this is not a clone
+// 	if !in.isClone {
+// 		in.file.Close()
+// 	}
+// 	return nil
+// }
 
-func (in *FSIndexInput) Clone() IndexInput {
-	return &FSIndexInput{
-		in.BufferedIndexInput.Clone(),
-		in.file,
-		true,
-		in.chunkSize,
-		in.off,
-		in.end}
-}
+// func (in *FSIndexInput) Clone() IndexInput {
+// 	return &FSIndexInput{
+// 		in.BufferedIndexInput.Clone(),
+// 		in.file,
+// 		true,
+// 		in.chunkSize,
+// 		in.off,
+// 		in.end}
+// }
 
-func (in *FSIndexInput) Length() int64 {
-	return in.end - in.off
-}
+// func (in *FSIndexInput) Length() int64 {
+// 	return in.end - in.off
+// }
 
-func (in *FSIndexInput) String() string {
-	return fmt.Sprintf("%v, off=%v, end=%v", in.BufferedIndexInput.String(), in.off, in.end)
-}
-
-/*
-The 'maximum' chunk size is 8192 bytes, because Lucene Java's malloc
-limitation. In GoLucene, it's not required but not tested either.
-*/
-const CHUNK_SIZE = 8192
+// func (in *FSIndexInput) String() string {
+// 	return fmt.Sprintf("%v, off=%v, end=%v", in.BufferedIndexInput.String(), in.off, in.end)
+// }
 
 /*
 Writes output with File.Write([]byte) (int, error)
 */
 type FSIndexOutput struct {
-	*BufferedIndexOutput
+	*OutputStreamIndexOutput
 	parent *FSDirectory
 	name   string
-	file   *os.File
-	isOpen bool // volatile
+	// file   *os.File
+	// isOpen bool // volatile
 }
 
 func newFSIndexOutput(parent *FSDirectory, name string) (*FSIndexOutput, error) {
-	file, err := os.OpenFile(filepath.Join(parent.path, name), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0660)
-	if err != nil {
-		return nil, err
-	}
-	out := &FSIndexOutput{
-		parent: parent,
-		name:   name,
-		file:   file,
-		isOpen: true,
-	}
-	out.BufferedIndexOutput = NewBufferedIndexOutput(CHUNK_SIZE, out)
-	return out, nil
+	panic("not implemented yet")
+	// file, err := os.OpenFile(filepath.Join(parent.path, name), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0660)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// out := &FSIndexOutput{
+	// 	parent: parent,
+	// 	name:   name,
+	// 	file:   file,
+	// 	isOpen: true,
+	// }
+	// out.BufferedIndexOutput = NewBufferedIndexOutput(CHUNK_SIZE, out)
+	// return out, nil
 }
 
-func (out *FSIndexOutput) FlushBuffer(b []byte) error {
-	assert(out.isOpen)
-	offset, size := 0, len(b)
-	for size > 0 {
-		toWrite := CHUNK_SIZE
-		if size < toWrite {
-			toWrite = size
-		}
-		_, err := out.file.Write(b[offset : offset+toWrite])
-		if err != nil {
-			return err
-		}
-		offset += toWrite
-		size -= toWrite
-	}
-	assert(size == 0)
-	return nil
-}
+// func (out *FSIndexOutput) FlushBuffer(b []byte) error {
+// 	assert(out.isOpen)
+// 	offset, size := 0, len(b)
+// 	for size > 0 {
+// 		toWrite := CHUNK_SIZE
+// 		if size < toWrite {
+// 			toWrite = size
+// 		}
+// 		_, err := out.file.Write(b[offset : offset+toWrite])
+// 		if err != nil {
+// 			return err
+// 		}
+// 		offset += toWrite
+// 		size -= toWrite
+// 	}
+// 	assert(size == 0)
+// 	return nil
+// }
 
 func (out *FSIndexOutput) Close() error {
-	out.parent.onIndexOutputClosed(out)
-	// only close the file if it has not been closed yet
-	if out.isOpen {
-		var err error
-		defer func() {
-			out.isOpen = false
-			util.CloseWhileHandlingError(err, out.file)
-		}()
-		err = out.BufferedIndexOutput.Close()
-	}
-	return nil
+	panic("not implemented yet")
+	// out.parent.onIndexOutputClosed(out)
+	// // only close the file if it has not been closed yet
+	// if out.isOpen {
+	// 	var err error
+	// 	defer func() {
+	// 		out.isOpen = false
+	// 		util.CloseWhileHandlingError(err, out.file)
+	// 	}()
+	// 	err = out.BufferedIndexOutput.Close()
+	// }
+	// return nil
 }
 
-func (out *FSIndexOutput) Length() (int64, error) {
-	info, err := out.file.Stat()
-	if err != nil {
-		return 0, err
-	}
-	return info.Size(), nil
-}
+// func (out *FSIndexOutput) Length() (int64, error) {
+// 	info, err := out.file.Stat()
+// 	if err != nil {
+// 		return 0, err
+// 	}
+// 	return info.Size(), nil
+// }

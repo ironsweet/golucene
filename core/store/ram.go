@@ -3,10 +3,14 @@ package store
 import (
 	"errors"
 	"fmt"
+	"github.com/balzaczyy/golucene/core/util"
+	"hash"
+	// "hash/crc32"
 	"math"
 	"os"
 	"sync"
 	"sync/atomic"
+	"unsafe"
 )
 
 // store/RAMDirectory.java
@@ -31,7 +35,7 @@ copying dat to Java heap space is not useful.
 type RAMDirectory struct {
 	sizeInBytes int64 // synchronized
 
-	*DirectoryImpl
+	*BaseDirectory
 
 	fileMap     map[string]*RAMFile // synchronized
 	fileMapLock *sync.RWMutex
@@ -45,6 +49,10 @@ func NewRAMDirectory() *RAMDirectory {
 	ans.DirectoryImpl = NewDirectoryImpl(ans)
 	ans.SetLockFactory(newSingleInstanceLockFactory())
 	return ans
+}
+
+func (d *RAMDirectory) LockID() string {
+	return fmt.Sprintf("lucene-%v", util.ItoHex(int(uintptr(unsafe.Pointer(&d)))))
 }
 
 func (rd *RAMDirectory) ListAll() (names []string, err error) {
@@ -82,7 +90,7 @@ func (rd *RAMDirectory) FileLength(name string) (length int64, err error) {
 Return total size in bytes of all files in this directory. This is
 currently quantized to BUFFER_SIZE.
 */
-func (rd *RAMDirectory) SizeInBytes() int64 {
+func (rd *RAMDirectory) RamBytesUsed() int64 {
 	rd.EnsureOpen()
 	return atomic.LoadInt64(&rd.sizeInBytes)
 }
@@ -112,7 +120,7 @@ func (rd *RAMDirectory) CreateOutput(name string, context IOContext) (out IndexO
 		existing.directory = nil
 	}
 	rd.fileMap[name] = file
-	return NewRAMOutputStream(file), nil
+	return NewRAMOutputStream(file, true), nil
 }
 
 // Returns a new RAMFile for storing data. This method can be
@@ -311,7 +319,7 @@ func (lock *SingleInstanceLock) Obtain() (ok bool, err error) {
 	return true, nil
 }
 
-func (lock *SingleInstanceLock) Release() error {
+func (lock *SingleInstanceLock) Close() error {
 	lock.locksLock.Lock() // synchronized
 	defer lock.locksLock.Unlock()
 	delete(lock.locks, lock.name)
@@ -444,8 +452,12 @@ func (in *RAMInputStream) Seek(pos int64) error {
 	return nil
 }
 
+func (in *RAMInputStream) Slice(desc string, offset, length int64) (IndexInput, error) {
+	panic("not implemented yet")
+}
+
 func (in *RAMInputStream) Clone() IndexInput {
-	panic("not supported yet")
+	panic("not implemented yet")
 }
 
 func (in *RAMInputStream) String() string {
@@ -468,22 +480,27 @@ type RAMOutputStream struct {
 	bufferPosition int
 	bufferStart    int64
 	bufferLength   int
+
+	crc hash.Hash32
 }
 
 /* Construct an empty output buffer. */
 func NewRAMOutputStreamBuffer() *RAMOutputStream {
-	return NewRAMOutputStream(NewRAMFileBuffer())
+	return NewRAMOutputStream(NewRAMFileBuffer(), false)
 }
 
-func NewRAMOutputStream(f *RAMFile) *RAMOutputStream {
+func NewRAMOutputStream(f *RAMFile, checksum bool) *RAMOutputStream {
 	// make sure that we switch to the first needed buffer lazily
 	out := &RAMOutputStream{file: f, currentBufferIndex: -1}
 	out.IndexOutputImpl = NewIndexOutput(out)
+	if checksum {
+		panic("not implemented yet")
+	}
 	return out
 }
 
 /* Copy the current contents of this buffer to the named output. */
-func (out *RAMOutputStream) WriteTo(output IndexOutput) error {
+func (out *RAMOutputStream) WriteTo(output util.DataOutput) error {
 	err := out.Flush()
 	if err != nil {
 		return err
@@ -539,20 +556,26 @@ func (out *RAMOutputStream) Reset() {
 	out.bufferStart = 0
 	out.bufferLength = 0
 	out.file.SetLength(0)
+	if out.crc != nil {
+		out.crc.Reset()
+	}
 }
 
 func (out *RAMOutputStream) Close() error {
 	return out.Flush()
 }
 
-func (out *RAMOutputStream) Length() (int64, error) {
-	return out.file.length, nil
-}
+// func (out *RAMOutputStream) Length() (int64, error) {
+// 	return out.file.length, nil
+// }
 
 func (out *RAMOutputStream) WriteByte(b byte) error {
 	if out.bufferPosition == out.bufferLength {
 		out.currentBufferIndex++
 		out.switchCurrentBuffer()
+	}
+	if out.crc != nil {
+		out.crc.Write([]byte{b})
 	}
 	out.currentBuffer[out.bufferPosition] = b
 	out.bufferPosition++
@@ -561,6 +584,9 @@ func (out *RAMOutputStream) WriteByte(b byte) error {
 
 func (out *RAMOutputStream) WriteBytes(buf []byte) error {
 	assert(buf != nil)
+	if out.crc != nil {
+		out.crc.Write(buf)
+	}
 	var offset = 0
 	for limit := len(buf); limit > 0; {
 		if out.bufferPosition == out.bufferLength {

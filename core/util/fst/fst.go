@@ -89,7 +89,7 @@ func (arc *Arc) IsFinal() bool {
 
 func (arc *Arc) String() string {
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "node=%v target=%v label=%v", arc.node, arc.target, iToHex(arc.Label))
+	fmt.Fprintf(&b, "node=%v target=%v label=%v", arc.node, arc.target, util.ItoHex(arc.Label))
 	if arc.flag(FST_BIT_FINAL_ARC) {
 		fmt.Fprintf(&b, " final")
 	}
@@ -112,10 +112,6 @@ func (arc *Arc) String() string {
 		fmt.Fprintf(&b, " arcArray(idx=%v of %v)", arc.arcIdx, arc.numArcs)
 	}
 	return b.String()
-}
-
-func iToHex(i int) string {
-	panic("not implemented yet")
 }
 
 func hasFlag(flags, bit byte) bool {

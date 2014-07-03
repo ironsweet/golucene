@@ -10,14 +10,17 @@ import (
 	"sync"
 )
 
+// store/CompoundFileDirectory.java
+
 type FileSlice struct {
 	offset, length int64
 }
 
 const (
-	CFD_DATA_CODEC      = "CompoundFileWriterData"
-	CFD_VERSION_START   = 0
-	CFD_VERSION_CURRENT = CFD_VERSION_START
+	CFD_DATA_CODEC       = "CompoundFileWriterData"
+	CFD_VERSION_START    = 0
+	CFD_VERSION_CHECKSUM = 1
+	CFD_VERSION_CURRENT  = CFD_VERSION_CHECKSUM
 
 	CFD_ENTRY_CODEC = "CompoundFileWriterEntries"
 
@@ -28,7 +31,7 @@ const (
 var SENTINEL = make(map[string]FileSlice)
 
 type CompoundFileDirectory struct {
-	*DirectoryImpl
+	*BaseDirectory
 	sync.Locker
 
 	directory      Directory
@@ -37,7 +40,7 @@ type CompoundFileDirectory struct {
 	entries        map[string]FileSlice
 	openForWrite   bool
 	writer         *CompoundFileWriter
-	handle         IndexInputSlicer
+	handle         IndexInput
 }
 
 func NewCompoundFileDirectory(directory Directory, fileName string, context IOContext, openForWrite bool) (d *CompoundFileDirectory, err error) {
@@ -57,7 +60,7 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 				util.CloseWhileSuppressingError(self.handle)
 			}
 		}()
-		self.handle, err = directory.CreateSlicer(fileName, context)
+		self.handle, err = directory.OpenInput(fileName, context)
 		if err != nil {
 			return nil, err
 		}
@@ -66,7 +69,7 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 			return nil, err
 		}
 		success = true
-		self.DirectoryImpl.IsOpen = true
+		self.BaseDirectory.IsOpen = true
 		return self, nil
 	} else {
 		assert2(reflect.TypeOf(directory).Name() != "CompoundFileDirectory",
@@ -106,8 +109,7 @@ func (d *CompoundFileDirectory) OpenInput(name string, context IOContext) (in In
 	assert(!d.openForWrite)
 	id := util.StripSegmentName(name)
 	if entry, ok := d.entries[id]; ok {
-		is := d.handle.OpenSlice(name, entry.offset, entry.length)
-		return is, nil
+		return d.handle.Slice(name, entry.offset, entry.length)
 	}
 	keys := make([]string, 0)
 	for k := range d.entries {
@@ -161,10 +163,6 @@ func (d *CompoundFileDirectory) MakeLock(name string) Lock {
 	panic("not supported by CFS")
 }
 
-func (d *CompoundFileDirectory) CreateSlicer(name string, context IOContext) (slicer IndexInputSlicer, err error) {
-	panic("not implemented yet")
-}
-
 func (d *CompoundFileDirectory) String() string {
 	return fmt.Sprintf("CompoundFileDirectory(file='%v' in dir=%v)", d.fileName, d.directory)
 }
@@ -176,19 +174,25 @@ const (
 	CODEC_MAGIC_BYTE4 = byte(codec.CODEC_MAGIC & 0xFF)
 )
 
-func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping map[string]FileSlice, err error) {
-	var stream, entriesStream IndexInput = nil, nil
-	defer func() {
-		err = util.CloseWhileHandlingError(err, stream, entriesStream)
-	}()
+func readEntries(handle IndexInput, dir Directory, name string) (mapping map[string]FileSlice, err error) {
+	var stream IndexInput = nil
+	var entriesStream ChecksumIndexInput = nil
 	// read the first VInt. If it is negative, it's the version number
 	// otherwise it's the count (pre-3.1 indexes)
-	mapping = make(map[string]FileSlice)
-	stream = handle.OpenFullSlice()
-	log.Printf("Reading from stream: %v", stream)
+	var success = false
+	defer func() {
+		if success {
+			err = util.Close(stream, entriesStream)
+		} else {
+			util.CloseWhileSuppressingError(stream, entriesStream)
+		}
+	}()
+
+	stream = handle.Clone()
+	fmt.Printf("Reading from stream: %v\n", stream)
 	firstInt, err := stream.ReadVInt()
 	if err != nil {
-		return mapping, err
+		return nil, err
 	}
 	// impossible for 3.0 to have 63 files in a .cfs, CFS writer was not visible
 	// and separate norms/etc are outside of cfs.
@@ -199,7 +203,7 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 					if secondByte != CODEC_MAGIC_BYTE2 ||
 						thirdByte != CODEC_MAGIC_BYTE3 ||
 						fourthByte != CODEC_MAGIC_BYTE4 {
-						return mapping, errors.New(fmt.Sprintf(
+						return nil, errors.New(fmt.Sprintf(
 							"Illegal/impossible header for CFS file: %v,%v,%v",
 							secondByte, thirdByte, fourthByte))
 					}
@@ -207,50 +211,61 @@ func readEntries(handle IndexInputSlicer, dir Directory, name string) (mapping m
 			}
 		}
 		if err != nil {
-			return mapping, err
+			return nil, err
 		}
 
-		_, err = codec.CheckHeaderNoMagic(stream, CFD_DATA_CODEC, CFD_VERSION_START, CFD_VERSION_START)
+		version, err := codec.CheckHeaderNoMagic(stream, CFD_DATA_CODEC, CFD_VERSION_START, CFD_VERSION_CURRENT)
 		if err != nil {
-			return mapping, err
+			return nil, err
 		}
 		entriesFileName := util.SegmentFileName(util.StripExtension(name), "", COMPOUND_FILE_ENTRIES_EXTENSION)
-		entriesStream, err = dir.OpenInput(entriesFileName, IO_CONTEXT_READONCE)
+		entriesStream, err = dir.OpenChecksumInput(entriesFileName, IO_CONTEXT_READONCE)
 		if err != nil {
-			return mapping, err
+			return nil, err
 		}
-		_, err = codec.CheckHeader(entriesStream, CFD_ENTRY_CODEC, CFD_VERSION_START, CFD_VERSION_START)
+		_, err = codec.CheckHeader(entriesStream, CFD_ENTRY_CODEC, CFD_VERSION_START, CFD_VERSION_CURRENT)
 		if err != nil {
-			return mapping, err
+			return nil, err
 		}
 		numEntries, err := entriesStream.ReadVInt()
 		if err != nil {
-			return mapping, err
+			return nil, err
 		}
-		log.Printf("Entries number: %v", numEntries)
+
+		mapping = make(map[string]FileSlice)
+		fmt.Printf("Entries number: %v", numEntries)
 		for i := int32(0); i < numEntries; i++ {
 			id, err := entriesStream.ReadString()
 			if err != nil {
-				return mapping, err
+				return nil, err
 			}
 			if _, ok := mapping[id]; ok {
-				return mapping, errors.New(fmt.Sprintf(
+				return nil, errors.New(fmt.Sprintf(
 					"Duplicate cfs entry id=%v in CFS: %v", id, entriesStream))
 			}
 			log.Printf("Found entry: %v", id)
 			offset, err := entriesStream.ReadLong()
 			if err != nil {
-				return mapping, err
+				return nil, err
 			}
 			length, err := entriesStream.ReadLong()
 			if err != nil {
-				return mapping, err
+				return nil, err
 			}
 			mapping[id] = FileSlice{offset, length}
+		}
+		if version >= CFD_VERSION_CHECKSUM {
+			_, err = codec.CheckFooter(entriesStream)
+		} else {
+			err = codec.CheckEOF(entriesStream)
+		}
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		// TODO remove once 3.x is not supported anymore
 		panic("not supported yet; will also be obsolete soon")
 	}
+	success = true
 	return mapping, nil
 }

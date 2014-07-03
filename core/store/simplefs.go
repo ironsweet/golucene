@@ -52,7 +52,7 @@ func (lock *SimpleFSLock) Obtain() (ok bool, err error) {
 
 }
 
-func (lock *SimpleFSLock) Release() (err error) {
+func (lock *SimpleFSLock) Close() error {
 	return os.Remove(lock.file)
 }
 
@@ -126,68 +126,110 @@ func (d *SimpleFSDirectory) OpenInput(name string, context IOContext) (in IndexI
 	d.EnsureOpen()
 	fpath := filepath.Join(d.path, name)
 	log.Printf("Opening %v...", fpath)
+	panic("not implemented yet")
 	sin, err := newSimpleFSIndexInput(fmt.Sprintf("SimpleFSIndexInput(path='%v')", fpath),
 		fpath, context, d.chunkSize)
 	return sin, err
 }
 
-func (d *SimpleFSDirectory) CreateSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error) {
-	d.EnsureOpen()
-	f, err := os.Open(filepath.Join(d.path, name))
-	if err != nil {
-		return nil, err
-	}
-	return &fileIndexInputSlicer{f, ctx, d.chunkSize}, nil
-}
+// func (d *SimpleFSDirectory) CreateSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error) {
+// 	d.EnsureOpen()
+// 	f, err := os.Open(filepath.Join(d.path, name))
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return &fileIndexInputSlicer{f, ctx, d.chunkSize}, nil
+// }
 
-type fileIndexInputSlicer struct {
-	file      *os.File
-	ctx       IOContext
-	chunkSize int
-}
+// type fileIndexInputSlicer struct {
+// 	file      *os.File
+// 	ctx       IOContext
+// 	chunkSize int
+// }
 
-func (s *fileIndexInputSlicer) Close() error {
-	err := s.file.Close()
-	if err != nil {
-		fmt.Printf("Closing %v failed: %v\n", s.file.Name(), err)
-	}
-	return err
-}
+// func (s *fileIndexInputSlicer) Close() error {
+// 	err := s.file.Close()
+// 	if err != nil {
+// 		fmt.Printf("Closing %v failed: %v\n", s.file.Name(), err)
+// 	}
+// 	return err
+// }
 
-func (s *fileIndexInputSlicer) OpenSlice(desc string, offset, length int64) IndexInput {
-	return newSimpleFSIndexInputFromFileSlice(fmt.Sprintf("SimpleFSIndexInput(%v in path='%v' slice=%v:%v)",
-		desc, s.file.Name(), offset, offset+length),
-		s.file, offset, length, bufferSize(s.ctx), s.chunkSize)
-}
+// func (s *fileIndexInputSlicer) OpenSlice(desc string, offset, length int64) IndexInput {
+// 	return newSimpleFSIndexInputFromFileSlice(fmt.Sprintf("SimpleFSIndexInput(%v in path='%v' slice=%v:%v)",
+// 		desc, s.file.Name(), offset, offset+length),
+// 		s.file, offset, length, bufferSize(s.ctx), s.chunkSize)
+// }
 
-func (s *fileIndexInputSlicer) OpenFullSlice() IndexInput {
-	fi, err := s.file.Stat()
-	if err != nil {
-		panic(err)
-	}
-	return s.OpenSlice("full-slice", 0, fi.Size())
-}
+// func (s *fileIndexInputSlicer) OpenFullSlice() IndexInput {
+// 	fi, err := s.file.Stat()
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	return s.OpenSlice("full-slice", 0, fi.Size())
+// }
+
+/*
+The maximum chunk size is 8192 bytes, becaues Java RamdomAccessFile
+mallocs a native buffer outside of stack if the read buffer size is
+larger. GoLucene takes the same default value.
+TODO: test larger value here
+*/
+const CHUNK_SIZE = 8192
 
 type SimpleFSIndexInput struct {
-	*FSIndexInput
+	*BufferedIndexInput
 	fileLock sync.Locker
+	// the file channel we will read from
+	file *os.File
+	// is this instance a clone and hence does not own the file to close it
+	isClone bool
+	// start offset: non-zero in the slice case
+	off int64
+	// end offset (start+length)
+	end int64
 }
 
 func newSimpleFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *SimpleFSIndexInput, err error) {
-	super, err := newFSIndexInput(desc, path, context, chunkSize)
-	if err != nil {
-		return nil, err
-	}
-	in = &SimpleFSIndexInput{super, &sync.Mutex{}}
-	in.SeekReader = in
-	return in, nil
+	panic("not implemented yet")
+	// super, err := newFSIndexInput(desc, path, context, chunkSize)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// in = &SimpleFSIndexInput{super, &sync.Mutex{}}
+	// in.SeekReader = in
+	// return in, nil
 }
 
 func newSimpleFSIndexInputFromFileSlice(desc string, file *os.File, off, length int64, bufferSize, chunkSize int) *SimpleFSIndexInput {
-	super := newFSIndexInputFromFileSlice(desc, file, off, length, bufferSize, chunkSize)
-	ans := &SimpleFSIndexInput{super, &sync.Mutex{}}
-	ans.SeekReader = ans
-	return ans
+	panic("not implemented yet")
+	// super := newFSIndexInputFromFileSlice(desc, file, off, length, bufferSize, chunkSize)
+	// ans := &SimpleFSIndexInput{super, &sync.Mutex{}}
+	// ans.SeekReader = ans
+	// return ans
+}
+
+func (in *SimpleFSIndexInput) Close() error {
+	panic("not implemented yet")
+	// if in == nil {
+	// 	return nil
+	// }
+	// return in.FSIndexInput.Close()
+}
+
+func (in *SimpleFSIndexInput) Clone() IndexInput {
+	panic("not implemented yet")
+	// ans := &SimpleFSIndexInput{in.FSIndexInput.Clone().(*FSIndexInput), &sync.Mutex{}}
+	// ans.SeekReader = ans
+	// return ans
+}
+
+func (in *SimpleFSIndexInput) Slice(desc string, offset, length int64) (IndexInput, error) {
+	panic("not implemented yet")
+}
+
+func (in *SimpleFSIndexInput) Length() int64 {
+	panic("not implemented yet")
 }
 
 func (in *SimpleFSIndexInput) readInternal(buf []byte) error {
@@ -209,8 +251,8 @@ func (in *SimpleFSIndexInput) readInternal(buf []byte) error {
 	total := 0
 	for {
 		readLength := length - total
-		if in.chunkSize < readLength {
-			readLength = in.chunkSize
+		if CHUNK_SIZE < readLength {
+			readLength = CHUNK_SIZE
 		}
 		// FIXME verify slice is working
 		i, err := in.file.Read(buf[total : total+readLength])
@@ -225,23 +267,10 @@ func (in *SimpleFSIndexInput) readInternal(buf []byte) error {
 	return nil
 }
 
-func (in *SimpleFSIndexInput) seekInternal(pos int64) error {
-	return nil // nothing
-}
+// func (in *SimpleFSIndexInput) seekInternal(pos int64) error {
+// 	return nil // nothing
+// }
 
-func (in *SimpleFSIndexInput) Clone() IndexInput {
-	ans := &SimpleFSIndexInput{in.FSIndexInput.Clone().(*FSIndexInput), &sync.Mutex{}}
-	ans.SeekReader = ans
-	return ans
-}
-
-func (in *SimpleFSIndexInput) Close() error {
-	if in == nil {
-		return nil
-	}
-	return in.FSIndexInput.Close()
-}
-
-func (in *SimpleFSIndexInput) String() string {
-	return in.desc
-}
+// func (in *SimpleFSIndexInput) String() string {
+// 	return in.desc
+// }

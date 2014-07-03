@@ -2,10 +2,7 @@ package store
 
 import (
 	"errors"
-	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
-	"hash"
-	"hash/crc32"
 	"io"
 )
 
@@ -32,6 +29,9 @@ type IndexInput interface {
 	ReadBytesBuffered(buf []byte, useBuffer bool) error
 	// Clone
 	Clone() IndexInput
+	// Creates a slice of this index input, with the given description,
+	// offset, and length. The slice is seeked to the beginning.
+	Slice(desc string, offset, length int64) (IndexInput, error)
 }
 
 type IndexInputImpl struct {
@@ -69,53 +69,6 @@ func bufferSize(context IOContext) int {
 	default:
 		return BUFFER_SIZE
 	}
-}
-
-type ChecksumIndexInput struct {
-	*IndexInputImpl
-	main   IndexInput
-	digest hash.Hash32
-}
-
-func NewChecksumIndexInput(main IndexInput) *ChecksumIndexInput {
-	ans := &ChecksumIndexInput{main: main, digest: crc32.NewIEEE()}
-	ans.IndexInputImpl = NewIndexInputImpl(fmt.Sprintf("ChecksumIndexInput(%v)", main), ans)
-	return ans
-}
-
-func (in *ChecksumIndexInput) ReadByte() (b byte, err error) {
-	if b, err = in.main.ReadByte(); err == nil {
-		in.digest.Write([]byte{b})
-	}
-	return b, err
-}
-
-func (in *ChecksumIndexInput) ReadBytes(buf []byte) error {
-	err := in.main.ReadBytes(buf)
-	if err == nil {
-		in.digest.Write(buf)
-	}
-	return err
-}
-
-func (in *ChecksumIndexInput) Checksum() int64 {
-	return int64(in.digest.Sum32())
-}
-
-func (in *ChecksumIndexInput) Close() error {
-	return in.main.Close()
-}
-
-func (in *ChecksumIndexInput) FilePointer() int64 {
-	return in.main.FilePointer()
-}
-
-func (in *ChecksumIndexInput) Seek(pos int64) error {
-	panic("unsupported")
-}
-
-func (in *ChecksumIndexInput) Length() int64 {
-	return in.main.Length()
 }
 
 // store/ByteArrayDataInput.java
@@ -159,8 +112,8 @@ func (in *ByteArrayDataInput) Length() int {
 	return in.limit
 }
 
-func (in *ByteArrayDataInput) SkipBytes(count int) {
-	in.Pos += count
+func (in *ByteArrayDataInput) SkipBytes(count int64) {
+	in.Pos += int(count)
 }
 
 func (in *ByteArrayDataInput) ReadShort() (n int16, err error) {

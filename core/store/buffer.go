@@ -11,6 +11,10 @@ type SeekReader interface {
 	Length() int64
 }
 
+/* Minimum buffer size allowed */
+const MIN_BUFFER_SIZE = 8
+
+/* Base implementation class for buffered IndexInput. */
 type BufferedIndexInput struct {
 	*IndexInputImpl
 	SeekReader
@@ -51,9 +55,9 @@ func (in *BufferedIndexInput) ReadByte() (b byte, err error) {
 }
 
 func checkBufferSize(bufferSize int) {
-	if bufferSize <= 0 {
-		panic(fmt.Sprintf("bufferSize must be greater than 0 (got %v)", bufferSize))
-	}
+	assert2(bufferSize >= MIN_BUFFER_SIZE,
+		"bufferSize must be at least MIN_BUFFER_SIZE (got %v)",
+		bufferSize)
 }
 
 func (in *BufferedIndexInput) ReadBytes(buf []byte) error {

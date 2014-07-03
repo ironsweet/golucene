@@ -80,7 +80,7 @@ func newCompoundFileWriter(dir Directory, name string) *CompoundFileWriter {
 	}
 }
 
-func (w *CompoundFileWriter) output() (IndexOutput, error) {
+func (w *CompoundFileWriter) output(ctx IOContext) (IndexOutput, error) {
 	w.Lock()
 	defer w.Unlock()
 	if w.dataOut == nil {
@@ -92,7 +92,7 @@ func (w *CompoundFileWriter) output() (IndexOutput, error) {
 		}()
 
 		var err error
-		w.dataOut, err = w.directory.CreateOutput(w.dataFileName, IO_CONTEXT_DEFAULT)
+		w.dataOut, err = w.directory.CreateOutput(w.dataFileName, ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -111,31 +111,55 @@ func (w *CompoundFileWriter) Close() (err error) {
 		return nil
 	}
 
-	var priorError error
-	var entryTableOut IndexOutput
 	// TODO this code should clean up after itself (remove partial .cfs/.cfe)
-	func() {
+	if func() {
+		var success = false
 		defer func() {
-			err = util.CloseWhileHandlingError(priorError, w.dataOut)
+			if success {
+				util.Close(w.dataOut)
+			} else {
+				util.CloseWhileSuppressingError(w.dataOut)
+			}
 		}()
+
 		assert2(w.pendingEntries.Len() == 0 && !w.outputTaken.Get(),
 			"CFS has pending open files")
 		w.closed = true
-		// open the compound stream
-		_, err = w.output()
+		// open the compound stream; we can safely use IO_CONTEXT_DEFAULT
+		// here because this will only open the output if no file was
+		// added to the CFS
+		_, err = w.output(IO_CONTEXT_DEFAULT)
 		if err != nil {
 			return
 		}
 		assert(w.dataOut != nil)
-	}()
+		err = codec.WriteFooter(w.dataOut)
+		if err != nil {
+			return
+		}
+		success = true
+	}(); err != nil {
+		return
+	}
 
+	var entryTableOut IndexOutput
+	var success = false
 	defer func() {
-		err = util.CloseWhileHandlingError(priorError, entryTableOut)
+		if success {
+			util.Close(entryTableOut)
+		} else {
+			util.CloseWhileSuppressingError(entryTableOut)
+		}
 	}()
 	entryTableOut, err = w.directory.CreateOutput(w.entryTableName, IO_CONTEXT_DEFAULT)
-	if err == nil {
-		err = w.writeEntryTable(w.entries, entryTableOut)
+	if err != nil {
+		return
 	}
+	err = w.writeEntryTable(w.entries, entryTableOut)
+	if err != nil {
+		return
+	}
+	success = true
 	return
 }
 
@@ -199,6 +223,9 @@ func (w *CompoundFileWriter) writeEntryTable(entries map[string]*FileEntry,
 			}
 		}
 	}
+	if err == nil {
+		err = codec.WriteFooter(entryOut)
+	}
 	return err
 }
 
@@ -229,14 +256,13 @@ func (w *CompoundFileWriter) createOutput(name string, context IOContext) (Index
 
 	var out *DirectCFSIndexOutput
 	if outputLocked := w.outputTaken.CompareAndSet(false, true); outputLocked {
-		o, err := w.output()
+		o, err := w.output(context)
 		if err != nil {
 			return nil, err
 		}
 		out = newDirectCFSIndexOutput(w, o, entry, false)
 	} else {
 		entry.dir = w.directory
-		assert2(!w.directory.FileExists(name), "File %v already exists", name)
 		o, err := w.directory.CreateOutput(name, context)
 		if err != nil {
 			return nil, err
@@ -262,7 +288,7 @@ func (w *CompoundFileWriter) prunePendingEntries() error {
 			head := w.pendingEntries.Front()
 			w.pendingEntries.Remove(head)
 			entry := head.Value.(*FileEntry)
-			out, err := w.output()
+			out, err := w.output(NewIOContextForFlush(&FlushInfo{0, entry.length}))
 			if err == nil {
 				_, err = w.copyFileEntry(out, entry)
 			}
@@ -326,10 +352,6 @@ func (out *DirectCFSIndexOutput) Close() error {
 }
 
 func (out *DirectCFSIndexOutput) FilePointer() int64 {
-	panic("not implemented yet")
-}
-
-func (out *DirectCFSIndexOutput) Length() (int64, error) {
 	panic("not implemented yet")
 }
 

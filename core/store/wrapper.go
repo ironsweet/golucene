@@ -17,11 +17,12 @@ type TrackingDirectoryWrapper struct {
 }
 
 func NewTrackingDirectoryWrapper(other Directory) *TrackingDirectoryWrapper {
-	return &TrackingDirectoryWrapper{
-		Locker:           &sync.Mutex{},
-		Directory:        other,
-		createdFilenames: make(map[string]bool),
-	}
+	panic("not implemented yet")
+	// return &TrackingDirectoryWrapper{
+	// 	Locker:           &sync.Mutex{},
+	// 	Directory:        other,
+	// 	createdFilenames: make(map[string]bool),
+	// }
 }
 
 func (w *TrackingDirectoryWrapper) DeleteFile(name string) error {

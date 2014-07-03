@@ -1,9 +1,7 @@
 package store
 
 import (
-	"fmt"
 	"math"
-	"time"
 )
 
 // store/RateLimiter.java
@@ -12,7 +10,8 @@ import (
 Abstract base class to rate limit IO. Typically implementations are
 shared across multiple IndexInputs or IndexOutputs (for example those
 involved all merging). Those IndexInputs and IndexOutputs would call
-pause() whenever they want to read bytes or write bytes.
+pause() whenever they have read or written more than
+minPauseCheckBytes() bytes.
 */
 type RateLimiter interface {
 	// Sets an updated mb per second rate limit.
@@ -31,9 +30,9 @@ type RateLimiter interface {
 // Simple class to rate limit IO
 // Ian: volatile is not supported
 type SimpleRateLimiter struct {
-	mbPerSec  float64 // volatile
-	nsPerByte float64 // volatile
-	lastNS    int64   // volatile
+	mbPerSec           float64 // volatile
+	minPauseCheckBytes int64   // volatile
+	lastNS             int64
 }
 
 // mbPerSec is the MB/sec max IO rate
@@ -45,7 +44,7 @@ func newSimpleRateLimiter(mbPerSec float64) *SimpleRateLimiter {
 
 func (srl *SimpleRateLimiter) SetMbPerSec(mbPerSec float64) {
 	srl.mbPerSec = mbPerSec
-	srl.nsPerByte = 1000000000 / float64(1024*1024*mbPerSec)
+	panic("not implemented yet")
 }
 
 func (srl *SimpleRateLimiter) MbPerSec() float64 {
@@ -54,33 +53,31 @@ func (srl *SimpleRateLimiter) MbPerSec() float64 {
 
 /*
 Pause, if necessary, to keep the instantaneous IO rate at or below
-the target. NOTE: multiple threads may safely use this, however the
-implementation is not perfectly thread safe but likely in practice
-this is harmless (just menas in some rare cases the rate might exceed
-the target). It's best to call this with a biggish count, not one
-byte at a time.
+the target. Be sure to only call this method when bytes >
+minPauseCheckBytes(), otherwise it will pause way too long!
 */
 func (srl *SimpleRateLimiter) Pause(bytes int64) int64 {
-	if bytes == 1 {
-		return 0
-	}
+	panic("not implemented yet")
+	// if bytes == 1 {
+	// 	return 0
+	// }
 
-	// TODO: this is purely instantaneous rate; maybe we
-	// should also offer decayed recent history one?
-	srl.lastNS += int64(float64(bytes) * srl.nsPerByte)
-	targetNS := srl.lastNS
-	startNS := time.Now().UnixNano()
-	curNS := startNS
-	if srl.lastNS < curNS {
-		srl.lastNS = curNS
-	}
+	// // TODO: this is purely instantaneous rate; maybe we
+	// // should also offer decayed recent history one?
+	// srl.lastNS += int64(float64(bytes) * srl.nsPerByte)
+	// targetNS := srl.lastNS
+	// startNS := time.Now().UnixNano()
+	// curNS := startNS
+	// if srl.lastNS < curNS {
+	// 	srl.lastNS = curNS
+	// }
 
-	// While loop because sleep doesn't always sleep enough:
-	for pauseNS := targetNS - curNS; pauseNS > 0; pauseNS = targetNS - curNS {
-		time.Sleep(time.Duration(pauseNS * int64(time.Nanosecond)))
-		curNS = time.Now().UnixNano()
-	}
-	return curNS - startNS
+	// // While loop because sleep doesn't always sleep enough:
+	// for pauseNS := targetNS - curNS; pauseNS > 0; pauseNS = targetNS - curNS {
+	// 	time.Sleep(time.Duration(pauseNS * int64(time.Nanosecond)))
+	// 	curNS = time.Now().UnixNano()
+	// }
+	// return curNS - startNS
 }
 
 // store/RateLimitedDirectoryWrapper.java
@@ -97,11 +94,12 @@ type RateLimitedDirectoryWrapper struct {
 }
 
 func NewRateLimitedDirectoryWrapper(wrapped Directory) *RateLimitedDirectoryWrapper {
-	return &RateLimitedDirectoryWrapper{
-		Directory:           wrapped,
-		contextRateLimiters: make([]RateLimiter, 4), // TODO magic number
-		isOpen:              true,
-	}
+	panic("not implemented yet")
+	// return &RateLimitedDirectoryWrapper{
+	// 	Directory:           wrapped,
+	// 	contextRateLimiters: make([]RateLimiter, 4), // TODO magic number
+	// 	isOpen:              true,
+	// }
 }
 
 func (w *RateLimitedDirectoryWrapper) CreateOutput(name string, ctx IOContext) (IndexOutput, error) {
@@ -115,14 +113,14 @@ func (w *RateLimitedDirectoryWrapper) CreateOutput(name string, ctx IOContext) (
 	return output, err
 }
 
-func (w *RateLimitedDirectoryWrapper) Close() error {
-	w.isOpen = false
-	return w.Directory.Close()
-}
+// func (w *RateLimitedDirectoryWrapper) Close() error {
+// 	w.isOpen = false
+// 	return w.Directory.Close()
+// }
 
-func (w *RateLimitedDirectoryWrapper) String() string {
-	return fmt.Sprintf("RateLimitedDirectoryWrapper(%v)", w.Directory)
-}
+// func (w *RateLimitedDirectoryWrapper) String() string {
+// 	return fmt.Sprintf("RateLimitedDirectoryWrapper(%v)", w.Directory)
+// }
 
 func (w *RateLimitedDirectoryWrapper) rateLimiter(ctx IOContextType) RateLimiter {
 	assert(int(ctx) != 0)
@@ -191,34 +189,45 @@ type flushBuffer interface {
 
 /* A rate limiting IndexOutput */
 type RateLimitedIndexOutput struct {
-	*BufferedIndexOutput
+	*IndexOutputImpl
 	delegate    IndexOutput
 	rateLimiter RateLimiter
 }
 
 func newRateLimitedIndexOutput(rateLimiter RateLimiter, delegate IndexOutput) *RateLimitedIndexOutput {
-	// TODO should we make buffer size configurable
-	ans := &RateLimitedIndexOutput{}
-	ans.BufferedIndexOutput = NewBufferedIndexOutput(DEFAULT_BUFFER_SIZE, ans)
-	ans.delegate = delegate
-	ans.rateLimiter = rateLimiter
-	return ans
-}
-
-func (out *RateLimitedIndexOutput) FlushBuffer(buf []byte) error {
-	out.rateLimiter.Pause(int64(len(buf)))
-	if v, ok := out.delegate.(flushBuffer); ok {
-		return v.FlushBuffer(buf)
-	}
-	panic("double check if flushBuffer interface is satisfied")
-	return out.delegate.WriteBytes(buf)
-}
-
-func (out *RateLimitedIndexOutput) Length() (int64, error) {
-	return out.delegate.Length()
+	panic("not implemented yet")
+	// ans := &RateLimitedIndexOutput{}
+	// ans.BufferedIndexOutput = NewBufferedIndexOutput(DEFAULT_BUFFER_SIZE, ans)
+	// ans.delegate = delegate
+	// ans.rateLimiter = rateLimiter
+	// return ans
 }
 
 func (out *RateLimitedIndexOutput) Close() error {
-	defer out.delegate.Close()
-	return out.BufferedIndexOutput.Close()
+	return out.delegate.Close()
 }
+
+func (out *RateLimitedIndexOutput) FilePointer() int64 {
+	panic("not implementd yet")
+}
+
+func (out *RateLimitedIndexOutput) WriteByte(b byte) error {
+	panic("not implemented yet")
+}
+
+func (out *RateLimitedIndexOutput) WriteBytes(p []byte) error {
+	panic("not implemented yet")
+}
+
+// func (out *RateLimitedIndexOutput) FlushBuffer(buf []byte) error {
+// 	out.rateLimiter.Pause(int64(len(buf)))
+// 	if v, ok := out.delegate.(flushBuffer); ok {
+// 		return v.FlushBuffer(buf)
+// 	}
+// 	panic("double check if flushBuffer interface is satisfied")
+// 	return out.delegate.WriteBytes(buf)
+// }
+
+// func (out *RateLimitedIndexOutput) Length() (int64, error) {
+// 	return out.delegate.Length()
+// }
