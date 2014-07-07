@@ -7,7 +7,6 @@ import (
 )
 
 type DocValuesWriter interface {
-	abort()
 	finish(int)
 	flush(model.SegmentWriteState, DocValuesConsumer) error
 }
@@ -18,21 +17,21 @@ const MISSING int64 = 0
 
 /* Buffers up pending long per doc, then flushes when segment flushes. */
 type NumericDocValuesWriter struct {
-	pending            *packed.AppendingDeltaPackedLongBuffer
-	iwBytesUsed        util.Counter
-	bytesUsed          int64
-	docsWithField      *util.OpenBitSet
-	fieldInfo          *model.FieldInfo
-	trackDocsWithField bool
+	pending       *packed.AppendingDeltaPackedLongBuffer
+	iwBytesUsed   util.Counter
+	bytesUsed     int64
+	docsWithField *util.FixedBitSet
+	fieldInfo     *model.FieldInfo
 }
 
 func newNumericDocValuesWriter(fieldInfo *model.FieldInfo,
 	iwBytesUsed util.Counter, trackDocsWithField bool) *NumericDocValuesWriter {
 	ans := &NumericDocValuesWriter{
-		docsWithField:      util.NewOpenBitSet(),
-		fieldInfo:          fieldInfo,
-		iwBytesUsed:        iwBytesUsed,
-		trackDocsWithField: trackDocsWithField,
+		fieldInfo:   fieldInfo,
+		iwBytesUsed: iwBytesUsed,
+	}
+	if trackDocsWithField {
+		ans.docsWithField = util.NewFixedBitSetOf(64)
 	}
 	ans.pending = packed.NewAppendingDeltaPackedLongBufferWithOverhead(packed.PackedInts.COMPACT)
 	ans.bytesUsed = ans.pending.RamBytesUsed() + ans.docsWithFieldBytesUsed()
@@ -51,8 +50,9 @@ func (w *NumericDocValuesWriter) addValue(docId int, value int64) {
 	}
 
 	w.pending.Add(value)
-	if w.trackDocsWithField {
-		w.docsWithField.Set(int64(docId))
+	if w.docsWithField != nil {
+		w.docsWithField = util.EnsureFixedBitSet(w.docsWithField, docId)
+		w.docsWithField.Set(docId)
 	}
 
 	w.updateBytesUsed()
@@ -60,7 +60,10 @@ func (w *NumericDocValuesWriter) addValue(docId int, value int64) {
 
 func (w *NumericDocValuesWriter) docsWithFieldBytesUsed() int64 {
 	// size of the []int64 + some overhead
-	return util.SizeOf(w.docsWithField.RealBits()) + 64
+	if w.docsWithField == nil {
+		return 0
+	}
+	return util.SizeOf(w.docsWithField.Bits()) + 64
 }
 
 func (w *NumericDocValuesWriter) updateBytesUsed() {
@@ -71,14 +74,12 @@ func (w *NumericDocValuesWriter) updateBytesUsed() {
 
 func (w *NumericDocValuesWriter) finish(numDoc int) {}
 
-func (w *NumericDocValuesWriter) flush(state model.SegmentWriteState,
+func (w *NumericDocValuesWriter) flush(state *model.SegmentWriteState,
 	dvConsumer DocValuesConsumer) error {
 	maxDoc := state.SegmentInfo.DocCount()
 	dvConsumer.AddNumericField(w.fieldInfo, newNumericIterator(maxDoc, w))
 	return nil
 }
-
-func (w *NumericDocValuesWriter) abort() {}
 
 /* Iterates over the values we have in ram */
 type NumericIterator struct{}
@@ -93,12 +94,12 @@ func newNumericIterator(maxDoc int, owner *NumericDocValuesWriter) func() (inter
 		var value interface{}
 		if upto < size {
 			v, _ := iter()
-			if !owner.trackDocsWithField || owner.docsWithField.Get(int64(upto)) {
+			if owner.docsWithField == nil || owner.docsWithField.At(upto) {
 				value = v
 			} else {
 				value = nil
 			}
-		} else if owner.trackDocsWithField {
+		} else if owner.docsWithField != nil {
 			value = nil
 		} else {
 			value = MISSING

@@ -49,7 +49,7 @@ func (f *Lucene41PostingsFormat) String() {
 	panic("not implemented yet")
 }
 
-func (f *Lucene41PostingsFormat) FieldsConsumer(state model.SegmentWriteState) (FieldsConsumer, error) {
+func (f *Lucene41PostingsFormat) FieldsConsumer(state *model.SegmentWriteState) (FieldsConsumer, error) {
 	postingsWriter, err := newLucene41PostingsWriterCompact(state)
 	if err != nil {
 		return nil, err
@@ -168,7 +168,7 @@ type Lucene41PostingsWriter struct {
 }
 
 /* Creates a postings writer with the specified PackedInts overhead ratio */
-func newLucene41PostingsWriter(state model.SegmentWriteState,
+func newLucene41PostingsWriter(state *model.SegmentWriteState,
 	accetableOverheadRatio float32) (*Lucene41PostingsWriter, error) {
 	docOut, err := state.Directory.CreateOutput(
 		util.SegmentFileName(state.SegmentInfo.Name,
@@ -260,7 +260,7 @@ func newLucene41PostingsWriter(state model.SegmentWriteState,
 }
 
 /* Creates a postings writer with PackedInts.COMPACT */
-func newLucene41PostingsWriterCompact(state model.SegmentWriteState) (*Lucene41PostingsWriter, error) {
+func newLucene41PostingsWriterCompact(state *model.SegmentWriteState) (*Lucene41PostingsWriter, error) {
 	return newLucene41PostingsWriter(state, packed.PackedInts.COMPACT)
 }
 

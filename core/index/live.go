@@ -15,7 +15,21 @@ settings that can be changed on an IndexWriter instance "live".
 
 All the fields are either readonly or volatile.
 */
-type LiveIndexWriterConfig struct {
+type LiveIndexWriterConfig interface {
+	TermIndexInterval() int
+	MaxBufferedDocs() int
+	RAMBufferSizeMB() float64
+	Similarity() Similarity
+	Codec() Codec
+	indexingChain() IndexingChain
+	RAMPerThreadHardLimitMB() int
+	flushPolicy() FlushPolicy
+	InfoStream() util.InfoStream
+	indexerThreadPool() *DocumentsWriterPerThreadPool
+	UseCompoundFile() bool
+}
+
+type LiveIndexWriterConfigImpl struct {
 	analyzer analysis.Analyzer
 
 	maxBufferedDocs         int
@@ -45,7 +59,7 @@ type LiveIndexWriterConfig struct {
 	writeLockTimeout int64
 
 	// IndexingChain that determines how documents are indexed.
-	indexingChain IndexingChain
+	_indexingChain IndexingChain
 
 	// Codec used to write new segments.
 	codec Codec
@@ -58,13 +72,13 @@ type LiveIndexWriterConfig struct {
 
 	// DocumentsWriterPerThreadPool to control how goroutines are
 	// allocated to DocumentsWriterPerThread.
-	indexerThreadPool *DocumentsWriterPerThreadPool
+	_indexerThreadPool *DocumentsWriterPerThreadPool
 
 	// True if readers should be pooled.
 	readerPooling bool
 
 	// FlushPolicy to control when segments are flushed.
-	flushPolicy FlushPolicy
+	_flushPolicy FlushPolicy
 
 	// Sets the hard upper bound on RAM usage for a single segment,
 	// after which the segment is forced to flush.
@@ -74,14 +88,19 @@ type LiveIndexWriterConfig struct {
 	matchVersion util.Version
 
 	// True is segment flushes should use compound file format
-	useCompoundFile bool
+	useCompoundFile bool // volatile
+
+	// True if merging should check integrity of segments before merge
+	checkIntegrityAtMerge bool // volatile
 }
 
 // used by IndexWriterConfig
-func newLiveIndexWriterConfig(analyzer analysis.Analyzer, matchVersion util.Version) *LiveIndexWriterConfig {
+func newLiveIndexWriterConfig(analyzer analysis.Analyzer,
+	matchVersion util.Version) *LiveIndexWriterConfigImpl {
+
 	assert(DefaultSimilarity != nil)
 	assert(DefaultCodec != nil)
-	return &LiveIndexWriterConfig{
+	return &LiveIndexWriterConfigImpl{
 		analyzer:                analyzer,
 		matchVersion:            matchVersion,
 		ramBufferSizeMB:         DEFAULT_RAM_BUFFER_SIZE_MB,
@@ -95,44 +114,49 @@ func newLiveIndexWriterConfig(analyzer analysis.Analyzer, matchVersion util.Vers
 		similarity:              DefaultSimilarity(),
 		mergeScheduler:          NewConcurrentMergeScheduler(),
 		writeLockTimeout:        WRITE_LOCK_TIMEOUT,
-		indexingChain:           defaultIndexingChain,
+		_indexingChain:          defaultIndexingChain,
 		codec:                   DefaultCodec(),
 		infoStream:              util.DefaultInfoStream(),
 		mergePolicy:             NewTieredMergePolicy(),
-		flushPolicy:             newFlushByRamOrCountsPolicy(),
+		_flushPolicy:            newFlushByRamOrCountsPolicy(),
 		readerPooling:           DEFAULT_READER_POOLING,
-		indexerThreadPool:       NewDocumentsWriterPerThreadPool(DEFAULT_MAX_THREAD_STATES),
+		_indexerThreadPool:      NewDocumentsWriterPerThreadPool(DEFAULT_MAX_THREAD_STATES),
 		perRoutineHardLimitMB:   DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB,
+		checkIntegrityAtMerge:   DEFAULT_CHECK_INTEGRITY_AT_MERGE,
 	}
 }
 
 // Creates a new config that handles the live IndexWriter settings.
-func newLiveIndexWriterConfigFrom(config *IndexWriterConfig) *LiveIndexWriterConfig {
-	return &LiveIndexWriterConfig{
-		maxBufferedDeleteTerms:  config.maxBufferedDeleteTerms,
-		maxBufferedDocs:         config.maxBufferedDocs,
-		mergedSegmentWarmer:     config.mergedSegmentWarmer,
-		ramBufferSizeMB:         config.ramBufferSizeMB,
-		readerTermsIndexDivisor: config.readerTermsIndexDivisor,
-		termIndexInterval:       config.termIndexInterval,
-		matchVersion:            config.matchVersion,
-		analyzer:                config.analyzer,
-		delPolicy:               config.delPolicy,
-		commit:                  config.commit,
-		openMode:                config.openMode,
-		similarity:              config.similarity,
-		mergeScheduler:          config.mergeScheduler,
-		writeLockTimeout:        config.writeLockTimeout,
-		indexingChain:           config.indexingChain,
-		codec:                   config.codec,
-		infoStream:              config.infoStream,
-		mergePolicy:             config.mergePolicy,
-		indexerThreadPool:       config.indexerThreadPool,
-		readerPooling:           config.readerPooling,
-		flushPolicy:             config.flushPolicy,
-		perRoutineHardLimitMB:   config.perRoutineHardLimitMB,
-		useCompoundFile:         config.useCompoundFile,
-	}
+// func newLiveIndexWriterConfigFrom(config *IndexWriterConfig) *LiveIndexWriterConfigImpl {
+// 	return &LiveIndexWriterConfig{
+// 		maxBufferedDeleteTerms:  config.maxBufferedDeleteTerms,
+// 		maxBufferedDocs:         config.maxBufferedDocs,
+// 		mergedSegmentWarmer:     config.mergedSegmentWarmer,
+// 		ramBufferSizeMB:         config.ramBufferSizeMB,
+// 		readerTermsIndexDivisor: config.readerTermsIndexDivisor,
+// 		termIndexInterval:       config.termIndexInterval,
+// 		matchVersion:            config.matchVersion,
+// 		analyzer:                config.analyzer,
+// 		delPolicy:               config.delPolicy,
+// 		commit:                  config.commit,
+// 		openMode:                config.openMode,
+// 		similarity:              config.similarity,
+// 		mergeScheduler:          config.mergeScheduler,
+// 		writeLockTimeout:        config.writeLockTimeout,
+// 		indexingChain:           config.indexingChain,
+// 		codec:                   config.codec,
+// 		infoStream:              config.infoStream,
+// 		mergePolicy:             config.mergePolicy,
+// 		indexerThreadPool:       config.indexerThreadPool,
+// 		readerPooling:           config.readerPooling,
+// 		flushPolicy:             config.flushPolicy,
+// 		perRoutineHardLimitMB:   config.perRoutineHardLimitMB,
+// 		useCompoundFile:         config.useCompoundFile,
+// 	}
+// }
+
+func (conf *LiveIndexWriterConfigImpl) TermIndexInterval() int {
+	return conf.termIndexInterval
 }
 
 // L358
@@ -152,7 +176,7 @@ Disabled by default (writer flushes by RAM usage).
 Takes effect immediately, but only the next time a document is added,
 updated or deleted.
 */
-func (conf *LiveIndexWriterConfig) SetMaxBufferedDocs(maxBufferedDocs int) *LiveIndexWriterConfig {
+func (conf *LiveIndexWriterConfigImpl) SetMaxBufferedDocs(maxBufferedDocs int) *LiveIndexWriterConfigImpl {
 	assert2(maxBufferedDocs == DISABLE_AUTO_FLUSH || maxBufferedDocs >= 2,
 		"maxBufferedDocs must at least be 2 when enabled")
 	assert2(maxBufferedDocs != DISABLE_AUTO_FLUSH || conf.ramBufferSizeMB != DISABLE_AUTO_FLUSH,
@@ -161,12 +185,21 @@ func (conf *LiveIndexWriterConfig) SetMaxBufferedDocs(maxBufferedDocs int) *Live
 	return conf
 }
 
+/* Returns the number of buffered added documents that will trigger a flush if enabled. */
+func (conf *LiveIndexWriterConfigImpl) MaxBufferedDocs() int {
+	return conf.maxBufferedDocs
+}
+
+func (conf *LiveIndexWriterConfigImpl) RAMBufferSizeMB() float64 {
+	return conf.ramBufferSizeMB
+}
+
 /*
 Sets the merged segment warmer.
 
 Take effect on the next merge.
 */
-func (conf *LiveIndexWriterConfig) SetMergedSegmentWarmer(mergeSegmentWarmer IndexReaderWarmer) *LiveIndexWriterConfig {
+func (conf *LiveIndexWriterConfigImpl) SetMergedSegmentWarmer(mergeSegmentWarmer IndexReaderWarmer) *LiveIndexWriterConfigImpl {
 	conf.mergedSegmentWarmer = mergeSegmentWarmer
 	return conf
 }
@@ -187,11 +220,42 @@ implementation, including the default one in this release. It only
 makes sense for terms indexes that can efficiently re-sample terms at
 load time.
 */
-func (conf *LiveIndexWriterConfig) SetReaderTermsIndexDivisor(divisor int) *LiveIndexWriterConfig {
+func (conf *LiveIndexWriterConfigImpl) SetReaderTermsIndexDivisor(divisor int) *LiveIndexWriterConfigImpl {
 	assert2(divisor > 0 || divisor == -1, fmt.Sprintf(
 		"divisor must be >= 1, or -1 (got %v)", divisor))
 	conf.readerTermsIndexDivisor = divisor
 	return conf
+}
+
+func (conf *LiveIndexWriterConfigImpl) Similarity() Similarity {
+	return conf.similarity
+}
+
+/* Returns the current Codec. */
+func (conf *LiveIndexWriterConfigImpl) Codec() Codec {
+	return conf.codec
+}
+
+/* Returns the configured DocumentsWriterPerThreadPool instance. */
+func (conf *LiveIndexWriterConfigImpl) indexerThreadPool() *DocumentsWriterPerThreadPool {
+	return conf._indexerThreadPool
+}
+
+func (conf *LiveIndexWriterConfigImpl) indexingChain() IndexingChain {
+	return conf._indexingChain
+}
+
+func (conf *LiveIndexWriterConfigImpl) RAMPerThreadHardLimitMB() int {
+	return conf.perRoutineHardLimitMB
+}
+
+func (conf *LiveIndexWriterConfigImpl) flushPolicy() FlushPolicy {
+	return conf._flushPolicy
+}
+
+/* Returns InfoStream used for debugging. */
+func (conf *LiveIndexWriterConfigImpl) InfoStream() util.InfoStream {
+	return conf.infoStream
 }
 
 /*
@@ -204,12 +268,16 @@ Note: To control compound file usage during segment merges see
 SetNoCFSRatio() and SetMaxCFSSegmentSizeMB(). This setting only
 applies to newly created segment.
 */
-func (conf *LiveIndexWriterConfig) SetUseCompoundFile(useCompoundFile bool) *LiveIndexWriterConfig {
+func (conf *LiveIndexWriterConfigImpl) SetUseCompoundFile(useCompoundFile bool) *LiveIndexWriterConfigImpl {
 	conf.useCompoundFile = useCompoundFile
 	return conf
 }
 
-func (conf *LiveIndexWriterConfig) String() string {
+func (conf *LiveIndexWriterConfigImpl) UseCompoundFile() bool {
+	return conf.useCompoundFile
+}
+
+func (conf *LiveIndexWriterConfigImpl) String() string {
 	return fmt.Sprintf(`matchVersion=%v
 analyzer=%v
 ramBufferSizeMB=%v
@@ -232,6 +300,7 @@ indexerThreadPool=%v
 readerPooling=%v
 perThreadHardLimitMB=%v
 useCompoundFile=%v
+checkIntegrityAtMerge=%v
 `, conf.matchVersion, reflect.TypeOf(conf.analyzer),
 		conf.ramBufferSizeMB, conf.maxBufferedDocs,
 		conf.maxBufferedDeleteTerms, reflect.TypeOf(conf.mergedSegmentWarmer),
@@ -242,5 +311,6 @@ useCompoundFile=%v
 		conf.writeLockTimeout, conf.codec,
 		reflect.TypeOf(conf.infoStream), conf.mergePolicy,
 		conf.indexerThreadPool, conf.readerPooling,
-		conf.perRoutineHardLimitMB, conf.useCompoundFile)
+		conf.perRoutineHardLimitMB, conf.useCompoundFile,
+		conf.checkIntegrityAtMerge)
 }

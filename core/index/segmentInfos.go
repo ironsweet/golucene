@@ -27,7 +27,8 @@ func NewFindSegmentsFile(directory store.Directory,
 }
 
 // TODO support IndexCommit
-func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
+func (fsf *FindSegmentsFile) run(commit IndexCommit) (obj interface{}, err error) {
+	panic("not implemented yet")
 	fmt.Println("Finding segments file...")
 	// if commit != nil {
 	// 	if fsf.directory != commit.Directory {
@@ -87,7 +88,7 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 			// a stale cache (NFS) we have a better chance of
 			// getting the right generation.
 			genB := int64(-1)
-			genInput, err := fsf.directory.OpenInput(INDEX_FILENAME_SEGMENTS_GEN, store.IO_CONTEXT_READ)
+			genInput, err := fsf.directory.OpenChecksumInput(INDEX_FILENAME_SEGMENTS_GEN, store.IO_CONTEXT_READ)
 			if err != nil {
 				message("segments.gen open: %v", err)
 			} else {
@@ -207,8 +208,10 @@ func (fsf *FindSegmentsFile) run() (obj interface{}, err error) {
 // index/SegmentInfos.java
 
 const (
-	VERSION_40                  = 0
-	FORMAT_SEGMENTS_GEN_CURRENT = -2
+	VERSION_40                   = 0
+	FORMAT_SEGMENTS_GEN_CHECKSUM = -3
+	// Current format of segments.gen
+	FORMAT_SEGMENTS_GEN_CURRENT = FORMAT_SEGMENTS_GEN_CHECKSUM
 )
 
 /*
@@ -233,9 +236,10 @@ followed by the generation recorded as int64, written twice.
 
 Files:
 
-- segments.gen: GenHeader, Generation, Generation
+- segments.gen: GenHeader, Generation, Generation, Footer
 - segments_N: Header, Version, NameCounter, SegCount,
-  <SegName, SegCodec, DelGen, DeletionCount>^SegCount, CommitUserData, Checksum
+  <SegName, SegCodec, DelGen, DeletionCount, FieldInfosGen,
+  DocValuesGen, UpdatesFiles>^SegCount, CommitUserData, Footer
 
 Data types:
 
@@ -244,6 +248,8 @@ Data types:
 - Generation, Version, DelGen, Checksum --> int64
 - SegName, SegCodec --> string
 - CommitUserData --> map[string]string
+- UpdatesFiles --> map[int32]map[string]bool>
+- Footer --> CodecFooter
 
 Field Descriptions:
 
@@ -256,12 +262,19 @@ Field Descriptions:
   there are no deletes. Anything above zero means there are deletes
   stored by LiveDocsFormat.
 - DeletionCount records the number of deleted documents in this segment.
-- Checksum contains the CRC32 checksum of all bytes in the segments_N
-  file up until the checksum. This is used to verify integrity of the
-  file on opening the index.
 - SegCodec is the nme of the Codec that encoded this segment.
 - CommitUserData stores an optional user-spplied opaue
   map[string]string that was passed to SetCommitData().
+- FieldInfosGen is the generation count of the fieldInfos file. If
+	this is -1, there are no updates to the fieldInfos in that segment.
+	Anything above zero means there are updates to the fieldInfos
+	stored by FieldInfosFormat.
+- DocValuesGen is the generation count of the updatable DocValues. If
+	this is -1, there are no udpates to DocValues in that segment.
+	Anything above zero means there are updates to DocValues stored by
+	DocvaluesFormat.
+- UpdatesFiles stores the set of files that were updated in that
+	segment per file.
 */
 type SegmentInfos struct {
 	counter        int
@@ -269,11 +282,11 @@ type SegmentInfos struct {
 	generation     int64
 	lastGeneration int64
 	userData       map[string]string
-	Segments       []*SegmentInfoPerCommit
+	Segments       []*SegmentCommitInfo
 
 	// Only non-nil after prepareCommit has been called and before
 	// finishCommit is called
-	pendingSegnOutput *store.ChecksumIndexOutput
+	pendingSegnOutput store.IndexOutput
 }
 
 func LastCommitGeneration(files []string) int64 {
@@ -331,11 +344,11 @@ func writeSegmentsGen(dir store.Directory, generation int64) {
 			err = mergeError(err, dir.Sync([]string{INDEX_FILENAME_SEGMENTS_GEN}))
 		}()
 
-		err = genOutput.WriteInt(FORMAT_SEGMENTS_GEN_CURRENT)
-		if err == nil {
-			err = genOutput.WriteLong(generation)
-			if err == nil {
-				err = genOutput.WriteLong(generation)
+		if err = genOutput.WriteInt(FORMAT_SEGMENTS_GEN_CURRENT); err == nil {
+			if err = genOutput.WriteLong(generation); err == nil {
+				if err = genOutput.WriteLong(generation); err == nil {
+					err = codec.WriteFooter(genOutput)
+				}
 			}
 		}
 		return err
@@ -363,111 +376,112 @@ Read a particular segmentFileName. Note that this may return IO error
 if a commit is in process.
 */
 func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string) error {
-	fmt.Printf("Reading segment info from %v...\n", segmentFileName)
-	success := false
+	panic("not implemented yet")
+	// fmt.Printf("Reading segment info from %v...\n", segmentFileName)
+	// success := false
 
-	// Clear any previous segments:
-	sis.Clear()
+	// // Clear any previous segments:
+	// sis.Clear()
 
-	sis.generation = GenerationFromSegmentsFileName(segmentFileName)
-	sis.lastGeneration = sis.generation
+	// sis.generation = GenerationFromSegmentsFileName(segmentFileName)
+	// sis.lastGeneration = sis.generation
 
-	main, err := directory.OpenInput(segmentFileName, store.IO_CONTEXT_READ)
-	if err != nil {
-		return err
-	}
-	input := store.NewChecksumIndexInput(main)
-	defer func() {
-		if !success {
-			// Clear any segment infos we had loaded so we
-			// have a clean slate on retry:
-			sis.Clear()
-			util.CloseWhileSuppressingError(input)
-		} else {
-			input.Close()
-		}
-	}()
+	// main, err := directory.OpenInput(segmentFileName, store.IO_CONTEXT_READ)
+	// if err != nil {
+	// 	return err
+	// }
+	// input := store.NewChecksumIndexInput(main)
+	// defer func() {
+	// 	if !success {
+	// 		// Clear any segment infos we had loaded so we
+	// 		// have a clean slate on retry:
+	// 		sis.Clear()
+	// 		util.CloseWhileSuppressingError(input)
+	// 	} else {
+	// 		input.Close()
+	// 	}
+	// }()
 
-	format, err := input.ReadInt()
-	if err != nil {
-		return err
-	}
-	if format == codec.CODEC_MAGIC {
-		// 4.0+
-		_, err = codec.CheckHeaderNoMagic(input, "segments", VERSION_40, VERSION_40)
-		if err != nil {
-			return err
-		}
-		sis.version, err = input.ReadLong()
-		if err != nil {
-			return err
-		}
-		sis.counter, err = asInt(input.ReadInt())
-		if err != nil {
-			return err
-		}
-		numSegments, err := asInt(input.ReadInt())
-		if err != nil {
-			return err
-		}
-		if numSegments < 0 {
-			return errors.New(fmt.Sprintf("invalid segment count: %v (resource: %v)", numSegments, input))
-		}
-		for seg := 0; seg < numSegments; seg++ {
-			segName, err := input.ReadString()
-			if err != nil {
-				return err
-			}
-			codecName, err := input.ReadString()
-			if err != nil {
-				return err
-			}
-			fCodec := LoadCodec(codecName)
-			assertn(fCodec != nil, "Invalid codec name: %v", codecName)
-			fmt.Printf("SIS.read seg=%v codec=%v\n", seg, fCodec)
-			info, err := fCodec.SegmentInfoFormat().SegmentInfoReader()(directory, segName, store.IO_CONTEXT_READ)
-			// method := NewLucene42Codec()
-			// info, err := method.ReadSegmentInfo(directory, segName, store.IO_CONTEXT_READ)
-			if err != nil {
-				return err
-			}
-			// info.codec = method
-			info.SetCodec(fCodec)
-			delGen, err := input.ReadLong()
-			if err != nil {
-				return err
-			}
-			delCount, err := asInt(input.ReadInt())
-			if err != nil {
-				return err
-			}
-			if delCount < 0 || delCount > info.DocCount() {
-				return errors.New(fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input))
-			}
-			sis.Segments = append(sis.Segments, NewSegmentInfoPerCommit(info, delCount, delGen))
-		}
-		sis.userData, err = input.ReadStringStringMap()
-		if err != nil {
-			return err
-		}
-	} else {
-		// TODO support <4.0 index
-		panic("Index format pre-4.0 not supported yet")
-	}
+	// format, err := input.ReadInt()
+	// if err != nil {
+	// 	return err
+	// }
+	// if format == codec.CODEC_MAGIC {
+	// 	// 4.0+
+	// 	_, err = codec.CheckHeaderNoMagic(input, "segments", VERSION_40, VERSION_40)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	sis.version, err = input.ReadLong()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	sis.counter, err = asInt(input.ReadInt())
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	numSegments, err := asInt(input.ReadInt())
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	if numSegments < 0 {
+	// 		return errors.New(fmt.Sprintf("invalid segment count: %v (resource: %v)", numSegments, input))
+	// 	}
+	// 	for seg := 0; seg < numSegments; seg++ {
+	// 		segName, err := input.ReadString()
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		codecName, err := input.ReadString()
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		fCodec := LoadCodec(codecName)
+	// 		assertn(fCodec != nil, "Invalid codec name: %v", codecName)
+	// 		fmt.Printf("SIS.read seg=%v codec=%v\n", seg, fCodec)
+	// 		info, err := fCodec.SegmentInfoFormat().SegmentInfoReader()(directory, segName, store.IO_CONTEXT_READ)
+	// 		// method := NewLucene42Codec()
+	// 		// info, err := method.ReadSegmentInfo(directory, segName, store.IO_CONTEXT_READ)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		// info.codec = method
+	// 		info.SetCodec(fCodec)
+	// 		delGen, err := input.ReadLong()
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		delCount, err := asInt(input.ReadInt())
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		if delCount < 0 || delCount > info.DocCount() {
+	// 			return errors.New(fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input))
+	// 		}
+	// 		sis.Segments = append(sis.Segments, NewSegmentCommitInfo(info, delCount, delGen))
+	// 	}
+	// 	sis.userData, err = input.ReadStringStringMap()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// } else {
+	// 	// TODO support <4.0 index
+	// 	panic("Index format pre-4.0 not supported yet")
+	// }
 
-	checksumNow := int64(input.Checksum())
-	checksumThen, err := input.ReadLong()
-	if err != nil {
-		return err
-	}
-	if checksumNow != checksumThen {
-		return errors.New(fmt.Sprintf(
-			"checksum mismatch in segments file: %v vs %v (resource: %v)",
-			checksumNow, checksumThen, input))
-	}
+	// checksumNow := int64(input.Checksum())
+	// checksumThen, err := input.ReadLong()
+	// if err != nil {
+	// 	return err
+	// }
+	// if checksumNow != checksumThen {
+	// 	return errors.New(fmt.Sprintf(
+	// 		"checksum mismatch in segments file: %v vs %v (resource: %v)",
+	// 		checksumNow, checksumThen, input))
+	// }
 
-	success = true
-	return nil
+	// success = true
+	// return nil
 }
 
 func (sis *SegmentInfos) ReadAll(directory store.Directory) error {
@@ -475,90 +489,91 @@ func (sis *SegmentInfos) ReadAll(directory store.Directory) error {
 	_, err := NewFindSegmentsFile(directory, func(segmentFileName string) (obj interface{}, err error) {
 		err = sis.Read(directory, segmentFileName)
 		return nil, err
-	}).run()
+	}).run(nil)
 	return err
 }
 
 func (sis *SegmentInfos) write(directory store.Directory) error {
-	segmentsFilename := sis.nextSegmentFilename()
+	panic("not implemented yet")
+	// segmentsFilename := sis.nextSegmentFilename()
 
-	// Always advance the generation on write:
-	if sis.generation == -1 {
-		sis.generation = 1
-	} else {
-		sis.generation++
-	}
+	// // Always advance the generation on write:
+	// if sis.generation == -1 {
+	// 	sis.generation = 1
+	// } else {
+	// 	sis.generation++
+	// }
 
-	var segnOutput *store.ChecksumIndexOutput
-	var success = false
-	var upgradedSIFiles = make(map[string]bool)
+	// var segnOutput *store.ChecksumIndexOutput
+	// var success = false
+	// var upgradedSIFiles = make(map[string]bool)
 
-	defer func() {
-		if !success {
-			// We hit an error above; try to close the file but suppress
-			// any errors
-			util.CloseWhileSuppressingError(segnOutput)
+	// defer func() {
+	// 	if !success {
+	// 		// We hit an error above; try to close the file but suppress
+	// 		// any errors
+	// 		util.CloseWhileSuppressingError(segnOutput)
 
-			for filename, _ := range upgradedSIFiles {
-				directory.DeleteFile(filename) // ignore error
-			}
+	// 		for filename, _ := range upgradedSIFiles {
+	// 			directory.DeleteFile(filename) // ignore error
+	// 		}
 
-			// Try not to leave a truncated segments_N fle in the index:
-			directory.DeleteFile(segmentsFilename) // ignore error
-		}
-	}()
+	// 		// Try not to leave a truncated segments_N fle in the index:
+	// 		directory.DeleteFile(segmentsFilename) // ignore error
+	// 	}
+	// }()
 
-	out, err := directory.CreateOutput(segmentsFilename, store.IO_CONTEXT_DEFAULT)
-	if err != nil {
-		return err
-	}
-	segnOutput = store.NewChecksumIndexOutput(out)
-	err = codec.WriteHeader(segnOutput, "segments", VERSION_40)
-	if err != nil {
-		return err
-	}
-	err = segnOutput.WriteLong(sis.version)
-	if err == nil {
-		err = segnOutput.WriteInt(int32(sis.counter))
-		if err == nil {
-			err = segnOutput.WriteInt(int32(len(sis.Segments)))
-		}
-	}
-	if err != nil {
-		return err
-	}
-	for _, siPerCommit := range sis.Segments {
-		si := siPerCommit.info
-		err = segnOutput.WriteString(si.Name)
-		if err == nil {
-			err = segnOutput.WriteString(si.Codec().(Codec).Name())
-			if err == nil {
-				err = segnOutput.WriteLong(siPerCommit.delGen)
-				if err == nil {
-					err = segnOutput.WriteInt(int32(siPerCommit.delCount))
-				}
-			}
-		}
-		if err != nil {
-			return err
-		}
-		assert(si.Dir == directory)
+	// out, err := directory.CreateOutput(segmentsFilename, store.IO_CONTEXT_DEFAULT)
+	// if err != nil {
+	// 	return err
+	// }
+	// segnOutput = store.NewChecksumIndexOutput(out)
+	// err = codec.WriteHeader(segnOutput, "segments", VERSION_40)
+	// if err != nil {
+	// 	return err
+	// }
+	// err = segnOutput.WriteLong(sis.version)
+	// if err == nil {
+	// 	err = segnOutput.WriteInt(int32(sis.counter))
+	// 	if err == nil {
+	// 		err = segnOutput.WriteInt(int32(len(sis.Segments)))
+	// 	}
+	// }
+	// if err != nil {
+	// 	return err
+	// }
+	// for _, siPerCommit := range sis.Segments {
+	// 	si := siPerCommit.info
+	// 	err = segnOutput.WriteString(si.Name)
+	// 	if err == nil {
+	// 		err = segnOutput.WriteString(si.Codec().(Codec).Name())
+	// 		if err == nil {
+	// 			err = segnOutput.WriteLong(siPerCommit.delGen)
+	// 			if err == nil {
+	// 				err = segnOutput.WriteInt(int32(siPerCommit.delCount))
+	// 			}
+	// 		}
+	// 	}
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	assert(si.Dir == directory)
 
-		assert(siPerCommit.delCount <= si.DocCount())
+	// 	assert(siPerCommit.delCount <= si.DocCount())
 
-		// If this segment is pre-4.x, perform a one-time "upgrade" to
-		// write the .si file for it:
-		if version := si.Version(); version == "" || versionLess(version, "4.0") {
-			panic("not implemented yet")
-		}
-	}
-	err = segnOutput.WriteStringStringMap(sis.userData)
-	if err != nil {
-		return err
-	}
-	sis.pendingSegnOutput = segnOutput
-	success = true
-	return nil
+	// 	// If this segment is pre-4.x, perform a one-time "upgrade" to
+	// 	// write the .si file for it:
+	// 	if version := si.Version(); version == "" || versionLess(version, "4.0") {
+	// 		panic("not implemented yet")
+	// 	}
+	// }
+	// err = segnOutput.WriteStringStringMap(sis.userData)
+	// if err != nil {
+	// 	return err
+	// }
+	// sis.pendingSegnOutput = segnOutput
+	// success = true
+	// return nil
 }
 
 func versionLess(a, b string) bool {
@@ -703,9 +718,11 @@ func (sis *SegmentInfos) finishCommit(dir store.Directory) error {
 			}
 		}()
 
-		err := sis.pendingSegnOutput.FinishCommit()
-		success = err == nil
-		return err
+		if err := codec.WriteFooter(sis.pendingSegnOutput); err != nil {
+			return err
+		}
+		success = true
+		return nil
 	}(); err != nil {
 		return err
 	}
@@ -754,8 +771,8 @@ func (sis *SegmentInfos) changed() {
 	sis.version++
 }
 
-func (sis *SegmentInfos) createBackupSegmentInfos() []*SegmentInfoPerCommit {
-	ans := make([]*SegmentInfoPerCommit, len(sis.Segments))
+func (sis *SegmentInfos) createBackupSegmentInfos() []*SegmentCommitInfo {
+	ans := make([]*SegmentCommitInfo, len(sis.Segments))
 	for i, info := range sis.Segments {
 		assert(info.info.Codec() != nil)
 		ans[i] = info.Clone()
@@ -764,9 +781,9 @@ func (sis *SegmentInfos) createBackupSegmentInfos() []*SegmentInfoPerCommit {
 }
 
 // L1104
-func (sis *SegmentInfos) rollbackSegmentInfos(infos []*SegmentInfoPerCommit) {
+func (sis *SegmentInfos) rollbackSegmentInfos(infos []*SegmentCommitInfo) {
 	if cap(sis.Segments) < len(infos) {
-		sis.Segments = make([]*SegmentInfoPerCommit, len(infos))
+		sis.Segments = make([]*SegmentCommitInfo, len(infos))
 		copy(sis.Segments, infos)
 	} else {
 		n := len(sis.Segments)
@@ -786,10 +803,10 @@ func (sis *SegmentInfos) Clear() {
 }
 
 /*
-Remove the provided SegmentInfoPerCommit.
+Remove the provided SegmentCommitInfo.
 
 WARNING: O(N) cost
 */
-func (sis *SegmentInfos) remove(si *SegmentInfoPerCommit) {
+func (sis *SegmentInfos) remove(si *SegmentCommitInfo) {
 	panic("not implemented yet")
 }

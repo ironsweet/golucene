@@ -13,10 +13,12 @@ const (
 	CODEC = "BitVector"
 
 	/* Change DGaps to encode gaps between cleared bits, not set: */
-	VERSION_DGAPS_CLEARED = 1
+	BV_VERSION_DGAPS_CLEARED = 1
+
+	BV_VERSION_CHECKSUM = 2
 
 	/* Imcrement version to change it: */
-	VERSION_CURRENT = VERSION_DGAPS_CLEARED
+	BV_VERSION_CURRENT = BV_VERSION_CHECKSUM
 )
 
 type BitVector struct {
@@ -90,19 +92,19 @@ can be read by the constructor BitVector(Directory, String, IOContext)
 func (bv *BitVector) Write(d store.Directory, name string, ctx store.IOContext) (err error) {
 	assert(reflect.TypeOf(d).Name() != "CompoundFileDirectory")
 	var output store.IndexOutput
-	output, err = d.CreateOutput(name, ctx)
-	if err != nil {
+	if output, err = d.CreateOutput(name, ctx); err != nil {
 		return err
 	}
 	defer func() {
 		err = mergeError(err, output.Close())
 	}()
 
-	err = output.WriteInt(-2)
-	if err != nil {
+	if err = output.WriteInt(-2); err != nil {
 		return err
 	}
-	codec.WriteHeader(output, CODEC, VERSION_CURRENT)
+	if err = codec.WriteHeader(output, CODEC, BV_VERSION_CURRENT); err != nil {
+		return err
+	}
 	if bv.isSparse() {
 		// sparse bit-set more efficiently saved as d-gaps.
 		err = bv.writeClearedDgaps(output)
@@ -110,6 +112,9 @@ func (bv *BitVector) Write(d store.Directory, name string, ctx store.IOContext) 
 		err = bv.writeBits(output)
 	}
 	if err != nil {
+		return err
+	}
+	if err = codec.WriteFooter(output); err != nil {
 		return err
 	}
 	bv.assertCount()

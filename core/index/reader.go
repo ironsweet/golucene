@@ -1,7 +1,7 @@
 package index
 
 import (
-	"errors"
+	// "errors"
 	"fmt"
 	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/util"
@@ -82,30 +82,31 @@ func newIndexReader(self IndexReader) *IndexReaderImpl {
 }
 
 func (r *IndexReaderImpl) decRef() error {
-	// only check refcount here (don't call ensureOpen()), so we can
-	// still close the reader if it was made invalid by a child:
-	if r.refCount <= 0 {
-		return errors.New("this IndexReader is closed")
-	}
+	panic("not implemented yet")
+	// // only check refcount here (don't call ensureOpen()), so we can
+	// // still close the reader if it was made invalid by a child:
+	// if r.refCount <= 0 {
+	// 	return errors.New("this IndexReader is closed")
+	// }
 
-	rc := atomic.AddInt32(&r.refCount, -1)
-	if rc == 0 {
-		success := false
-		defer func() {
-			if !success {
-				// Put reference back on failure
-				atomic.AddInt32(&r.refCount, 1)
-			}
-		}()
-		r.doClose()
-		success = true
-		r.reportCloseToParentReaders()
-		r.notifyReaderClosedListeners()
-	} else if rc < 0 {
-		panic(fmt.Sprintf("too many decRef calls: refCount is %v after decrement", rc))
-	}
+	// rc := atomic.AddInt32(&r.refCount, -1)
+	// if rc == 0 {
+	// 	success := false
+	// 	defer func() {
+	// 		if !success {
+	// 			// Put reference back on failure
+	// 			atomic.AddInt32(&r.refCount, 1)
+	// 		}
+	// 	}()
+	// 	r.doClose()
+	// 	success = true
+	// 	r.reportCloseToParentReaders()
+	// 	r.notifyReaderClosedListeners()
+	// } else if rc < 0 {
+	// 	panic(fmt.Sprintf("too many decRef calls: refCount is %v after decrement", rc))
+	// }
 
-	return nil
+	// return nil
 }
 
 func (r *IndexReaderImpl) ensureOpen() {
@@ -126,12 +127,14 @@ func (r *IndexReaderImpl) registerParentReader(reader IndexReader) {
 	r.parentReaders[reader] = true
 }
 
-func (r *IndexReaderImpl) notifyReaderClosedListeners() {
+func (r *IndexReaderImpl) notifyReaderClosedListeners(err error) {
+	panic("not implemented yet")
 	r.readerClosedListenersLock.RLock()
 	defer r.readerClosedListenersLock.RUnlock()
 	for listener, _ := range r.readerClosedListeners {
 		listener.onClose(r)
 	}
+	return
 }
 
 func (r *IndexReaderImpl) reportCloseToParentReaders() {

@@ -31,6 +31,7 @@ const (
 var SENTINEL = make(map[string]FileSlice)
 
 type CompoundFileDirectory struct {
+	*DirectoryImpl
 	*BaseDirectory
 	sync.Locker
 
@@ -51,6 +52,7 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 		readBufferSize: bufferSize(context),
 		openForWrite:   openForWrite}
 	self.DirectoryImpl = NewDirectoryImpl(self)
+	self.BaseDirectory = NewBaseDirectory(self)
 
 	if !openForWrite {
 		log.Printf("Open for read.")

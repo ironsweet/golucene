@@ -24,8 +24,14 @@ func (err *NoSuchDirectoryError) Error() string {
 	return err.msg
 }
 
+type FSDirectorySPI interface {
+	OpenInput(string, IOContext) (IndexInput, error)
+}
+
 type FSDirectory struct {
+	*DirectoryImpl
 	*BaseDirectory
+	FSDirectorySPI
 	sync.Locker
 	path           string
 	staleFiles     map[string]bool // synchronized, files written, but not yet sync'ed
@@ -34,15 +40,17 @@ type FSDirectory struct {
 }
 
 // TODO support lock factory
-func newFSDirectory(self Directory, path string) (d *FSDirectory, err error) {
+func newFSDirectory(spi FSDirectorySPI, path string) (d *FSDirectory, err error) {
 	d = &FSDirectory{
-		BaseDirectory:  NewBaseDirectory(self),
 		Locker:         &sync.Mutex{},
 		path:           path,
 		staleFiles:     make(map[string]bool),
 		staleFilesLock: &sync.RWMutex{},
 		chunkSize:      math.MaxInt32,
 	}
+	d.DirectoryImpl = NewDirectoryImpl(d)
+	d.BaseDirectory = NewBaseDirectory(d)
+	d.FSDirectorySPI = spi
 
 	if fi, err := os.Stat(path); err == nil && !fi.IsDir() {
 		return d, newNoSuchDirectoryError(fmt.Sprintf("file '%v' exists but is not a directory", path))

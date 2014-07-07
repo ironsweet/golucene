@@ -126,7 +126,7 @@ Create a new writer. The number of items (terms or sub-blocks) per
 block will aim tobe between minItermsPerBlock and maxItemsPerBlock,
 though in some cases, the blocks may be smaller than the min.
 */
-func NewBlockTreeTermsWriter(state model.SegmentWriteState,
+func NewBlockTreeTermsWriter(state *model.SegmentWriteState,
 	postingsWriter PostingsWriterBase,
 	minItemsInBlock, maxItemsInBlock int) (*BlockTreeTermsWriter, error) {
 	assert2(minItemsInBlock >= 2, "minItemsInBlock must be >= 2; got %v", minItemsInBlock)

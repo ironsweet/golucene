@@ -108,7 +108,7 @@ func (fq *DocumentsWriterFlushQueue) _purge(writer *IndexWriter) (numPurged int,
 					atomic.AddInt32(&fq._ticketCount, -1)
 					assert(e.Value.(FlushTicket) == head)
 				}()
-				// if we block on publish -> lock IW -> lock BufferedDeletes,
+				// if we block on publish -> lock IW -> lock BufferedUpdates,
 				// we don't block concurrent segment flushes just because
 				// they want to append to the queue. The down-side is that we
 				// need to force a purge on fullFlush since there could be a
@@ -140,13 +140,13 @@ type FlushTicket interface {
 }
 
 type FlushTicketImpl struct {
-	frozenDeletes *FrozenBufferedDeletes
+	frozenUpdates *FrozenBufferedUpdates
 	published     bool
 }
 
-func newFlushTicket(frozenDeletes *FrozenBufferedDeletes) *FlushTicketImpl {
-	assert(frozenDeletes != nil)
-	return &FlushTicketImpl{frozenDeletes: frozenDeletes}
+func newFlushTicket(frozenUpdates *FrozenBufferedUpdates) *FlushTicketImpl {
+	assert(frozenUpdates != nil)
+	return &FlushTicketImpl{frozenUpdates: frozenUpdates}
 }
 
 /*
@@ -156,35 +156,35 @@ publishing operation is syned on IW -> BDS so that the SegmentInfo's
 delete generation is always GlobalPacket_deleteGeneration + 1
 */
 func (t *FlushTicketImpl) publishFlushedSegment(indexWriter *IndexWriter,
-	newSegment *FlushedSegment, globalPacket *FrozenBufferedDeletes) error {
+	newSegment *FlushedSegment, globalPacket *FrozenBufferedUpdates) error {
 	assert(newSegment != nil)
 	assert(newSegment.segmentInfo != nil)
-	segmentDeletes := newSegment.segmentDeletes
+	segmentUpdates := newSegment.segmentUpdates
 	// fmt.Printf("FLUSH: %v\n", newSegment.segmentInfo.Name())
 	if is := indexWriter.infoStream; is.IsEnabled("DW") {
-		is.Message("DW", "publishFlushedSegment seg-private deletes=%v", segmentDeletes)
-		if segmentDeletes != nil {
-			is.Message("DW", "flush: push buffered seg private deletes: %v", segmentDeletes)
+		is.Message("DW", "publishFlushedSegment seg-private updates=%v", segmentUpdates)
+		if segmentUpdates != nil {
+			is.Message("DW", "flush: push buffered seg private updates: %v", segmentUpdates)
 		}
 	}
 	// now publish!
-	return indexWriter.publishFlushedSegment(newSegment.segmentInfo, segmentDeletes, globalPacket)
+	return indexWriter.publishFlushedSegment(newSegment.segmentInfo, segmentUpdates, globalPacket)
 }
 
 func (t *FlushTicketImpl) finishFlush(indexWriter *IndexWriter,
-	newSegment *FlushedSegment, bufferedDeletes *FrozenBufferedDeletes) error {
+	newSegment *FlushedSegment, bufferedUpdates *FrozenBufferedUpdates) error {
 	// Finish the flushed segment and publish it to IndexWriter
 	if newSegment == nil {
-		assert(bufferedDeletes != nil)
-		if bufferedDeletes != nil && bufferedDeletes.any() {
-			indexWriter.publishFrozenDeletes(bufferedDeletes)
+		assert(bufferedUpdates != nil)
+		if bufferedUpdates != nil && bufferedUpdates.any() {
+			indexWriter.publishFrozenUpdates(bufferedUpdates)
 			if indexWriter.infoStream.IsEnabled("DW") {
-				indexWriter.infoStream.Message("DW", "flush: push buffered deletes: %v", bufferedDeletes)
+				indexWriter.infoStream.Message("DW", "flush: push buffered updates: %v", bufferedUpdates)
 			}
 		}
 		return nil
 	}
-	return t.publishFlushedSegment(indexWriter, newSegment, bufferedDeletes)
+	return t.publishFlushedSegment(indexWriter, newSegment, bufferedUpdates)
 }
 
 type SegmentFlushTicket struct {
@@ -193,16 +193,16 @@ type SegmentFlushTicket struct {
 	failed  bool
 }
 
-func newSegmentFlushTicket(frozenDeletes *FrozenBufferedDeletes) *SegmentFlushTicket {
+func newSegmentFlushTicket(frozenUpdates *FrozenBufferedUpdates) *SegmentFlushTicket {
 	return &SegmentFlushTicket{
-		FlushTicketImpl: newFlushTicket(frozenDeletes),
+		FlushTicketImpl: newFlushTicket(frozenUpdates),
 	}
 }
 
 func (ticket *SegmentFlushTicket) publish(writer *IndexWriter) error {
 	assertn(!ticket.published, "ticket was already publised - can not publish twice")
 	ticket.published = true
-	return ticket.finishFlush(writer, ticket.segment, ticket.frozenDeletes)
+	return ticket.finishFlush(writer, ticket.segment, ticket.frozenUpdates)
 }
 
 func (ticket *SegmentFlushTicket) setSegment(segment *FlushedSegment) {

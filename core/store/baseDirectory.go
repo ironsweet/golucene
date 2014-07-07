@@ -3,23 +3,23 @@ package store
 import ()
 
 type BaseDirectorySPI interface {
-	DirectoryImplSPI
+	// DirectoryImplSPI
 	LockID() string
 }
 
 /* Base implementation for a concrete Directory. */
 type BaseDirectory struct {
-	*DirectoryImpl
 	spi         BaseDirectorySPI
 	IsOpen      bool
 	lockFactory LockFactory
 }
 
 func NewBaseDirectory(spi BaseDirectorySPI) *BaseDirectory {
+	assert(spi != nil)
 	return &BaseDirectory{
-		DirectoryImpl: NewDirectoryImpl(spi),
-		spi:           spi,
-		IsOpen:        true,
+		// DirectoryImpl: NewDirectoryImpl(spi),
+		spi:    spi,
+		IsOpen: true,
 	}
 }
 
@@ -36,7 +36,6 @@ func (d *BaseDirectory) ClearLock(name string) error {
 
 func (d *BaseDirectory) SetLockFactory(lockFactory LockFactory) {
 	assert(d != nil && lockFactory != nil)
-	d.LockID()
 	d.lockFactory = lockFactory
 	d.lockFactory.SetLockPrefix(d.spi.LockID())
 }

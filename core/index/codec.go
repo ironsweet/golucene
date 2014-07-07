@@ -145,7 +145,7 @@ type PostingsFormat interface {
 	// Returns this posting format's name
 	Name() string
 	// Writes a new segment
-	FieldsConsumer(state model.SegmentWriteState) (FieldsConsumer, error)
+	FieldsConsumer(state *model.SegmentWriteState) (FieldsConsumer, error)
 	// Reads a segment. NOTE: by the time this call returns, it must
 	// hold open any files it will need to use; else, those files may
 	// be deleted. Additionally, required fiels may be deleted during
@@ -234,7 +234,7 @@ included.
 type DocValuesFormat interface {
 	Name() string
 	// Returns a DocValuesConsumer to write docvalues to the index.
-	FieldsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error)
+	FieldsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error)
 	// Returns a DocValuesProducer to read docvalues from the index.
 	//
 	// NOTE: by the time this call returns, it must
@@ -402,7 +402,7 @@ type FieldInfosFormat interface {
 // codecs/FieldInfosReader.java
 
 // Codec API for reading FieldInfos.
-type FieldInfosReader func(d store.Directory, name string, ctx store.IOContext) (infos model.FieldInfos, err error)
+type FieldInfosReader func(d store.Directory, name, suffix string, ctx store.IOContext) (infos model.FieldInfos, err error)
 
 // Codec API for writing FieldInfos.
 type FieldInfosWriter func(d store.Directory, name string, infos model.FieldInfos, ctx store.IOContext) error
@@ -432,7 +432,7 @@ type SegmentInfoWriter func(d store.Directory, info *model.SegmentInfo, infos mo
 // Encodes/decodes per-document score normalization values.
 type NormsFormat interface {
 	// Returns a DocValuesConsumer to write norms to the index.
-	NormsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error)
+	NormsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error)
 	// Returns a DocValuesProducer to read norms from the index.
 	//
 	// NOTE: by the time this call returns, it must
@@ -465,10 +465,10 @@ type LiveDocsFormat interface {
 	NewLiveDocs(size int) util.MutableBits
 	// Creates a new MutableBits of the same bits set and size of existing.
 	// NewLiveDocs(existing util.Bits) (util.MutableBits, error)
-	// Persist live docs bits. Use SegmentInfoPerCommit.nextDelGen() to
+	// Persist live docs bits. Use SegmentCommitInfo.nextDelGen() to
 	// determine the generation of the deletes file you should write to.
 	WriteLiveDocs(bits util.MutableBits, dir store.Directory,
-		info *SegmentInfoPerCommit, newDelCount int, ctx store.IOContext) error
-	// Records all files in use by this SegmentInfoPerCommit
-	Files(*SegmentInfoPerCommit) []string
+		info *SegmentCommitInfo, newDelCount int, ctx store.IOContext) error
+	// Records all files in use by this SegmentCommitInfo
+	Files(*SegmentCommitInfo) []string
 }

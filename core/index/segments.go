@@ -7,7 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
-	"sync/atomic"
+	// "sync/atomic"
 )
 
 // index/SegmentReader.java
@@ -21,13 +21,15 @@ import (
  */
 type SegmentReader struct {
 	*AtomicReaderImpl
-	si       *SegmentInfoPerCommit
+	si       *SegmentCommitInfo
 	liveDocs util.Bits
 	// Normally set to si.docCount - si.delDocCount, unless we
 	// were created as an NRT reader from IW, in which case IW
 	// tells us the docCount:
 	numDocs int
 	core    SegmentCoreReaders
+
+	fieldInfos model.FieldInfos
 }
 
 /**
@@ -36,7 +38,8 @@ type SegmentReader struct {
  * @throws IOException if there is a low-level IO error
  */
 // TODO: why is this public?
-func NewSegmentReader(si *SegmentInfoPerCommit, termInfosIndexDivisor int, context store.IOContext) (r *SegmentReader, err error) {
+func NewSegmentReader(si *SegmentCommitInfo, termInfosIndexDivisor int, context store.IOContext) (r *SegmentReader, err error) {
+	panic("not implemented yet")
 	log.Print("Initializing SegmentReader...")
 	r = &SegmentReader{}
 	log.Print("Obtaining AtomicReader...")
@@ -75,19 +78,25 @@ func NewSegmentReader(si *SegmentInfoPerCommit, termInfosIndexDivisor int, conte
 	return r, nil
 }
 
+/* Reads the most recent FieldInfos of the given segment info. */
+func ReadFieldInfos(info *SegmentCommitInfo) (model.FieldInfos, error) {
+	panic("not implemented yet")
+}
+
 func (r *SegmentReader) LiveDocs() util.Bits {
 	r.ensureOpen()
 	return r.liveDocs
 }
 
 func (r *SegmentReader) doClose() error {
+	panic("not implemented yet")
 	r.core.decRef()
 	return nil
 }
 
 func (r *SegmentReader) FieldInfos() model.FieldInfos {
 	r.ensureOpen()
-	return r.core.fieldInfos
+	return r.fieldInfos
 }
 
 // Expert: retrieve thread-private StoredFieldsReader
@@ -141,7 +150,7 @@ func (r *SegmentReader) SegmentName() string {
 	return r.si.info.Name
 }
 
-func (r *SegmentReader) SegmentInfos() *SegmentInfoPerCommit {
+func (r *SegmentReader) SegmentInfos() *SegmentCommitInfo {
 	return r.si
 }
 
@@ -186,20 +195,22 @@ func (r *SegmentReader) SortedSetDocValues(field string) (v SortedSetDocValues, 
 
 func (r *SegmentReader) NormValues(field string) (v NumericDocValues, err error) {
 	r.ensureOpen()
-	return r.core.normValues(field)
+	return r.core.normValues(r.fieldInfos, field)
 }
 
 type CoreClosedListener interface {
 	onClose(r *SegmentReader)
 }
 
+// index/SegmentCoreReaders.java
+
 type SegmentCoreReaders struct {
 	refCount int32 // synchronized
 
-	fieldInfos model.FieldInfos
+	// fieldInfos model.FieldInfos
 
-	fields        FieldsProducer
-	dvProducer    DocValuesProducer
+	fields FieldsProducer
+	// dvProducer    DocValuesProducer
 	normsProducer DocValuesProducer
 
 	termsIndexDivisor int
@@ -225,176 +236,184 @@ type SegmentCoreReaders struct {
 	notifyListener chan *SegmentReader
 }
 
-func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *SegmentInfoPerCommit,
+func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *SegmentCommitInfo,
 	context store.IOContext, termsIndexDivisor int) (self SegmentCoreReaders, err error) {
-	if termsIndexDivisor == 0 {
-		panic("indexDivisor must be < 0 (don't load terms index) or greater than 0 (got 0)")
-	}
-	log.Printf("Initializing SegmentCoreReaders from directory: %v", dir)
 
-	self = SegmentCoreReaders{
-		refCount: 1,
-		normsLocal: func() map[string]interface{} {
-			return make(map[string]interface{})
-		},
-	}
-	self.fieldsReaderLocal = func() StoredFieldsReader {
-		return self.fieldsReaderOrig.Clone()
-	}
+	panic("not implemented yet")
 
-	log.Print("Initializing listeners...")
-	self.addListener = make(chan CoreClosedListener)
-	self.removeListener = make(chan CoreClosedListener)
-	self.notifyListener = make(chan *SegmentReader)
-	// TODO re-enable later
-	go func() { // ensure listners are synchronized
-		coreClosedListeners := make([]CoreClosedListener, 0)
-		isRunning := true
-		var listener CoreClosedListener
-		for isRunning {
-			log.Print("Listening for events...")
-			select {
-			case listener = <-self.addListener:
-				coreClosedListeners = append(coreClosedListeners, listener)
-			case listener = <-self.removeListener:
-				n := len(coreClosedListeners)
-				for i, v := range coreClosedListeners {
-					if v == listener {
-						newListeners := make([]CoreClosedListener, 0, n-1)
-						newListeners = append(newListeners, coreClosedListeners[0:i]...)
-						newListeners = append(newListeners, coreClosedListeners[i+1:]...)
-						coreClosedListeners = newListeners
-						break
-					}
-				}
-			case owner := <-self.notifyListener:
-				log.Print("Shutting down SegmentCoreReaders...")
-				isRunning = false
-				for _, v := range coreClosedListeners {
-					v.onClose(owner)
-				}
-			}
-		}
-		log.Print("Listeners are done.")
-	}()
+	// if termsIndexDivisor == 0 {
+	// 	panic("indexDivisor must be < 0 (don't load terms index) or greater than 0 (got 0)")
+	// }
+	// log.Printf("Initializing SegmentCoreReaders from directory: %v", dir)
 
-	success := false
-	defer func() {
-		if !success {
-			log.Print("Failed to initialize SegmentCoreReaders.")
-			self.decRef()
-		}
-	}()
+	// self = SegmentCoreReaders{
+	// 	refCount: 1,
+	// 	normsLocal: func() map[string]interface{} {
+	// 		return make(map[string]interface{})
+	// 	},
+	// }
+	// self.fieldsReaderLocal = func() StoredFieldsReader {
+	// 	return self.fieldsReaderOrig.Clone()
+	// }
 
-	codec := si.info.Codec().(Codec)
-	log.Print("Obtaining CFS Directory...")
-	var cfsDir store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
-	if si.info.IsCompoundFile() {
-		log.Print("Detected CompoundFile.")
-		name := util.SegmentFileName(si.info.Name, "", store.COMPOUND_FILE_EXTENSION)
-		self.cfsReader, err = store.NewCompoundFileDirectory(dir, name, context, false)
-		if err != nil {
-			return self, err
-		}
-		log.Printf("CompoundFileDirectory: %v", self.cfsReader)
-		cfsDir = self.cfsReader
-	} else {
-		cfsDir = dir
-	}
-	log.Printf("CFS Directory: %v", cfsDir)
-	log.Print("Reading FieldInfos...")
-	self.fieldInfos, err = codec.FieldInfosFormat().FieldInfosReader()(cfsDir, si.info.Name, store.IO_CONTEXT_READONCE)
-	if err != nil {
-		return self, err
-	}
+	// log.Print("Initializing listeners...")
+	// self.addListener = make(chan CoreClosedListener)
+	// self.removeListener = make(chan CoreClosedListener)
+	// self.notifyListener = make(chan *SegmentReader)
+	// // TODO re-enable later
+	// go func() { // ensure listners are synchronized
+	// 	coreClosedListeners := make([]CoreClosedListener, 0)
+	// 	isRunning := true
+	// 	var listener CoreClosedListener
+	// 	for isRunning {
+	// 		log.Print("Listening for events...")
+	// 		select {
+	// 		case listener = <-self.addListener:
+	// 			coreClosedListeners = append(coreClosedListeners, listener)
+	// 		case listener = <-self.removeListener:
+	// 			n := len(coreClosedListeners)
+	// 			for i, v := range coreClosedListeners {
+	// 				if v == listener {
+	// 					newListeners := make([]CoreClosedListener, 0, n-1)
+	// 					newListeners = append(newListeners, coreClosedListeners[0:i]...)
+	// 					newListeners = append(newListeners, coreClosedListeners[i+1:]...)
+	// 					coreClosedListeners = newListeners
+	// 					break
+	// 				}
+	// 			}
+	// 		case owner := <-self.notifyListener:
+	// 			log.Print("Shutting down SegmentCoreReaders...")
+	// 			isRunning = false
+	// 			for _, v := range coreClosedListeners {
+	// 				v.onClose(owner)
+	// 			}
+	// 		}
+	// 	}
+	// 	log.Print("Listeners are done.")
+	// }()
 
-	self.termsIndexDivisor = termsIndexDivisor
-	format := codec.PostingsFormat()
+	// success := false
+	// defer func() {
+	// 	if !success {
+	// 		log.Print("Failed to initialize SegmentCoreReaders.")
+	// 		self.decRef()
+	// 	}
+	// }()
 
-	log.Print("Obtaining SegmentReadState...")
-	segmentReadState := newSegmentReadState(cfsDir, si.info, self.fieldInfos, context, termsIndexDivisor)
-	// Ask codec for its Fields
-	log.Print("Obtaining FieldsProducer...")
-	self.fields, err = format.FieldsProducer(segmentReadState)
-	if err != nil {
-		return self, err
-	}
-	assert(self.fields != nil)
-	// ask codec for its Norms:
-	// TODO: since we don't write any norms file if there are no norms,
-	// kinda jaky to assume the codec handles the case of no norms file at all gracefully?!
+	// codec := si.info.Codec().(Codec)
+	// log.Print("Obtaining CFS Directory...")
+	// var cfsDir store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
+	// if si.info.IsCompoundFile() {
+	// 	log.Print("Detected CompoundFile.")
+	// 	name := util.SegmentFileName(si.info.Name, "", store.COMPOUND_FILE_EXTENSION)
+	// 	self.cfsReader, err = store.NewCompoundFileDirectory(dir, name, context, false)
+	// 	if err != nil {
+	// 		return self, err
+	// 	}
+	// 	log.Printf("CompoundFileDirectory: %v", self.cfsReader)
+	// 	cfsDir = self.cfsReader
+	// } else {
+	// 	cfsDir = dir
+	// }
+	// log.Printf("CFS Directory: %v", cfsDir)
+	// log.Print("Reading FieldInfos...")
+	// self.fieldInfos, err = codec.FieldInfosFormat().FieldInfosReader()(cfsDir, si.info.Name, store.IO_CONTEXT_READONCE)
+	// if err != nil {
+	// 	return self, err
+	// }
 
-	if self.fieldInfos.HasDocValues {
-		log.Print("Obtaining DocValuesProducer...")
-		self.dvProducer, err = codec.DocValuesFormat().FieldsProducer(segmentReadState)
-		if err != nil {
-			return self, err
-		}
-		assert(self.dvProducer != nil)
-	} else {
-		// self.dvProducer = nil
-	}
+	// self.termsIndexDivisor = termsIndexDivisor
+	// format := codec.PostingsFormat()
 
-	if self.fieldInfos.HasNorms {
-		log.Print("Obtaining NormsDocValuesProducer...")
-		self.normsProducer, err = codec.NormsFormat().NormsProducer(segmentReadState)
-		if err != nil {
-			return self, err
-		}
-		assert(self.normsProducer != nil)
-	} else {
-		// self.normsProducer = nil
-	}
+	// log.Print("Obtaining SegmentReadState...")
+	// segmentReadState := newSegmentReadState(cfsDir, si.info, self.fieldInfos, context, termsIndexDivisor)
+	// // Ask codec for its Fields
+	// log.Print("Obtaining FieldsProducer...")
+	// self.fields, err = format.FieldsProducer(segmentReadState)
+	// if err != nil {
+	// 	return self, err
+	// }
+	// assert(self.fields != nil)
+	// // ask codec for its Norms:
+	// // TODO: since we don't write any norms file if there are no norms,
+	// // kinda jaky to assume the codec handles the case of no norms file at all gracefully?!
 
-	log.Print("Obtaining StoredFieldsReader...")
-	self.fieldsReaderOrig, err = si.info.Codec().(Codec).StoredFieldsFormat().FieldsReader(cfsDir, si.info, self.fieldInfos, context)
-	if err != nil {
-		return self, err
-	}
+	// if self.fieldInfos.HasDocValues {
+	// 	log.Print("Obtaining DocValuesProducer...")
+	// 	self.dvProducer, err = codec.DocValuesFormat().FieldsProducer(segmentReadState)
+	// 	if err != nil {
+	// 		return self, err
+	// 	}
+	// 	assert(self.dvProducer != nil)
+	// } else {
+	// 	// self.dvProducer = nil
+	// }
 
-	if self.fieldInfos.HasVectors { // open term vector files only as needed
-		log.Print("Obtaining TermVectorsReader...")
-		self.termVectorsReaderOrig, err = si.info.Codec().(Codec).TermVectorsFormat().VectorsReader(cfsDir, si.info, self.fieldInfos, context)
-		if err != nil {
-			return self, err
-		}
-	} else {
-		// self.termVectorsReaderOrig = nil
-	}
+	// if self.fieldInfos.HasNorms {
+	// 	log.Print("Obtaining NormsDocValuesProducer...")
+	// 	self.normsProducer, err = codec.NormsFormat().NormsProducer(segmentReadState)
+	// 	if err != nil {
+	// 		return self, err
+	// 	}
+	// 	assert(self.normsProducer != nil)
+	// } else {
+	// 	// self.normsProducer = nil
+	// }
 
-	log.Print("Success")
-	success = true
+	// log.Print("Obtaining StoredFieldsReader...")
+	// self.fieldsReaderOrig, err = si.info.Codec().(Codec).StoredFieldsFormat().FieldsReader(cfsDir, si.info, self.fieldInfos, context)
+	// if err != nil {
+	// 	return self, err
+	// }
 
-	// Must assign this at the end -- if we hit an
-	// exception above core, we don't want to attempt to
-	// purge the FieldCache (will hit NPE because core is
-	// not assigned yet).
-	self.owner = owner
-	return self, nil
+	// if self.fieldInfos.HasVectors { // open term vector files only as needed
+	// 	log.Print("Obtaining TermVectorsReader...")
+	// 	self.termVectorsReaderOrig, err = si.info.Codec().(Codec).TermVectorsFormat().VectorsReader(cfsDir, si.info, self.fieldInfos, context)
+	// 	if err != nil {
+	// 		return self, err
+	// 	}
+	// } else {
+	// 	// self.termVectorsReaderOrig = nil
+	// }
+
+	// log.Print("Success")
+	// success = true
+
+	// // Must assign this at the end -- if we hit an
+	// // exception above core, we don't want to attempt to
+	// // purge the FieldCache (will hit NPE because core is
+	// // not assigned yet).
+	// self.owner = owner
+	// return self, nil
 }
 
-func (r *SegmentCoreReaders) normValues(field string) (ndv NumericDocValues, err error) {
-	if fi := r.fieldInfos.FieldInfoByName(field); fi.Name != "" {
-		if fi.HasNorms() {
-			assert(r.normsProducer != nil)
+func (r *SegmentCoreReaders) normValues(infos model.FieldInfos,
+	field string) (ndv NumericDocValues, err error) {
 
-			if norms, ok := r.normsLocal()[field]; ok {
-				ndv = norms.(NumericDocValues)
-			} else if ndv, err = r.normsProducer.Numeric(fi); err == nil {
-				r.normsLocal()[field] = norms
-			}
-		}
-	} // else Field does not exist
-	return
+	panic("not implemented yet")
+
+	// if fi := r.fieldInfos.FieldInfoByName(field); fi.Name != "" {
+	// 	if fi.HasNorms() {
+	// 		assert(r.normsProducer != nil)
+
+	// 		if norms, ok := r.normsLocal()[field]; ok {
+	// 			ndv = norms.(NumericDocValues)
+	// 		} else if ndv, err = r.normsProducer.Numeric(fi); err == nil {
+	// 			r.normsLocal()[field] = norms
+	// 		}
+	// 	}
+	// } // else Field does not exist
+	// return
 }
 
 func (r *SegmentCoreReaders) decRef() {
-	if atomic.AddInt32(&r.refCount, -1) == 0 {
-		util.Close( /*self.termVectorsLocal, self.fieldsReaderLocal, docValuesLocal, r.normsLocal,*/
-			r.fields, r.dvProducer, r.termVectorsReaderOrig, r.fieldsReaderOrig,
-			r.cfsReader, r.normsProducer)
-		r.notifyListener <- r.owner
-	}
+	panic("not implemented yet")
+	// if atomic.AddInt32(&r.refCount, -1) == 0 {
+	// 	util.Close( /*self.termVectorsLocal, self.fieldsReaderLocal, docValuesLocal, r.normsLocal,*/
+	// 		r.fields, r.dvProducer, r.termVectorsReaderOrig, r.fieldsReaderOrig,
+	// 		r.cfsReader, r.normsProducer)
+	// 	r.notifyListener <- r.owner
+	// }
 }
 
 // type NumericDocValues interface {
@@ -402,19 +421,25 @@ func (r *SegmentCoreReaders) decRef() {
 // }
 type NumericDocValues func(docID int) int64
 
+/* A per-document []byte */
 type BinaryDocValues interface {
-	value(docID int, result []byte)
+	// Lookup the value for document. The returned BytesRef may be
+	// re-used across calls to get() so make sure to copy it if you
+	// want to keep it around.
+	get(docId int) []byte
 }
+
 type SortedDocValues interface {
 	BinaryDocValues
 	ord(docID int) int
-	lookupOrd(ord int, result []byte)
+	lookupOrd(int) []byte
 	valueCount() int
 }
+
 type SortedSetDocValues interface {
 	nextOrd() int64
 	setDocument(docID int)
-	lookupOrd(ord int64, result []byte)
+	lookupOrd(int64) []byte
 	valueCount() int64
 }
 

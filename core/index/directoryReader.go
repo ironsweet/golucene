@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"io"
+	// "io"
 	"log"
 	"strings"
 )
@@ -38,7 +38,7 @@ func newDirectoryReader(self IndexReader, directory store.Directory, segmentRead
 }
 
 func OpenDirectoryReader(directory store.Directory) (r DirectoryReader, err error) {
-	return openStandardDirectoryReader(directory, DEFAULT_TERMS_INDEX_DIVISOR)
+	return openStandardDirectoryReader(directory, nil, DEFAULT_TERMS_INDEX_DIVISOR)
 }
 
 /*
@@ -100,13 +100,12 @@ func newStandardDirectoryReader(directory store.Directory, readers []AtomicReade
 	return ans
 }
 
-// TODO support IndexCommit
 func openStandardDirectoryReader(directory store.Directory,
-	termInfosIndexDivisor int) (r DirectoryReader, err error) {
+	commit IndexCommit, termInfosIndexDivisor int) (r DirectoryReader, err error) {
 	log.Print("Initializing SegmentsFile...")
-	obj, err := NewFindSegmentsFile(directory, func(segmentFileName string) (obj interface{}, err error) {
+	obj, err := NewFindSegmentsFile(directory, func(segmentFileName string) (interface{}, error) {
 		sis := &SegmentInfos{}
-		err = sis.Read(directory, segmentFileName)
+		err := sis.Read(directory, segmentFileName)
 		if err != nil {
 			return nil, err
 		}
@@ -116,16 +115,15 @@ func openStandardDirectoryReader(directory store.Directory,
 			sr, err := NewSegmentReader(sis.Segments[i], termInfosIndexDivisor, store.IO_CONTEXT_READ)
 			readers[i] = sr
 			if err != nil {
-				rs := make([]io.Closer, len(readers))
-				for i, v := range readers {
-					rs[i] = v
+				for _, r := range readers {
+					util.CloseWhileSuppressingError(r)
 				}
-				return nil, util.CloseWhileHandlingError(err, rs...)
+				return nil, err
 			}
 		}
 		log.Printf("Obtained %v SegmentReaders.", len(readers))
 		return newStandardDirectoryReader(directory, readers, sis, termInfosIndexDivisor, false), nil
-	}).run()
+	}).run(commit)
 	if err != nil {
 		return nil, err
 	}
@@ -182,6 +180,7 @@ func (r *StandardDirectoryReader) doClose() error {
 	}
 
 	if w := r.writer; w != nil {
+		panic("not implemented yet")
 		// Since we just closed, writer may now be able to delete unused files:
 		w.deletePendingFiles()
 	}

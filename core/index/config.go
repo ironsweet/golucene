@@ -58,6 +58,12 @@ const DEFAULT_MAX_THREAD_STATES = 8
 const DEFAULT_USE_COMPOUND_FILE_SYSTEM = true
 
 /*
+Default value for calling checkIntegrity() before merging segments
+(set to false). You can set this to true for additional safety.
+*/
+const DEFAULT_CHECK_INTEGRITY_AT_MERGE = false
+
+/*
 Holds all the configuration that is used to create an IndexWriter. Once
 IndexWriter has been created with this object, changes to this object will not
 affect the IndexWriter instance. For that, use LiveIndexWriterConfig that is
@@ -71,7 +77,7 @@ conveniently, for example:
 						.setter2()
 */
 type IndexWriterConfig struct {
-	*LiveIndexWriterConfig
+	*LiveIndexWriterConfigImpl
 	writer *util.SetOnce
 }
 
@@ -105,13 +111,9 @@ LogDocMergePolicy.
 */
 func NewIndexWriterConfig(matchVersion util.Version, analyzer analysis.Analyzer) *IndexWriterConfig {
 	return &IndexWriterConfig{
-		LiveIndexWriterConfig: newLiveIndexWriterConfig(analyzer, matchVersion),
-		writer:                util.NewSetOnce(),
+		LiveIndexWriterConfigImpl: newLiveIndexWriterConfig(analyzer, matchVersion),
+		writer: util.NewSetOnce(),
 	}
-}
-
-func (conf *IndexWriterConfig) Clone() *IndexWriterConfig {
-	panic("not implemented yet")
 }
 
 /*
@@ -202,22 +204,22 @@ func (conf *IndexWriterConfig) InfoStream() util.InfoStream {
 
 // L548
 func (conf *IndexWriterConfig) SetMaxBufferedDocs(maxBufferedDocs int) *IndexWriterConfig {
-	conf.LiveIndexWriterConfig.SetMaxBufferedDocs(maxBufferedDocs)
+	conf.LiveIndexWriterConfigImpl.SetMaxBufferedDocs(maxBufferedDocs)
 	return conf
 }
 
 func (conf *IndexWriterConfig) SetMergedSegmentWarmer(mergeSegmentWarmer IndexReaderWarmer) *IndexWriterConfig {
-	conf.LiveIndexWriterConfig.SetMergedSegmentWarmer(mergeSegmentWarmer)
+	conf.LiveIndexWriterConfigImpl.SetMergedSegmentWarmer(mergeSegmentWarmer)
 	return conf
 }
 
 func (conf *IndexWriterConfig) SetReaderTermsIndexDivisor(divisor int) *IndexWriterConfig {
-	conf.LiveIndexWriterConfig.SetReaderTermsIndexDivisor(divisor)
+	conf.LiveIndexWriterConfigImpl.SetReaderTermsIndexDivisor(divisor)
 	return conf
 }
 
 func (conf *IndexWriterConfig) SetUseCompoundFile(useCompoundFile bool) *IndexWriterConfig {
-	conf.LiveIndexWriterConfig.SetUseCompoundFile(useCompoundFile)
+	conf.LiveIndexWriterConfigImpl.SetUseCompoundFile(useCompoundFile)
 	return conf
 }
 

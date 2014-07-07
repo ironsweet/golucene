@@ -3,11 +3,12 @@ package index
 import (
 	"errors"
 	"fmt"
-	"github.com/balzaczyy/golucene/core/codec"
+	// "github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"sync"
+	"sync/atomic"
 )
 
 const (
@@ -18,7 +19,8 @@ const (
 
 	LUCENE42_DV_VERSION_START           = 0
 	LUCENE42_DV_VERSION_GCD_COMPRESSION = 1
-	LUCENE42_DV_VERSION_CURRENT         = LUCENE42_DV_VERSION_GCD_COMPRESSION
+	LUCENE42_DV_VERSION_CHECKSUM        = 2
+	LUCENE42_DV_VERSION_CURRENT         = LUCENE42_DV_VERSION_CHECKSUM
 
 	LUCENE42_DV_NUMBER = 0
 	LUCENE42_DV_BYTES  = 1
@@ -40,68 +42,81 @@ type Lucene42DocValuesProducer struct {
 
 	numericInstances map[int]NumericDocValues
 
-	maxDoc int
+	maxDoc       int
+	ramBytesUsed int64
 }
 
 func newLucene42DocValuesProducer(state SegmentReadState,
 	dataCodec, dataExtension, metaCodec, metaExtension string) (dvp *Lucene42DocValuesProducer, err error) {
-	dvp = &Lucene42DocValuesProducer{
-		numericInstances: make(map[int]NumericDocValues),
-	}
-	dvp.maxDoc = state.segmentInfo.DocCount()
-	metaName := util.SegmentFileName(state.segmentInfo.Name, state.segmentSuffix, metaExtension)
-	// read in the entries from the metadata file.
-	in, err := state.dir.OpenInput(metaName, state.context)
-	if err != nil {
-		return dvp, err
-	}
-	success := false
-	defer func() {
-		if success {
-			err = util.Close(in)
-		} else {
-			util.CloseWhileSuppressingError(in)
-		}
-	}()
+	panic("not implemented yet")
+	// dvp = &Lucene42DocValuesProducer{
+	// 	numericInstances: make(map[int]NumericDocValues),
+	// }
+	// dvp.maxDoc = state.segmentInfo.DocCount()
+	// metaName := util.SegmentFileName(state.segmentInfo.Name, state.segmentSuffix, metaExtension)
+	// // read in the entries from the metadata file.
+	// in, err := state.dir.OpenInput(metaName, state.context)
+	// if err != nil {
+	// 	return dvp, err
+	// }
+	// success := false
+	// defer func() {
+	// 	if success {
+	// 		err = util.Close(in)
+	// 	} else {
+	// 		util.CloseWhileSuppressingError(in)
+	// 	}
+	// }()
 
-	version, err := codec.CheckHeader(in, metaCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_CURRENT)
-	if err != nil {
-		return dvp, err
-	}
-	dvp.numerics = make(map[int]NumericEntry)
-	dvp.binaries = make(map[int]BinaryEntry)
-	dvp.fsts = make(map[int]FSTEntry)
-	err = dvp.readFields(in)
-	if err != nil {
-		return dvp, err
-	}
-	success = true
+	// version, err := codec.CheckHeader(in, metaCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_CURRENT)
+	// if err != nil {
+	// 	return dvp, err
+	// }
+	// dvp.numerics = make(map[int]NumericEntry)
+	// dvp.binaries = make(map[int]BinaryEntry)
+	// dvp.fsts = make(map[int]FSTEntry)
+	// err = dvp.readFields(in)
+	// if err != nil {
+	// 	return dvp, err
+	// }
+	// success = true
 
-	success = false
-	dataName := util.SegmentFileName(state.segmentInfo.Name, state.segmentSuffix, dataExtension)
-	dvp.data, err = state.dir.OpenInput(dataName, state.context)
-	if err != nil {
-		return dvp, err
-	}
-	version2, err := codec.CheckHeader(dvp.data, dataCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_CURRENT)
-	if err != nil {
-		return dvp, err
-	}
+	// success = false
+	// dataName := util.SegmentFileName(state.segmentInfo.Name, state.segmentSuffix, dataExtension)
+	// dvp.data, err = state.dir.OpenInput(dataName, state.context)
+	// if err != nil {
+	// 	return dvp, err
+	// }
+	// version2, err := codec.CheckHeader(dvp.data, dataCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_CURRENT)
+	// if err != nil {
+	// 	return dvp, err
+	// }
 
-	if version != version2 {
-		return dvp, errors.New("Format versions mismatch")
-	}
-	return dvp, nil
+	// if version != version2 {
+	// 	return dvp, errors.New("Format versions mismatch")
+	// }
+	// return dvp, nil
 }
 
 /*
 Lucene42DocValuesProducer.java/4.5.1/L138
 */
-func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput) (err error) {
+func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput,
+	infos model.FieldInfos) (err error) {
+
 	var fieldNumber int
 	var fieldType byte
 	fieldNumber, err = asInt(meta.ReadVInt())
 	for fieldNumber != -1 && err == nil {
+		if infos.FieldInfoByNumber(fieldNumber) == nil {
+			// tricker to validate more: because we re-use for norms,
+			// becaue we use multiple entries for "composite" types like
+			// sortedset, etc.
+			return errors.New(fmt.Sprintf(
+				"Invalid field number: %v (resource=%v)",
+				fieldNumber, meta))
+		}
+
 		fieldType, err = meta.ReadByte()
 		if err != nil {
 			break
@@ -171,6 +186,7 @@ func (dvp *Lucene42DocValuesProducer) loadNumeric(field *model.FieldInfo) (v Num
 	case LUCENE42_DV_UNCOMPRESSED:
 		bytes := make([]byte, dvp.maxDoc)
 		if err = dvp.data.ReadBytes(bytes); err == nil {
+			atomic.AddInt64(&dvp.ramBytesUsed, util.SizeOf(bytes))
 			return func(docID int) int64 {
 				return int64(bytes[docID])
 			}, nil
@@ -178,7 +194,7 @@ func (dvp *Lucene42DocValuesProducer) loadNumeric(field *model.FieldInfo) (v Num
 	case LUCENE42_DV_GCD_COMPRESSED:
 		panic("not implemented yet")
 	default:
-		err = errors.New("assert fail")
+		panic("assert fail")
 	}
 	return
 }

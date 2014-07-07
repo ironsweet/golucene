@@ -39,7 +39,7 @@ type Lucene42RWDocValuesFormat struct {
 	*Lucene42DocValuesFormat
 }
 
-func (f *Lucene42RWDocValuesFormat) FieldsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
+func (f *Lucene42RWDocValuesFormat) FieldsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("not implemented yet")
 }
 

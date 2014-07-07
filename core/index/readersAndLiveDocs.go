@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 )
 
-// index/ReadersAndLiveDocs.java
+// index/ReadersAndUpdates.java
 
 type refCountMixin struct {
 	// Tracks how many consumers are using this instance:
@@ -35,13 +35,13 @@ func (rc *refCountMixin) refCount() int {
 
 /*
 Used by IndexWriter to hold open SegmentReaders (for searching or
-merging), plus pending deletes, for a given segment.
+merging), plus pending deletes and updates, for a given segment.
 */
-type ReadersAndLiveDocs struct {
+type ReadersAndUpdates struct {
 	sync.Locker
 	*refCountMixin
 
-	info *SegmentInfoPerCommit
+	info *SegmentCommitInfo
 
 	writer *IndexWriter
 
@@ -56,7 +56,7 @@ type ReadersAndLiveDocs struct {
 	// Set once (nil, and then maybe set, and never set again)
 	mergeReader *SegmentReader
 
-	// Holds the current shared (readable and writeable liveDocs). This
+	// Holds the current shared (readable and writeable) liveDocs. This
 	// is nil when there are no deleted docs, and it's copy-on-write
 	// (cloned whenever we need to change it but it's been shared to an
 	// external NRT reader).
@@ -67,14 +67,14 @@ type ReadersAndLiveDocs struct {
 	_pendingDeleteCount int
 
 	// True if the current liveDOcs is reference dby an external NRT reader:
-	shared bool
+	liveDocsShared bool
 }
 
-func newReadersAndLiveDocs(writer *IndexWriter, info *SegmentInfoPerCommit) *ReadersAndLiveDocs {
-	return &ReadersAndLiveDocs{info: info, writer: writer, shared: true}
+func newReadersAndUpdates(writer *IndexWriter, info *SegmentCommitInfo) *ReadersAndUpdates {
+	return &ReadersAndUpdates{info: info, writer: writer, liveDocsShared: true}
 }
 
-func (rld *ReadersAndLiveDocs) pendingDeleteCount() int {
+func (rld *ReadersAndUpdates) pendingDeleteCount() int {
 	rld.Lock()
 	defer rld.Unlock()
 	return rld._pendingDeleteCount
@@ -83,16 +83,16 @@ func (rld *ReadersAndLiveDocs) pendingDeleteCount() int {
 /*
 Get reader for searching/deleting
 */
-func (rld *ReadersAndLiveDocs) reader(ctx store.IOContext) (*SegmentReader, error) {
+func (rld *ReadersAndUpdates) reader(ctx store.IOContext) (*SegmentReader, error) {
 	panic("not implemented yet")
 }
 
-func (rld *ReadersAndLiveDocs) release(sr *SegmentReader) error {
+func (rld *ReadersAndUpdates) release(sr *SegmentReader) error {
 	panic("not implemented yet")
 }
 
 // NOTE: removes callers ref
-func (rld *ReadersAndLiveDocs) dropReaders() error {
+func (rld *ReadersAndUpdates) dropReaders() error {
 	rld.Lock()
 	defer rld.Unlock()
 
@@ -126,18 +126,19 @@ func (rld *ReadersAndLiveDocs) dropReaders() error {
 	return nil
 }
 
-func (rld *ReadersAndLiveDocs) liveDocs() util.Bits {
+func (rld *ReadersAndUpdates) liveDocs() util.Bits {
 	rld.Lock()
 	defer rld.Unlock()
 	return rld._liveDocs
 }
 
 /*
-Commit live docs to the directory (writes new _X_N.del files);
-returns true if it wrote the file and false if there were no new
-deletes to write:
+Commit live docs (writes new _X_N.del files) and field update (writes
+new _X_N.del files) to the directory; returns true if it wrote any
+file and false if there were no new deletes or updates to write:
 */
-func (rld *ReadersAndLiveDocs) writeLiveDocs(dir store.Directory) (bool, error) {
+func (rld *ReadersAndUpdates) writeLiveDocs(dir store.Directory) (bool, error) {
+	panic("not implemented yet")
 	rld.Lock()
 	defer rld.Unlock()
 
@@ -187,6 +188,12 @@ func (rld *ReadersAndLiveDocs) writeLiveDocs(dir store.Directory) (bool, error) 
 	return false, nil
 }
 
-func (rld *ReadersAndLiveDocs) String() string {
+/* Writes field updates (new _X_N updates files) to the directory */
+func (r *ReadersAndUpdates) writeFieldUpdates(dir store.Directory,
+	dvUpdates *DocValuesFieldUpdatesContainer) error {
+	panic("not implemented yet")
+}
+
+func (rld *ReadersAndUpdates) String() string {
 	panic("not implemented yet")
 }

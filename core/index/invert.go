@@ -30,14 +30,13 @@ func newFieldInvertState(name string) *FieldInvertState {
 
 /* Re-initialize the state */
 func (st *FieldInvertState) reset() {
-	st.position = 0
+	st.position = -1
 	st.length = 0
 	st.numOverlap = 0
 	st.offset = 0
 	st.maxTermFrequency = 0
 	st.uniqueTermCount = 0
 	st.boost = 1.0
-	st.attributeSource = nil
 }
 
 /* Get total number of terms in this field. */

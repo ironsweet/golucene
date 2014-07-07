@@ -1313,7 +1313,7 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 
 		termLen := f.prefix + f.suffix
 		f.startBytePos = f.suffixesReader.Pos
-		f.suffixesReader.SkipBytes(f.suffix)
+		f.suffixesReader.SkipBytes(int64(f.suffix))
 
 		targetLimit := termLen
 		if len(target) < termLen {

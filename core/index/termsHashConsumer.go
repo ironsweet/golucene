@@ -2,26 +2,24 @@ package index
 
 import (
 	"github.com/balzaczyy/golucene/core/index/model"
-	"github.com/balzaczyy/golucene/core/store"
+	// "github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
 // index/TermsHashConsumer.java
 
-type TermsHashConsumer interface {
-	flush(map[string]TermsHashConsumerPerField, model.SegmentWriteState) error
-	abort()
-	startDocument()
-	finishDocument(*TermsHash) error
-	addField(*TermsHashPerField, *model.FieldInfo) TermsHashConsumerPerField
-}
+// type TermsHashConsumer interface {
+// 	flush(map[string]TermsHashConsumerPerField, *model.SegmentWriteState) error
+// 	abort()
+// 	startDocument()
+// 	finishDocument(*TermsHash) error
+// 	addField(*TermsHashPerField, *model.FieldInfo) TermsHashConsumerPerField
+// }
 
 // index/TermVectorsConsumer.java
 
 type TermVectorsConsumer struct {
-	writer    TermVectorsWriter
-	docWriter *DocumentsWriterPerThread
-	docState  *docState
+	writer TermVectorsWriter
 
 	hasVectors       bool
 	numVectorsFields int
@@ -32,14 +30,15 @@ type TermVectorsConsumer struct {
 }
 
 func newTermVectorsConsumer(docWriter *DocumentsWriterPerThread) *TermVectorsConsumer {
-	return &TermVectorsConsumer{
-		docWriter: docWriter,
-		docState:  docWriter.docState,
-	}
+	panic("not implemneted yet")
+	// return &TermVectorsConsumer{
+	// 	docWriter: docWriter,
+	// 	docState:  docWriter.docState,
+	// }
 }
 
-func (tvc *TermVectorsConsumer) flush(fieldsToFlush map[string]TermsHashConsumerPerField,
-	state model.SegmentWriteState) (err error) {
+func (tvc *TermVectorsConsumer) flush(fieldsToFlush map[string]TermsHashPerField,
+	state *model.SegmentWriteState) (err error) {
 	if tvc.writer != nil {
 		numDocs := state.SegmentInfo.DocCount()
 		assert(numDocs > 0)
@@ -62,11 +61,6 @@ func (tvc *TermVectorsConsumer) flush(fieldsToFlush map[string]TermsHashConsumer
 		}
 	}
 
-	for _, field := range fieldsToFlush {
-		perField := field.(*TermVectorsConsumerPerField)
-		perField.termsHashPerField.reset()
-		perField.shrinkHash()
-	}
 	return
 }
 
@@ -86,79 +80,81 @@ func (c *TermVectorsConsumer) fill(docId int) error {
 	return nil
 }
 
-func (c *TermVectorsConsumer) finishDocument(termsHash *TermsHash) error {
-	c.docWriter.testPoint("TermVectorsTermsWriter.finishDocument start")
+func (c *TermVectorsConsumer) finishDocument() error {
+	panic("not implemented yet")
+	// c.docWriter.testPoint("TermVectorsTermsWriter.finishDocument start")
 
-	if !c.hasVectors {
-		return nil
-	}
+	// if !c.hasVectors {
+	// 	return nil
+	// }
 
-	var err error
-	// initTermVectorsWriter
-	if c.writer == nil {
-		w := c.docWriter
-		ctx := store.NewIOContextForFlush(&store.FlushInfo{
-			w.numDocsInRAM,
-			w.bytesUsed(),
-		})
-		c.writer, err = w.codec.TermVectorsFormat().VectorsWriter(w.directory, w.segmentInfo, ctx)
-		if err != nil {
-			return err
-		}
-		c.lastDocId = 0
-	}
+	// var err error
+	// // initTermVectorsWriter
+	// if c.writer == nil {
+	// 	w := c.docWriter
+	// 	ctx := store.NewIOContextForFlush(&store.FlushInfo{
+	// 		w.numDocsInRAM,
+	// 		w.bytesUsed(),
+	// 	})
+	// 	c.writer, err = w.codec.TermVectorsFormat().VectorsWriter(w.directory, w.segmentInfo, ctx)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	c.lastDocId = 0
+	// }
 
-	err = c.fill(c.docState.docID)
-	if err != nil {
-		return err
-	}
+	// err = c.fill(c.docState.docID)
+	// if err != nil {
+	// 	return err
+	// }
 
-	// Append term vectors to the real outputs:
-	err = c.writer.startDocument(c.numVectorsFields)
-	if err != nil {
-		return err
-	}
-	for i := 0; i < c.numVectorsFields; i++ {
-		err = c.perFields[i].finishDocument()
-		if err != nil {
-			return err
-		}
-	}
-	err = c.writer.finishDocument()
-	if err != nil {
-		return err
-	}
+	// // Append term vectors to the real outputs:
+	// err = c.writer.startDocument(c.numVectorsFields)
+	// if err != nil {
+	// 	return err
+	// }
+	// for i := 0; i < c.numVectorsFields; i++ {
+	// 	err = c.perFields[i].finishDocument()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+	// err = c.writer.finishDocument()
+	// if err != nil {
+	// 	return err
+	// }
 
-	assertn(c.lastDocId == c.docState.docID, "lastDocID=%v docState.docID=%v", c.lastDocId, c.docState.docID)
+	// assertn(c.lastDocId == c.docState.docID, "lastDocID=%v docState.docID=%v", c.lastDocId, c.docState.docID)
 
-	c.lastDocId++
+	// c.lastDocId++
 
-	termsHash.reset()
-	c.reset()
-	c.docWriter.testPoint("TermVectorsTermsWriter.finishDocument end")
-	return nil
+	// termsHash.reset()
+	// c.reset()
+	// c.docWriter.testPoint("TermVectorsTermsWriter.finishDocument end")
+	// return nil
 }
 
 func (tvc *TermVectorsConsumer) abort() {
-	tvc.hasVectors = false
+	panic("not implemented yet")
+	// tvc.hasVectors = false
 
-	if tvc.writer != nil {
-		tvc.writer.abort()
-		tvc.writer = nil
-	}
+	// if tvc.writer != nil {
+	// 	tvc.writer.abort()
+	// 	tvc.writer = nil
+	// }
 
-	tvc.lastDocId = 0
-	tvc.reset()
+	// tvc.lastDocId = 0
+	// tvc.reset()
 }
 
-func (tvc *TermVectorsConsumer) reset() {
+func (tvc *TermVectorsConsumer) resetFields() {
 	tvc.perFields = nil
 	tvc.numVectorsFields = 0
 }
 
-func (tvc *TermVectorsConsumer) addField(termsHashPerField *TermsHashPerField,
-	fieldInfo *model.FieldInfo) TermsHashConsumerPerField {
-	return newTermVectorsConsumerPerField(termsHashPerField, tvc, fieldInfo)
+func (tvc *TermVectorsConsumer) addField(invertState *FieldInvertState,
+	fieldInfo *model.FieldInfo) TermsHashPerField {
+	return newTermVectorsConsumerPerField(invertState, tvc, fieldInfo)
 }
 
 func (c *TermVectorsConsumer) addFieldToFlush(fieldToFlush *TermVectorsConsumerPerField) {
@@ -166,91 +162,91 @@ func (c *TermVectorsConsumer) addFieldToFlush(fieldToFlush *TermVectorsConsumerP
 }
 
 func (c *TermVectorsConsumer) startDocument() {
-	assert(c.clearLastVectorFieldName())
-	c.reset()
+	panic("not implemented yet")
+	// assert(c.clearLastVectorFieldName())
+	// c.reset()
 }
 
-func (c *TermVectorsConsumer) clearLastVectorFieldName() bool {
-	c.lastVectorFieldName = ""
-	return true
-}
+// func (c *TermVectorsConsumer) clearLastVectorFieldName() bool {
+// 	c.lastVectorFieldName = ""
+// 	return true
+// }
 
 // index/FreqProxTermsWriter.java
 
 type FreqProxTermsWriter struct {
 }
 
-func (w *FreqProxTermsWriter) abort() {}
-
 // TODO: would be nice to factor out more of this, e.g. the
 // FreqProxFieldMergeState, and code to visit all Fields under the
 // same FieldInfo together, up into TermsHash*. Other writers would
 // presumably share a lot of this...
 
-func (w *FreqProxTermsWriter) flush(fieldsToFlush map[string]TermsHashConsumerPerField,
-	state model.SegmentWriteState) (err error) {
-	// Gather all FieldData's that have postings, across all ThreadStates
-	var allFields []*FreqProxTermsWriterPerField
+func (w *FreqProxTermsWriter) flush(fieldsToFlush map[string]TermsHashPerField,
+	state *model.SegmentWriteState) (err error) {
+	panic("not implemented yet")
+	// // Gather all FieldData's that have postings, across all ThreadStates
+	// var allFields []*FreqProxTermsWriterPerField
 
-	for _, f := range fieldsToFlush {
-		perField := f.(*FreqProxTermsWriterPerField)
-		if perField.termsHashPerField.bytesHash.Size() > 0 {
-			allFields = append(allFields, perField)
-		}
-	}
+	// for _, f := range fieldsToFlush {
+	// 	perField := f.(*FreqProxTermsWriterPerField)
+	// 	if perField.termsHashPerField.bytesHash.Size() > 0 {
+	// 		allFields = append(allFields, perField)
+	// 	}
+	// }
 
-	// Sort by field name
-	util.IntroSort(FreqProxTermsWriterPerFields(allFields))
+	// // Sort by field name
+	// util.IntroSort(FreqProxTermsWriterPerFields(allFields))
 
-	var consumer FieldsConsumer
-	consumer, err = state.SegmentInfo.Codec().(Codec).PostingsFormat().FieldsConsumer(state)
-	if err != nil {
-		return err
-	}
+	// var consumer FieldsConsumer
+	// consumer, err = state.SegmentInfo.Codec().(Codec).PostingsFormat().FieldsConsumer(state)
+	// if err != nil {
+	// 	return err
+	// }
 
-	var success = false
-	defer func() {
-		if success {
-			err = mergeError(err, util.Close(consumer))
-		} else {
-			util.CloseWhileSuppressingError(consumer)
-		}
-	}()
+	// var success = false
+	// defer func() {
+	// 	if success {
+	// 		err = mergeError(err, util.Close(consumer))
+	// 	} else {
+	// 		util.CloseWhileSuppressingError(consumer)
+	// 	}
+	// }()
 
-	var termsHash *TermsHash
-	// Current writer chain:
-	// FieldsConsumer
-	// -> IMPL: FormatPostingsTermsDictWriter
-	// -> TermsConsumer
-	// -> IMPL: FormatPostingsTermsDictWriter.TermsWriter
-	// -> DocsConsumer
-	// -> IMPL: FormatPostingsDocWriter
-	// -> PositionsConsumer
-	// -> IMPL: FormatPostingsPositionsWriter
+	// var termsHash *TermsHash
+	// // Current writer chain:
+	// // FieldsConsumer
+	// // -> IMPL: FormatPostingsTermsDictWriter
+	// // -> TermsConsumer
+	// // -> IMPL: FormatPostingsTermsDictWriter.TermsWriter
+	// // -> DocsConsumer
+	// // -> IMPL: FormatPostingsDocWriter
+	// // -> PositionsConsumer
+	// // -> IMPL: FormatPostingsPositionsWriter
 
-	for _, fieldWriter := range allFields {
-		fieldInfo := fieldWriter.fieldInfo
+	// for _, fieldWriter := range allFields {
+	// 	fieldInfo := fieldWriter.fieldInfo
 
-		// If this field has postings then add them to the segment
-		err = fieldWriter.flush(fieldInfo.Name, consumer, state)
-		if err != nil {
-			return err
-		}
+	// 	// If this field has postings then add them to the segment
+	// 	err = fieldWriter.flush(fieldInfo.Name, consumer, state)
+	// 	if err != nil {
+	// 		return err
+	// 	}
 
-		perField := fieldWriter.termsHashPerField
-		assert(termsHash == nil || termsHash == perField.termsHash)
-		termsHash = perField.termsHash
-		numPostings := perField.bytesHash.Size()
-		perField.reset()
-		perField.shrinkHash(numPostings)
-		fieldWriter.reset()
-	}
+	// 	perField := fieldWriter.termsHashPerField
+	// 	assert(termsHash == nil || termsHash == perField.termsHash)
+	// 	termsHash = perField.termsHash
+	// 	numPostings := perField.bytesHash.Size()
+	// 	perField.reset()
+	// 	perField.shrinkHash(numPostings)
+	// 	fieldWriter.reset()
+	// }
 
-	if termsHash != nil {
-		termsHash.reset()
-	}
-	success = true
-	return
+	// if termsHash != nil {
+	// 	termsHash.reset()
+	// }
+	// success = true
+	// return
 }
 
 type FreqProxTermsWriterPerFields []*FreqProxTermsWriterPerField
@@ -261,11 +257,8 @@ func (a FreqProxTermsWriterPerFields) Less(i, j int) bool {
 	return a[i].fieldInfo.Name < a[j].fieldInfo.Name
 }
 
-func (w *FreqProxTermsWriter) addField(termsHashPerField *TermsHashPerField,
-	fieldInfo *model.FieldInfo) TermsHashConsumerPerField {
-	return newFreqProxTermsWriterPerField(termsHashPerField, w, fieldInfo)
+func (w *FreqProxTermsWriter) addField(invertState *FieldInvertState,
+	fieldInfo *model.FieldInfo) TermsHashPerField {
+	panic("not implemented yet")
+	// return newFreqProxTermsWriterPerField(invertState, w, fieldInfo, w.nex)
 }
-
-func (w *FreqProxTermsWriter) finishDocument(*TermsHash) error { return nil }
-
-func (w *FreqProxTermsWriter) startDocument() {}

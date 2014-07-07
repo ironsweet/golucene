@@ -81,7 +81,7 @@ var Lucene40SegmentInfoReader = func(dir store.Directory,
 	fileName := util.SegmentFileName(segment, "", LUCENE40_SI_EXTENSION)
 	input, err := dir.OpenInput(fileName, context)
 	if err != nil {
-		return si, err
+		return nil, err
 	}
 
 	success := false
@@ -95,45 +95,42 @@ var Lucene40SegmentInfoReader = func(dir store.Directory,
 
 	_, err = codec.CheckHeader(input, LUCENE40_CODEC_NAME, LUCENE40_VERSION_START, LUCENE40_VERSION_CURRENT)
 	if err != nil {
-		return si, err
+		return nil, err
 	}
 	version, err := input.ReadString()
 	if err != nil {
-		return si, err
+		return nil, err
 	}
 	docCount, err := input.ReadInt()
 	if err != nil {
-		return si, err
+		return nil, err
 	}
 	if docCount < 0 {
-		return si, errors.New(fmt.Sprintf("invalid docCount: %v (resource=%v)", docCount, input))
+		return nil, errors.New(fmt.Sprintf("invalid docCount: %v (resource=%v)", docCount, input))
 	}
 	sicf, err := input.ReadByte()
 	if err != nil {
-		return si, err
+		return nil, err
 	}
 	isCompoundFile := (sicf == SEGMENT_INFO_YES)
 	diagnostics, err := input.ReadStringStringMap()
 	if err != nil {
-		return si, err
+		return nil, err
 	}
-	attributes, err := input.ReadStringStringMap()
+	_, err = input.ReadStringStringMap() // read deprecated attributes
 	if err != nil {
-		return si, err
+		return nil, err
 	}
 	files, err := input.ReadStringSet()
 	if err != nil {
-		return si, err
+		return nil, err
 	}
 
-	if input.FilePointer() != input.Length() {
-		return si, errors.New(fmt.Sprintf(
-			"did not read all bytes from file '%v': read %v vs size %v (resource: %v)",
-			fileName, input.FilePointer(), input.Length(), input))
+	if err = codec.CheckEOF(input); err != nil {
+		return nil, err
 	}
 
-	si = model.NewSegmentInfo(dir, version, segment, int(docCount), isCompoundFile,
-		nil, diagnostics, attributes)
+	si = model.NewSegmentInfo(dir, version, segment, int(docCount), isCompoundFile, nil, diagnostics)
 	si.SetFiles(files)
 
 	success = true
@@ -178,7 +175,7 @@ var Lucene40SegmentInfoWriter = func(dir store.Directory,
 		}
 		return byte((SEGMENT_INFO_NO + 256) % 256) // Go byte is non-negative, unlike Java
 	}()).WriteStringStringMap(si.Diagnostics()).
-		WriteStringStringMap(si.Attributes()).
+		WriteStringStringMap(map[string]string{}).
 		WriteStringSet(si.Files()).Close()
 	if err != nil {
 		return err
@@ -244,7 +241,7 @@ func (format *Lucene40LiveDocsFormat) NewLiveDocs(size int) util.MutableBits {
 }
 
 func (format *Lucene40LiveDocsFormat) WriteLiveDocs(bits util.MutableBits,
-	dir store.Directory, info *SegmentInfoPerCommit, newDelCount int,
+	dir store.Directory, info *SegmentCommitInfo, newDelCount int,
 	ctx store.IOContext) error {
 
 	filename := util.FileNameFromGeneration(info.info.Name, DELETES_EXTENSION, info.nextWriteDelGen)
@@ -254,7 +251,7 @@ func (format *Lucene40LiveDocsFormat) WriteLiveDocs(bits util.MutableBits,
 	return liveDocs.Write(dir, filename, ctx)
 }
 
-func (format *Lucene40LiveDocsFormat) Files(info *SegmentInfoPerCommit) []string {
+func (format *Lucene40LiveDocsFormat) Files(info *SegmentCommitInfo) []string {
 	if info.HasDeletions() {
 		return []string{util.FileNameFromGeneration(info.info.Name, DELETES_EXTENSION, info.delGen)}
 	}

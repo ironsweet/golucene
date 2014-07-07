@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/codec/compressing"
-	"github.com/balzaczyy/golucene/core/codec/lucene42"
+	// "github.com/balzaczyy/golucene/core/codec/lucene42"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -50,7 +50,7 @@ type readonlyLucene42NormsFormat struct {
 	*Lucene42NormsFormat
 }
 
-func (f *readonlyLucene42NormsFormat) NormsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
+func (f *readonlyLucene42NormsFormat) NormsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("this codec can only be used for reading")
 }
 
@@ -112,13 +112,13 @@ Field Description:
 */
 type Lucene42FieldInfosFormat struct {
 	reader FieldInfosReader
-	writer FieldInfosWriter
+	// writer FieldInfosWriter
 }
 
 func newLucene42FieldInfosFormat() *Lucene42FieldInfosFormat {
 	return &Lucene42FieldInfosFormat{
 		reader: Lucene42FieldInfosReader,
-		writer: Lucene42FieldInfosWriter,
+		// writer: Lucene42FieldInfosWriter,
 	}
 }
 
@@ -127,7 +127,8 @@ func (f *Lucene42FieldInfosFormat) FieldInfosReader() FieldInfosReader {
 }
 
 func (f *Lucene42FieldInfosFormat) FieldInfosWriter() FieldInfosWriter {
-	return f.writer
+	panic("this codec can only be used for reading")
+	// return f.writer
 }
 
 const (
@@ -150,7 +151,7 @@ const (
 )
 
 var Lucene42FieldInfosReader = func(dir store.Directory,
-	segment string, context store.IOContext) (fi model.FieldInfos, err error) {
+	segment, suffix string, context store.IOContext) (fi model.FieldInfos, err error) {
 
 	log.Printf("Reading FieldInfos from %v...", dir)
 	fi = model.FieldInfos{}
@@ -235,13 +236,11 @@ var Lucene42FieldInfosReader = func(dir store.Directory,
 			return fi, err
 		}
 		infos[i] = model.NewFieldInfo(name, isIndexed, fieldNumber, storeTermVector,
-			omitNorms, storePayloads, indexOptions, docValuesType, normsType, attributes)
+			omitNorms, storePayloads, indexOptions, docValuesType, normsType, -1, attributes)
 	}
 
-	if input.FilePointer() != input.Length() {
-		return fi, errors.New(fmt.Sprintf(
-			"did not read all bytes from file '%v': read %v vs size %v (resource: %v)",
-			fileName, input.FilePointer(), input.Length(), input))
+	if err = codec.CheckEOF(input); err != nil {
+		return fi, err
 	}
 	fi = model.NewFieldInfos(infos)
 	success = true
@@ -267,93 +266,93 @@ func getDocValuesType(input store.IndexInput, b byte) (t model.DocValuesType, er
 }
 
 // lucene42/Lucene42FieldInfosWriter.java
-var Lucene42FieldInfosWriter = func(dir store.Directory,
-	segName string, infos model.FieldInfos, ctx store.IOContext) (err error) {
+// var Lucene42FieldInfosWriter = func(dir store.Directory,
+// 	segName string, infos model.FieldInfos, ctx store.IOContext) (err error) {
 
-	fileName := util.SegmentFileName(segName, "", LUCENE42_FI_EXTENSION)
-	var output store.IndexOutput
-	output, err = dir.CreateOutput(fileName, ctx)
-	if err != nil {
-		return err
-	}
+// 	fileName := util.SegmentFileName(segName, "", LUCENE42_FI_EXTENSION)
+// 	var output store.IndexOutput
+// 	output, err = dir.CreateOutput(fileName, ctx)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	var success = false
-	defer func() {
-		if success {
-			err = mergeError(err, output.Close())
-		} else {
-			util.CloseWhileSuppressingError(output)
-		}
-	}()
+// 	var success = false
+// 	defer func() {
+// 		if success {
+// 			err = mergeError(err, output.Close())
+// 		} else {
+// 			util.CloseWhileSuppressingError(output)
+// 		}
+// 	}()
 
-	err = codec.WriteHeader(output, LUCENE42_FI_CODEC_NAME, LUCENE42_FI_FORMAT_CURRENT)
-	if err != nil {
-		return err
-	}
-	err = output.WriteVInt(int32(len(infos.Values)))
-	if err != nil {
-		return err
-	}
-	for _, fi := range infos.Values {
-		indexOptions := fi.IndexOptions()
-		bits := byte(0x0)
-		if fi.HasVectors() {
-			bits |= LUCENE42_FI_STORE_TERMVECTOR
-		}
-		if fi.OmitsNorms() {
-			bits |= LUCENE42_FI_OMIT_NORMS
-		}
-		if fi.HasPayloads() {
-			bits |= LUCENE42_FI_STORE_PAYLOADS
-		}
-		if fi.IsIndexed() {
-			bits |= LUCENE42_FI_IS_INDEXED
-			assert(int(indexOptions) >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS) || !fi.HasPayloads())
-			switch indexOptions {
-			case model.INDEX_OPT_DOCS_ONLY:
-				bits |= LUCENE42_FI_OMIT_TERM_FREQ_AND_POSITIONS
-			case model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS:
-				bits |= LUCENE42_FI_STORE_OFFSETS_IN_POSTINGS
-			case model.INDEX_OPT_DOCS_AND_FREQS:
-				bits |= LUCENE42_FI_OMIT_POSITIONS
-			}
-		}
-		err = output.WriteString(fi.Name)
-		if err != nil {
-			return err
-		}
-		err = output.WriteVInt(fi.Number)
-		if err != nil {
-			return err
-		}
-		err = output.WriteByte(bits)
-		if err != nil {
-			return err
-		}
+// 	err = codec.WriteHeader(output, LUCENE42_FI_CODEC_NAME, LUCENE42_FI_FORMAT_CURRENT)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	err = output.WriteVInt(int32(len(infos.Values)))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	for _, fi := range infos.Values {
+// 		indexOptions := fi.IndexOptions()
+// 		bits := byte(0x0)
+// 		if fi.HasVectors() {
+// 			bits |= LUCENE42_FI_STORE_TERMVECTOR
+// 		}
+// 		if fi.OmitsNorms() {
+// 			bits |= LUCENE42_FI_OMIT_NORMS
+// 		}
+// 		if fi.HasPayloads() {
+// 			bits |= LUCENE42_FI_STORE_PAYLOADS
+// 		}
+// 		if fi.IsIndexed() {
+// 			bits |= LUCENE42_FI_IS_INDEXED
+// 			assert(int(indexOptions) >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS) || !fi.HasPayloads())
+// 			switch indexOptions {
+// 			case model.INDEX_OPT_DOCS_ONLY:
+// 				bits |= LUCENE42_FI_OMIT_TERM_FREQ_AND_POSITIONS
+// 			case model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS:
+// 				bits |= LUCENE42_FI_STORE_OFFSETS_IN_POSTINGS
+// 			case model.INDEX_OPT_DOCS_AND_FREQS:
+// 				bits |= LUCENE42_FI_OMIT_POSITIONS
+// 			}
+// 		}
+// 		err = output.WriteString(fi.Name)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		err = output.WriteVInt(fi.Number)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		err = output.WriteByte(bits)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		// pack the DV types in one byte
-		dv := docValuesByte(fi.DocValuesType())
-		nrm := docValuesByte(fi.NormType())
-		assert((int(dv)&(^0xF)) == 0 && (int(nrm)&(^0x0F)) == 0)
-		val := byte(0xFF & ((nrm << 4) | dv))
-		err = output.WriteByte(val)
-		if err != nil {
-			return err
-		}
-		err = output.WriteStringStringMap(fi.Attributes())
-		if err != nil {
-			return err
-		}
-	}
-	success = true
-	return nil
-}
+// 		// pack the DV types in one byte
+// 		dv := docValuesByte(fi.DocValuesType())
+// 		nrm := docValuesByte(fi.NormType())
+// 		assert((int(dv)&(^0xF)) == 0 && (int(nrm)&(^0x0F)) == 0)
+// 		val := byte(0xFF & ((nrm << 4) | dv))
+// 		err = output.WriteByte(val)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		err = output.WriteStringStringMap(fi.Attributes())
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	success = true
+// 	return nil
+// }
 
-func docValuesByte(typ model.DocValuesType) byte {
-	n := byte(typ)
-	assert(n >= 0 && n <= 4)
-	return n
-}
+// func docValuesByte(typ model.DocValuesType) byte {
+// 	n := byte(typ)
+// 	assert(n >= 0 && n <= 4)
+// 	return n
+// }
 
 // lucene42/Lucene42TermVectorsFormat.java
 
@@ -495,10 +494,8 @@ func newLucene42NormsFormatWithOverhead(acceptableOverheadRatio float32) *Lucene
 	return &Lucene42NormsFormat{acceptableOverheadRatio}
 }
 
-func (f *Lucene42NormsFormat) NormsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
-	return lucene42.NewNormsConsumer(state,
-		"Lucene41NormsData", "nvd", "Lucene41NormsMetadata", "nvm",
-		f.acceptableOverheadRatio)
+func (f *Lucene42NormsFormat) NormsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error) {
+	panic("this codec can only be used for reading")
 }
 
 func (f *Lucene42NormsFormat) NormsProducer(state SegmentReadState) (r DocValuesProducer, err error) {
@@ -634,7 +631,7 @@ func (f *Lucene42DocValuesFormat) Name() string {
 	return "Lucene42"
 }
 
-func (f *Lucene42DocValuesFormat) FieldsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
+func (f *Lucene42DocValuesFormat) FieldsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("this codec can only be used for reading")
 }
 

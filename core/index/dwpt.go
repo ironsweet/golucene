@@ -19,6 +19,7 @@ const DWPT_VERBOSE = true
 type IndexingChain func(documentsWriterPerThread *DocumentsWriterPerThread) DocConsumer
 
 var defaultIndexingChain = func(documentsWriterPerThread *DocumentsWriterPerThread) DocConsumer {
+	panic("not implemented yet")
 	/*
 	   This is the current indexing chain:
 
@@ -42,27 +43,26 @@ var defaultIndexingChain = func(documentsWriterPerThread *DocumentsWriterPerThre
 
 	// Build up indexing chain:
 
-	termVectorsWriter := newTermVectorsConsumer(documentsWriterPerThread)
-	freqProxWriter := new(FreqProxTermsWriter)
+	// termVectorsWriter := newTermVectorsConsumer(documentsWriterPerThread)
+	// freqProxWriter := new(FreqProxTermsWriter)
 
-	termsHash := newTermsHash(documentsWriterPerThread, freqProxWriter, true,
-		newTermsHash(documentsWriterPerThread, termVectorsWriter, false, nil))
-	normsWriter := new(NormsConsumer)
-	docInverter := newDocInverter(documentsWriterPerThread.docState, termsHash, normsWriter)
-	storedFields := newTwoStoredFieldsConsumers(
-		newStoredFieldsProcessor(documentsWriterPerThread),
-		newDocValuesProcessor(documentsWriterPerThread._bytesUsed))
-	return newDocFieldProcessor(documentsWriterPerThread, docInverter, storedFields)
+	// termsHash := newTermsHash(documentsWriterPerThread, freqProxWriter, true,
+	// 	newTermsHash(documentsWriterPerThread, termVectorsWriter, false, nil))
+	// normsWriter := new(NormsConsumer)
+	// docInverter := newDocInverter(documentsWriterPerThread.docState, termsHash, normsWriter)
+	// storedFields := newTwoStoredFieldsConsumers(
+	// 	newStoredFieldsProcessor(documentsWriterPerThread),
+	// 	newDocValuesProcessor(documentsWriterPerThread._bytesUsed))
+	// return newDocFieldProcessor(documentsWriterPerThread, docInverter, storedFields)
 }
 
 type docState struct {
-	docWriter     *DocumentsWriterPerThread
-	analyzer      analysis.Analyzer
-	infoStream    util.InfoStream
-	similarity    Similarity
-	docID         int
-	doc           []model.IndexableField
-	maxTermPrefix string // log only
+	docWriter  *DocumentsWriterPerThread
+	analyzer   analysis.Analyzer
+	infoStream util.InfoStream
+	similarity Similarity
+	docID      int
+	doc        []model.IndexableField
 }
 
 func newDocState(docWriter *DocumentsWriterPerThread, infoStream util.InfoStream) *docState {
@@ -83,20 +83,20 @@ func (ds *docState) clear() {
 }
 
 type FlushedSegment struct {
-	segmentInfo    *SegmentInfoPerCommit
+	segmentInfo    *SegmentCommitInfo
 	fieldInfos     model.FieldInfos
-	segmentDeletes *FrozenBufferedDeletes
+	segmentUpdates *FrozenBufferedUpdates
 	liveDocs       util.MutableBits
 	delCount       int
 }
 
-func newFlushedSegment(segmentInfo *SegmentInfoPerCommit,
-	fieldInfos model.FieldInfos, segmentDeletes *BufferedDeletes,
+func newFlushedSegment(segmentInfo *SegmentCommitInfo,
+	fieldInfos model.FieldInfos, segmentUpdates *BufferedUpdates,
 	liveDocs util.MutableBits, delCount int) *FlushedSegment {
 
-	var sd *FrozenBufferedDeletes
-	if segmentDeletes != nil && segmentDeletes.any() {
-		sd = freezeBufferedDeletes(segmentDeletes, true)
+	var sd *FrozenBufferedUpdates
+	if segmentUpdates != nil && segmentUpdates.any() {
+		sd = freezeBufferedUpdates(segmentUpdates, true)
 	}
 	return &FlushedSegment{segmentInfo, fieldInfos, sd, liveDocs, delCount}
 }
@@ -110,7 +110,7 @@ type DocumentsWriterPerThread struct {
 	_bytesUsed    util.Counter
 
 	// Deletes for our still-in-RAM (to be flushed next) segment
-	pendingDeletes *BufferedDeletes
+	pendingUpdates *BufferedUpdates
 	segmentInfo    *model.SegmentInfo // Current segment we are working on
 	aborting       bool               // True if an abort is pending
 	hasAborted     bool               // True if the last exception throws by #updateDocument was aborting
@@ -122,13 +122,13 @@ type DocumentsWriterPerThread struct {
 	deleteSlice        *DeleteSlice
 	byteBlockAllocator util.ByteAllocator
 	intBlockAllocator  util.IntAllocator
-	indexWriterConfig  *LiveIndexWriterConfig
+	indexWriterConfig  LiveIndexWriterConfig
 
 	filesToDelete map[string]bool
 }
 
 func newDocumentsWriterPerThread(segmentName string,
-	directory store.Directory, indexWriterConfig *LiveIndexWriterConfig,
+	directory store.Directory, indexWriterConfig LiveIndexWriterConfig,
 	infoStream util.InfoStream, deleteQueue *DocumentsWriterDeleteQueue,
 	fieldInfos *model.FieldInfosBuilder) *DocumentsWriterPerThread {
 
@@ -139,25 +139,25 @@ func newDocumentsWriterPerThread(segmentName string,
 		fieldInfos:         fieldInfos,
 		indexWriterConfig:  indexWriterConfig,
 		infoStream:         infoStream,
-		codec:              indexWriterConfig.codec,
+		codec:              indexWriterConfig.Codec(),
 		_bytesUsed:         counter,
 		byteBlockAllocator: util.NewDirectTrackingAllocator(counter),
-		pendingDeletes:     newBufferedDeletes(),
+		pendingUpdates:     newBufferedUpdates(),
 		intBlockAllocator:  newIntBlockAllocator(counter),
 		deleteQueue:        deleteQueue,
 		deleteSlice:        deleteQueue.newSlice(),
-		segmentInfo:        model.NewSegmentInfo(directory, util.LUCENE_MAIN_VERSION, segmentName, -1, false, indexWriterConfig.codec, nil, nil),
+		segmentInfo:        model.NewSegmentInfo(directory, util.LUCENE_MAIN_VERSION, segmentName, -1, false, indexWriterConfig.Codec(), nil),
 		filesToDelete:      make(map[string]bool),
 	}
 	ans.docState = newDocState(ans, infoStream)
-	ans.docState.similarity = indexWriterConfig.similarity
+	ans.docState.similarity = indexWriterConfig.Similarity()
 	assertn(ans.numDocsInRAM == 0, "num docs ", ans.numDocsInRAM)
 	if DWPT_VERBOSE && infoStream.IsEnabled("DWPT") {
 		infoStream.Message("DWPT", "init seg=%v delQueue=%v", segmentName, deleteQueue)
 	}
 	// this should be the last call in the ctor
 	// it really sucks that we need to pull this within the ctor and pass this ref to the chain!
-	ans.consumer = indexWriterConfig.indexingChain(ans)
+	ans.consumer = indexWriterConfig.indexingChain()(ans)
 	return ans
 }
 
@@ -182,7 +182,7 @@ func (dwpt *DocumentsWriterPerThread) abort(createdFiles map[string]bool) {
 	}
 	dwpt.consumer.abort()
 
-	dwpt.pendingDeletes.clear()
+	dwpt.pendingUpdates.clear()
 	dwpt.directory.EachCreatedFiles(func(file string) {
 		createdFiles[file] = true
 	})
@@ -215,41 +215,42 @@ func (dwpt *DocumentsWriterPerThread) updateDocument(doc []model.IndexableField,
 		dwpt.infoStream.Message("DWPT", "update delTerm=%v docID=%v seg=%v ",
 			delTerm, dwpt.docState.docID, dwpt.segmentInfo.Name)
 	}
-	err := func() error {
-		var success = false
-		defer func() {
-			if !success {
-				if !dwpt.aborting {
-					// mark document as deleted
-					dwpt.deleteDocID(dwpt.docState.docID)
-					dwpt.numDocsInRAM++
-				} else {
-					dwpt.abort(dwpt.filesToDelete)
-				}
-			}
-		}()
-		defer dwpt.docState.clear()
-		err := dwpt.consumer.processDocument(dwpt.fieldInfos)
-		success = err == nil
-		return err
-	}()
-	if err != nil {
-		return err
-	}
-	err = func() error {
-		var success = false
-		defer func() {
-			if !success {
-				dwpt.abort(dwpt.filesToDelete)
-			}
-		}()
-		err := dwpt.consumer.finishDocument()
-		success = err == nil
-		return err
-	}()
-	if err != nil {
-		return err
-	}
+	panic("not implemented yet")
+	// err := func() error {
+	// 	var success = false
+	// 	defer func() {
+	// 		if !success {
+	// 			if !dwpt.aborting {
+	// 				// mark document as deleted
+	// 				dwpt.deleteDocID(dwpt.docState.docID)
+	// 				dwpt.numDocsInRAM++
+	// 			} else {
+	// 				dwpt.abort(dwpt.filesToDelete)
+	// 			}
+	// 		}
+	// 	}()
+	// 	defer dwpt.docState.clear()
+	// 	err := dwpt.consumer.processDocument()
+	// 	success = err == nil
+	// 	return err
+	// }()
+	// if err != nil {
+	// 	return err
+	// }
+	// err = func() error {
+	// 	var success = false
+	// 	defer func() {
+	// 		if !success {
+	// 			dwpt.abort(dwpt.filesToDelete)
+	// 		}
+	// 	}()
+	// 	err := dwpt.consumer.finishDocument()
+	// 	success = err == nil
+	// 	return err
+	// }()
+	// if err != nil {
+	// 	return err
+	// }
 	dwpt.finishDocument(delTerm)
 	return nil
 }
@@ -279,7 +280,7 @@ func (w *DocumentsWriterPerThread) finishDocument(delTerm *Term) {
 	}
 
 	if applySlice {
-		w.deleteSlice.apply(w.pendingDeletes, w.numDocsInRAM)
+		w.deleteSlice.apply(w.pendingUpdates, w.numDocsInRAM)
 	} else { // if we don't need to apply we must reset!
 		w.deleteSlice.reset()
 	}
@@ -291,7 +292,7 @@ Buffer a specific docID for deletion. Currenlty only used when we hit
 an error when adding a document
 */
 func (dwpt *DocumentsWriterPerThread) deleteDocID(docIDUpto int) {
-	dwpt.pendingDeletes.addDocID(docIDUpto)
+	dwpt.pendingUpdates.addDocID(docIDUpto)
 	// NOTE: we do not trigger flush here.  This is
 	// potentially a RAM leak, if you have an app that tries
 	// to add docs but every single doc always hits a
@@ -307,14 +308,14 @@ func (dwpt *DocumentsWriterPerThread) deleteDocID(docIDUpto int) {
 Prepares this DWPT fo flushing. This method will freeze and return
 the DWDQs global buffer and apply all pending deletes to this DWPT.
 */
-func (dwpt *DocumentsWriterPerThread) prepareFlush() *FrozenBufferedDeletes {
+func (dwpt *DocumentsWriterPerThread) prepareFlush() *FrozenBufferedUpdates {
 	assert(dwpt.numDocsInRAM > 0)
 	globalDeletes := dwpt.deleteQueue.freezeGlobalBuffer(dwpt.deleteSlice)
 	// deleteSlice can possibly be nil if we have hit non-aborting
 	// errors during adding a document.
 	if dwpt.deleteSlice != nil {
 		// apply all deletes before we flush and release the delete slice
-		dwpt.deleteSlice.apply(dwpt.pendingDeletes, dwpt.numDocsInRAM)
+		dwpt.deleteSlice.apply(dwpt.pendingUpdates, dwpt.numDocsInRAM)
 		assert(dwpt.deleteSlice.isEmpty())
 		dwpt.deleteSlice.reset()
 	}
@@ -329,21 +330,21 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 	numBytesUsed := dwpt.bytesUsed()
 	flushState := model.NewSegmentWriteState(dwpt.infoStream, dwpt.directory,
 		dwpt.segmentInfo, dwpt.fieldInfos.Finish(),
-		dwpt.indexWriterConfig.termIndexInterval, dwpt.pendingDeletes,
+		dwpt.indexWriterConfig.TermIndexInterval(), dwpt.pendingUpdates,
 		store.NewIOContextForFlush(&store.FlushInfo{dwpt.numDocsInRAM, numBytesUsed}))
 	startMBUsed := float64(numBytesUsed) / 1024 / 1024
 
 	// Apply delete-by-docID now (delete-byDocID only happens when an
 	// error is hit processing that doc, e.g., if analyzer has some
 	// problem with the text):
-	if delCount := len(dwpt.pendingDeletes.docIDs); delCount > 0 {
+	if delCount := len(dwpt.pendingUpdates.docIDs); delCount > 0 {
 		flushState.LiveDocs = dwpt.codec.LiveDocsFormat().NewLiveDocs(dwpt.numDocsInRAM)
-		for _, delDocID := range dwpt.pendingDeletes.docIDs {
+		for _, delDocID := range dwpt.pendingUpdates.docIDs {
 			flushState.LiveDocs.Clear(delDocID)
 		}
 		flushState.DelCountOnFlush = delCount
-		atomic.AddInt64(&dwpt.pendingDeletes.bytesUsed, -int64(delCount)*BYTES_PER_DEL_DOCID)
-		dwpt.pendingDeletes.docIDs = nil
+		atomic.AddInt64(&dwpt.pendingUpdates.bytesUsed, -int64(delCount)*BYTES_PER_DEL_DOCID)
+		dwpt.pendingUpdates.docIDs = nil
 	}
 
 	if dwpt.aborting {
@@ -369,14 +370,14 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 	if err != nil {
 		return nil, err
 	}
-	dwpt.pendingDeletes.terms = make(map[*Term]int)
+	dwpt.pendingUpdates.terms = make(map[*Term]int)
 	files := make(map[string]bool)
 	dwpt.directory.EachCreatedFiles(func(name string) {
 		files[name] = true
 	})
 	dwpt.segmentInfo.SetFiles(files)
 
-	info := NewSegmentInfoPerCommit(dwpt.segmentInfo, 0, -1)
+	info := NewSegmentCommitInfo(dwpt.segmentInfo, 0, -1, -1, -1)
 	if dwpt.infoStream.IsEnabled("DWPT") {
 		dwpt.infoStream.Message("DWPT", "new segment has %v deleted docs",
 			check(flushState.LiveDocs == nil, 0,
@@ -391,9 +392,9 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 		dwpt.infoStream.Message("DWPT", "flushed codec=%v", dwpt.codec)
 	}
 
-	var segmentDeletes *BufferedDeletes
-	if len(dwpt.pendingDeletes.queries) > 0 {
-		segmentDeletes = dwpt.pendingDeletes
+	var segmentUpdates *BufferedUpdates
+	if len(dwpt.pendingUpdates.queries) > 0 {
+		segmentUpdates = dwpt.pendingUpdates
 	}
 
 	if dwpt.infoStream.IsEnabled("DWPT") {
@@ -410,7 +411,7 @@ func (dwpt *DocumentsWriterPerThread) flush() (fs *FlushedSegment, err error) {
 
 	assert(dwpt.segmentInfo != nil)
 
-	fs = newFlushedSegment(info, flushState.FieldInfos, segmentDeletes,
+	fs = newFlushedSegment(info, flushState.FieldInfos, segmentUpdates,
 		flushState.LiveDocs, flushState.DelCountOnFlush)
 	err = dwpt.sealFlushedSegment(fs)
 	if err != nil {
@@ -459,7 +460,7 @@ func (dwpt *DocumentsWriterPerThread) sealFlushedSegment(flushedSegment *Flushed
 		}
 	}()
 
-	if dwpt.indexWriterConfig.useCompoundFile {
+	if dwpt.indexWriterConfig.UseCompoundFile() {
 		files, err := createCompoundFile(
 			dwpt.infoStream, dwpt.directory,
 			CheckAbortNone(0), newSegment.info, context)
@@ -521,7 +522,7 @@ func (dwpt *DocumentsWriterPerThread) sealFlushedSegment(flushedSegment *Flushed
 }
 
 func (dwpt *DocumentsWriterPerThread) bytesUsed() int64 {
-	return dwpt._bytesUsed.Get() + atomic.LoadInt64(&dwpt.pendingDeletes.bytesUsed)
+	return dwpt._bytesUsed.Get() + atomic.LoadInt64(&dwpt.pendingUpdates.bytesUsed)
 }
 
 // L600
@@ -552,8 +553,8 @@ func (alloc *IntBlockAllocator) Recycle(blocks [][]int) {
 
 func (w *DocumentsWriterPerThread) String() string {
 	return fmt.Sprintf(
-		"DocumentsWriterPerThread [pendingDeletes=%v, segment=%v, aborting=%v, numDocsInRAM=%v, deleteQueue=%v]",
-		w.pendingDeletes, func() string {
+		"DocumentsWriterPerThread [pendingUpdates=%v, segment=%v, aborting=%v, numDocsInRAM=%v, deleteQueue=%v]",
+		w.pendingUpdates, func() string {
 			if w.segmentInfo != nil {
 				return w.segmentInfo.Name
 			}

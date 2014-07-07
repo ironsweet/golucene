@@ -35,7 +35,7 @@ func (pf *PerFieldPostingsFormat) Name() string {
 	return "PerField40"
 }
 
-func (pf *PerFieldPostingsFormat) FieldsConsumer(state model.SegmentWriteState) (FieldsConsumer, error) {
+func (pf *PerFieldPostingsFormat) FieldsConsumer(state *model.SegmentWriteState) (FieldsConsumer, error) {
 	return newPerFieldPostingsWriter(pf, state), nil
 }
 
@@ -61,11 +61,11 @@ type PerFieldPostingsWriter struct {
 	owner             *PerFieldPostingsFormat
 	formats           map[PostingsFormat]*FieldsConsumerAndSuffix
 	suffixes          map[string]int
-	segmentWriteState model.SegmentWriteState
+	segmentWriteState *model.SegmentWriteState
 }
 
 func newPerFieldPostingsWriter(owner *PerFieldPostingsFormat,
-	state model.SegmentWriteState) FieldsConsumer {
+	state *model.SegmentWriteState) FieldsConsumer {
 	return &PerFieldPostingsWriter{
 		owner,
 		make(map[PostingsFormat]*FieldsConsumerAndSuffix),
@@ -254,7 +254,7 @@ func (pf *PerFieldDocValuesFormat) Name() string {
 	return "PerFieldDV40"
 }
 
-func (pf *PerFieldDocValuesFormat) FieldsConsumer(state model.SegmentWriteState) (w DocValuesConsumer, err error) {
+func (pf *PerFieldDocValuesFormat) FieldsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("not implemented yet")
 }
 

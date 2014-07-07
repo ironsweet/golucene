@@ -321,6 +321,8 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 				ch.msg("    attributes = %v", atts)
 			}
 
+			panic("not implemented yet")
+
 			if !info.HasDeletions() {
 				ch.msg("    no deletions")
 				segInfoStat.hasDeletions = false

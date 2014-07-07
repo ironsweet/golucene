@@ -13,7 +13,7 @@ type MergeControl struct {
 	readerPool *ReaderPool
 
 	// Holds all SegmentInfo instances currently involved in merges
-	mergingSegments map[*SegmentInfoPerCommit]bool
+	mergingSegments map[*SegmentCommitInfo]bool
 
 	pendingMerges *list.List
 	runningMerges map[*OneMerge]bool
@@ -28,7 +28,7 @@ func newMergeControl(infoStream util.InfoStream, readerPool *ReaderPool) *MergeC
 		Locker:          lock,
 		infoStream:      infoStream,
 		readerPool:      readerPool,
-		mergingSegments: make(map[*SegmentInfoPerCommit]bool),
+		mergingSegments: make(map[*SegmentCommitInfo]bool),
 		pendingMerges:   list.New(),
 		runningMerges:   make(map[*OneMerge]bool),
 		mergeSignal:     sync.NewCond(lock),

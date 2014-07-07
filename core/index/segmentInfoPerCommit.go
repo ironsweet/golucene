@@ -6,10 +6,10 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 )
 
-// index/SegmentInfoPerCommit.java
+// index/SegmentCommitInfo.java
 
 // Embeds a [read-only] SegmentInfo and adds per-commit fields.
-type SegmentInfoPerCommit struct {
+type SegmentCommitInfo struct {
 	// The SegmentInfo that we wrap.
 	info *model.SegmentInfo
 	// How many deleted docs in the segment:
@@ -23,17 +23,19 @@ type SegmentInfoPerCommit struct {
 
 	// NOTE: only used by in-RAM by IW to track buffered deletes;
 	// this is never written to/read from the Directory
-	bufferedDeletesGen int64
+	BufferedUpdatesGen int64
 }
 
-func NewSegmentInfoPerCommit(info *model.SegmentInfo,
-	delCount int, delGen int64) *SegmentInfoPerCommit {
+func NewSegmentCommitInfo(info *model.SegmentInfo,
+	delCount int, delGen, fieldInfosGen, docValuesGen int64) *SegmentCommitInfo {
+
+	panic("not implemented yet")
 
 	nextWriteDelGen := int64(1)
 	if delGen != -1 {
 		nextWriteDelGen = delGen + 1
 	}
-	return &SegmentInfoPerCommit{
+	return &SegmentCommitInfo{
 		info:            info,
 		delCount:        delCount,
 		delGen:          delGen,
@@ -43,7 +45,7 @@ func NewSegmentInfoPerCommit(info *model.SegmentInfo,
 }
 
 /* Called when we succeed in writing deletes */
-func (info *SegmentInfoPerCommit) advanceDelGen() {
+func (info *SegmentCommitInfo) advanceDelGen() {
 	info.delGen, info.nextWriteDelGen = info.nextWriteDelGen, info.delGen+1
 	info.sizeInBytes = -1
 }
@@ -52,7 +54,7 @@ func (info *SegmentInfoPerCommit) advanceDelGen() {
 Called if there was an error while writing deletes, so that we don't
 try to write to the same file more than once.
 */
-func (info *SegmentInfoPerCommit) advanceNextWriteDelGen() {
+func (info *SegmentCommitInfo) advanceNextWriteDelGen() {
 	info.nextWriteDelGen++
 }
 
@@ -62,7 +64,7 @@ Returns total size in bytes of all files for this segment.
 NOTE: This value is not correct for 3.0 segments that have shared
 docstores. To get correct value, upgrade.
 */
-func (si *SegmentInfoPerCommit) SizeInBytes() (sum int64, err error) {
+func (si *SegmentCommitInfo) SizeInBytes() (sum int64, err error) {
 	if si.sizeInBytes == -1 {
 		sum = 0
 		for _, fileName := range si.Files() {
@@ -78,7 +80,8 @@ func (si *SegmentInfoPerCommit) SizeInBytes() (sum int64, err error) {
 }
 
 // Returns all files in use by this segment.
-func (si *SegmentInfoPerCommit) Files() []string {
+func (si *SegmentCommitInfo) Files() []string {
+	panic("not implemented yet")
 	// Start from the wrapped info's files:
 	files := make(map[string]bool)
 	for name, _ := range si.info.Files() {
@@ -97,27 +100,30 @@ func (si *SegmentInfoPerCommit) Files() []string {
 	return ans
 }
 
-func (si *SegmentInfoPerCommit) setBufferedDeletesGen(v int64) {
-	si.bufferedDeletesGen = v
+func (si *SegmentCommitInfo) setBufferedUpdatesGen(v int64) {
+	si.BufferedUpdatesGen = v
 	si.sizeInBytes = -1
 }
 
 // Returns true if there are any deletions for the segment at this
 // commit.
-func (si *SegmentInfoPerCommit) HasDeletions() bool {
+func (si *SegmentCommitInfo) HasDeletions() bool {
 	return si.delGen != -1
 }
 
-func (si *SegmentInfoPerCommit) setDelCount(delCount int) {
+func (si *SegmentCommitInfo) setDelCount(delCount int) {
+	assert2(delCount >= 0 && delCount <= si.info.DocCount(),
+		"invalid delCount=%v (docCount=%v)", delCount, si.info.DocCount())
 	si.delCount = delCount
-	assert(delCount <= si.info.DocCount())
 }
 
-func (si *SegmentInfoPerCommit) StringOf(dir store.Directory, pendingDelCount int) string {
+func (si *SegmentCommitInfo) StringOf(dir store.Directory, pendingDelCount int) string {
+	panic("not implemented yet")
 	return si.info.StringOf(dir, si.delCount+pendingDelCount)
 }
 
-func (si *SegmentInfoPerCommit) String() string {
+func (si *SegmentCommitInfo) String() string {
+	panic("not implemented yet")
 	s := si.info.StringOf(si.info.Dir, si.delCount)
 	if si.delGen != -1 {
 		s = fmt.Sprintf("%v:delGen=%v", s, si.delGen)
@@ -125,11 +131,12 @@ func (si *SegmentInfoPerCommit) String() string {
 	return s
 }
 
-func (si *SegmentInfoPerCommit) Clone() *SegmentInfoPerCommit {
+func (si *SegmentCommitInfo) Clone() *SegmentCommitInfo {
+	panic("not implemented yet")
 	// Not clear that we need ot carry over nextWriteDelGen (i.e. do we
 	// ever clone after a failed write and before the next successful
 	// write?), but just do it to be safe:
-	return &SegmentInfoPerCommit{
+	return &SegmentCommitInfo{
 		info:            si.info,
 		delCount:        si.delCount,
 		delGen:          si.delGen,

@@ -33,9 +33,10 @@ working diretly on the file system cache of the operating system, so
 copying dat to Java heap space is not useful.
 */
 type RAMDirectory struct {
-	sizeInBytes int64 // synchronized
-
+	*DirectoryImpl
 	*BaseDirectory
+
+	sizeInBytes int64 // synchronized
 
 	fileMap     map[string]*RAMFile // synchronized
 	fileMapLock *sync.RWMutex
@@ -47,6 +48,7 @@ func NewRAMDirectory() *RAMDirectory {
 		fileMapLock: &sync.RWMutex{},
 	}
 	ans.DirectoryImpl = NewDirectoryImpl(ans)
+	ans.BaseDirectory = NewBaseDirectory(ans)
 	ans.SetLockFactory(newSingleInstanceLockFactory())
 	return ans
 }
@@ -245,7 +247,7 @@ func newBuffer(size int) []byte {
 	return make([]byte, size)
 }
 
-func (rf *RAMFile) SizeInBytes() int64 {
+func (rf *RAMFile) RamBytesUsed() int64 {
 	rf.Lock()
 	defer rf.Unlock()
 	return rf.sizeInBytes

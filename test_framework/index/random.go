@@ -28,7 +28,7 @@ func NewMockRandomMergePolicy(r *rand.Rand) *MockRandomMergePolicy {
 func (p *MockRandomMergePolicy) FindMerges(mergeTrigger MergeTrigger,
 	segmentInfos *SegmentInfos) (MergeSpecification, error) {
 
-	var segments []*SegmentInfoPerCommit
+	var segments []*SegmentCommitInfo
 	merging := p.Writer.Get().(*IndexWriter).MergingSegments()
 
 	for _, sipc := range segmentInfos.Segments {
@@ -39,7 +39,7 @@ func (p *MockRandomMergePolicy) FindMerges(mergeTrigger MergeTrigger,
 
 	var merges []*OneMerge
 	if n := len(segments); n > 1 && (n > 30 || p.random.Intn(5) == 3) {
-		segments2 := make([]*SegmentInfoPerCommit, len(segments))
+		segments2 := make([]*SegmentCommitInfo, len(segments))
 		for i, v := range p.random.Perm(len(segments)) {
 			segments2[i] = segments[v]
 		}
@@ -53,13 +53,13 @@ func (p *MockRandomMergePolicy) FindMerges(mergeTrigger MergeTrigger,
 }
 
 func (p *MockRandomMergePolicy) FindForcedMerges(segmentsInfos *SegmentInfos,
-	maxSegmentCount int, segmentsToMerge map[*SegmentInfoPerCommit]bool) (MergeSpecification, error) {
+	maxSegmentCount int, segmentsToMerge map[*SegmentCommitInfo]bool) (MergeSpecification, error) {
 	panic("not implemented yet")
 }
 
 func (p *MockRandomMergePolicy) Close() error { return nil }
 
-func (p *MockRandomMergePolicy) UseCompoundFile(infos *SegmentInfos, mergedInfo *SegmentInfoPerCommit) (bool, error) {
+func (p *MockRandomMergePolicy) UseCompoundFile(infos *SegmentInfos, mergedInfo *SegmentCommitInfo) (bool, error) {
 	// 80% of the time we create CFS:
 	return p.random.Intn(5) != 1, nil
 }
@@ -88,7 +88,7 @@ func NewAlcoholicMergePolicy( /*tz TimeZone, */ r *rand.Rand) *AlcoholicMergePol
 	return mp
 }
 
-func (p *AlcoholicMergePolicy) Size(info *SegmentInfoPerCommit) (int64, error) {
+func (p *AlcoholicMergePolicy) Size(info *SegmentCommitInfo) (int64, error) {
 	n, err := info.SizeInBytes()
 	now := time.Now()
 	if hour := now.Hour(); err == nil && (hour < 6 || hour > 20 ||

@@ -13,8 +13,8 @@ func newPrefixCodedTerms(buffer *store.RAMFile) *PrefixCodedTerms {
 	return &PrefixCodedTerms{buffer}
 }
 
-func (terms *PrefixCodedTerms) sizeInBytes() int64 {
-	return terms.buffer.SizeInBytes()
+func (terms *PrefixCodedTerms) RamBytesUsed() int64 {
+	return terms.buffer.RamBytesUsed()
 }
 
 /* Builds a PrefixCodedTerms: call add repeatedly, then finish. */
@@ -27,7 +27,7 @@ func newPrefixCodedTermsBuilder() *PrefixCodedTermsBuilder {
 	f := store.NewRAMFileBuffer()
 	return &PrefixCodedTermsBuilder{
 		buffer: f,
-		output: store.NewRAMOutputStream(f),
+		output: store.NewRAMOutputStream(f, false),
 	}
 }
 

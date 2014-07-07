@@ -8,28 +8,28 @@ import (
 type ReaderPool struct {
 	owner *IndexWriter
 	sync.Locker
-	readerMap map[*SegmentInfoPerCommit]*ReadersAndLiveDocs
+	readerMap map[*SegmentCommitInfo]*ReadersAndUpdates
 }
 
 func newReaderPool(owner *IndexWriter) *ReaderPool {
 	return &ReaderPool{
 		owner:     owner,
 		Locker:    &sync.Mutex{},
-		readerMap: make(map[*SegmentInfoPerCommit]*ReadersAndLiveDocs),
+		readerMap: make(map[*SegmentCommitInfo]*ReadersAndUpdates),
 	}
 }
 
-func (pool *ReaderPool) infoIsLive(info *SegmentInfoPerCommit) bool {
+func (pool *ReaderPool) infoIsLive(info *SegmentCommitInfo) bool {
 	panic("not implemented yet")
 }
 
-func (pool *ReaderPool) drop(info *SegmentInfoPerCommit) error {
+func (pool *ReaderPool) drop(info *SegmentCommitInfo) error {
 	pool.Lock()
 	defer pool.Unlock()
 	panic("not implemented yet")
 }
 
-func (pool *ReaderPool) release(rld *ReadersAndLiveDocs) error {
+func (pool *ReaderPool) release(rld *ReadersAndUpdates) error {
 	panic("not implemented yet")
 }
 
@@ -47,7 +47,7 @@ func (pool *ReaderPool) dropAll(doSave bool) error {
 					return err
 				}
 				if ok {
-					// Make sure we only write del docs for a live segment:
+					// Make sure we only write del docs and field updates for a live segment:
 					assert(pool.infoIsLive(rld.info))
 					// Must checkpoint because we just
 					// created new _X_N.del and field updates files;
@@ -120,10 +120,10 @@ func (pool *ReaderPool) commit(infos *SegmentInfos) error {
 }
 
 /*
-Obtain a readersAndLiveDocs instance from the ReaderPool. If
+Obtain a ReadersAndUpdates instance from the ReaderPool. If
 create is true, you must later call release().
 */
-func (pool *ReaderPool) get(info *SegmentInfoPerCommit, create bool) *ReadersAndLiveDocs {
+func (pool *ReaderPool) get(info *SegmentCommitInfo, create bool) *ReadersAndUpdates {
 	pool.Lock() // synchronized
 	defer pool.Unlock()
 
@@ -134,7 +134,7 @@ func (pool *ReaderPool) get(info *SegmentInfoPerCommit, create bool) *ReadersAnd
 		if !create {
 			return nil
 		}
-		rld = newReadersAndLiveDocs(pool.owner, info)
+		rld = newReadersAndUpdates(pool.owner, info)
 		// Steal initial reference:
 		pool.readerMap[info] = rld
 	} else {
@@ -167,7 +167,7 @@ func (pool *ReaderPool) noDups() bool {
 Obtain the number of deleted docs for a pooled reader. If the reader
 isn't being pooled, the segmentInfo's delCount is returned.
 */
-func (pool *ReaderPool) numDeletedDocs(info *SegmentInfoPerCommit) int {
+func (pool *ReaderPool) numDeletedDocs(info *SegmentCommitInfo) int {
 	// ensureOpen(false)
 	delCount := info.delCount
 	if rld := pool.get(info, false); rld != nil {
@@ -179,7 +179,7 @@ func (pool *ReaderPool) numDeletedDocs(info *SegmentInfoPerCommit) int {
 /*
 returns a string description of the specified segments, for debugging.
 */
-func (pool *ReaderPool) segmentsToString(infos []*SegmentInfoPerCommit) string {
+func (pool *ReaderPool) segmentsToString(infos []*SegmentCommitInfo) string {
 	// TODO synchronized
 	var parts []string
 	for _, info := range infos {
@@ -191,7 +191,7 @@ func (pool *ReaderPool) segmentsToString(infos []*SegmentInfoPerCommit) string {
 /*
 Returns a string description of the specified segment, for debugging.
 */
-func (pool *ReaderPool) segmentToString(info *SegmentInfoPerCommit) string {
+func (pool *ReaderPool) segmentToString(info *SegmentCommitInfo) string {
 	// TODO synchronized
 	return info.StringOf(info.info.Dir, pool.numDeletedDocs(info)-info.delCount)
 }

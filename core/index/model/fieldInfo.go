@@ -22,10 +22,15 @@ type FieldInfo struct {
 	storePayloads bool
 
 	*AttributesMixin
+
+	dvGen int64
 }
 
-func NewFieldInfo(name string, indexed bool, number int32, storeTermVector, omitNorms, storePayloads bool,
-	indexOptions IndexOptions, docValues, normsType DocValuesType, attributes map[string]string) *FieldInfo {
+func NewFieldInfo(name string, indexed bool, number int32,
+	storeTermVector, omitNorms, storePayloads bool,
+	indexOptions IndexOptions, docValues, normsType DocValuesType,
+	dvGen int64, attributes map[string]string) *FieldInfo {
+
 	fi := &FieldInfo{Name: name, indexed: indexed, Number: number, docValueType: docValues}
 	fi.AttributesMixin = &AttributesMixin{attributes}
 	if indexed {
@@ -37,7 +42,8 @@ func NewFieldInfo(name string, indexed bool, number int32, storeTermVector, omit
 			fi.normType = normsType
 		}
 	} // for non-indexed fields, leave defaults
-	// assert checkConsistency()
+	fi.dvGen = dvGen
+	fi.checkConsistency()
 	return fi
 }
 
@@ -56,6 +62,8 @@ func (info *FieldInfo) checkConsistency() {
 		// Cannot store payloads unless positions are indexed:
 		assert(int(info.indexOptions) >= int(INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS) || !info.storePayloads)
 	}
+
+	assert(info.dvGen == -1 || int(info.docValueType) != 0)
 }
 
 func (info *FieldInfo) SetDocValueType(v DocValuesType) {

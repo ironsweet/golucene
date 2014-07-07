@@ -45,7 +45,7 @@ type FlushPolicy interface {
 	// ThreadState
 	onInsert(*DocumentsWriterFlushControl, *ThreadState)
 	// Called by DocumentsWriter to initialize the FlushPolicy
-	init(indexWriterConfig *LiveIndexWriterConfig)
+	init(indexWriterConfig LiveIndexWriterConfig)
 }
 
 type FlushPolicyImplSPI interface {
@@ -56,7 +56,7 @@ type FlushPolicyImplSPI interface {
 type FlushPolicyImpl struct {
 	sync.Locker
 	spi               FlushPolicyImplSPI
-	indexWriterConfig *LiveIndexWriterConfig
+	indexWriterConfig LiveIndexWriterConfig
 	infoStream        util.InfoStream
 }
 
@@ -72,11 +72,11 @@ func (fp *FlushPolicyImpl) onUpdate(control *DocumentsWriterFlushControl, state 
 	fp.spi.onDelete(control, state)
 }
 
-func (fp *FlushPolicyImpl) init(indexWriterConfig *LiveIndexWriterConfig) {
+func (fp *FlushPolicyImpl) init(indexWriterConfig LiveIndexWriterConfig) {
 	fp.Lock() // synchronized
 	defer fp.Unlock()
 	fp.indexWriterConfig = indexWriterConfig
-	fp.infoStream = indexWriterConfig.infoStream
+	fp.infoStream = indexWriterConfig.InfoStream()
 }
 
 /*
@@ -91,15 +91,26 @@ func (p *FlushPolicyImpl) findLargestNonPendingWriter(control *DocumentsWriterFl
 	maxRamSoFar := perThreadState.bytesUsed
 	// the dwpt which needs to be flushed eventually
 	maxRamUsingThreadState := perThreadState
-	assertn(!perThreadState.flushPending, "DWPT should have flushed")
+	assert2(!perThreadState.flushPending, "DWPT should have flushed")
+	count := 0
 	control.perThreadPool.foreach(func(next *ThreadState) {
 		if !next.flushPending {
-			if nextRam := next.bytesUsed; nextRam > maxRamSoFar && next.dwpt.numDocsInRAM > 0 {
-				maxRamSoFar = nextRam
-				maxRamUsingThreadState = next
+			if nextRam := next.bytesUsed; nextRam > 0 && next.dwpt.numDocsInRAM > 0 {
+				if p.infoStream.IsEnabled("FP") {
+					p.infoStream.Message("FP", "thread state has %v bytes; docInRAM=%v",
+						nextRam, next.dwpt.numDocsInRAM)
+				}
+				count++
+				if nextRam > maxRamSoFar {
+					maxRamSoFar = nextRam
+					maxRamUsingThreadState = next
+				}
 			}
 		}
 	})
+	if p.infoStream.IsEnabled("FP") {
+		p.infoStream.Message("FP", "%v in-use non-flusing threads states", count)
+	}
 	p.message("set largest ram consuming thread pending on lower watermark")
 	return maxRamUsingThreadState
 }
@@ -149,16 +160,16 @@ func (p *FlushByRamOrCountsPolicy) onDelete(control *DocumentsWriterFlushControl
 }
 
 func (p *FlushByRamOrCountsPolicy) onInsert(control *DocumentsWriterFlushControl, state *ThreadState) {
-	if p.flushOnDocCount() && state.dwpt.numDocsInRAM >= p.indexWriterConfig.maxBufferedDocs {
+	if p.flushOnDocCount() && state.dwpt.numDocsInRAM >= p.indexWriterConfig.MaxBufferedDocs() {
 		// flush this state by num docs
 		control.setFlushPending(state)
 	} else if p.flushOnRAM() { // flush by RAM
-		limit := int64(p.indexWriterConfig.ramBufferSizeMB * 1024 * 1024)
+		limit := int64(p.indexWriterConfig.RAMBufferSizeMB() * 1024 * 1024)
 		totalRam := control._activeBytes + control.deleteBytesUsed() // safe w/o sync
 		if totalRam >= limit {
 			if p.infoStream.IsEnabled("FP") {
 				p.infoStream.Message("FP",
-					"flush: activeBytes=%v deleteBytes=%v vs limit=%v",
+					"trigger flush: activeBytes=%v deleteBytes=%v vs limit=%v",
 					control._activeBytes, control.deleteBytesUsed(), limit)
 			}
 			p.markLargestWriterPending(control, state, totalRam)
@@ -174,10 +185,10 @@ func (p *FlushByRamOrCountsPolicy) markLargestWriterPending(control *DocumentsWr
 
 /* Returns true if this FLushPolicy flushes on IndexWriterConfig.MaxBufferedDocs(), otherwise false */
 func (p *FlushByRamOrCountsPolicy) flushOnDocCount() bool {
-	return p.indexWriterConfig.maxBufferedDocs != DISABLE_AUTO_FLUSH
+	return p.indexWriterConfig.MaxBufferedDocs() != DISABLE_AUTO_FLUSH
 }
 
 /* Returns true if this FlushPolicy flushes on IndexWriterConfig.RAMBufferSizeMB(), otherwise false */
 func (p *FlushByRamOrCountsPolicy) flushOnRAM() bool {
-	return p.indexWriterConfig.ramBufferSizeMB != DISABLE_AUTO_FLUSH
+	return p.indexWriterConfig.RAMBufferSizeMB() != DISABLE_AUTO_FLUSH
 }

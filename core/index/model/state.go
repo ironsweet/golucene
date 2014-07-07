@@ -14,7 +14,7 @@ type SegmentWriteState struct {
 	SegmentInfo       *SegmentInfo
 	FieldInfos        FieldInfos
 	DelCountOnFlush   int
-	SegDeletes        interface{} //*BufferedDeletes
+	SegUpdates        interface{} // BufferedUpdates
 	LiveDocs          util.MutableBits
 	SegmentSuffix     string
 	termIndexInternal int
@@ -24,24 +24,35 @@ type SegmentWriteState struct {
 func NewSegmentWriteState(infoStream util.InfoStream,
 	dir store.Directory, segmentInfo *SegmentInfo,
 	fieldInfos FieldInfos, termIndexInterval int,
-	segDeletes interface{} /**BufferedDeletes*/, ctx store.IOContext) SegmentWriteState {
+	SegUpdates interface{}, ctx store.IOContext) *SegmentWriteState {
 
-	return SegmentWriteState{
-		infoStream, dir, segmentInfo, fieldInfos, 0, segDeletes, nil, "",
-		termIndexInterval, ctx}
+	return NewSegmentWriteState2(
+		infoStream, dir, segmentInfo, fieldInfos, termIndexInterval,
+		SegUpdates, ctx, "")
+}
+
+func NewSegmentWriteState2(infoStream util.InfoStream,
+	dir store.Directory, segmentInfo *SegmentInfo,
+	fieldInfos FieldInfos, termIndexInterval int,
+	SegUpdates interface{}, ctx store.IOContext,
+	segmentSuffix string) *SegmentWriteState {
+
+	return &SegmentWriteState{
+		infoStream, dir, segmentInfo, fieldInfos, 0,
+		SegUpdates, nil, segmentSuffix, termIndexInterval, ctx}
 }
 
 /* Create a shallow copy of SegmentWriteState with a new segment suffix. */
-func NewSegmentWriteStateFrom(state SegmentWriteState,
-	segmentSuffix string) SegmentWriteState {
+func NewSegmentWriteStateFrom(state *SegmentWriteState,
+	segmentSuffix string) *SegmentWriteState {
 
-	return SegmentWriteState{
+	return &SegmentWriteState{
 		state.infoStream,
 		state.Directory,
 		state.SegmentInfo,
 		state.FieldInfos,
 		state.DelCountOnFlush,
-		state.SegDeletes,
+		state.SegUpdates,
 		nil,
 		segmentSuffix,
 		state.termIndexInternal,

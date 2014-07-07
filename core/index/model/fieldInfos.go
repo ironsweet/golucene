@@ -27,6 +27,7 @@ func NewFieldInfos(infos []*FieldInfo) FieldInfos {
 
 	numbers := make([]int32, 0)
 	for _, info := range infos {
+		assert2(info.Number >= 0, "illegal field number: %v for field %v", info.Number, info.Name)
 		if prev, ok := self.byNumber[info.Number]; ok {
 			panic(fmt.Sprintf("duplicate field numbers: %v and %v have: %v", prev.Name, info.Name, info.Number))
 		}
@@ -68,7 +69,7 @@ func (infos FieldInfos) FieldInfoByName(fieldName string) *FieldInfo {
 
 /* Return the FieldInfo object referenced by the fieldNumber. */
 func (infos FieldInfos) FieldInfoByNumber(fieldNumber int) *FieldInfo {
-	assert(fieldNumber >= 0)
+	assert2(fieldNumber >= 0, "Illegal field number: %v", fieldNumber)
 	return infos.byNumber[int32(fieldNumber)]
 }
 
@@ -203,7 +204,7 @@ func (b *FieldInfosBuilder) addOrUpdateInternal(name string,
 		// number, else we'll allocate a new one:
 		fieldNumber := int32(b.globalFieldNumbers.addOrGet(name, preferredFieldNumber, docValues))
 		fi = NewFieldInfo(name, isIndexed, fieldNumber, storeTermVector,
-			omitNorms, storePayloads, indexOptions, docValues, normType, nil)
+			omitNorms, storePayloads, indexOptions, docValues, normType, -1, nil)
 		b.byName[fi.Name] = fi
 		return fi
 	}

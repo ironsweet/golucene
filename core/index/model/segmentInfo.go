@@ -31,8 +31,18 @@ func (info *SegmentInfo) Diagnostics() map[string]string {
 	return info.diagnostics
 }
 
-func NewSegmentInfo(dir store.Directory, version, name string, docCount int,
-	isComoundFile bool, codec interface{}, diagnostics map[string]string, attributes map[string]string) *SegmentInfo {
+func NewSegmentInfo(dir store.Directory,
+	version, name string, docCount int,
+	isCompoundFile bool, codec interface{},
+	diagnostics map[string]string) *SegmentInfo {
+	return NewSegmentInfo2(dir, version, name, docCount, isCompoundFile, codec, diagnostics, nil)
+}
+
+func NewSegmentInfo2(dir store.Directory,
+	version, name string, docCount int,
+	isCompoundFile bool, codec interface{},
+	diagnostics map[string]string,
+	attributes map[string]string) *SegmentInfo {
 	_, ok := dir.(*store.TrackingDirectoryWrapper)
 	assert(!ok)
 	return &SegmentInfo{
@@ -40,7 +50,7 @@ func NewSegmentInfo(dir store.Directory, version, name string, docCount int,
 		version:         version,
 		Name:            name,
 		docCount:        util.NewSetOnceOf(docCount),
-		isCompoundFile:  isComoundFile,
+		isCompoundFile:  isCompoundFile,
 		codec:           codec,
 		diagnostics:     diagnostics,
 		AttributesMixin: &AttributesMixin{attributes},
@@ -65,7 +75,7 @@ func (si *SegmentInfo) IsCompoundFile() bool {
 /* Can only be called once. */
 func (info *SegmentInfo) SetCodec(codec interface{}) {
 	assert(info.codec == nil)
-	assert2(codec != nil, "segmentCodecs must not be nil")
+	assert2(codec != nil, "codecs must not be nil")
 	info.codec = codec
 }
 

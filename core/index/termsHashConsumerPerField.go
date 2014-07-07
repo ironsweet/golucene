@@ -8,124 +8,125 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 )
 
-type TermsHashConsumerPerField interface {
-	start([]model.IndexableField, int) (bool, error)
-	finish() error
-	startField(model.IndexableField) error
-	newTerm(int) error
-	streamCount() int
-	createPostingsArray(int) *ParallelPostingsArray
-}
+// type TermsHashConsumerPerField interface {
+// 	start([]model.IndexableField, int) (bool, error)
+// 	finish() error
+// 	startField(model.IndexableField) error
+// 	newTerm(int) error
+// 	streamCount() int
+// 	createPostingsArray(int) *ParallelPostingsArray
+// }
 
 // index/TermVectorsConsumerPerField.java
 
 type TermVectorsConsumerPerField struct {
-	termsHashPerField *TermsHashPerField
-	termsWriter       *TermVectorsConsumer
-	fieldInfo         *model.FieldInfo
-	docState          *docState
-	fieldState        *FieldInvertState
+	*TermsHashPerFieldImpl
+
+	termsWriter *TermVectorsConsumer
 
 	doVectors, doVectorPositions, doVectorOffsets, doVectorPayloads bool
 
-	maxNumPostings   int
 	payloadAttribute PayloadAttribute
 	offsetAttribute  OffsetAttribute
 	hasPayloads      bool // if enabled, and we actually saw any for this field
 }
 
-func newTermVectorsConsumerPerField(termsHashPerField *TermsHashPerField,
-	termsWriter *TermVectorsConsumer, fieldInfo *model.FieldInfo) *TermVectorsConsumerPerField {
-	return &TermVectorsConsumerPerField{
-		termsHashPerField: termsHashPerField,
-		termsWriter:       termsWriter,
-		fieldInfo:         fieldInfo,
-		docState:          termsHashPerField.docState,
-		fieldState:        termsHashPerField.fieldState,
-	}
+func newTermVectorsConsumerPerField(invertState *FieldInvertState,
+	termsWriter *TermVectorsConsumer,
+	fieldInfo *model.FieldInfo) *TermVectorsConsumerPerField {
+	panic("not implemented yet")
+
+	// return &TermVectorsConsumerPerField{
+	// 	termsHashPerField: termsHashPerField,
+	// 	termsWriter:       termsWriter,
+	// 	fieldInfo:         fieldInfo,
+	// 	docState:          termsHashPerField.docState,
+	// 	fieldState:        termsHashPerField.fieldState,
+	// }
 }
 
-func (c *TermVectorsConsumerPerField) streamCount() int { return 2 }
+// func (c *TermVectorsConsumerPerField) streamCount() int { return 2 }
 
 func (c *TermVectorsConsumerPerField) start(fields []model.IndexableField, count int) (bool, error) {
-	c.doVectors = false
-	c.doVectorPositions = false
-	c.doVectorOffsets = false
-	c.doVectorPayloads = false
-	c.hasPayloads = false
-
-	for _, field := range fields[:count] {
-		t := field.FieldType()
-		if t.Indexed() {
-			if t.StoreTermVectors() {
-				panic("not implemented yet")
-			} else {
-				assert2(!t.StoreTermVectorOffsets(),
-					"cannot index term vector offsets when term vectors are not indexed (field='%v')",
-					field.Name())
-				assert2(!t.StoreTermVectorPositions(),
-					"cannot index term vector positions when term vectors are not indexed (field='%v')",
-					field.Name())
-				assert2(!t.StoreTermVectorPayloads(),
-					"cannot index term vector payloads when term vectors are not indexed (field='%v')",
-					field.Name())
-			}
-		} else {
-			panic("not implemented yet")
-		}
-	}
-
-	if c.doVectors {
-		c.termsWriter.hasVectors = true
-		if c.termsHashPerField.bytesHash.Size() != 0 {
-			// Only necessary if previous doc hit a non-aborting error
-			// while writing vectors in this field:
-			c.termsHashPerField.reset()
-		}
-	}
-
-	// TODO: only if needed for performance
-	// perThread.postingsCount = 0
-
-	return c.doVectors, nil
-}
-
-/*
-Called once per field per document if term vectors are enabled, to
-write the vectors to RAMOutputStream, which is then quickly flushed
-to the real term vectors files in the Directory.
-*/
-func (c *TermVectorsConsumerPerField) finish() error {
-	if !c.doVectors || c.termsHashPerField.bytesHash.Size() == 0 {
-		return nil
-	}
-	c.termsWriter.addFieldToFlush(c)
-	return nil
-}
-
-func (c *TermVectorsConsumerPerField) finishDocument() error {
 	panic("not implemented yet")
+	// c.doVectors = false
+	// c.doVectorPositions = false
+	// c.doVectorOffsets = false
+	// c.doVectorPayloads = false
+	// c.hasPayloads = false
+
+	// for _, field := range fields[:count] {
+	// 	t := field.FieldType()
+	// 	if t.Indexed() {
+	// 		if t.StoreTermVectors() {
+	// 			panic("not implemented yet")
+	// 		} else {
+	// 			assert2(!t.StoreTermVectorOffsets(),
+	// 				"cannot index term vector offsets when term vectors are not indexed (field='%v')",
+	// 				field.Name())
+	// 			assert2(!t.StoreTermVectorPositions(),
+	// 				"cannot index term vector positions when term vectors are not indexed (field='%v')",
+	// 				field.Name())
+	// 			assert2(!t.StoreTermVectorPayloads(),
+	// 				"cannot index term vector payloads when term vectors are not indexed (field='%v')",
+	// 				field.Name())
+	// 		}
+	// 	} else {
+	// 		panic("not implemented yet")
+	// 	}
+	// }
+
+	// if c.doVectors {
+	// 	c.termsWriter.hasVectors = true
+	// 	if c.termsHashPerField.bytesHash.Size() != 0 {
+	// 		// Only necessary if previous doc hit a non-aborting error
+	// 		// while writing vectors in this field:
+	// 		c.termsHashPerField.reset()
+	// 	}
+	// }
+
+	// // TODO: only if needed for performance
+	// // perThread.postingsCount = 0
+
+	// return c.doVectors, nil
 }
 
-func (c *TermVectorsConsumerPerField) shrinkHash() {
-	c.termsHashPerField.shrinkHash(c.maxNumPostings)
-	c.maxNumPostings = 0
-}
+// /*
+// Called once per field per document if term vectors are enabled, to
+// write the vectors to RAMOutputStream, which is then quickly flushed
+// to the real term vectors files in the Directory.
+// */
+// func (c *TermVectorsConsumerPerField) finish() error {
+// 	if !c.doVectors || c.termsHashPerField.bytesHash.Size() == 0 {
+// 		return nil
+// 	}
+// 	c.termsWriter.addFieldToFlush(c)
+// 	return nil
+// }
 
-func (c *TermVectorsConsumerPerField) startField(f model.IndexableField) error {
-	atts := c.fieldState.attributeSource
-	if c.doVectorOffsets {
-		c.offsetAttribute = atts.Add("OffsetAttribute").(OffsetAttribute)
-	} else {
-		c.offsetAttribute = nil
-	}
-	if c.doVectorPayloads && atts.Has("PayloadAttribute") {
-		c.payloadAttribute = atts.Get("PayloadAttribute").(PayloadAttribute)
-	} else {
-		c.payloadAttribute = nil
-	}
-	return nil
-}
+// func (c *TermVectorsConsumerPerField) finishDocument() error {
+// 	panic("not implemented yet")
+// }
+
+// func (c *TermVectorsConsumerPerField) shrinkHash() {
+// 	c.termsHashPerField.shrinkHash(c.maxNumPostings)
+// 	c.maxNumPostings = 0
+// }
+
+// func (c *TermVectorsConsumerPerField) startField(f model.IndexableField) error {
+// 	atts := c.fieldState.attributeSource
+// 	if c.doVectorOffsets {
+// 		c.offsetAttribute = atts.Add("OffsetAttribute").(OffsetAttribute)
+// 	} else {
+// 		c.offsetAttribute = nil
+// 	}
+// 	if c.doVectorPayloads && atts.Has("PayloadAttribute") {
+// 		c.payloadAttribute = atts.Get("PayloadAttribute").(PayloadAttribute)
+// 	} else {
+// 		c.payloadAttribute = nil
+// 	}
+// 	return nil
+// }
 
 func (c *TermVectorsConsumerPerField) newTerm(termId int) error {
 	panic("not implemented yet")
@@ -162,107 +163,119 @@ func (arr *TermVectorsPostingArray) bytesPerPosting() int {
 // separate container (tii/tis/skip/*) that can be configured as any
 // number of files 1..N
 type FreqProxTermsWriterPerField struct {
-	parent            *FreqProxTermsWriter
-	termsHashPerField *TermsHashPerField
-	fieldInfo         *model.FieldInfo
-	docState          *docState
-	fieldState        *FieldInvertState
-	hasFreq           bool
-	hasProx           bool
-	hasOffsets        bool
-	hasPayloads       bool
-	payloadAttribute  PayloadAttribute
-	offsetAttribute   OffsetAttribute
+	*TermsHashPerFieldImpl
+
+	freqProxPostingsArray *FreqProxPostingsArray
+
+	// parent            *FreqProxTermsWriter
+	// termsHashPerField *TermsHashPerField
+	// fieldInfo         *model.FieldInfo
+	// docState          *docState
+	// fieldState        *FieldInvertState
+
+	hasFreq          bool
+	hasProx          bool
+	hasOffsets       bool
+	hasPayloads      bool
+	payloadAttribute PayloadAttribute
+	offsetAttribute  OffsetAttribute
+
+	sawPayloads bool // true if any token had a payload in the current segment
 }
 
-func newFreqProxTermsWriterPerField(termsHashPerField *TermsHashPerField,
-	parent *FreqProxTermsWriter, fieldInfo *model.FieldInfo) *FreqProxTermsWriterPerField {
-	ans := &FreqProxTermsWriterPerField{
-		termsHashPerField: termsHashPerField,
-		parent:            parent,
-		fieldInfo:         fieldInfo,
-		docState:          termsHashPerField.docState,
-		fieldState:        termsHashPerField.fieldState,
-	}
-	ans.setIndexOptions(fieldInfo.IndexOptions())
-	return ans
+func newFreqProxTermsWriterPerField(invertState *FieldInvertState,
+	termsHash *TermsHash, fieldInfo *model.FieldInfo,
+	nextPerField *TermsHashPerField) *FreqProxTermsWriterPerField {
+	panic("not implemented yet")
+	// ans := &FreqProxTermsWriterPerField{
+	// 	termsHashPerField: termsHashPerField,
+	// 	parent:            parent,
+	// 	fieldInfo:         fieldInfo,
+	// 	docState:          termsHashPerField.docState,
+	// 	fieldState:        termsHashPerField.fieldState,
+	// }
+	// ans.setIndexOptions(fieldInfo.IndexOptions())
+	// return ans
 }
 
-func (w *FreqProxTermsWriterPerField) streamCount() int {
-	if !w.hasProx {
-		return 1
-	}
-	return 2
-}
+// func (w *FreqProxTermsWriterPerField) streamCount() int {
+// 	if !w.hasProx {
+// 		return 1
+// 	}
+// 	return 2
+// }
 
 func (w *FreqProxTermsWriterPerField) finish() error {
-	if w.hasPayloads {
+	err := w.TermsHashPerFieldImpl.finish()
+	if err == nil && w.sawPayloads {
 		panic("not implemented yet")
 		// w.fieldInfo.SetStorePayloads()
 	}
-	return nil
+	return err
 }
 
 /* Called after flush */
-func (w *FreqProxTermsWriterPerField) reset() {
-	// record, up front, whether our in-RAM format will be
-	// with or without term freqs:
-	w.setIndexOptions(w.fieldInfo.IndexOptions())
-	w.payloadAttribute = nil
-}
+// func (w *FreqProxTermsWriterPerField) reset() {
+// 	// record, up front, whether our in-RAM format will be
+// 	// with or without term freqs:
+// 	w.setIndexOptions(w.fieldInfo.IndexOptions())
+// 	w.payloadAttribute = nil
+// }
 
-func (w *FreqProxTermsWriterPerField) setIndexOptions(indexOptions model.IndexOptions) {
-	if n := int(indexOptions); n > 0 {
-		w.hasFreq = n >= int(model.INDEX_OPT_DOCS_AND_FREQS)
-		w.hasProx = n >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS)
-		w.hasOffsets = n >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS)
-	} else {
-		// field could later be updated with indexed=true, so set everything on
-		w.hasFreq = true
-		w.hasProx = true
-		w.hasOffsets = true
-	}
-}
+// func (w *FreqProxTermsWriterPerField) setIndexOptions(indexOptions model.IndexOptions) {
+// 	if n := int(indexOptions); n > 0 {
+// 		w.hasFreq = n >= int(model.INDEX_OPT_DOCS_AND_FREQS)
+// 		w.hasProx = n >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS)
+// 		w.hasOffsets = n >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS)
+// 	} else {
+// 		// field could later be updated with indexed=true, so set everything on
+// 		w.hasFreq = true
+// 		w.hasProx = true
+// 		w.hasOffsets = true
+// 	}
+// }
 
-func (w *FreqProxTermsWriterPerField) start(fields []model.IndexableField, count int) (bool, error) {
-	for _, field := range fields[:count] {
-		if field.FieldType().Indexed() {
-			return true, nil
-		}
-	}
-	return false, nil
-}
+// func (w *FreqProxTermsWriterPerField) start(fields []model.IndexableField, count int) (bool, error) {
+// 	for _, field := range fields[:count] {
+// 		if field.FieldType().Indexed() {
+// 			return true, nil
+// 		}
+// 	}
+// 	return false, nil
+// }
 
-func (w *FreqProxTermsWriterPerField) startField(f model.IndexableField) error {
-	atts := w.fieldState.attributeSource
-	if atts.Has("PayloadAttribute") {
-		w.payloadAttribute = atts.Get("PayloadAttribute").(PayloadAttribute)
-	} else {
-		w.payloadAttribute = nil
-	}
-	if w.hasOffsets {
-		w.offsetAttribute = atts.Add("OffsetAttribute").(OffsetAttribute)
-	} else {
-		w.offsetAttribute = nil
-	}
-	return nil
+func (w *FreqProxTermsWriterPerField) start(f model.IndexableField, first bool) error {
+	panic("not implemented yet")
+	// atts := w.fieldState.attributeSource
+	// if atts.Has("PayloadAttribute") {
+	// 	w.payloadAttribute = atts.Get("PayloadAttribute").(PayloadAttribute)
+	// } else {
+	// 	w.payloadAttribute = nil
+	// }
+	// if w.hasOffsets {
+	// 	w.offsetAttribute = atts.Add("OffsetAttribute").(OffsetAttribute)
+	// } else {
+	// 	w.offsetAttribute = nil
+	// }
+	// return nil
 }
 
 func (w *FreqProxTermsWriterPerField) writeProx(termId, proxCode int) {
-	assert(w.hasProx)
-	var payload []byte
-	if w.payloadAttribute != nil {
-		payload = w.payloadAttribute.Payload()
-	}
+	panic("not implemented yet")
+	// assert(w.hasProx)
+	// var payload []byte
+	// if w.payloadAttribute != nil {
+	// 	payload = w.payloadAttribute.Payload()
+	// }
 
-	if len(payload) > 0 {
-		panic("not implemented yet")
-	} else {
-		w.termsHashPerField.writeVInt(1, proxCode<<1)
-	}
+	// if len(payload) > 0 {
+	// 	panic("not implemented yet")
+	// } else {
+	// 	w.termsHashPerField.writeVInt(1, proxCode<<1)
+	// }
 
-	postings := w.termsHashPerField.postingsArray.PostingsArray.(*FreqProxPostingsArray)
-	postings.lastPositions[termId] = w.fieldState.position
+	// postings := w.termsHashPerField.postingsArray.PostingsArray.(*FreqProxPostingsArray)
+	// postings.lastPositions[termId] = w.fieldState.position
 }
 
 func (w *FreqProxTermsWriterPerField) writeOffsets(termId, offsetAccum int) {
@@ -273,9 +286,11 @@ func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
 	// First time we're seeing this term since the last flush
 	w.docState.testPoint("FreqProxTermsWriterPerField.newTerm start")
 
-	postings := w.termsHashPerField.postingsArray.PostingsArray.(*FreqProxPostingsArray)
+	postings := w.freqProxPostingsArray
+
 	postings.lastDocIDs[termId] = w.docState.docID
 	if !w.hasFreq {
+		assert(postings.termFreqs == nil)
 		postings.lastDocCodes[termId] = w.docState.docID
 	} else {
 		postings.lastDocCodes[termId] = w.docState.docID << 1
@@ -297,10 +312,12 @@ func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
 }
 
 func (w *FreqProxTermsWriterPerField) createPostingsArray(size int) *ParallelPostingsArray {
-	return newFreqProxPostingsArray(size, w.hasFreq, w.hasProx, w.hasOffsets)
+	panic("not implemented yet")
+	// return newFreqProxPostingsArray(size, w.hasFreq, w.hasProx, w.hasOffsets)
 }
 
 type FreqProxPostingsArray struct {
+	*ParallelPostingsArray
 	termFreqs     []int // # times this term occurs in the current doc
 	lastDocIDs    []int // Last docID where this term occurred
 	lastDocCodes  []int // Code for prior doc
@@ -310,6 +327,7 @@ type FreqProxPostingsArray struct {
 
 func newFreqProxPostingsArray(size int, writeFreqs, writeProx, writeOffsets bool) *ParallelPostingsArray {
 	ans := new(FreqProxPostingsArray)
+	ans.ParallelPostingsArray = newParallelPostingsArray(ans, size)
 	if writeFreqs {
 		ans.termFreqs = make([]int, size)
 	}
@@ -355,7 +373,7 @@ Walk through all unique text tokens (Posting instances) found in this
 field and serialie them into a single RAM segment.
 */
 func (w *FreqProxTermsWriterPerField) flush(fieldName string,
-	consumer FieldsConsumer, state model.SegmentWriteState) error {
+	consumer FieldsConsumer, state *model.SegmentWriteState) error {
 	if !w.fieldInfo.IsIndexed() {
 		return nil // nothing to flush, don't bother the codc with the unindexed field
 	}
@@ -393,16 +411,15 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 
 	assert(!writeOffsets || writePositions)
 
-	var segDeletes map[*Term]int
-	if state.SegDeletes != nil && len(state.SegDeletes.(*BufferedDeletes).terms) > 0 {
-		segDeletes = state.SegDeletes.(*BufferedDeletes).terms
+	var segUpdates map[*Term]int
+	if state.SegUpdates != nil && len(state.SegUpdates.(*BufferedUpdates).terms) > 0 {
+		segUpdates = state.SegUpdates.(*BufferedUpdates).terms
 	}
 
-	termIDs := w.termsHashPerField.sortPostings(termComp)
-	numTerms := w.termsHashPerField.bytesHash.Size()
+	termIDs := w.sortPostings(termComp)
+	numTerms := w.bytesHash.Size()
 	text := new(util.BytesRef)
-	postings2 := w.termsHashPerField.postingsArray
-	postings := postings2.PostingsArray.(*FreqProxPostingsArray)
+	postings := w.freqProxPostingsArray
 	freq := newByteSliceReader()
 	prox := newByteSliceReader()
 
@@ -415,12 +432,12 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 		termId := termIDs[i]
 		fmt.Printf("term=%v\n", termId)
 		// Get BytesRef
-		textStart := postings2.textStarts[termId]
-		w.termsHashPerField.bytePool.SetBytesRef(text, textStart)
+		textStart := postings.textStarts[termId]
+		w.bytePool.SetBytesRef(text, textStart)
 
-		w.termsHashPerField.initReader(freq, termId, 0)
+		w.initReader(freq, termId, 0)
 		if readPositions || readOffsets {
-			w.termsHashPerField.initReader(prox, termId, 1)
+			w.initReader(prox, termId, 1)
 		}
 
 		// TODO: really TermsHashPerField shold take over most of this
@@ -434,9 +451,9 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 		}
 
 		delDocLimit := 0
-		if segDeletes != nil {
+		if segUpdates != nil {
 			protoTerm.Bytes = text.Value
-			if docIDUpto, ok := segDeletes[protoTerm]; ok {
+			if docIDUpto, ok := segUpdates[protoTerm]; ok {
 				delDocLimit = docIDUpto
 			}
 		}

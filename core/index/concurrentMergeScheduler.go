@@ -191,7 +191,8 @@ func (cms *ConcurrentMergeScheduler) sync() {
 	wg.Wait()
 }
 
-func (cms *ConcurrentMergeScheduler) Merge(writer *IndexWriter) error {
+func (cms *ConcurrentMergeScheduler) Merge(writer *IndexWriter,
+	trigger MergeTrigger, newMergesFound bool) error {
 	cms.Lock() // synchronized
 	defer cms.Unlock()
 
@@ -251,9 +252,5 @@ func (cms *ConcurrentMergeScheduler) handleMergeError(err error) {
 }
 
 func (cms *ConcurrentMergeScheduler) String() string {
-	panic("not implemented yet")
-}
-
-func (cms *ConcurrentMergeScheduler) Clone() MergeScheduler {
 	panic("not implemented yet")
 }

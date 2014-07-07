@@ -498,6 +498,7 @@ func (fd *IndexFileDeleter) deleteNewFiles(files []string) {
 }
 
 func (del *IndexFileDeleter) deleteFile(filename string) {
+	panic("not implemented yet")
 	//assert locked()
 	if del.infoStream.IsEnabled("IFD") {
 		del.infoStream.Message("IFD", "delete '%v'", filename)

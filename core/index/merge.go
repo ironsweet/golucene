@@ -2,10 +2,10 @@ package index
 
 import (
 	"fmt"
-	"github.com/balzaczyy/golucene/core/util"
+	// "github.com/balzaczyy/golucene/core/util"
 	"io"
 	"math"
-	"sort"
+	// "sort"
 	"sync"
 )
 
@@ -21,8 +21,7 @@ independent instance able to work with any IndexWriter instance.
 */
 type MergeScheduler interface {
 	io.Closer
-	Merge(writer *IndexWriter) error
-	Clone() MergeScheduler
+	Merge(*IndexWriter, MergeTrigger, bool) error
 }
 
 // index/MergeState.java
@@ -54,7 +53,8 @@ func NewSerialMergeScheduler() *SerialMergeScheduler {
 	return &SerialMergeScheduler{&sync.Mutex{}}
 }
 
-func (ms *SerialMergeScheduler) Merge(writer *IndexWriter) (err error) {
+func (ms *SerialMergeScheduler) Merge(writer *IndexWriter,
+	trigger MergeTrigger, newMergesFound bool) (err error) {
 	ms.Lock() // synchronized
 	defer ms.Unlock()
 
@@ -100,25 +100,21 @@ they will be run concurrently.
 The default MergePolicy is TieredMergePolicy.
 */
 type MergePolicy interface {
-	// Clone() MergePolicy
-	SetIndexWriter(writer *IndexWriter)
 	SetNoCFSRatio(noCFSRatio float64)
 	SetMaxCFSSegmentSizeMB(v float64)
 	MergeSpecifier
 }
 
 type MergePolicyImplSPI interface {
-	// Return the byte size of the provided SegmentInfoPerCommit,
+	// Return the byte size of the provided SegmentCommitInfo,
 	// pro-rated by percentage of non-deleted documents if
 	// SetCalibrateSizeByDeletes() is set.
-	Size(*SegmentInfoPerCommit) (int64, error)
+	Size(*SegmentCommitInfo, *IndexWriter) (int64, error)
 }
 
 type MergePolicyImpl struct {
 	self    MergeSpecifier
 	SizeSPI MergePolicyImplSPI
-	// IndexWriter that contains this instance.
-	Writer *util.SetOnce
 	// If the size of te merge segment exceeds this ratio of the total
 	// index size then it will remain in non-compound format.
 	noCFSRatio float64
@@ -132,24 +128,18 @@ type MergeSpecifier interface {
 	// index. IndexWriter calls this whenever there is a change to the
 	// segments. This call is always synchronized on the IndexWriter
 	// instance so only one thread at a time will call this method.
-	FindMerges(mergeTrigger MergeTrigger, segmentInfos *SegmentInfos) (spec MergeSpecification, err error)
+	FindMerges(MergeTrigger, *SegmentInfos, *IndexWriter) (MergeSpecification, error)
 	// Determine what set of merge operations is necessary in order to
 	// merge to <= the specified segment count. IndexWriter calls this
 	// when its forceMerge() method is called. This call is always
 	// synchronized on the IndexWriter instance so only one thread at a
 	// time will call this method.
-	FindForcedMerges(segmentInfos *SegmentInfos, maxSegmentCount int,
-		segmentsToMerge map[*SegmentInfoPerCommit]bool) (spec MergeSpecification, err error)
+	FindForcedMerges(*SegmentInfos, int,
+		map[*SegmentCommitInfo]bool, *IndexWriter) (MergeSpecification, error)
 	// Determine what set of merge operations is necessary in order to
 	// expunge all deletes from the index.
 	// FindForcedDeletesMerges(segmentinfos *SegmentInfos) (spec MergeSpecification, err error)
 	io.Closer
-}
-
-func (mp *MergePolicyImpl) clone() *MergePolicyImpl {
-	clone := *mp
-	clone.Writer = util.NewSetOnce()
-	return &clone
 }
 
 /*
@@ -168,7 +158,6 @@ different defaults than the MergePolicy.
 func newMergePolicyImpl(self MergeSpecifier, defaultNoCFSRatio, defaultMaxCFSSegmentSize float64) *MergePolicyImpl {
 	ans := &MergePolicyImpl{
 		self:              self,
-		Writer:            util.NewSetOnce(),
 		noCFSRatio:        defaultNoCFSRatio,
 		maxCFSSegmentSize: defaultMaxCFSSegmentSize,
 	}
@@ -176,16 +165,7 @@ func newMergePolicyImpl(self MergeSpecifier, defaultNoCFSRatio, defaultMaxCFSSeg
 	return ans
 }
 
-/*
-Sets the IndexWriter to use by this merge policy. This method is
-allowed to be called only once, and is usually set by IndexWriter. If
-it is called more thanonce, panic is thrown.
-*/
-func (mp *MergePolicyImpl) SetIndexWriter(writer *IndexWriter) {
-	mp.Writer.Set(writer)
-}
-
-func (mp *MergePolicyImpl) Size(info *SegmentInfoPerCommit) (n int64, err error) {
+func (mp *MergePolicyImpl) Size(info *SegmentCommitInfo, w *IndexWriter) (n int64, err error) {
 	byteSize, err := info.SizeInBytes()
 	if err != nil {
 		return 0, err
@@ -195,7 +175,7 @@ func (mp *MergePolicyImpl) Size(info *SegmentInfoPerCommit) (n int64, err error)
 		return byteSize, nil
 	}
 
-	delCount := mp.Writer.Get().(*IndexWriter).readerPool.numDeletedDocs(info)
+	delCount := w.readerPool.numDeletedDocs(info)
 	delRatio := float32(delCount) / float32(docCount)
 	assert(delRatio <= 1)
 	return int64(float32(byteSize) * (1 - delRatio)), nil
@@ -206,8 +186,9 @@ Returns true if this single info is already fully merged (has no
 pending deletes, is in the same dir as the writer, and matches the
 current compound file setting)
 */
-func (mp *MergePolicyImpl) isMerged(info *SegmentInfoPerCommit) bool {
-	w := mp.Writer.Get().(*IndexWriter)
+func (mp *MergePolicyImpl) isMerged(infos *SegmentInfos,
+	info *SegmentCommitInfo, w *IndexWriter) bool {
+	panic("not implemented yet")
 	assert(w != nil)
 	hasDeletions := w.readerPool.numDeletedDocs(info) > 0
 	return !hasDeletions &&
@@ -258,6 +239,8 @@ const (
 	MERGE_TRIGGER_EXPLICIT = MergeTrigger(3)
 	/* Merge was triggered by a successfully finished merge. */
 	MERGE_FINISHED = MergeTrigger(4)
+	// Merge was triggered by a closing IndexWriter.
+	MERGE_CLOSING = MergeTrigger(5)
 )
 
 func MergeTriggerName(trigger MergeTrigger) string {
@@ -270,6 +253,8 @@ func MergeTriggerName(trigger MergeTrigger) string {
 		return "EXPLICIT"
 	case 4:
 		return "MERGE_FINISHED"
+	case 5:
+		return "CLOSING"
 	}
 	panic(fmt.Sprintf("Invalid merge trigger: %v", trigger))
 }
@@ -287,17 +272,17 @@ type OneMerge struct {
 	maxNumSegments int
 
 	// Segments to ber merged.
-	segments []*SegmentInfoPerCommit
+	segments []*SegmentCommitInfo
 
 	// Number of documents in the merged segment.
 	totalDocCount int
 	aborted       bool
 }
 
-func NewOneMerge(segments []*SegmentInfoPerCommit) *OneMerge {
+func NewOneMerge(segments []*SegmentCommitInfo) *OneMerge {
 	assert2(len(segments) > 0, "segments must include at least one segment")
 	// clone the list, as the in list may be based off original SegmentInfos and may be modified
-	segments2 := make([]*SegmentInfoPerCommit, len(segments))
+	segments2 := make([]*SegmentCommitInfo, len(segments))
 	copy(segments2, segments)
 	count := 0
 	for _, info := range segments {
@@ -395,12 +380,6 @@ func NewTieredMergePolicy() *TieredMergePolicy {
 	return res
 }
 
-func (tmp *TieredMergePolicy) Clone() MergePolicy {
-	clone := *tmp
-	tmp.MergePolicyImpl = tmp.MergePolicyImpl.clone()
-	return &clone
-}
-
 /*
 Maximum number of segments to be merged at a time during "normal"
 merging. For explicit merging (e.g., forceMerge or forceMergeDeletes
@@ -440,8 +419,10 @@ func (tmp *TieredMergePolicy) SetMaxMergedSegmentMB(v float64) *TieredMergePolic
 
 /*
 Controls how aggressively merges that reclaim more deletions are
-favored. Higher values favor selecting merges that reclaim deletions.
-A value of 0 means deletions don't impact merge selection.
+favored. Higher values will more aggresively target merges that
+reclaim deletions, but be careful not to go so high that way too much
+merging takes place; a value of 3.0 is probably nearly too high. A
+value of 0.0 means deletions don't impact merge selection.
 */
 func (tmp *TieredMergePolicy) SetReclaimDeletesWeight(v float64) *TieredMergePolicy {
 	assert2(v >= 0, fmt.Sprintf("reclaimDeletesWeight must be >= 0 (got %v)", v))
@@ -489,7 +470,8 @@ func (tmp *TieredMergePolicy) SetSegmentsPerTier(v float64) *TieredMergePolicy {
 }
 
 type BySizeDescendingSegments struct {
-	values []*SegmentInfoPerCommit
+	values []*SegmentCommitInfo
+	writer *IndexWriter
 	spi    MergePolicyImplSPI
 }
 
@@ -498,9 +480,9 @@ func (a *BySizeDescendingSegments) Swap(i, j int) { a.values[i], a.values[j] = a
 func (a *BySizeDescendingSegments) Less(i, j int) bool {
 	var err error
 	var sz1, sz2 int64
-	sz1, err = a.spi.Size(a.values[i])
+	sz1, err = a.spi.Size(a.values[i], a.writer)
 	assert(err == nil)
-	sz2, err = a.spi.Size(a.values[j])
+	sz2, err = a.spi.Size(a.values[j], a.writer)
 	assert(err == nil)
 	if sz1 != sz2 {
 		return sz1 < sz2
@@ -508,132 +490,135 @@ func (a *BySizeDescendingSegments) Less(i, j int) bool {
 	return a.values[i].info.Name < a.values[j].info.Name
 }
 
-func (tmp *TieredMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *SegmentInfos) (MergeSpecification, error) {
-	if tmp.verbose() {
-		tmp.message("findMerges: %v segments", len(infos.Segments))
-	}
-	if len(infos.Segments) == 0 {
-		return nil, nil
-	}
-	merging := make(map[*SegmentInfoPerCommit]bool)
-	for info, _ := range tmp.Writer.Get().(*IndexWriter).MergingSegments() {
-		merging[info] = true
-	}
-	toBeMerged := make(map[*SegmentInfoPerCommit]bool)
+func (tmp *TieredMergePolicy) FindMerges(mergeTrigger MergeTrigger,
+	infos *SegmentInfos, w *IndexWriter) (MergeSpecification, error) {
+	panic("not implemented yet")
 
-	infosSorted := make([]*SegmentInfoPerCommit, len(infos.Segments))
-	copy(infosSorted, infos.Segments)
-	sort.Sort(&BySizeDescendingSegments{infosSorted, tmp})
+	// if tmp.verbose() {
+	// 	tmp.message("findMerges: %v segments", len(infos.Segments))
+	// }
+	// if len(infos.Segments) == 0 {
+	// 	return nil, nil
+	// }
+	// merging := make(map[*SegmentCommitInfo]bool)
+	// for info, _ := range tmp.Writer.Get().(*IndexWriter).MergingSegments() {
+	// 	merging[info] = true
+	// }
+	// toBeMerged := make(map[*SegmentCommitInfo]bool)
 
-	// Compute total index bytes & print details about the index
-	totIndexBytes := int64(0)
-	minSegmentBytes := int64(math.MaxInt64)
-	for _, info := range infosSorted {
-		segBytes, err := tmp.Size(info)
-		if err != nil {
-			return nil, err
-		}
-		if tmp.verbose() {
-			var extra string
-			if _, ok := merging[info]; ok {
-				extra = " [merging]"
-			}
-			if segBytes >= tmp.maxMergedSegmentBytes/2 {
-				extra += " [skip: too large]"
-			} else {
-				extra += " [floored]"
-			}
-			tmp.message("  seg=%v size=%v MB%v",
-				tmp.Writer.Get().(*IndexWriter).readerPool.segmentToString(info),
-				fmt.Sprintf("%.3f", float32(segBytes)/1024/1024), extra)
-		}
+	// infosSorted := make([]*SegmentCommitInfo, len(infos.Segments))
+	// copy(infosSorted, infos.Segments)
+	// sort.Sort(&BySizeDescendingSegments{infosSorted, tmp})
 
-		if segBytes < minSegmentBytes {
-			minSegmentBytes = segBytes
-		}
-		// Accum total byte size
-		totIndexBytes += segBytes
-	}
+	// // Compute total index bytes & print details about the index
+	// totIndexBytes := int64(0)
+	// minSegmentBytes := int64(math.MaxInt64)
+	// for _, info := range infosSorted {
+	// 	segBytes, err := tmp.Size(info)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	if tmp.verbose() {
+	// 		var extra string
+	// 		if _, ok := merging[info]; ok {
+	// 			extra = " [merging]"
+	// 		}
+	// 		if segBytes >= tmp.maxMergedSegmentBytes/2 {
+	// 			extra += " [skip: too large]"
+	// 		} else {
+	// 			extra += " [floored]"
+	// 		}
+	// 		tmp.message("  seg=%v size=%v MB%v",
+	// 			tmp.Writer.Get().(*IndexWriter).readerPool.segmentToString(info),
+	// 			fmt.Sprintf("%.3f", float32(segBytes)/1024/1024), extra)
+	// 	}
 
-	// If we have too-large segments, grace them out of the maxSegmentCount:
-	tooBitCount := 0
-	for tooBitCount < len(infosSorted) {
-		n, err := tmp.Size(infosSorted[tooBitCount])
-		if err != nil {
-			return nil, err
-		}
-		if n < tmp.maxMergedSegmentBytes/2 {
-			break
-		}
-		totIndexBytes -= n
-		tooBitCount++
-	}
+	// 	if segBytes < minSegmentBytes {
+	// 		minSegmentBytes = segBytes
+	// 	}
+	// 	// Accum total byte size
+	// 	totIndexBytes += segBytes
+	// }
 
-	minSegmentBytes = tmp.floorSize(minSegmentBytes)
+	// // If we have too-large segments, grace them out of the maxSegmentCount:
+	// tooBitCount := 0
+	// for tooBitCount < len(infosSorted) {
+	// 	n, err := tmp.Size(infosSorted[tooBitCount])
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	if n < tmp.maxMergedSegmentBytes/2 {
+	// 		break
+	// 	}
+	// 	totIndexBytes -= n
+	// 	tooBitCount++
+	// }
 
-	// Compute max allowed segs in the index
-	levelSize := minSegmentBytes
-	bytesLeft := totIndexBytes
-	allowedSegCount := float64(0)
-	for {
-		segCountLevel := float64(bytesLeft) / float64(levelSize)
-		if segCountLevel < tmp.segsPerTier {
-			allowedSegCount += math.Ceil(segCountLevel)
-			break
-		}
-		allowedSegCount += tmp.segsPerTier
-		bytesLeft -= int64(tmp.segsPerTier * float64(levelSize))
-		levelSize *= int64(tmp.maxMergeAtOnce)
-	}
-	allowedSegCountInt := int(allowedSegCount)
+	// minSegmentBytes = tmp.floorSize(minSegmentBytes)
 
-	var spec MergeSpecification
+	// // Compute max allowed segs in the index
+	// levelSize := minSegmentBytes
+	// bytesLeft := totIndexBytes
+	// allowedSegCount := float64(0)
+	// for {
+	// 	segCountLevel := float64(bytesLeft) / float64(levelSize)
+	// 	if segCountLevel < tmp.segsPerTier {
+	// 		allowedSegCount += math.Ceil(segCountLevel)
+	// 		break
+	// 	}
+	// 	allowedSegCount += tmp.segsPerTier
+	// 	bytesLeft -= int64(tmp.segsPerTier * float64(levelSize))
+	// 	levelSize *= int64(tmp.maxMergeAtOnce)
+	// }
+	// allowedSegCountInt := int(allowedSegCount)
 
-	// Cycle to possibly select more than one merge
-	for {
-		mergingBytes := int64(0)
+	// var spec MergeSpecification
 
-		// Gather eligible segments for merging, ie segments not already
-		// being merged and not already picked (by prior iteration of
-		// this loop) for merging:
-		var eligible []*SegmentInfoPerCommit
-		for idx := tooBitCount; idx < len(infosSorted); idx++ {
-			info := infosSorted[idx]
-			if _, ok := merging[info]; ok {
-				n, err := info.SizeInBytes()
-				if err != nil {
-					return nil, err
-				}
-				mergingBytes += n
-			} else if _, ok := toBeMerged[info]; ok {
-				eligible = append(eligible, info)
-			}
-		}
+	// // Cycle to possibly select more than one merge
+	// for {
+	// 	mergingBytes := int64(0)
 
-		// maxMergeIsRunning := mergingBytes >= tmp.maxMergedSegmentBytes
+	// 	// Gather eligible segments for merging, ie segments not already
+	// 	// being merged and not already picked (by prior iteration of
+	// 	// this loop) for merging:
+	// 	var eligible []*SegmentCommitInfo
+	// 	for idx := tooBitCount; idx < len(infosSorted); idx++ {
+	// 		info := infosSorted[idx]
+	// 		if _, ok := merging[info]; ok {
+	// 			n, err := info.SizeInBytes()
+	// 			if err != nil {
+	// 				return nil, err
+	// 			}
+	// 			mergingBytes += n
+	// 		} else if _, ok := toBeMerged[info]; ok {
+	// 			eligible = append(eligible, info)
+	// 		}
+	// 	}
 
-		if tmp.verbose() {
-			tmp.message(
-				"  allowedSegmentCount=%v vs count=%v (eligible count=%v) tooBitCount=%v",
-				allowedSegCountInt, len(infosSorted), len(eligible), tooBitCount)
-		}
+	// 	// maxMergeIsRunning := mergingBytes >= tmp.maxMergedSegmentBytes
 
-		if len(eligible) == 0 {
-			return spec, nil
-		}
+	// 	if tmp.verbose() {
+	// 		tmp.message(
+	// 			"  allowedSegmentCount=%v vs count=%v (eligible count=%v) tooBitCount=%v",
+	// 			allowedSegCountInt, len(infosSorted), len(eligible), tooBitCount)
+	// 	}
 
-		if len(eligible) >= allowedSegCountInt {
-			// OK we are over budget -- find best merge!
-			panic("not implemented yet")
-		} else {
-			return spec, nil
-		}
-	}
+	// 	if len(eligible) == 0 {
+	// 		return spec, nil
+	// 	}
+
+	// 	if len(eligible) >= allowedSegCountInt {
+	// 		// OK we are over budget -- find best merge!
+	// 		panic("not implemented yet")
+	// 	} else {
+	// 		return spec, nil
+	// 	}
+	// }
 }
 
 func (tmp *TieredMergePolicy) FindForcedMerges(infos *SegmentInfos,
-	maxSegmentCount int,
-	segmentsToMerge map[*SegmentInfoPerCommit]bool) (MergeSpecification, error) {
+	maxSegmentCount int, segmentsToMerge map[*SegmentCommitInfo]bool,
+	w *IndexWriter) (MergeSpecification, error) {
 	panic("not implemented yet")
 }
 
@@ -646,13 +631,12 @@ func (tmp *TieredMergePolicy) floorSize(bytes int64) int64 {
 	return tmp.floorSegmentBytes
 }
 
-func (tmp *TieredMergePolicy) verbose() bool {
-	w := tmp.Writer.Get()
-	return w != nil && w.(*IndexWriter).infoStream.IsEnabled("TMP")
+func (tmp *TieredMergePolicy) verbose(w *IndexWriter) bool {
+	return w != nil && w.infoStream.IsEnabled("TMP")
 }
 
-func (tmp *TieredMergePolicy) message(message string, args ...interface{}) {
-	tmp.Writer.Get().(*IndexWriter).infoStream.Message("TMP", message, args...)
+func (tmp *TieredMergePolicy) message(w *IndexWriter, message string, args ...interface{}) {
+	w.infoStream.Message("TMP", message, args...)
 }
 
 func (tmp *TieredMergePolicy) String() string {
@@ -723,15 +707,14 @@ func NewLogMergePolicy(min, max int64) *LogMergePolicy {
 }
 
 // Returns true if LMP is enabled in IndexWriter's InfoStream.
-func (mp *LogMergePolicy) verbose() bool {
-	w := mp.Writer.Get().(*IndexWriter)
+func (mp *LogMergePolicy) verbose(w *IndexWriter) bool {
 	return w != nil && w.infoStream.IsEnabled("LMP")
 }
 
 // Print a debug message to IndexWriter's infoStream.
-func (mp *LogMergePolicy) message(message string) {
-	if mp.verbose() {
-		mp.Writer.Get().(*IndexWriter).infoStream.Message("LMP", message)
+func (mp *LogMergePolicy) message(message string, w *IndexWriter) {
+	if mp.verbose(w) {
+		w.infoStream.Message("LMP", message)
 	}
 }
 
@@ -760,14 +743,14 @@ func (mp *LogMergePolicy) Close() error {
 }
 
 /*
-Return the number of documents in the provided SegmentInfoPerCommit,
+Return the number of documents in the provided SegmentCommitInfo,
 pro-rated by percentage of non-deleted documents if
 SetCalibrateSizeByDeletes() is set.
 */
-func (mp *LogMergePolicy) sizeDocs(info *SegmentInfoPerCommit) (n int64, err error) {
+func (mp *LogMergePolicy) sizeDocs(info *SegmentCommitInfo, w *IndexWriter) (n int64, err error) {
 	infoDocCount := info.info.DocCount()
 	if mp.calibrateSizeByDeletes {
-		delCount := mp.Writer.Get().(*IndexWriter).readerPool.numDeletedDocs(info)
+		delCount := w.readerPool.numDeletedDocs(info)
 		assert(delCount <= infoDocCount)
 		return int64(infoDocCount - delCount), nil
 	}
@@ -775,13 +758,13 @@ func (mp *LogMergePolicy) sizeDocs(info *SegmentInfoPerCommit) (n int64, err err
 }
 
 /*
-Return the byte size of the provided SegmentInfoPerCommit, pro-rated
+Return the byte size of the provided SegmentCommitInfo, pro-rated
 by percentage of non-deleted documents if SetCalibratedSizeByDeletes()
 is set.
 */
-func (mp *LogMergePolicy) sizeBytes(info *SegmentInfoPerCommit) (n int64, err error) {
+func (mp *LogMergePolicy) sizeBytes(info *SegmentCommitInfo, w *IndexWriter) (n int64, err error) {
 	if mp.calibrateSizeByDeletes {
-		return mp.MergePolicyImpl.Size(info)
+		return mp.MergePolicyImpl.Size(info, w)
 	}
 	return info.SizeInBytes()
 }
@@ -790,18 +773,20 @@ func (mp *LogMergePolicy) sizeBytes(info *SegmentInfoPerCommit) (n int64, err er
 Returns true if the number of segments eligible for merging is less
 than or equal to the specified maxNumSegments.
 */
-func (mp *LogMergePolicy) isMergedBy(infos *SegmentInfos, maxNumSegments int, segmentsToMerge map[*SegmentInfoPerCommit]bool) bool {
+func (mp *LogMergePolicy) isMergedBy(infos *SegmentInfos,
+	maxNumSegments int, segmentsToMerge map[*SegmentCommitInfo]bool,
+	w *IndexWriter) bool {
 	panic("not implemented yet")
 }
 
 func (mp *LogMergePolicy) FindForcedMerges(infos *SegmentInfos,
-	maxSegmentCount int,
-	segmentsToMerge map[*SegmentInfoPerCommit]bool) (MergeSpecification, error) {
+	maxSegmentCount int, segmentsToMerge map[*SegmentCommitInfo]bool,
+	w *IndexWriter) (MergeSpecification, error) {
 	panic("not implemented yet")
 }
 
 type SegmentInfoAndLevel struct {
-	info  *SegmentInfoPerCommit
+	info  *SegmentCommitInfo
 	level float32
 	index int
 }
@@ -819,19 +804,20 @@ segments at a given level. When multiple levels have too many
 segments, this method will return multiple merges, allowing the
 MergeScheduler to use concurrency.
 */
-func (mp *LogMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *SegmentInfos) (spec MergeSpecification, err error) {
+func (mp *LogMergePolicy) FindMerges(mergeTrigger MergeTrigger,
+	infos *SegmentInfos, w *IndexWriter) (spec MergeSpecification, err error) {
 	numSegments := len(infos.Segments)
-	mp.message(fmt.Sprintf("findMerges: %v segments", numSegments))
+	mp.message(fmt.Sprintf("findMerges: %v segments", numSegments), w)
 
 	// Compute levels, whic is just log (base mergeFactor) of the size
 	// of each segment
 	levels := make([]*SegmentInfoAndLevel, 0)
 	norm := math.Log(float64(mp.mergeFactor))
 
-	mergingSegments := mp.Writer.Get().(*IndexWriter).mergingSegments
+	mergingSegments := w.mergingSegments
 
 	for i, info := range infos.Segments {
-		size, err := mp.Size(info)
+		size, err := mp.Size(info, w)
 		if err != nil {
 			return nil, err
 		}
@@ -844,8 +830,8 @@ func (mp *LogMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *SegmentIn
 		infoLevel := &SegmentInfoAndLevel{info, float32(math.Log(float64(size)) / norm), i}
 		levels = append(levels, infoLevel)
 
-		if mp.verbose() {
-			segBytes, err := mp.sizeBytes(info)
+		if mp.verbose(w) {
+			segBytes, err := mp.sizeBytes(info, w)
 			if err != nil {
 				return nil, err
 			}
@@ -857,10 +843,10 @@ func (mp *LogMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *SegmentIn
 				extra = fmt.Sprintf("%v [skip: too large]", extra)
 			}
 			mp.message(fmt.Sprintf("seg=%v level=%v size=%.3f MB%v",
-				mp.Writer.Get().(*IndexWriter).readerPool.segmentToString(info),
+				w.readerPool.segmentToString(info),
 				infoLevel.level,
 				segBytes/1024/1024,
-				extra))
+				extra), w)
 		}
 	}
 
@@ -910,7 +896,7 @@ func (mp *LogMergePolicy) FindMerges(mergeTrigger MergeTrigger, infos *SegmentIn
 			upto--
 		}
 		mp.message(fmt.Sprintf("  level %v to %v: %v segments",
-			levelBottom, maxLevel, 1+upto-start))
+			levelBottom, maxLevel, 1+upto-start), w)
 
 		// Finally, record all merges that are viable at this level:
 		end := start + mp.mergeFactor
@@ -952,8 +938,8 @@ func NewLogDocMergePolicy() *LogMergePolicy {
 	return ans.LogMergePolicy
 }
 
-func (p *LogDocMergePolicy) Size(info *SegmentInfoPerCommit) (int64, error) {
-	return p.sizeDocs(info)
+func (p *LogDocMergePolicy) Size(info *SegmentCommitInfo, w *IndexWriter) (int64, error) {
+	return p.sizeDocs(info, w)
 }
 
 // index/LogByteSizeMergePolicy.java
@@ -985,6 +971,6 @@ func NewLogByteSizeMergePolicy() *LogMergePolicy {
 	return ans.LogMergePolicy
 }
 
-func (p *LogByteSizeMergePolicy) Size(info *SegmentInfoPerCommit) (int64, error) {
-	return p.sizeBytes(info)
+func (p *LogByteSizeMergePolicy) Size(info *SegmentCommitInfo, w *IndexWriter) (int64, error) {
+	return p.sizeBytes(info, w)
 }

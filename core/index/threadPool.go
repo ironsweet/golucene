@@ -103,6 +103,7 @@ It's unfortunately that Go doesn't support 'Thread Affinity'. Default
 strategy is FIFO.
 */
 func (tp *DocumentsWriterPerThreadPool) lockAny() *ThreadState {
+	panic("not implemented yet")
 	res := tp.findNextAvailableThreadState()
 	if res == nil {
 		res = tp.newThreadState()
@@ -121,6 +122,7 @@ func (tp *DocumentsWriterPerThreadPool) lockAny() *ThreadState {
 }
 
 func (tp *DocumentsWriterPerThreadPool) lock(id int, wait bool) *ThreadState {
+	panic("not implemented yet")
 	tp.Lock()
 	defer tp.Unlock()
 
@@ -159,7 +161,14 @@ func (tp *DocumentsWriterPerThreadPool) findNextAvailableThreadState() *ThreadSt
 	return nil
 }
 
+/*
+Returns a new ThreadState iff any new state is available otherwise
+nil.
+
+NOTE: the returned ThreadState is already locked iff non-nil.
+*/
 func (tp *DocumentsWriterPerThreadPool) newThreadState() *ThreadState {
+	panic("not implemented yet")
 	tp.Lock()
 	defer tp.Unlock()
 

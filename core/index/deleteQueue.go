@@ -25,7 +25,7 @@ Since each DeleteSlice maintains its own head and list is only single
 linked, the garbage collector takes care of pruning the list for us.
 All nodes in the list that are still relevant should be either
 directly or indirectly referenced by one of the DWPT's private
-DeleteSlice or by the global BufferedDeletes slice.
+DeleteSlice or by the global BufferedUpdates slice.
 
 Each DWPT as well as the global delete pool maintain their private
 DeleteSlice instance. In the DWPT case, updating a slice is equivalent
@@ -36,7 +36,7 @@ indexing session. When a DWPT updates a document it:
 1. consumes a document and finishes its processing
 2. updates its private DeleteSlice either by calling updateSlice() or
    addTermToDeleteSlice() (if the document has a delTerm)
-3. applies all deletes in the slice to its private BufferedDeletes
+3. applies all deletes in the slice to its private BufferedUpdates
    and resets it
 4. increments its internal document id
 
@@ -49,7 +49,7 @@ neither to the global deletes.
 type DocumentsWriterDeleteQueue struct {
 	tail                  *Node // volatile
 	globalSlice           *DeleteSlice
-	globalBufferedDeletes *BufferedDeletes
+	globalBufferedUpdates *BufferedUpdates
 	globalBufferLock      sync.Locker
 
 	generation int64
@@ -60,13 +60,13 @@ func newDocumentsWriterDeleteQueue() *DocumentsWriterDeleteQueue {
 }
 
 func newDocumentsWriterDeleteQueueWithGeneration(generation int64) *DocumentsWriterDeleteQueue {
-	return newDocumentsWriterDeleteQueueWith(newBufferedDeletes(), generation)
+	return newDocumentsWriterDeleteQueueWith(newBufferedUpdates(), generation)
 }
 
-func newDocumentsWriterDeleteQueueWith(globalBufferedDeletes *BufferedDeletes, generation int64) *DocumentsWriterDeleteQueue {
+func newDocumentsWriterDeleteQueueWith(globalBufferedUpdates *BufferedUpdates, generation int64) *DocumentsWriterDeleteQueue {
 	tail := newNode(nil)
 	return &DocumentsWriterDeleteQueue{
-		globalBufferedDeletes: globalBufferedDeletes,
+		globalBufferedUpdates: globalBufferedUpdates,
 		globalBufferLock:      &sync.Mutex{},
 		generation:            generation,
 		// we use a sentinel instance as our initial tail. No slice will
@@ -81,7 +81,7 @@ func (q *DocumentsWriterDeleteQueue) add(term *Term, slice *DeleteSlice) {
 	panic("not implemented yet")
 }
 
-func (dq *DocumentsWriterDeleteQueue) freezeGlobalBuffer(callerSlice *DeleteSlice) *FrozenBufferedDeletes {
+func (dq *DocumentsWriterDeleteQueue) freezeGlobalBuffer(callerSlice *DeleteSlice) *FrozenBufferedUpdates {
 	dq.globalBufferLock.Lock()
 	defer dq.globalBufferLock.Unlock()
 
@@ -97,11 +97,11 @@ func (dq *DocumentsWriterDeleteQueue) freezeGlobalBuffer(callerSlice *DeleteSlic
 	}
 	if dq.globalSlice.tail != currentTail {
 		dq.globalSlice.tail = currentTail
-		dq.globalSlice.apply(dq.globalBufferedDeletes, MAX_INT)
+		dq.globalSlice.apply(dq.globalBufferedUpdates, MAX_INT)
 	}
 
-	packet := freezeBufferedDeletes(dq.globalBufferedDeletes, false)
-	dq.globalBufferedDeletes.clear()
+	packet := freezeBufferedUpdates(dq.globalBufferedUpdates, false)
+	dq.globalBufferedUpdates.clear()
 	return packet
 }
 
@@ -110,8 +110,8 @@ func (dq *DocumentsWriterDeleteQueue) anyChanges() bool {
 	defer dq.globalBufferLock.Unlock()
 	// check if all items in the global slice were applied
 	// and if the global slice is up-to-date
-	// and if globalBufferedDeletes has changes
-	return dq.globalBufferedDeletes.any() ||
+	// and if globalBufferedUpdates has changes
+	return dq.globalBufferedUpdates.any() ||
 		!dq.globalSlice.isEmpty() ||
 		dq.globalSlice.tail != dq.tail ||
 		dq.tail.next != nil
@@ -135,11 +135,11 @@ func (dq *DocumentsWriterDeleteQueue) clear() {
 
 	currentTail := dq.tail
 	dq.globalSlice.head, dq.globalSlice.tail = currentTail, currentTail
-	dq.globalBufferedDeletes.clear()
+	dq.globalBufferedUpdates.clear()
 }
 
-func (q *DocumentsWriterDeleteQueue) bytesUsed() int64 {
-	return atomic.LoadInt64(&q.globalBufferedDeletes.bytesUsed)
+func (q *DocumentsWriterDeleteQueue) RamBytesUsed() int64 {
+	return atomic.LoadInt64(&q.globalBufferedUpdates.bytesUsed)
 }
 
 func (dq *DocumentsWriterDeleteQueue) String() string {
@@ -159,7 +159,7 @@ func newDeleteSlice(currentTail *Node) *DeleteSlice {
 	return &DeleteSlice{head: currentTail, tail: currentTail}
 }
 
-func (ds *DeleteSlice) apply(del *BufferedDeletes, docIDUpto int) {
+func (ds *DeleteSlice) apply(del *BufferedUpdates, docIDUpto int) {
 	if ds.head == ds.tail {
 		// 0 length slice
 		return
@@ -203,6 +203,6 @@ func newNode(item interface{}) *Node {
 	return &Node{item: item}
 }
 
-func (node *Node) apply(bufferedDeletes *BufferedDeletes, docIDUpto int) {
+func (node *Node) apply(BufferedUpdates *BufferedUpdates, docIDUpto int) {
 	panic("sentinel item must never be applied")
 }

@@ -49,15 +49,17 @@ type DocumentsWriterFlushControl struct {
 	closed        bool
 
 	documentsWriter       *DocumentsWriter
-	config                *LiveIndexWriterConfig
-	bufferedDeletesStream *BufferedDeletesStream
+	config                LiveIndexWriterConfig
+	bufferedUpdatesStream *BufferedUpdatesStream
 	infoStream            util.InfoStream
 
 	fullFlushBuffer []*DocumentsWriterPerThread
 }
 
 func newDocumentsWriterFlushControl(documentsWriter *DocumentsWriter,
-	config *LiveIndexWriterConfig, bufferedDeletesStream *BufferedDeletesStream) *DocumentsWriterFlushControl {
+	config LiveIndexWriterConfig,
+	bufferedUpdatesStream *BufferedUpdatesStream) *DocumentsWriterFlushControl {
+
 	objLock := &sync.Mutex{}
 	ans := &DocumentsWriterFlushControl{
 		Locker:                objLock,
@@ -65,13 +67,13 @@ func newDocumentsWriterFlushControl(documentsWriter *DocumentsWriter,
 		flushQueue:            list.New(),
 		blockedFlushes:        list.New(),
 		flushingWriters:       make(map[*DocumentsWriterPerThread]int64),
-		infoStream:            config.infoStream,
+		infoStream:            config.InfoStream(),
 		perThreadPool:         documentsWriter.perThreadPool,
 		flushPolicy:           documentsWriter.flushPolicy,
 		config:                config,
-		hardMaxBytesPerDWPT:   int64(config.perRoutineHardLimitMB) * 1024 * 1024,
+		hardMaxBytesPerDWPT:   int64(config.RAMPerThreadHardLimitMB()) * 1024 * 1024,
 		documentsWriter:       documentsWriter,
-		bufferedDeletesStream: bufferedDeletesStream,
+		bufferedUpdatesStream: bufferedUpdatesStream,
 	}
 	ans.DocumentsWriterStallControl = newDocumentsWriterStallControl()
 	return ans
@@ -100,7 +102,8 @@ func (fc *DocumentsWriterFlushControl) _netBytes() int64 {
 }
 
 func (fc *DocumentsWriterFlushControl) assertMemory() {
-	maxRamMB := fc.config.ramBufferSizeMB
+	panic("not implemented yet")
+	maxRamMB := fc.config.RAMBufferSizeMB()
 	if maxRamMB == DISABLE_AUTO_FLUSH {
 		return
 	}
@@ -253,7 +256,7 @@ func (fc *DocumentsWriterFlushControl) doAfterFlush(dwpt *DocumentsWriterPerThre
 
 func (fc *DocumentsWriterFlushControl) updateStallState() bool {
 	var limit int64 = math.MaxInt64
-	if maxRamMB := fc.config.ramBufferSizeMB; maxRamMB != DISABLE_AUTO_FLUSH {
+	if maxRamMB := fc.config.RAMBufferSizeMB(); maxRamMB != DISABLE_AUTO_FLUSH {
 		limit = int64(2 * 1024 * 1024 * maxRamMB)
 	}
 	// We block indexing threads if net byte grows due to slow flushes,
@@ -374,7 +377,7 @@ func (fc *DocumentsWriterFlushControl) close() {
 /* Various statistics */
 
 func (fc *DocumentsWriterFlushControl) deleteBytesUsed() int64 {
-	return fc.documentsWriter.deleteQueue.bytesUsed() + fc.bufferedDeletesStream.bytesUsed
+	return fc.documentsWriter.deleteQueue.RamBytesUsed() + fc.bufferedUpdatesStream.RamBytesUsed()
 }
 
 // L444
@@ -523,7 +526,7 @@ func (fc *DocumentsWriterFlushControl) addFlushableState(perThread *ThreadState)
 	}
 }
 
-func (fc *DocumentsWriterFlushControl) doApplyAllDeletes() bool {
+func (fc *DocumentsWriterFlushControl) getAndResetApplyAllDeletes() bool {
 	return atomic.SwapInt32(&fc.flushDeletes, 0) == 1
 }
 

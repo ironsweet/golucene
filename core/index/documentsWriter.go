@@ -16,12 +16,11 @@ import (
 This class accepts multiple added documents and directly writes
 segment files.
 
-Each added document is passed to the DocConsumer, which in turn
-processes the document and interacts with other consumers in the
-indexing chain. Certain consumers, like StoredFieldsConsumer and
-TermVectorsConsumer, digest a document and immediately write bytes to
-the "doc store" files (i.e., they do not consume RAM per document,
-except while they are processing the document).
+Each added document is passed to the indexing chain, which in turn
+processes the document into the different codec formats. Some format
+write bytes to files immediately, e.g. stored fields and term vectors,
+while others are buffered by the indexing chain and written only on
+flush.
 
 Other consumers e.g. FreqProxTermsWriter and NormsConsumer, buffer
 bytes in RAM and flush only when a new segment is produced.
@@ -72,10 +71,10 @@ type DocumentsWriter struct {
 	directory    store.Directory
 	closed       bool // volatile
 	infoStream   util.InfoStream
-	config       *LiveIndexWriterConfig
+	config       LiveIndexWriterConfig
 	numDocsInRAM int32 // atomic
 
-	// TODO: cut over to BytesRefHash in BufferedDeletes
+	// TODO: cut over to BytesRefHash in BufferedUpdates
 	deleteQueue *DocumentsWriterDeleteQueue // volatile
 	ticketQueue *DocumentsWriterFlushQueue
 	// we preserve changes during a full flush since IW might not
@@ -95,26 +94,27 @@ type DocumentsWriter struct {
 	currentFullFlushDelQueue *DocumentsWriterDeleteQueue
 }
 
-func newDocumentsWriter(writer *IndexWriter, config *LiveIndexWriterConfig, directory store.Directory) *DocumentsWriter {
+func newDocumentsWriter(writer *IndexWriter, config LiveIndexWriterConfig,
+	directory store.Directory) *DocumentsWriter {
 	ans := &DocumentsWriter{
 		Locker:        &sync.Mutex{},
 		deleteQueue:   newDocumentsWriterDeleteQueue(),
 		ticketQueue:   newDocumentsWriterFlushQueue(),
 		directory:     directory,
 		config:        config,
-		infoStream:    config.infoStream,
-		perThreadPool: config.indexerThreadPool,
-		flushPolicy:   config.flushPolicy,
+		infoStream:    config.InfoStream(),
+		perThreadPool: config.indexerThreadPool(),
+		flushPolicy:   config.flushPolicy(),
 		writer:        writer,
 		eventsLock:    &sync.RWMutex{},
 		events:        list.New(),
 	}
-	ans.flushControl = newDocumentsWriterFlushControl(ans, config, writer.bufferedDeletesStream)
+	ans.flushControl = newDocumentsWriterFlushControl(ans, config, writer.bufferedUpdatesStream)
 	return ans
 }
 
 func (dw *DocumentsWriter) applyAllDeletes(deleteQueue *DocumentsWriterDeleteQueue) (bool, error) {
-	if dw.flushControl.doApplyAllDeletes() {
+	if dw.flushControl.getAndResetApplyAllDeletes() {
 		if deleteQueue != nil && !dw.flushControl.fullFlush {
 			err := dw.ticketQueue.addDeletes(deleteQueue)
 			if err != nil {
@@ -444,7 +444,7 @@ func (dw *DocumentsWriter) doFlush(flushingDWPT *DocumentsWriterPerThread) (bool
 	// If deletes alone are consuming > 1/2 our RAM buffer, force them
 	// all to apply now. This is to prevent too-frequent flushing of a
 	// long tail tiny segments:
-	if ramBufferSizeMB := dw.config.ramBufferSizeMB; ramBufferSizeMB != DISABLE_AUTO_FLUSH &&
+	if ramBufferSizeMB := dw.config.RAMBufferSizeMB(); ramBufferSizeMB != DISABLE_AUTO_FLUSH &&
 		dw.flushControl.deleteBytesUsed() > int64(1024*1024*ramBufferSizeMB/2) {
 
 		if dw.infoStream.IsEnabled("DW") {
