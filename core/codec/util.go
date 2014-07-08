@@ -146,3 +146,14 @@ type IndexInput interface{}
 func CheckEOF(in IndexInput) error {
 	panic("not implementd yet")
 }
+
+/*
+Clones the provided input, reads all bytes from the file, and calls
+CheckFooter().
+
+Note that this method may be slow, as it must process the entire file.
+If you just need to extract the checksum value, call retrieveChecksum().
+*/
+func ChecksumEntireFile(input IndexInput) (int64, error) {
+	panic("not implemented yet")
+}

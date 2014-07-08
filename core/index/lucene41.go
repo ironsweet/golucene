@@ -106,32 +106,34 @@ func (f *Lucene41PostingsFormat) FieldsProducer(state SegmentReadState) (FieldsP
 // Lucene41PostingsWriter.java
 
 /*
+Expert: the maximum number of skip levels. Smaller values result in
+slightly smaller indexes, but slower skipping in big posting lists.
+*/
+
+const maxSkipLevels = 10
+
+/*
 Concrete class that writes docId (maybe frq,pos,offset,payloads) list
 with postings format.
 
 Postings list for each term will be stored separately.
 */
 type Lucene41PostingsWriter struct {
-	// Expert: The maximum number of skip levels. Smaller values result
-	// in slightly smaller indexes, but slower skipping in big posting
-	// lists.
-	maxSkipLevels int
-
 	docOut store.IndexOutput
 	posOut store.IndexOutput
 	payOut store.IndexOutput
 
-	termsOut store.IndexOutput
+	lastState *intBlockTermState
 
 	fieldHasFreqs     bool
 	fieldHasPositions bool
 	fieldHasOffsets   bool
 	fieldHasPayloads  bool
 
-	// Holds starting file pointers for each term:
-	docTermStartFP int64
-	posTermStartFP int64
-	payTermStartFP int64
+	// Holds starting file pointers for current term:
+	docStartFP int64
+	posStartFP int64
+	payStartFP int64
 
 	docDeltaBuffer []int
 	freqBuffer     []int
@@ -161,10 +163,6 @@ type Lucene41PostingsWriter struct {
 
 	forUtil    ForUtil
 	skipWriter *lucene41.SkipWriter
-
-	pendingTerms []*pwPendingTerm
-
-	bytesWriter *store.RAMOutputStream
 }
 
 /* Creates a postings writer with the specified PackedInts overhead ratio */
@@ -179,10 +177,7 @@ func newLucene41PostingsWriter(state *model.SegmentWriteState,
 		return nil, err
 	}
 
-	ans := &Lucene41PostingsWriter{
-		maxSkipLevels: 10,
-		bytesWriter:   store.NewRAMOutputStreamBuffer(),
-	}
+	ans := new(Lucene41PostingsWriter)
 	if err = func() error {
 		var posOut store.IndexOutput
 		var payOut store.IndexOutput
@@ -249,7 +244,7 @@ func newLucene41PostingsWriter(state *model.SegmentWriteState,
 
 	// TODO: should we try skipping every 2/4 blocks...?
 	ans.skipWriter = lucene41.NewSkipWriter(
-		ans.maxSkipLevels,
+		maxSkipLevels,
 		LUCENE41_BLOCK_SIZE,
 		state.SegmentInfo.DocCount(),
 		ans.docOut,
@@ -264,8 +259,59 @@ func newLucene41PostingsWriterCompact(state *model.SegmentWriteState) (*Lucene41
 	return newLucene41PostingsWriter(state, packed.PackedInts.COMPACT)
 }
 
-func (w *Lucene41PostingsWriter) Start(termsOut store.IndexOutput) error {
-	w.termsOut = termsOut
+type intBlockTermState struct {
+	*BlockTermState
+	docStartFP         int64
+	posStartFP         int64
+	payStartFP         int64
+	skipOffset         int64
+	lastPosBlockOffset int64
+	// docid when there is a single pulsed posting, otherwise -1
+	// freq is always implicitly totalTermFreq in this case.
+	singletonDocID int
+}
+
+func newIntBlockTermState() *intBlockTermState {
+	ts := &intBlockTermState{
+		skipOffset:         -1,
+		lastPosBlockOffset: -1,
+		singletonDocID:     -1,
+	}
+	parent := NewBlockTermState()
+	ts.BlockTermState, parent.Self = parent, ts
+	return ts
+}
+
+func (ts *intBlockTermState) Clone() TermState {
+	clone := newIntBlockTermState()
+	clone.CopyFrom(ts)
+	return clone
+}
+
+func (ts *intBlockTermState) CopyFrom(other TermState) {
+	assert(other != nil)
+	if ots, ok := other.(*intBlockTermState); ok {
+		ts.BlockTermState.internalCopyFrom(ots.BlockTermState)
+		ts.docStartFP = ots.docStartFP
+		ts.posStartFP = ots.posStartFP
+		ts.payStartFP = ots.payStartFP
+		ts.lastPosBlockOffset = ots.lastPosBlockOffset
+		ts.skipOffset = ots.skipOffset
+		ts.singletonDocID = ots.singletonDocID
+	} else if ots, ok := other.(*BlockTermState); ok && ots.Self != nil {
+		// try copy from other's sub class
+		ts.CopyFrom(ots.Self)
+	} else {
+		panic(fmt.Sprintf("Can not copy from %v", reflect.TypeOf(other).Name()))
+	}
+}
+
+func (ts *intBlockTermState) String() string {
+	return fmt.Sprintf("%v docStartFP=%v posStartFP=%v payStartFP=%v lastPosBlockOffset=%v skipOffset=%v singletonDocID=%v",
+		ts.BlockTermState.toString(), ts.docStartFP, ts.posStartFP, ts.payStartFP, ts.lastPosBlockOffset, ts.skipOffset, ts.singletonDocID)
+}
+
+func (w *Lucene41PostingsWriter) init(termsOut store.IndexOutput) error {
 	err := codec.WriteHeader(termsOut, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_CURRENT)
 	if err == nil {
 		err = termsOut.WriteVInt(LUCENE41_BLOCK_SIZE)
@@ -273,21 +319,22 @@ func (w *Lucene41PostingsWriter) Start(termsOut store.IndexOutput) error {
 	return err
 }
 
-func (w *Lucene41PostingsWriter) SetField(fieldInfo *model.FieldInfo) {
+func (w *Lucene41PostingsWriter) SetField(fieldInfo *model.FieldInfo) int {
 	n := int(fieldInfo.IndexOptions())
 	w.fieldHasFreqs = n >= int(model.INDEX_OPT_DOCS_AND_FREQS)
 	w.fieldHasPositions = n >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS)
 	w.fieldHasOffsets = n >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS)
 	w.fieldHasPayloads = fieldInfo.HasPayloads()
 	w.skipWriter.SetField(w.fieldHasPositions, w.fieldHasOffsets, w.fieldHasPayloads)
+	panic("not implemented yet")
 }
 
 func (w *Lucene41PostingsWriter) StartTerm() error {
-	w.docTermStartFP = w.docOut.FilePointer()
+	w.docStartFP = w.docOut.FilePointer()
 	if w.fieldHasPositions {
-		w.posTermStartFP = w.posOut.FilePointer()
+		w.posStartFP = w.posOut.FilePointer()
 		if w.fieldHasPayloads || w.fieldHasOffsets {
-			w.payTermStartFP = w.payOut.FilePointer()
+			w.payStartFP = w.payOut.FilePointer()
 		}
 	}
 	w.lastDocId = 0
@@ -373,26 +420,18 @@ func (w *Lucene41PostingsWriter) FinishDoc() error {
 	return nil
 }
 
-type pwPendingTerm struct {
-	docStartFP         int64
-	posStartFP         int64
-	payStartFP         int64
-	skipOffset         int64
-	lastPosBlockOffset int64
-	singletonDocId     int
-}
-
 /* Called when we are done adding docs to this term */
-func (w *Lucene41PostingsWriter) FinishTerm(stats *codec.TermStats) error {
-	assert(stats.DocFreq > 0)
+func (w *Lucene41PostingsWriter) FinishTerm(_state *BlockTermState) error {
+	state := _state.Self.(*intBlockTermState)
+	assert(state.docFreq > 0)
 
 	// TODO: wasteful we are couting this (counting # docs for this term) in two places?
-	assert2(stats.DocFreq == w.docCount, "%v vs %v", stats.DocFreq, w.docCount)
+	assert2(state.docFreq == w.docCount, "%v vs %v", state.docFreq, w.docCount)
 
 	// docFreq == 1, don't write the single docId/freq to a separate
 	// file along with a pointer to it.
 	var singletonDocId int
-	if stats.DocFreq == 1 {
+	if state.docFreq == 1 {
 		// pulse the singleton docId into the term dictionary, freq is implicitly totalTermFreq
 		singletonDocId = w.docDeltaBuffer[0]
 	} else {
@@ -403,10 +442,10 @@ func (w *Lucene41PostingsWriter) FinishTerm(stats *codec.TermStats) error {
 	if w.fieldHasPositions {
 		// totalTermFreq is just total number of positions (or payloads,
 		// or offsets) associated with current term.
-		assert(stats.TotalTermFreq != -1)
-		if stats.TotalTermFreq > LUCENE41_BLOCK_SIZE {
+		assert(state.totalTermFreq != -1)
+		if state.totalTermFreq > LUCENE41_BLOCK_SIZE {
 			// record file offset for last pos in last block
-			lastPosBlockOffset = w.posOut.FilePointer() - w.posTermStartFP
+			lastPosBlockOffset = w.posOut.FilePointer() - w.posStartFP
 		} else {
 			lastPosBlockOffset = -1
 		}
@@ -450,21 +489,17 @@ func (w *Lucene41PostingsWriter) FinishTerm(stats *codec.TermStats) error {
 		if err != nil {
 			return err
 		}
-		skipOffset = n - w.docTermStartFP
+		skipOffset = n - w.docStartFP
 	} else {
 		skipOffset = -1
 	}
 
-	var payStartFP int64
-	if stats.TotalTermFreq >= LUCENE41_BLOCK_SIZE {
-		payStartFP = w.payTermStartFP
-	} else {
-		payStartFP = -1
-	}
-
-	w.pendingTerms = append(w.pendingTerms, &pwPendingTerm{
-		w.docTermStartFP, w.posTermStartFP, payStartFP, skipOffset, lastPosBlockOffset, singletonDocId,
-	})
+	state.docStartFP = w.docStartFP
+	state.posStartFP = w.posStartFP
+	state.payStartFP = w.payStartFP
+	state.singletonDocID = singletonDocId
+	state.skipOffset = skipOffset
+	state.lastPosBlockOffset = lastPosBlockOffset
 	w.docBufferUpto = 0
 	w.posBufferUpto = 0
 	w.lastDocId = 0
@@ -472,78 +507,83 @@ func (w *Lucene41PostingsWriter) FinishTerm(stats *codec.TermStats) error {
 	return nil
 }
 
-func (w *Lucene41PostingsWriter) flushTermsBlock(start, count int) error {
-	if count == 0 {
-		return w.termsOut.WriteByte(0)
-	}
+func (w *Lucene41PostingsWriter) encodeTerm(longs []int64,
+	out DataOutput, fieldInfo *model.FieldInfo, _state *BlockTermState,
+	absolute bool) error {
+	panic("not implemented yet")
+	// func (w *Lucene41PostingsWriter) flushTermsBlock(start, count int) error {
+	// if count == 0 {
+	// 	return w.termsOut.WriteByte(0)
+	// }
 
-	assert(start <= len(w.pendingTerms))
-	assert(count <= start)
+	// assert(start <= len(w.pendingTerms))
+	// assert(count <= start)
 
-	limit := len(w.pendingTerms) - start + count
+	// limit := len(w.pendingTerms) - start + count
 
-	lastDocStartFP := int64(0)
-	lastPosStartFP := int64(0)
-	lastPayStartFP := int64(0)
-	for _, term := range w.pendingTerms[limit-count : limit] {
-		if term.singletonDocId == -1 {
-			err := w.bytesWriter.WriteVLong(term.docStartFP - lastDocStartFP)
-			if err != nil {
-				return err
-			}
-			lastDocStartFP = term.docStartFP
-		} else {
-			err := w.bytesWriter.WriteVInt(int32(term.singletonDocId))
-			if err != nil {
-				return err
-			}
-		}
+	// lastDocStartFP := int64(0)
+	// lastPosStartFP := int64(0)
+	// lastPayStartFP := int64(0)
+	// for _, term := range w.pendingTerms[limit-count : limit] {
+	// 	if term.singletonDocId == -1 {
+	// 		err := w.bytesWriter.WriteVLong(term.docStartFP - lastDocStartFP)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		lastDocStartFP = term.docStartFP
+	// 	} else {
+	// 		err := w.bytesWriter.WriteVInt(int32(term.singletonDocId))
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
 
-		if w.fieldHasPositions {
-			err := w.bytesWriter.WriteVLong(term.posStartFP - lastPosStartFP)
-			if err == nil {
-				lastPosStartFP = term.posStartFP
-				if term.lastPosBlockOffset != -1 {
-					err = w.bytesWriter.WriteVLong(term.lastPosBlockOffset)
-				}
-			}
-			if err == nil && (w.fieldHasPayloads || w.fieldHasOffsets) && term.payStartFP != -1 {
-				err = w.bytesWriter.WriteVLong(term.payStartFP - lastPayStartFP)
-				if err == nil {
-					lastPayStartFP = term.payStartFP
-				}
-			}
-			if err != nil {
-				return err
-			}
-		}
+	// 	if w.fieldHasPositions {
+	// 		err := w.bytesWriter.WriteVLong(term.posStartFP - lastPosStartFP)
+	// 		if err == nil {
+	// 			lastPosStartFP = term.posStartFP
+	// 			if term.lastPosBlockOffset != -1 {
+	// 				err = w.bytesWriter.WriteVLong(term.lastPosBlockOffset)
+	// 			}
+	// 		}
+	// 		if err == nil && (w.fieldHasPayloads || w.fieldHasOffsets) && term.payStartFP != -1 {
+	// 			err = w.bytesWriter.WriteVLong(term.payStartFP - lastPayStartFP)
+	// 			if err == nil {
+	// 				lastPayStartFP = term.payStartFP
+	// 			}
+	// 		}
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
 
-		if term.skipOffset != -1 {
-			err := w.bytesWriter.WriteVLong(term.skipOffset)
-			if err != nil {
-				return err
-			}
-		}
-	}
+	// 	if term.skipOffset != -1 {
+	// 		err := w.bytesWriter.WriteVLong(term.skipOffset)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
 
-	err := w.termsOut.WriteVInt(int32(w.bytesWriter.FilePointer()))
-	if err == nil {
-		err = w.bytesWriter.WriteTo(w.termsOut)
-		if err == nil {
-			w.bytesWriter.Reset()
-		}
-	}
-	if err != nil {
-		return err
-	}
+	// err := w.termsOut.WriteVInt(int32(w.bytesWriter.FilePointer()))
+	// if err == nil {
+	// 	err = w.bytesWriter.WriteTo(w.termsOut)
+	// 	if err == nil {
+	// 		w.bytesWriter.Reset()
+	// 	}
+	// }
+	// if err != nil {
+	// 	return err
+	// }
 
-	// remove the terms we just wrote:
-	w.pendingTerms = append(w.pendingTerms[:limit-count], w.pendingTerms[limit:]...)
-	return nil
+	// // remove the terms we just wrote:
+	// w.pendingTerms = append(w.pendingTerms[:limit-count], w.pendingTerms[limit:]...)
+	// return nil
 }
 
 func (w *Lucene41PostingsWriter) Close() error {
-	return util.Close(w.docOut, w.posOut, w.payOut)
+	panic("not implemented yet")
+	// return util.Close(w.docOut, w.posOut, w.payOut)
 }
 
 // Lucene41PostingsReader.java
@@ -560,8 +600,10 @@ const (
 	LUCENE41_POS_CODEC   = "Lucene41PostingsWriterPos"
 	LUCENE41_PAY_CODEC   = "Lucene41PostingsWriterPay"
 
-	LUCENE41_VERSION_START   = 0
-	LUCENE41_VERSION_CURRENT = LUCENE41_VERSION_START
+	LUCENE41_VERSION_START         = 0
+	LUCENE41_VERSION_META_ARRAY    = 1
+	LUCENE41_VERSION_META_CHECKSUM = 2
+	LUCENE41_VERSION_CURRENT       = LUCENE41_VERSION_META_CHECKSUM
 )
 
 /*
@@ -573,6 +615,7 @@ type Lucene41PostingsReader struct {
 	posIn   store.IndexInput
 	payIn   store.IndexInput
 	forUtil ForUtil
+	version int
 }
 
 func NewLucene41PostingsReader(dir store.Directory,
@@ -594,41 +637,42 @@ func NewLucene41PostingsReader(dir store.Directory,
 
 	docIn, err = dir.OpenInput(util.SegmentFileName(si.Name, segmentSuffix, LUCENE41_DOC_EXTENSION), ctx)
 	if err != nil {
-		return r, err
+		return nil, err
 	}
-	_, err = codec.CheckHeader(docIn, LUCENE41_DOC_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+	var version int32
+	version, err = codec.CheckHeader(docIn, LUCENE41_DOC_CODEC, LUCENE41_VERSION_START, LUCENE41_VERSION_CURRENT)
 	if err != nil {
-		return r, err
+		return nil, err
 	}
 	forUtil, err := NewForUtilFrom(docIn)
 	if err != nil {
-		return r, err
+		return nil, err
 	}
 
 	if fis.HasProx {
 		posIn, err = dir.OpenInput(util.SegmentFileName(si.Name, segmentSuffix, LUCENE41_POS_EXTENSION), ctx)
 		if err != nil {
-			return r, err
+			return nil, err
 		}
-		_, err = codec.CheckHeader(posIn, LUCENE41_POS_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+		_, err = codec.CheckHeader(posIn, LUCENE41_POS_CODEC, version, version)
 		if err != nil {
-			return r, err
+			return nil, err
 		}
 
 		if fis.HasPayloads || fis.HasOffsets {
 			payIn, err = dir.OpenInput(util.SegmentFileName(si.Name, segmentSuffix, LUCENE41_PAY_EXTENSION), ctx)
 			if err != nil {
-				return r, err
+				return nil, err
 			}
-			_, err = codec.CheckHeader(payIn, LUCENE41_PAY_CODEC, LUCENE41_VERSION_CURRENT, LUCENE41_VERSION_CURRENT)
+			_, err = codec.CheckHeader(payIn, LUCENE41_PAY_CODEC, version, version)
 			if err != nil {
-				return r, err
+				return nil, err
 			}
 		}
 	}
 
 	success = true
-	return &Lucene41PostingsReader{docIn, posIn, payIn, forUtil}, nil
+	return &Lucene41PostingsReader{docIn, posIn, payIn, forUtil, int(version)}, nil
 }
 
 func (r *Lucene41PostingsReader) Init(termsIn store.IndexInput) error {
@@ -689,132 +733,10 @@ func (r *Lucene41PostingsReader) Close() error {
 	return util.Close(r.docIn, r.posIn, r.payIn)
 }
 
-/* Reads but does not decode the byte[] blob holding
-   metadata for the current terms block */
-func (r *Lucene41PostingsReader) ReadTermsBlock(termsIn store.IndexInput,
-	fieldInfo *model.FieldInfo, _termState *BlockTermState) (err error) {
-
-	termState := _termState.Self.(*intBlockTermState)
-	numBytes, err := asInt(termsIn.ReadVInt())
-	if err != nil {
-		return err
-	}
-
-	if termState.bytes == nil {
-		// TODO over-allocate
-		termState.bytes = make([]byte, numBytes)
-		termState.bytesReader = store.NewEmptyByteArrayDataInput()
-	} else if len(termState.bytes) < numBytes {
-		// TODO over-allocate
-		termState.bytes = make([]byte, numBytes)
-	}
-
-	err = termsIn.ReadBytes(termState.bytes)
-	if err != nil {
-		return err
-	}
-	termState.bytesReader.Reset(termState.bytes)
-	return nil
-}
-
-func (r *Lucene41PostingsReader) nextTerm(fieldInfo *model.FieldInfo,
-	_termState *BlockTermState) (err error) {
-
-	termState := _termState.Self.(*intBlockTermState)
-	isFirstTerm := termState.termBlockOrd == 0
-	fieldHasPositions := fieldInfo.IndexOptions() >= model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
-	fieldHasOffsets := fieldInfo.IndexOptions() >= model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
-	fieldHasPayloads := fieldInfo.HasPayloads()
-
-	in := termState.bytesReader
-	if isFirstTerm {
-		if termState.docFreq == 1 {
-			termState.singletonDocID, err = asInt(in.ReadVInt())
-			if err != nil {
-				return err
-			}
-			termState.docStartFP = 0
-		} else {
-			termState.singletonDocID = -1
-			termState.docStartFP, err = in.ReadVLong()
-			if err != nil {
-				return err
-			}
-		}
-		if fieldHasPositions {
-			termState.posStartFP, err = in.ReadVLong()
-			if err != nil {
-				return err
-			}
-			if termState.totalTermFreq > LUCENE41_BLOCK_SIZE {
-				termState.lastPosBlockOffset, err = in.ReadVLong()
-				if err != nil {
-					return err
-				}
-			} else {
-				termState.lastPosBlockOffset = -1
-			}
-			if (fieldHasPayloads || fieldHasOffsets) && termState.totalTermFreq >= LUCENE41_BLOCK_SIZE {
-				termState.payStartFP, err = in.ReadVLong()
-				if err != nil {
-					return err
-				}
-			} else {
-				termState.payStartFP = -1
-			}
-		}
-	} else {
-		if termState.docFreq == 1 {
-			termState.singletonDocID, err = asInt(in.ReadVInt())
-			if err != nil {
-				return err
-			}
-		} else {
-			termState.singletonDocID = -1
-			delta, err := in.ReadVLong()
-			if err != nil {
-				return err
-			}
-			termState.docStartFP += delta
-		}
-		if fieldHasPositions {
-			delta, err := in.ReadVLong()
-			if err != nil {
-				return err
-			}
-			termState.posStartFP += delta
-			if termState.totalTermFreq > LUCENE41_BLOCK_SIZE {
-				termState.lastPosBlockOffset, err = in.ReadVLong()
-				if err != nil {
-					return err
-				}
-			} else {
-				termState.lastPosBlockOffset = -1
-			}
-			if (fieldHasPayloads || fieldHasOffsets) && termState.totalTermFreq >= LUCENE41_BLOCK_SIZE {
-				delta, err = in.ReadVLong()
-				if err != nil {
-					return err
-				}
-				if termState.payStartFP == -1 {
-					termState.payStartFP = delta
-				} else {
-					termState.payStartFP += delta
-				}
-			}
-		}
-	}
-
-	if termState.docFreq > LUCENE41_BLOCK_SIZE {
-		termState.skipOffset, err = in.ReadVLong()
-		if err != nil {
-			return err
-		}
-	} else {
-		termState.skipOffset = -1
-	}
-
-	return nil
+func (r *Lucene41PostingsReader) decodeTerm(longs []int64,
+	in util.DataInput, fieldInfo *model.FieldInfo,
+	_termState *BlockTermState, absolute bool) error {
+	panic("not implemented yet")
 }
 
 func (r *Lucene41PostingsReader) docs(fieldInfo *model.FieldInfo,
@@ -1051,64 +973,6 @@ func (de *blockDocsEnum) Advance(target int) (int, error) {
 		de.docBufferUpto++
 		return de.NextDoc()
 	}
-}
-
-type intBlockTermState struct {
-	*BlockTermState
-	docStartFP         int64
-	posStartFP         int64
-	payStartFP         int64
-	skipOffset         int64
-	lastPosBlockOffset int64
-	// docid when there is a single pulsed posting, otherwise -1
-	// freq is always implicitly totalTermFreq in this case.
-	singletonDocID int
-
-	// Only used by the "primary" TermState -- clones don't
-	// copy this (basically they are "transient"):
-	bytesReader *store.ByteArrayDataInput
-	bytes       []byte
-}
-
-func newIntBlockTermState() *intBlockTermState {
-	ts := &intBlockTermState{}
-	parent := NewBlockTermState()
-	ts.BlockTermState, parent.Self = parent, ts
-	return ts
-}
-
-func (ts *intBlockTermState) Clone() TermState {
-	clone := newIntBlockTermState()
-	clone.CopyFrom(ts)
-	return clone
-}
-
-func (ts *intBlockTermState) CopyFrom(other TermState) {
-	assert(other != nil)
-	if ots, ok := other.(*intBlockTermState); ok {
-		ts.BlockTermState.internalCopyFrom(ots.BlockTermState)
-		ts.docStartFP = ots.docStartFP
-		ts.posStartFP = ots.posStartFP
-		ts.payStartFP = ots.payStartFP
-		ts.lastPosBlockOffset = ots.lastPosBlockOffset
-		ts.skipOffset = ots.skipOffset
-		ts.singletonDocID = ots.singletonDocID
-
-		// Do not copy bytes, bytesReader (else TermState is
-		// very heavy, ie drags around the entire block's
-		// byte[]).  On seek back, if next() is in fact used
-		// (rare!), they will be re-read from disk.
-	} else if ots, ok := other.(*BlockTermState); ok && ots.Self != nil {
-		// try copy from other's sub class
-		ts.CopyFrom(ots.Self)
-	} else {
-		panic(fmt.Sprintf("Can not copy from %v", reflect.TypeOf(other).Name()))
-	}
-}
-
-func (ts *intBlockTermState) String() string {
-	return fmt.Sprintf("%v docStartFP=%v posStartFP=%v payStartFP=%v lastPosBlockOffset=%v skipOffset=%v singletonDocID=%v",
-		ts.BlockTermState.toString(), ts.docStartFP, ts.posStartFP, ts.payStartFP, ts.lastPosBlockOffset, ts.skipOffset, ts.singletonDocID)
 }
 
 // lucene41/Lucene41StoredFieldsFormat.java

@@ -49,28 +49,33 @@ func (w *SkipWriter) SetField(fieldHasPositions, fieldHasOffsets, fieldHasPayloa
 }
 
 func (w *SkipWriter) ResetSkip() {
-	w.MultiLevelSkipListWriter.ResetSkip()
-	for i, _ := range w.lastSkipDoc {
-		w.lastSkipDoc[i] = 0
-	}
-	for i, _ := range w.lastSkipDocPointer {
-		w.lastSkipDocPointer[i] = w.docOut.FilePointer()
-	}
-	if w.fieldHasPositions {
-		for i, _ := range w.lastSkipPosPointer {
-			w.lastSkipPosPointer[i] = w.posOut.FilePointer()
-		}
-		if w.fieldHasPayloads {
-			for i, _ := range w.lastPayloadByteUpto {
-				w.lastPayloadByteUpto[i] = 0
-			}
-			if w.fieldHasOffsets || w.fieldHasPayloads {
-				for i, _ := range w.lastSkipPayPointer {
-					w.lastSkipPayPointer[i] = w.payOut.FilePointer()
-				}
-			}
-		}
-	}
+	panic("not implemented yet")
+}
+
+func (w *SkipWriter) initSkip() {
+	panic("not implemented yet")
+	// w.MultiLevelSkipListWriter.ResetSkip()
+	// for i, _ := range w.lastSkipDoc {
+	// 	w.lastSkipDoc[i] = 0
+	// }
+	// for i, _ := range w.lastSkipDocPointer {
+	// 	w.lastSkipDocPointer[i] = w.docOut.FilePointer()
+	// }
+	// if w.fieldHasPositions {
+	// 	for i, _ := range w.lastSkipPosPointer {
+	// 		w.lastSkipPosPointer[i] = w.posOut.FilePointer()
+	// 	}
+	// 	if w.fieldHasPayloads {
+	// 		for i, _ := range w.lastPayloadByteUpto {
+	// 			w.lastPayloadByteUpto[i] = 0
+	// 		}
+	// 		if w.fieldHasOffsets || w.fieldHasPayloads {
+	// 			for i, _ := range w.lastSkipPayPointer {
+	// 				w.lastSkipPayPointer[i] = w.payOut.FilePointer()
+	// 			}
+	// 		}
+	// 	}
+	// }
 }
 
 /* Sets the values for the current skip data. */

@@ -91,7 +91,7 @@ func newBlockTreeTermsReader(dir store.Directory,
 	}
 	fp.in, err = dir.OpenInput(util.SegmentFileName(info.Name, segmentSuffix, BTT_EXTENSION), ctx)
 	if err != nil {
-		return fp, err
+		return nil, err
 	}
 
 	success := false
@@ -109,23 +109,30 @@ func newBlockTreeTermsReader(dir store.Directory,
 
 	fp.version, err = fp.readHeader(fp.in)
 	if err != nil {
-		return fp, err
+		return nil, err
 	}
 	log.Printf("Version: %v", fp.version)
 
 	if indexDivisor != -1 {
 		indexIn, err = dir.OpenInput(util.SegmentFileName(info.Name, segmentSuffix, BTT_INDEX_EXTENSION), ctx)
 		if err != nil {
-			return fp, err
+			return nil, err
 		}
 
 		indexVersion, err := fp.readIndexHeader(indexIn)
 		if err != nil {
-			return fp, err
+			return nil, err
 		}
 		log.Printf("Index version: %v", indexVersion)
 		if int(indexVersion) != fp.version {
-			return fp, errors.New(fmt.Sprintf("mixmatched version files: %v=%v,%v=%v", fp.in, fp.version, indexIn, indexVersion))
+			return nil, errors.New(fmt.Sprintf("mixmatched version files: %v=%v,%v=%v", fp.in, fp.version, indexIn, indexVersion))
+		}
+	}
+
+	// verify
+	if indexIn != nil && fp.version >= TERMS_VERSION_CURRENT {
+		if _, err = codec.ChecksumEntireFile(indexIn); err != nil {
+			return nil, err
 		}
 	}
 
@@ -140,38 +147,38 @@ func newBlockTreeTermsReader(dir store.Directory,
 
 	numFields, err := fp.in.ReadVInt()
 	if err != nil {
-		return fp, err
+		return nil, err
 	}
 	log.Printf("Fields number: %v", numFields)
 	if numFields < 0 {
-		return fp, errors.New(fmt.Sprintf("invalid numFields: %v (resource=%v)", numFields, fp.in))
+		return nil, errors.New(fmt.Sprintf("invalid numFields: %v (resource=%v)", numFields, fp.in))
 	}
 
 	for i := int32(0); i < numFields; i++ {
 		log.Printf("Next field...")
 		field, err := fp.in.ReadVInt()
 		if err != nil {
-			return fp, err
+			return nil, err
 		}
 		log.Printf("Field: %v", field)
 
 		numTerms, err := fp.in.ReadVLong()
 		if err != nil {
-			return fp, err
+			return nil, err
 		}
 		// assert numTerms >= 0
 		log.Printf("Terms number: %v", numTerms)
 
 		numBytes, err := fp.in.ReadVInt()
 		if err != nil {
-			return fp, err
+			return nil, err
 		}
 		log.Printf("Bytes number: %v", numBytes)
 
 		rootCode := make([]byte, numBytes)
 		err = fp.in.ReadBytes(rootCode)
 		if err != nil {
-			return fp, err
+			return nil, err
 		}
 		fieldInfo := fieldInfos.FieldInfoByNumber(int(field))
 		// assert fieldInfo != nil
@@ -181,58 +188,71 @@ func newBlockTreeTermsReader(dir store.Directory,
 		} else {
 			sumTotalTermFreq, err = fp.in.ReadVLong()
 			if err != nil {
-				return fp, err
+				return nil, err
 			}
 		}
 		sumDocFreq, err := fp.in.ReadVLong()
 		if err != nil {
-			return fp, err
+			return nil, err
 		}
-		docCount, err := fp.in.ReadVInt()
-		if err != nil {
-			return fp, err
+		var docCount int
+		if docCount, err = asInt(fp.in.ReadVInt()); err != nil {
+			return nil, err
 		}
-		log.Printf("DocCount: %v", docCount)
+		fmt.Printf("DocCount: %v\n", docCount)
+		var longsSize int
+		if fp.version >= TERMS_VERSION_META_ARRAY {
+			if longsSize, err = asInt(fp.in.ReadVInt()); err != nil {
+				return nil, err
+			}
+		}
+		var minTerm, maxTerm []byte
+		if fp.version >= TERMS_VERSION_MIN_MAX_TERMS {
+			if minTerm, err = readBytesRef(fp.in); err != nil {
+				return nil, err
+			}
+			if maxTerm, err = readBytesRef(fp.in); err != nil {
+				return nil, err
+			}
+		}
 		if docCount < 0 || int(docCount) > info.DocCount() { // #docs with field must be <= #docs
-			return fp, errors.New(fmt.Sprintf(
+			return nil, errors.New(fmt.Sprintf(
 				"invalid docCount: %v maxDoc: %v (resource=%v)",
 				docCount, info.DocCount(), fp.in))
 		}
 		if sumDocFreq < int64(docCount) { // #postings must be >= #docs with field
-			return fp, errors.New(fmt.Sprintf(
+			return nil, errors.New(fmt.Sprintf(
 				"invalid sumDocFreq: %v docCount: %v (resource=%v)",
 				sumDocFreq, docCount, fp.in))
 		}
 		if sumTotalTermFreq != -1 && sumTotalTermFreq < sumDocFreq { // #positions must be >= #postings
-			return fp, errors.New(fmt.Sprintf(
+			return nil, errors.New(fmt.Sprintf(
 				"invalid sumTotalTermFreq: %v sumDocFreq: %v (resource=%v)",
 				sumTotalTermFreq, sumDocFreq, fp.in))
 		}
 
 		var indexStartFP int64
 		if indexDivisor != -1 {
-			indexStartFP, err = indexIn.ReadVLong()
-			if err != nil {
-				return fp, err
+			if indexStartFP, err = indexIn.ReadVLong(); err != nil {
+				return nil, err
 			}
 		}
 		log.Printf("indexStartFP: %v", indexStartFP)
 		if _, ok := fp.fields[fieldInfo.Name]; ok {
-			return fp, errors.New(fmt.Sprintf(
+			return nil, errors.New(fmt.Sprintf(
 				"duplicate field: %v (resource=%v)", fieldInfo.Name, fp.in))
 		}
-		fp.fields[fieldInfo.Name], err = newFieldReader(fp,
+		if fp.fields[fieldInfo.Name], err = newFieldReader(fp,
 			fieldInfo, numTerms, rootCode, sumTotalTermFreq,
-			sumDocFreq, docCount, indexStartFP, indexIn)
-		if err != nil {
-			return fp, err
+			sumDocFreq, docCount, indexStartFP, longsSize,
+			indexIn, minTerm, maxTerm); err != nil {
+			return nil, err
 		}
 	}
 
 	if indexDivisor != -1 {
-		err = indexIn.Close()
-		if err != nil {
-			return fp, err
+		if err = indexIn.Close(); err != nil {
+			return nil, err
 		}
 	}
 
@@ -243,6 +263,10 @@ func newBlockTreeTermsReader(dir store.Directory,
 
 func asInt(n int32, err error) (n2 int, err2 error) {
 	return int(n), err
+}
+
+func readBytesRef(in store.IndexInput) ([]byte, error) {
+	panic("not implemented yet")
 }
 
 func (r *BlockTreeTermsReader) readHeader(input store.IndexInput) (version int, err error) {
@@ -275,7 +299,9 @@ func (r *BlockTreeTermsReader) readIndexHeader(input store.IndexInput) (version 
 
 func (r *BlockTreeTermsReader) seekDir(input store.IndexInput, dirOffset int64) (err error) {
 	log.Printf("Seeking to: %v", dirOffset)
-	if r.version >= BTT_INDEX_VERSION_APPEND_ONLY {
+	if r.version >= TERMS_VERSION_CHECKSUM {
+		panic("not implemented yet")
+	} else if r.version >= BTT_INDEX_VERSION_APPEND_ONLY {
 		input.Seek(input.Length() - 8)
 		if dirOffset, err = input.ReadLong(); err != nil {
 			return err
@@ -300,40 +326,45 @@ func (r *BlockTreeTermsReader) Close() error {
 }
 
 type FieldReader struct {
-	*BlockTreeTermsReader // inner class
-
 	numTerms         int64
 	fieldInfo        *model.FieldInfo
 	sumTotalTermFreq int64
 	sumDocFreq       int64
-	docCount         int32
+	docCount         int
 	indexStartFP     int64
 	rootBlockFP      int64
 	rootCode         []byte
-	index            *fst.FST
+	minTerm          []byte
+	maxTerm          []byte
+	longsSize        int
+	parent           *BlockTreeTermsReader
+
+	index *fst.FST
 }
 
-func newFieldReader(owner *BlockTreeTermsReader,
+func newFieldReader(parent *BlockTreeTermsReader,
 	fieldInfo *model.FieldInfo, numTerms int64, rootCode []byte,
-	sumTotalTermFreq, sumDocFreq int64, docCount int32, indexStartFP int64,
-	indexIn store.IndexInput) (r FieldReader, err error) {
+	sumTotalTermFreq, sumDocFreq int64, docCount int,
+	indexStartFP int64, longsSize int, indexIn store.IndexInput,
+	minTerm, maxTerm []byte) (r FieldReader, err error) {
+
 	log.Print("Initializing FieldReader...")
-	if numTerms <= 0 {
-		panic("assert fail")
-	}
-	// assert numTerms > 0
+	assert(numTerms > 0)
 	r = FieldReader{
-		BlockTreeTermsReader: owner,
-		fieldInfo:            fieldInfo,
-		numTerms:             numTerms,
-		sumTotalTermFreq:     sumTotalTermFreq,
-		sumDocFreq:           sumDocFreq,
-		docCount:             docCount,
-		indexStartFP:         indexStartFP,
-		rootCode:             rootCode,
+		parent:           parent,
+		fieldInfo:        fieldInfo,
+		numTerms:         numTerms,
+		sumTotalTermFreq: sumTotalTermFreq,
+		sumDocFreq:       sumDocFreq,
+		docCount:         docCount,
+		indexStartFP:     indexStartFP,
+		rootCode:         rootCode,
+		longsSize:        longsSize,
+		minTerm:          minTerm,
+		maxTerm:          maxTerm,
 	}
 	log.Printf("BTTR: seg=%v field=%v rootBlockCode=%v divisor=",
-		owner.segment, fieldInfo.Name, rootCode)
+		parent.segment, fieldInfo.Name, rootCode)
 
 	in := store.NewByteArrayDataInput(rootCode)
 	n, err := in.ReadVLong()
@@ -372,21 +403,24 @@ func (r *FieldReader) DocCount() int {
 // Iterates through terms in this field
 type SegmentTermsEnum struct {
 	*TermsEnumImpl
-	*FieldReader
 
+	// lazy init:
 	in store.IndexInput
 
 	stack        []*segmentTermsEnumFrame
 	staticFrame  *segmentTermsEnumFrame
 	currentFrame *segmentTermsEnumFrame
 	termExists   bool
+	fr           *FieldReader
 
 	targetBeforeCurrentLength int
 
 	// What prefix of the current term was present in the index:
 	scratchReader *store.ByteArrayDataInput
 
-	// What prefix of the current term was present in the index:
+	// What prefix of the current term was present in the index:; when
+	// we only next() through the index, this stays at 0. It's only set
+	// when we seekCeil/Exact:
 	validIndexPrefix int
 
 	// assert only:
@@ -402,7 +436,7 @@ type SegmentTermsEnum struct {
 
 func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 	ans := &SegmentTermsEnum{
-		FieldReader:   r,
+		fr:            r,
 		stack:         make([]*segmentTermsEnumFrame, 0),
 		scratchReader: store.NewEmptyByteArrayDataInput(),
 		term:          newBytesRef(),
@@ -410,7 +444,7 @@ func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 		fstOutputs:    fst.ByteSequenceOutputsSingleton(),
 	}
 	ans.TermsEnumImpl = newTermsEnumImpl(ans)
-	log.Printf("BTTR.init seg=%v", r.segment)
+	log.Printf("BTTR.init seg=%v", r.parent.segment)
 
 	// Used to hold seek by TermState, or cached seek
 	ans.staticFrame = newFrame(ans, -1)
@@ -434,7 +468,6 @@ func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 			panic("assert fail")
 		}
 	}
-	ans.currentFrame = ans.staticFrame
 	ans.validIndexPrefix = 0
 	log.Printf("init frame state %v", ans.currentFrame.ord)
 	ans.printSeekState()
@@ -446,7 +479,7 @@ func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 
 func (e *SegmentTermsEnum) initIndexInput() {
 	if e.in == nil {
-		e.in = e.FieldReader.BlockTreeTermsReader.in.Clone()
+		e.in = e.fr.parent.in.Clone()
 	}
 }
 
@@ -462,9 +495,7 @@ func (e *SegmentTermsEnum) frame(ord int) *segmentTermsEnumFrame {
 		}
 		e.stack = next
 	}
-	if e.stack[ord].ord != ord {
-		panic("assert fail")
-	}
+	assert(e.stack[ord].ord == ord)
 	return e.stack[ord]
 }
 
@@ -515,7 +546,7 @@ func (e *SegmentTermsEnum) pushFrameAt(arc *fst.Arc, fp int64, length int) (f *s
 	if f.fpOrig == fp && f.nextEnt != -1 {
 		log.Printf("      push reused frame ord=%v fp=%v isFloor?=%v hasTerms=%v pref=%v nextEnt=%v targetBeforeCurrentLength=%v term.length=%v vs prefix=%v",
 			f.ord, f.fp, f.isFloor, f.hasTerms, e.term, f.nextEnt, e.targetBeforeCurrentLength, e.term.length, f.prefix)
-		if f.prefix > e.targetBeforeCurrentLength {
+		if f.ord > e.targetBeforeCurrentLength {
 			f.rewind()
 		} else {
 			log.Println("        skip rewind!")
@@ -536,7 +567,7 @@ func (e *SegmentTermsEnum) pushFrameAt(arc *fst.Arc, fp int64, length int) (f *s
 }
 
 func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
-	if e.index == nil {
+	if e.fr.index == nil {
 		panic("terms index was not loaded")
 	}
 
@@ -546,7 +577,8 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 	e.eof = false
 	log.Printf("BTTR.seekExact seg=%v target=%v:%v current=%v (exists?=%v) validIndexPrefix=%v",
-		e.segment, e.fieldInfo.Name, brToString(target), e.term, e.termExists, e.validIndexPrefix)
+		e.fr.parent.segment, e.fr.fieldInfo.Name, brToString(target),
+		brToString(e.term.bytes), e.termExists, e.validIndexPrefix)
 	e.printSeekState()
 
 	var arc *fst.Arc
@@ -588,7 +620,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		// TODO: reverse vLong byte order for better FST
 		// prefix output sharing
 
-		noOutputs := e.fstOutputs.NoOutput()
+		// noOutputs := e.fstOutputs.NoOutput()
 
 		// First compare up to valid seek frames:
 		for targetUpto < targetLimit {
@@ -600,13 +632,12 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			}
 
 			arc = e.arcs[1+targetUpto]
-			if arc.Label != int(target[targetUpto]) {
-				log.Printf("FAIL: arc.label=%c targetLabel=%c", arc.Label, target[targetUpto])
-				panic("assert fail")
-			}
-			if arc.Output != noOutputs {
-				output = e.fstOutputs.Add(output, arc.Output).([]byte)
-			}
+			assert2(arc.Label == int(target[targetUpto]),
+				"arc.label=%c targetLabel=%c", arc.Label, target[targetUpto])
+			panic("not implemented yet")
+			// if arc.Output != noOutputs {
+			// 	output = e.fstOutputs.Add(output, arc.Output).([]byte)
+			// }
 			if arc.IsFinal() {
 				lastFrame = e.stack[1+lastFrame.ord]
 			}
@@ -651,7 +682,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			// is before current term; this means we can
 			// keep the currentFrame but we must rewind it
 			// (so we scan from the start)
-			e.targetBeforeCurrentLength = 0
+			e.targetBeforeCurrentLength = lastFrame.ord
 			log.Printf("  target is before current (shares prefixLen=%v); rewind frame ord=%v", targetUpto, lastFrame.ord)
 			e.currentFrame = lastFrame
 			e.currentFrame.rewind()
@@ -669,7 +700,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		}
 	} else {
 		e.targetBeforeCurrentLength = -1
-		arc = e.index.FirstArc(e.arcs[0])
+		arc = e.fr.index.FirstArc(e.arcs[0])
 
 		// Empty string prefix must have an output (block) in the index!
 		if !arc.IsFinal() || arc.Output == nil {
@@ -683,10 +714,11 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		e.currentFrame = e.staticFrame
 
 		targetUpto = 0
-		e.currentFrame, err = e.pushFrame(arc, e.fstOutputs.Add(output, arc.NextFinalOutput).([]byte), 0)
-		if err != nil {
-			return false, err
-		}
+		panic("not implemented yet")
+		// e.currentFrame, err = e.pushFrame(arc, e.fstOutputs.Add(output, arc.NextFinalOutput).([]byte), 0)
+		// if err != nil {
+		// 	return false, err
+		// }
 	}
 
 	log.Printf("  start index loop targetUpto=%v output=%v currentFrame.ord=%v targetBeforeCurrentLength=%v",
@@ -694,7 +726,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 	for targetUpto < len(target) {
 		targetLabel := int(target[targetUpto])
-		nextArc, err := e.index.FindTargetArc(targetLabel, arc, e.getArc(1+targetUpto), e.fstReader)
+		nextArc, err := e.fr.index.FindTargetArc(targetLabel, arc, e.getArc(1+targetUpto), e.fstReader)
 		if err != nil {
 			return false, err
 		}
@@ -732,23 +764,23 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			// Follow this arc
 			arc = nextArc
 			e.term.bytes[targetUpto] = byte(targetLabel)
-			if arc.Output == nil {
-				panic("assert fail")
-			}
-			noOutputs := e.fstOutputs.NoOutput()
-			if !fst.CompareFSTValue(arc.Output, noOutputs) {
-				output = e.fstOutputs.Add(output, arc.Output).([]byte)
-			}
+			assert(arc.Output != nil)
+			// noOutputs := e.fstOutputs.NoOutput()
+			panic("not implemented yet")
+			// if !fst.CompareFSTValue(arc.Output, noOutputs) {
+			// 	output = e.fstOutputs.Add(output, arc.Output).([]byte)
+			// }
 			log.Printf("    index: follow label=%x arc.output=%v arc.nfo=%v",
 				target[targetUpto], arc.Output, arc.NextFinalOutput)
 			targetUpto++
 
 			if arc.IsFinal() {
 				log.Println("    arc is final!")
-				e.currentFrame, err = e.pushFrame(arc, e.fstOutputs.Add(output, arc.NextFinalOutput).([]byte), targetUpto)
-				if err != nil {
-					return false, err
-				}
+				panic("not implemented yet")
+				// e.currentFrame, err = e.pushFrame(arc, e.fstOutputs.Add(output, arc.NextFinalOutput).([]byte), targetUpto)
+				// if err != nil {
+				// 	return false, err
+				// }
 				log.Printf("    curFrame.ord=%v hasTerms=%v", e.currentFrame.ord, e.currentFrame.hasTerms)
 			}
 		}
@@ -835,12 +867,11 @@ func (e *SegmentTermsEnum) printSeekState() {
 				log.Printf("    frame %v ord=%v fp=%v prefixLen=%v prefix=%v nextEnt=%v (of %v) hasTerms=%v isFloor=%v code=%v lastSubFP=%v isLastInFloor=%v mdUpto=%v tbOrd=%v",
 					action, ord, f.fp, fpOrigValue, f.prefix, prefix, f.nextEnt, f.entCount, f.hasTerms, f.isFloor, code, f.lastSubFP, f.isLastInFloor, f.metaDataUpto, f.getTermBlockOrd())
 			}
-			if e.index != nil {
-				if isSeekFrame && f.arc == nil {
-					log.Printf("isSeekFrame=%v f.arc=%v", isSeekFrame, f.arc)
-					panic("assert fail")
-				}
-				ret, err := fst.GetFSTOutput(e.index, prefix)
+			if e.fr.index != nil {
+				assert2(!isSeekFrame || f.arc != nil,
+					"isSeekFrame=%v f.arc=%v", isSeekFrame, f.arc)
+				panic("not implemented yet")
+				ret, err := fst.GetFSTOutput(e.fr.index, prefix)
 				if err != nil {
 					panic(err)
 				}
@@ -914,13 +945,13 @@ func (e *SegmentTermsEnum) TotalTermFreq() (tf int64, err error) {
 
 func (e *SegmentTermsEnum) DocsByFlags(skipDocs util.Bits, reuse DocsEnum, flags int) (de DocsEnum, err error) {
 	assert(!e.eof)
-	log.Printf("BTTR.docs seg=%v", e.segment)
+	log.Printf("BTTR.docs seg=%v", e.fr.parent.segment)
 	err = e.currentFrame.decodeMetaData()
 	if err != nil {
 		return nil, err
 	}
 	log.Printf("  state=%v", e.currentFrame.state)
-	return e.postingsReader.docs(e.fieldInfo, e.currentFrame.state, skipDocs, reuse, flags)
+	return e.fr.parent.postingsReader.docs(e.fr.fieldInfo, e.currentFrame.state, skipDocs, reuse, flags)
 }
 
 func (e *SegmentTermsEnum) DocsAndPositionsByFlags(skipDocs util.Bits, reuse DocsAndPositionsEnum, flags int) DocsAndPositionsEnum {
@@ -928,7 +959,8 @@ func (e *SegmentTermsEnum) DocsAndPositionsByFlags(skipDocs util.Bits, reuse Doc
 }
 
 func (e *SegmentTermsEnum) SeekExactFromLast(target []byte, otherState TermState) error {
-	log.Printf("BTTR.seekExact termState seg=%v target=%v state=%v", e.segment, brToString(target), otherState)
+	log.Printf("BTTR.seekExact termState seg=%v target=%v state=%v",
+		e.fr.parent.segment, brToString(target), otherState)
 	e.eof = false
 	if !fst.CompareFSTValue(target, e.term.toBytes()) || !e.termExists {
 		assert(otherState != nil)
@@ -961,7 +993,7 @@ func (e *SegmentTermsEnum) TermState() (ts TermState, err error) {
 		return nil, err
 	}
 	ts = e.currentFrame.state.Clone() // <-- clone doesn't work here
-	log.Printf("BTTR.termState seg=%v state=%v", e.segment, ts)
+	log.Printf("BTTR.termState seg=%v state=%v", e.fr.parent.segment, ts)
 	return
 }
 
@@ -978,9 +1010,6 @@ func (e *SegmentTermsEnum) String() string {
 }
 
 type segmentTermsEnumFrame struct {
-	// internal data structure
-	*SegmentTermsEnum
-
 	// Our index in stack[]:
 	ord int
 
@@ -1035,20 +1064,29 @@ type segmentTermsEnumFrame struct {
 
 	state *BlockTermState
 
+	// metadata buffer, holding monotonic values
+	longs []int64
+	// metadata buffer, holding general values
+	bytes       []byte
+	bytesReader *store.ByteArrayDataInput
+
+	ste *SegmentTermsEnum
+
 	startBytePos int
 	suffix       int
 	subCode      int
 }
 
-func newFrame(owner *SegmentTermsEnum, ord int) *segmentTermsEnumFrame {
+func newFrame(ste *SegmentTermsEnum, ord int) *segmentTermsEnumFrame {
 	f := &segmentTermsEnumFrame{
-		SegmentTermsEnum: owner,
-		suffixBytes:      make([]byte, 128),
-		statBytes:        make([]byte, 64),
-		floorData:        make([]byte, 32),
-		ord:              ord,
+		suffixBytes: make([]byte, 128),
+		statBytes:   make([]byte, 64),
+		floorData:   make([]byte, 32),
+		ste:         ste,
+		ord:         ord,
+		longs:       make([]int64, ste.fr.longsSize),
 	}
-	f.state = owner.postingsReader.NewTermState()
+	f.state = ste.fr.parent.postingsReader.NewTermState()
 	f.state.totalTermFreq = -1
 	return f
 }
@@ -1089,15 +1127,15 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 	// Clone the IndexInput lazily, so that consumers
 	// that just pull a TermsEnum to
 	// seekExact(TermState) don't pay this cost:
-	f.initIndexInput()
+	f.ste.initIndexInput()
 
 	if f.nextEnt != -1 {
 		// Already loaded
 		return
 	}
 
-	f.in.Seek(f.fp)
-	code, err := asInt(f.in.ReadVInt())
+	f.ste.in.Seek(f.fp)
+	code, err := asInt(f.ste.in.ReadVInt())
 	if err != nil {
 		return err
 	}
@@ -1112,7 +1150,7 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 	// we could have simple array of offsets
 
 	// term suffixes:
-	code, err = asInt(f.in.ReadVInt())
+	code, err = asInt(f.ste.in.ReadVInt())
 	if err != nil {
 		return err
 	}
@@ -1121,7 +1159,7 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 	if len(f.suffixBytes) < numBytes {
 		f.suffixBytes = make([]byte, numBytes)
 	}
-	err = f.in.ReadBytes(f.suffixBytes[:numBytes])
+	err = f.ste.in.ReadBytes(f.suffixBytes[:numBytes])
 	if err != nil {
 		return err
 	}
@@ -1136,14 +1174,14 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 	}
 
 	// stats
-	numBytes, err = asInt(f.in.ReadVInt())
+	numBytes, err = asInt(f.ste.in.ReadVInt())
 	if err != nil {
 		return err
 	}
 	if len(f.statBytes) < numBytes {
 		f.statBytes = make([]byte, numBytes)
 	}
-	err = f.in.ReadBytes(f.statBytes[:numBytes])
+	err = f.ste.in.ReadBytes(f.statBytes[:numBytes])
 	if err != nil {
 		return err
 	}
@@ -1156,11 +1194,13 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 
 	// TODO: we could skip this if !hasTerms; but
 	// that's rare so won't help much
-	f.postingsReader.ReadTermsBlock(f.in, f.fieldInfo, f.state)
+	// metadata
+	panic("not implemented yet")
+	// f.postingsReader.ReadTermsBlock(f.in, f.fieldInfo, f.state)
 
 	// Sub-blocks of a single floor block are always
 	// written one after another -- tail recurse:
-	f.fpEnd = f.in.FilePointer()
+	f.fpEnd = f.ste.in.FilePointer()
 	log.Printf("      fpEnd=%v", f.fpEnd)
 	return nil
 }
@@ -1263,7 +1303,7 @@ func (f *segmentTermsEnumFrame) scanToFloorFrame(target []byte) {
 // Used only by assert
 func (f *segmentTermsEnumFrame) prefixMatches(target []byte) bool {
 	for i := 0; i < f.prefix; i++ {
-		if target[i] != f.term.bytes[i] {
+		if target[i] != f.ste.term.bytes[i] {
 			return false
 		}
 	}
@@ -1282,10 +1322,10 @@ func (f *segmentTermsEnumFrame) scanToTerm(target []byte, exactOnly bool) (statu
 // scan the entries check if the suffix matches.
 func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (status SeekStatus, err error) {
 	log.Printf("    scanToTermLeaf: block fp=%v prefix=%v nextEnt=%v (of %v) target=%v term=%v",
-		f.fp, f.prefix, f.nextEnt, f.entCount, brToString(target), f.term)
+		f.fp, f.prefix, f.nextEnt, f.entCount, brToString(target), f.ste.term)
 	assert(f.nextEnt != -1)
 
-	f.termExists = true
+	f.ste.termExists = true
 	f.subCode = 0
 	if f.nextEnt == f.entCount {
 		if exactOnly {
@@ -1358,17 +1398,17 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 				//     // return NOT_FOUND:
 				f.fillTerm()
 
-				if !exactOnly && !f.termExists {
+				if !exactOnly && !f.ste.termExists {
 					// We are on a sub-block, and caller wants
 					// us to position to the next term after
 					// the target, so we must recurse into the
 					// sub-frame(s):
-					if f.currentFrame, err = f.pushFrameAt(nil, f.currentFrame.lastSubFP, termLen); err == nil {
-						err = f.currentFrame.loadBlock()
+					if f.ste.currentFrame, err = f.ste.pushFrameAt(nil, f.ste.currentFrame.lastSubFP, termLen); err == nil {
+						err = f.ste.currentFrame.loadBlock()
 					}
-					for err == nil && f.currentFrame.next() {
-						if f.currentFrame, err = f.pushFrameAt(nil, f.currentFrame.lastSubFP, f.term.length); err == nil {
-							err = f.currentFrame.loadBlock()
+					for err == nil && f.ste.currentFrame.next() {
+						if f.ste.currentFrame, err = f.ste.pushFrameAt(nil, f.ste.currentFrame.lastSubFP, f.ste.term.length); err == nil {
+							err = f.ste.currentFrame.loadBlock()
 						}
 					}
 					if err != nil {
@@ -1385,9 +1425,7 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 				// would have followed the index to this
 				// sub-block from the start:
 
-				if !f.termExists {
-					panic("assert fail")
-				}
+				assert(f.ste.termExists)
 				f.fillTerm()
 				log.Println("        found!")
 				return SEEK_STATUS_FOUND, nil
@@ -1427,26 +1465,21 @@ func (f *segmentTermsEnumFrame) scanToTermNonLeaf(target []byte, exactOnly bool)
 
 func (f *segmentTermsEnumFrame) fillTerm() {
 	termLength := f.prefix + f.suffix
-	f.term.length = f.prefix + f.suffix
-	if len(f.term.bytes) < termLength {
-		f.term.ensureSize(termLength)
+	f.ste.term.length = f.prefix + f.suffix
+	if len(f.ste.term.bytes) < termLength {
+		f.ste.term.ensureSize(termLength)
 	}
-	copy(f.term.bytes[f.prefix:], f.suffixBytes[f.startBytePos:f.startBytePos+f.suffix])
+	copy(f.ste.term.bytes[f.prefix:], f.suffixBytes[f.startBytePos:f.startBytePos+f.suffix])
 }
 
 func (f *segmentTermsEnumFrame) decodeMetaData() (err error) {
 	log.Printf("BTTR.decodeMetadata seg=%v mdUpto=%v vs termBlockOrd=%v",
-		f.segment, f.metaDataUpto, f.state.termBlockOrd)
+		f.ste.fr.parent.segment, f.metaDataUpto, f.state.termBlockOrd)
 
 	// lazily catch up on metadata decode:
 	limit := f.getTermBlockOrd()
-	if limit <= 0 {
-		panic("assert fail")
-	}
-
-	// We must set/incr state.termCount because
-	// postings impl can look at this
-	f.state.termBlockOrd = f.metaDataUpto
+	absolute := f.metaDataUpto == 0
+	assert(limit > 0)
 
 	// TODO: better API would be "jump straight to term=N"???
 	for f.metaDataUpto < limit {
@@ -1458,24 +1491,37 @@ func (f *segmentTermsEnumFrame) decodeMetaData() (err error) {
 
 		// TODO: if docFreq were bulk decoded we could
 		// just skipN here:
-		f.state.docFreq, err = asInt(f.statsReader.ReadVInt())
-		if err != nil {
+
+		// stats
+		if f.state.docFreq, err = asInt(f.statsReader.ReadVInt()); err != nil {
 			return err
 		}
 		log.Printf("    dF=%v", f.state.docFreq)
-		if f.fieldInfo.IndexOptions() != model.INDEX_OPT_DOCS_ONLY {
-			n, err := f.statsReader.ReadVLong()
-			if err != nil {
+		if f.ste.fr.fieldInfo.IndexOptions() != model.INDEX_OPT_DOCS_ONLY {
+			var n int64
+			if n, err = f.statsReader.ReadVLong(); err != nil {
 				return err
 			}
 			f.state.totalTermFreq = int64(f.state.docFreq) + n
+			fmt.Printf("    totTF=%v\n", f.state.totalTermFreq)
 		}
 
-		f.postingsReader.nextTerm(f.fieldInfo, f.state)
+		// metadata
+		for i := 0; i < f.ste.fr.longsSize; i++ {
+			if f.longs[i], err = f.bytesReader.ReadVLong(); err != nil {
+				return err
+			}
+		}
+
+		if err = f.ste.fr.parent.postingsReader.decodeTerm(f.longs,
+			f.bytesReader, f.ste.fr.fieldInfo, f.state, absolute); err != nil {
+			return err
+		}
 		f.metaDataUpto++
-		f.state.termBlockOrd++
+		absolute = false
 	}
 
+	f.state.termBlockOrd = f.metaDataUpto
 	return nil
 }
 
