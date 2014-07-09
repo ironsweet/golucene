@@ -458,12 +458,12 @@ An index file (extension .tvx).
 - ChunkIndex: See CompressingStoredFieldsIndexWriter
 */
 type Lucene42TermVectorsFormat struct {
-	*CompressingTermVectorsFormat
+	*compressing.CompressingTermVectorsFormat
 }
 
 func newLucene42TermVectorsFormat() *Lucene42TermVectorsFormat {
 	return &Lucene42TermVectorsFormat{
-		newCompressingTermVectorsFormat("Lucene41StoredFields", "", compressing.COMPRESSION_MODE_FAST, 1<<12),
+		compressing.NewCompressingTermVectorsFormat("Lucene41StoredFields", "", compressing.COMPRESSION_MODE_FAST, 1<<12),
 	}
 }
 

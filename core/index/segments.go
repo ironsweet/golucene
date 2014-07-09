@@ -2,8 +2,9 @@ package index
 
 import (
 	"fmt"
-	docu "github.com/balzaczyy/golucene/core/document"
-	"github.com/balzaczyy/golucene/core/index/model"
+	// docu "github.com/balzaczyy/golucene/core/document"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
@@ -29,7 +30,7 @@ type SegmentReader struct {
 	numDocs int
 	core    SegmentCoreReaders
 
-	fieldInfos model.FieldInfos
+	fieldInfos FieldInfos
 }
 
 /**
@@ -79,7 +80,7 @@ func NewSegmentReader(si *SegmentCommitInfo, termInfosIndexDivisor int, context 
 }
 
 /* Reads the most recent FieldInfos of the given segment info. */
-func ReadFieldInfos(info *SegmentCommitInfo) (model.FieldInfos, error) {
+func ReadFieldInfos(info *SegmentCommitInfo) (FieldInfos, error) {
 	panic("not implemented yet")
 }
 
@@ -94,7 +95,7 @@ func (r *SegmentReader) doClose() error {
 	return nil
 }
 
-func (r *SegmentReader) FieldInfos() model.FieldInfos {
+func (r *SegmentReader) FieldInfos() FieldInfos {
 	r.ensureOpen()
 	return r.fieldInfos
 }
@@ -107,7 +108,7 @@ func (r *SegmentReader) FieldsReader() StoredFieldsReader {
 
 func (r *SegmentReader) VisitDocument(docID int, visitor StoredFieldVisitor) error {
 	r.checkBounds(docID)
-	return r.FieldsReader().visitDocument(docID, visitor)
+	return r.FieldsReader().VisitDocument(docID, visitor)
 }
 
 func (r *SegmentReader) Fields() Fields {
@@ -207,7 +208,7 @@ type CoreClosedListener interface {
 type SegmentCoreReaders struct {
 	refCount int32 // synchronized
 
-	// fieldInfos model.FieldInfos
+	// fieldInfos FieldInfos
 
 	fields FieldsProducer
 	// dvProducer    DocValuesProducer
@@ -387,7 +388,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 	// return self, nil
 }
 
-func (r *SegmentCoreReaders) normValues(infos model.FieldInfos,
+func (r *SegmentCoreReaders) normValues(infos FieldInfos,
 	field string) (ndv NumericDocValues, err error) {
 
 	panic("not implemented yet")
@@ -441,14 +442,4 @@ type SortedSetDocValues interface {
 	setDocument(docID int)
 	lookupOrd(int64) []byte
 	valueCount() int64
-}
-
-type StoredFieldVisitor interface {
-	BinaryField(fi *model.FieldInfo, value []byte) error
-	StringField(fi *model.FieldInfo, value string) error
-	IntField(fi *model.FieldInfo, value int) error
-	LongField(fi *model.FieldInfo, value int64) error
-	FloatField(fi *model.FieldInfo, value float32) error
-	DoubleField(fi *model.FieldInfo, value float64) error
-	NeedsField(fi *model.FieldInfo) (docu.StoredFieldVisitorStatus, error)
 }

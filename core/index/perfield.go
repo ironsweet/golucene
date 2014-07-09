@@ -2,7 +2,7 @@ package index
 
 import (
 	"fmt"
-	"github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
 	"log"
@@ -35,7 +35,7 @@ func (pf *PerFieldPostingsFormat) Name() string {
 	return "PerField40"
 }
 
-func (pf *PerFieldPostingsFormat) FieldsConsumer(state *model.SegmentWriteState) (FieldsConsumer, error) {
+func (pf *PerFieldPostingsFormat) FieldsConsumer(state *SegmentWriteState) (FieldsConsumer, error) {
 	return newPerFieldPostingsWriter(pf, state), nil
 }
 
@@ -61,11 +61,11 @@ type PerFieldPostingsWriter struct {
 	owner             *PerFieldPostingsFormat
 	formats           map[PostingsFormat]*FieldsConsumerAndSuffix
 	suffixes          map[string]int
-	segmentWriteState *model.SegmentWriteState
+	segmentWriteState *SegmentWriteState
 }
 
 func newPerFieldPostingsWriter(owner *PerFieldPostingsFormat,
-	state *model.SegmentWriteState) FieldsConsumer {
+	state *SegmentWriteState) FieldsConsumer {
 	return &PerFieldPostingsWriter{
 		owner,
 		make(map[PostingsFormat]*FieldsConsumerAndSuffix),
@@ -74,7 +74,7 @@ func newPerFieldPostingsWriter(owner *PerFieldPostingsFormat,
 	}
 }
 
-func (w *PerFieldPostingsWriter) addField(field *model.FieldInfo) (TermsConsumer, error) {
+func (w *PerFieldPostingsWriter) addField(field *FieldInfo) (TermsConsumer, error) {
 	format := w.owner.postingsFormatForField(field.Name)
 	assert2(format != nil, "invalid nil PostingsFormat for field='%v'", field.Name)
 	formatName := format.Name()
@@ -103,7 +103,7 @@ func (w *PerFieldPostingsWriter) addField(field *model.FieldInfo) (TermsConsumer
 		consumer = new(FieldsConsumerAndSuffix)
 		var err error
 		consumer.consumer, err = format.FieldsConsumer(
-			model.NewSegmentWriteStateFrom(w.segmentWriteState, segmentSuffix))
+			NewSegmentWriteStateFrom(w.segmentWriteState, segmentSuffix))
 		if err != nil {
 			return nil, err
 		}
@@ -254,7 +254,7 @@ func (pf *PerFieldDocValuesFormat) Name() string {
 	return "PerFieldDV40"
 }
 
-func (pf *PerFieldDocValuesFormat) FieldsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error) {
+func (pf *PerFieldDocValuesFormat) FieldsConsumer(state *SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("not implemented yet")
 }
 
@@ -309,28 +309,28 @@ func newPerFieldDocValuesReader(state SegmentReadState) (dvp DocValuesProducer, 
 	return &ans, nil
 }
 
-func (dvp *PerFieldDocValuesReader) Numeric(field *model.FieldInfo) (v NumericDocValues, err error) {
+func (dvp *PerFieldDocValuesReader) Numeric(field *FieldInfo) (v NumericDocValues, err error) {
 	if p, ok := dvp.fields[field.Name]; ok {
 		return p.Numeric(field)
 	}
 	return nil, nil
 }
 
-func (dvp *PerFieldDocValuesReader) Binary(field *model.FieldInfo) (v BinaryDocValues, err error) {
+func (dvp *PerFieldDocValuesReader) Binary(field *FieldInfo) (v BinaryDocValues, err error) {
 	if p, ok := dvp.fields[field.Name]; ok {
 		return p.Binary(field)
 	}
 	return nil, nil
 }
 
-func (dvp *PerFieldDocValuesReader) Sorted(field *model.FieldInfo) (v SortedDocValues, err error) {
+func (dvp *PerFieldDocValuesReader) Sorted(field *FieldInfo) (v SortedDocValues, err error) {
 	if p, ok := dvp.fields[field.Name]; ok {
 		return p.Sorted(field)
 	}
 	return nil, nil
 }
 
-func (dvp *PerFieldDocValuesReader) SortedSet(field *model.FieldInfo) (v SortedSetDocValues, err error) {
+func (dvp *PerFieldDocValuesReader) SortedSet(field *FieldInfo) (v SortedSetDocValues, err error) {
 	if p, ok := dvp.fields[field.Name]; ok {
 		return p.SortedSet(field)
 	}

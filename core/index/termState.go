@@ -2,28 +2,9 @@ package index
 
 import (
 	"fmt"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"reflect"
 )
-
-// TermState.java
-// Encapsulates all requried internal state to postiion the associated
-// termsEnum without re-seeking
-type TermState interface {
-	CopyFrom(other TermState)
-	Clone() TermState
-}
-
-var EMPTY_TERM_STATE = &EmptyTermState{}
-
-type EmptyTermState struct{}
-
-func (ts *EmptyTermState) CopyFrom(other TermState) {
-	panic("not supported!")
-}
-
-func (ts *EmptyTermState) Clone() TermState {
-	return ts
-}
 
 // An ordinal based TermState
 type OrdTermState struct {

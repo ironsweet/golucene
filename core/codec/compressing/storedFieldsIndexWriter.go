@@ -2,16 +2,13 @@ package compressing
 
 import (
 	"github.com/balzaczyy/golucene/core/store"
+	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
 	"math"
 )
 
 /* number of chunks to serialize at once */
 const BLOCK_SIZE = 1024
-
-func moveSignToLowOrderBit(n int64) int64 {
-	return (n >> 64) ^ (n << 1)
-}
 
 /*
 Efficient index format for block-based Codecs.
@@ -122,7 +119,7 @@ func (w *StoredFieldsIndexWriter) writeBlock() error {
 	var maxDelta int64 = 0
 	for i := 0; i < w.blockChunks; i++ {
 		delta := docBase - avgChunkDocs*i
-		maxDelta |= moveSignToLowOrderBit(int64(delta))
+		maxDelta |= util.ZigZagEncodeLong(int64(delta))
 		docBase += w.docBaseDeltas[i]
 	}
 
@@ -136,8 +133,8 @@ func (w *StoredFieldsIndexWriter) writeBlock() error {
 	docBase = 0
 	for i := 0; i < w.blockChunks; i++ {
 		delta := docBase - avgChunkDocs*i
-		assert(packed.BitsRequired(moveSignToLowOrderBit(int64(delta))) <= writer.BitsPerValue())
-		err = writer.Add(moveSignToLowOrderBit(int64(delta)))
+		assert(packed.BitsRequired(util.ZigZagEncodeLong(int64(delta))) <= writer.BitsPerValue())
+		err = writer.Add(util.ZigZagEncodeLong(int64(delta)))
 		if err != nil {
 			return err
 		}
@@ -165,7 +162,7 @@ func (w *StoredFieldsIndexWriter) writeBlock() error {
 	for i := 0; i < w.blockChunks; i++ {
 		startPointer += w.startPointerDeltas[i]
 		delta := startPointer - avgChunkSize*int64(i)
-		maxDelta |= moveSignToLowOrderBit(delta)
+		maxDelta |= util.ZigZagEncodeLong(delta)
 	}
 
 	bitsPerStartPointer := packed.BitsRequired(maxDelta)
@@ -179,8 +176,8 @@ func (w *StoredFieldsIndexWriter) writeBlock() error {
 	for i := 0; i < w.blockChunks; i++ {
 		startPointer += w.startPointerDeltas[i]
 		delta := startPointer - avgChunkSize*int64(i)
-		assert(packed.BitsRequired(moveSignToLowOrderBit(delta)) <= writer.BitsPerValue())
-		err = writer.Add(moveSignToLowOrderBit(delta))
+		assert(packed.BitsRequired(util.ZigZagEncodeLong(delta)) <= writer.BitsPerValue())
+		err = writer.Add(util.ZigZagEncodeLong(delta))
 		if err != nil {
 			return err
 		}
@@ -212,16 +209,18 @@ func (w *StoredFieldsIndexWriter) writeIndex(numDocs int, startPointer int64) er
 	return nil
 }
 
-func (w *StoredFieldsIndexWriter) finish(numDocs int) error {
+func (w *StoredFieldsIndexWriter) finish(numDocs int, maxPointer int64) error {
 	assert(w != nil)
 	assert2(numDocs == w.totalDocs, "Expected %v docs, but got %v", numDocs, w.totalDocs)
 	if w.blockChunks > 0 {
-		err := w.writeBlock()
-		if err != nil {
+		if err := w.writeBlock(); err != nil {
 			return err
 		}
 	}
-	return w.fieldsIndexOut.WriteVInt(0) // end marker
+	if err := w.fieldsIndexOut.WriteVInt(0); err != nil { // end marker
+		return err
+	}
+	panic("not implemented yet")
 }
 
 func (w *StoredFieldsIndexWriter) Close() error {

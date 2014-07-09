@@ -1,6 +1,7 @@
 package index
 
 import (
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	"github.com/balzaczyy/golucene/core/index/model"
 	// "github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -53,7 +54,7 @@ func (tvc *TermVectorsConsumer) flush(fieldsToFlush map[string]TermsHashPerField
 
 			err = tvc.fill(numDocs)
 			if err == nil {
-				err = tvc.writer.finish(state.FieldInfos, numDocs)
+				err = tvc.writer.Finish(state.FieldInfos, numDocs)
 			}
 		}()
 		if err != nil {
@@ -70,8 +71,8 @@ doc that had term vectors.
 */
 func (c *TermVectorsConsumer) fill(docId int) error {
 	for c.lastDocId < docId {
-		c.writer.startDocument(0)
-		err := c.writer.finishDocument()
+		c.writer.StartDocument(0)
+		err := c.writer.FinishDocument()
 		if err != nil {
 			return err
 		}

@@ -3,6 +3,8 @@ package search
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
+	. "github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/search/model"
 	"github.com/balzaczyy/golucene/core/util"
 	"reflect"
 )
@@ -110,7 +112,7 @@ func (tw *TermWeight) Scorer(context *index.AtomicReaderContext,
 	return newTermScorer(tw, docs, simScorer), nil
 }
 
-func (tw *TermWeight) termsEnum(ctx *index.AtomicReaderContext) (index.TermsEnum, error) {
+func (tw *TermWeight) termsEnum(ctx *index.AtomicReaderContext) (TermsEnum, error) {
 	state := tw.termStates.State(ctx.Ord)
 	if state == nil { // term is not present in that reader
 		assert2(tw.termNotInReader(ctx.Reader(), tw.term),
@@ -166,11 +168,11 @@ func (tw *TermWeight) Explain(ctx *index.AtomicReaderContext, doc int) (Explanat
  */
 type TermScorer struct {
 	*abstractScorer
-	docsEnum  index.DocsEnum
+	docsEnum  DocsEnum
 	docScorer SimScorer
 }
 
-func newTermScorer(w Weight, td index.DocsEnum, docScorer SimScorer) *TermScorer {
+func newTermScorer(w Weight, td DocsEnum, docScorer SimScorer) *TermScorer {
 	ans := &TermScorer{docsEnum: td, docScorer: docScorer}
 	ans.abstractScorer = newScorer(ans, w)
 	return ans
@@ -194,7 +196,7 @@ func (ts *TermScorer) NextDoc() (d int, err error) {
 }
 
 func (ts *TermScorer) Score() (s float64, err error) {
-	assert(ts.DocId() != index.NO_MORE_DOCS)
+	assert(ts.DocId() != NO_MORE_DOCS)
 	freq, err := ts.docsEnum.Freq()
 	if err != nil {
 		return 0, err

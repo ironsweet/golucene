@@ -1,4 +1,4 @@
-package index
+package model
 
 import (
 	"math"
@@ -71,39 +71,4 @@ type DocIdSetIterator interface {
 	 * completely inaccurate.
 	 */
 	// Cost() int64
-}
-
-const (
-	DOCS_ENUM_FLAG_FREQS = 1
-)
-
-var (
-	DOCS_ENUM_EMPTY = AbstractDocsEnum{}
-)
-
-type DocsEnum interface {
-	DocIdSetIterator
-	/**
-	 * Returns term frequency in the current document, or 1 if the field was
-	 * indexed with {@link IndexOptions#DOCS_ONLY}. Do not call this before
-	 * {@link #nextDoc} is first called, nor after {@link #nextDoc} returns
-	 * {@link DocIdSetIterator#NO_MORE_DOCS}.
-	 *
-	 * <p>
-	 * <b>NOTE:</b> if the {@link DocsEnum} was obtain with {@link #FLAG_NONE},
-	 * the result of this method is undefined.
-	 */
-	Freq() (n int, err error)
-}
-
-type AbstractDocsEnum struct {
-	DocsEnum
-}
-
-const (
-	DOCS_POSITIONS_ENUM_FLAG_OFF_SETS = 1
-	DOCS_POSITIONS_ENUM_FLAG_PAYLOADS = 2
-)
-
-type DocsAndPositionsEnum struct {
 }

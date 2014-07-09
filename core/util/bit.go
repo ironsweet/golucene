@@ -86,3 +86,11 @@ func pop_array(arr []int64) int {
 	}
 	return popCount
 }
+
+func ZigZagEncodeLong(l int64) int64 {
+	panic("not implemented yet")
+}
+
+func ZigZagDecodeLong(l int64) int64 {
+	panic("not implemented yet")
+}

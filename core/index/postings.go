@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
-	"github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/fst"
@@ -79,7 +79,7 @@ type BlockTreeTermsReader struct {
 }
 
 func newBlockTreeTermsReader(dir store.Directory,
-	fieldInfos model.FieldInfos, info *model.SegmentInfo,
+	fieldInfos FieldInfos, info *SegmentInfo,
 	postingsReader PostingsReaderBase, ctx store.IOContext,
 	segmentSuffix string, indexDivisor int) (p FieldsProducer, err error) {
 
@@ -183,7 +183,7 @@ func newBlockTreeTermsReader(dir store.Directory,
 		fieldInfo := fieldInfos.FieldInfoByNumber(int(field))
 		// assert fieldInfo != nil
 		var sumTotalTermFreq int64
-		if fieldInfo.IndexOptions() == model.INDEX_OPT_DOCS_ONLY {
+		if fieldInfo.IndexOptions() == INDEX_OPT_DOCS_ONLY {
 			sumTotalTermFreq = -1
 		} else {
 			sumTotalTermFreq, err = fp.in.ReadVLong()
@@ -327,7 +327,7 @@ func (r *BlockTreeTermsReader) Close() error {
 
 type FieldReader struct {
 	numTerms         int64
-	fieldInfo        *model.FieldInfo
+	fieldInfo        *FieldInfo
 	sumTotalTermFreq int64
 	sumDocFreq       int64
 	docCount         int
@@ -343,7 +343,7 @@ type FieldReader struct {
 }
 
 func newFieldReader(parent *BlockTreeTermsReader,
-	fieldInfo *model.FieldInfo, numTerms int64, rootCode []byte,
+	fieldInfo *FieldInfo, numTerms int64, rootCode []byte,
 	sumTotalTermFreq, sumDocFreq int64, docCount int,
 	indexStartFP int64, longsSize int, indexIn store.IndexInput,
 	minTerm, maxTerm []byte) (r FieldReader, err error) {
@@ -443,7 +443,7 @@ func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 		arcs:          make([]*fst.Arc, 1),
 		fstOutputs:    fst.ByteSequenceOutputsSingleton(),
 	}
-	ans.TermsEnumImpl = newTermsEnumImpl(ans)
+	ans.TermsEnumImpl = NewTermsEnumImpl(ans)
 	log.Printf("BTTR.init seg=%v", r.parent.segment)
 
 	// Used to hold seek by TermState, or cached seek
@@ -1497,7 +1497,7 @@ func (f *segmentTermsEnumFrame) decodeMetaData() (err error) {
 			return err
 		}
 		log.Printf("    dF=%v", f.state.docFreq)
-		if f.ste.fr.fieldInfo.IndexOptions() != model.INDEX_OPT_DOCS_ONLY {
+		if f.ste.fr.fieldInfo.IndexOptions() != INDEX_OPT_DOCS_ONLY {
 			var n int64
 			if n, err = f.statsReader.ReadVLong(); err != nil {
 				return err

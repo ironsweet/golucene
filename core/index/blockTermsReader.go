@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/core/index/model"
 	"reflect"
 )
 
@@ -12,7 +13,7 @@ to produce a DocsEnum without re-seeking the
 type BlockTermState struct {
 	*OrdTermState
 	// Allow sub-class to be converted
-	Self TermState
+	Self model.TermState
 
 	// how many docs have this term
 	docFreq int
@@ -37,7 +38,7 @@ func (ts *BlockTermState) internalCopyFrom(ots *BlockTermState) {
 	ts.blockFilePointer = ots.blockFilePointer
 }
 
-func (ts *BlockTermState) CopyFrom(other TermState) {
+func (ts *BlockTermState) CopyFrom(other model.TermState) {
 	if ots, ok := other.(*BlockTermState); ok {
 		if ts.Self != nil && ots.Self != nil {
 			ts.Self.CopyFrom(ots.Self)
@@ -52,7 +53,7 @@ func (ts *BlockTermState) CopyFrom(other TermState) {
 	}
 }
 
-func (ts *BlockTermState) Clone() TermState {
+func (ts *BlockTermState) Clone() model.TermState {
 	if ts.Self != nil {
 		return ts.Self.Clone()
 	}

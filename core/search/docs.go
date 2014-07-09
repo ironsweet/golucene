@@ -2,13 +2,14 @@ package search
 
 import (
 	"fmt"
-	"github.com/balzaczyy/golucene/core/index"
+	. "github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/search/model"
 )
 
 // search/Scorer.java
 
 type Scorer interface {
-	index.DocsEnum
+	DocsEnum
 	IScorer
 	ScoreAndCollect(c Collector) error
 }
@@ -42,7 +43,7 @@ func (s *abstractScorer) ScoreAndCollect(c Collector) (err error) {
 	assert(s.spi.DocId() == -1) // not started
 	c.SetScorer(s.spi.(Scorer))
 	doc, err := s.spi.NextDoc()
-	for doc != index.NO_MORE_DOCS && err == nil {
+	for doc != NO_MORE_DOCS && err == nil {
 		c.Collect(doc)
 		doc, err = s.spi.NextDoc()
 	}

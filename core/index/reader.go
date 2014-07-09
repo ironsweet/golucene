@@ -3,7 +3,9 @@ package index
 import (
 	// "errors"
 	"fmt"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	docu "github.com/balzaczyy/golucene/core/document"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
 	"reflect"

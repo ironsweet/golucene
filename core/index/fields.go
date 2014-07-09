@@ -1,13 +1,9 @@
 package index
 
 import (
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"log"
 )
-
-type Fields interface {
-	// Iterator of string
-	Terms(field string) Terms
-}
 
 type MultiFields struct {
 	subs      []Fields

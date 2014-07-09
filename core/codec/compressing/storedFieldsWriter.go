@@ -24,12 +24,19 @@ const (
 	NUMERIC_DOUBLE = 0x05
 )
 
-var TYPE_BITS = uint(packed.BitsRequired(NUMERIC_DOUBLE))
+var (
+	TYPE_BITS = packed.BitsRequired(NUMERIC_DOUBLE)
+	TYPE_MASK = int(packed.MaxValue(TYPE_BITS))
+)
 
-const CODEC_SFX_IDX = "Index"
-const CODEC_SFX_DAT = "Data"
-const CP_VERSION_BIG_CHUNKS = 1
-const CP_VERSION_CURRENT = CP_VERSION_BIG_CHUNKS
+const (
+	CODEC_SFX_IDX      = "Index"
+	CODEC_SFX_DAT      = "Data"
+	VERSION_START      = 0
+	VERSION_BIG_CHUNKS = 1
+	VERSION_CHECKSUM   = 2
+	VERSION_CURRENT    = VERSION_CHECKSUM
+)
 
 /* StoredFieldsWriter impl for CompressingStoredFieldsFormat */
 type CompressingStoredFieldsWriter struct {
@@ -48,6 +55,8 @@ type CompressingStoredFieldsWriter struct {
 	endOffsets      []int // ned offsets in bufferedDocs
 	docBase         int   // doc ID at the beginning of the chunk
 	numBufferedDocs int   // docBase + numBufferedDocs == current doc ID
+
+	numStoredFieldsInDoc int
 }
 
 func NewCompressingStoredFieldsWriter(dir store.Directory, si *model.SegmentInfo,
@@ -91,11 +100,11 @@ func NewCompressingStoredFieldsWriter(dir store.Directory, si *model.SegmentInfo
 
 	codecNameIdx := formatName + CODEC_SFX_IDX
 	codecNameDat := formatName + CODEC_SFX_DAT
-	err = codec.WriteHeader(indexStream, codecNameIdx, CP_VERSION_CURRENT)
+	err = codec.WriteHeader(indexStream, codecNameIdx, VERSION_CURRENT)
 	if err != nil {
 		return nil, err
 	}
-	err = codec.WriteHeader(ans.fieldsStream, codecNameDat, CP_VERSION_CURRENT)
+	err = codec.WriteHeader(ans.fieldsStream, codecNameDat, VERSION_CURRENT)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +152,9 @@ func (w *CompressingStoredFieldsWriter) Close() error {
 	return util.Close(w.fieldsStream, w.indexWriter)
 }
 
-func (w *CompressingStoredFieldsWriter) StartDocument(numStoredFields int) error {
+func (w *CompressingStoredFieldsWriter) StartDocument() error { return nil }
+
+func (w *CompressingStoredFieldsWriter) FinishDocument() error {
 	if w.numBufferedDocs == len(w.numStoredFields) {
 		newLength := util.Oversize(w.numBufferedDocs+1, 4)
 		oldArray := w.endOffsets
@@ -152,13 +163,10 @@ func (w *CompressingStoredFieldsWriter) StartDocument(numStoredFields int) error
 		copy(w.numStoredFields, oldArray)
 		copy(w.endOffsets, oldArray)
 	}
-	w.numStoredFields[w.numBufferedDocs] = numStoredFields
+	w.numStoredFields[w.numBufferedDocs] = w.numStoredFieldsInDoc
+	w.numStoredFieldsInDoc = 0
+	w.endOffsets[w.numBufferedDocs] = w.bufferedDocs.length
 	w.numBufferedDocs++
-	return nil
-}
-
-func (w *CompressingStoredFieldsWriter) FinishDocument() error {
-	w.endOffsets[w.numBufferedDocs-1] = w.bufferedDocs.length
 	if w.triggerFlush() {
 		return w.flush()
 	}
@@ -276,6 +284,8 @@ func (w *CompressingStoredFieldsWriter) flush() error {
 }
 
 func (w *CompressingStoredFieldsWriter) WriteField(info *model.FieldInfo, field model.IndexableField) error {
+	w.numStoredFieldsInDoc++
+
 	bits := 0
 	var bytes []byte
 	var str string
@@ -307,7 +317,7 @@ func (w *CompressingStoredFieldsWriter) WriteField(info *model.FieldInfo, field 
 		}
 	}
 
-	infoAndBits := (int64(info.Number) << TYPE_BITS) | int64(bits)
+	infoAndBits := (int64(info.Number) << uint(TYPE_BITS)) | int64(bits)
 	err := w.bufferedDocs.WriteVLong(infoAndBits)
 	if err != nil {
 		return err
@@ -345,14 +355,13 @@ func (w *CompressingStoredFieldsWriter) Abort() {
 		util.SegmentFileName(w.segment, w.segmentSuffix, lucene40.FIELDS_INDEX_EXTENSION))
 }
 
-func (w *CompressingStoredFieldsWriter) Finish(fis model.FieldInfos, numDocs int) error {
+func (w *CompressingStoredFieldsWriter) Finish(fis model.FieldInfos, numDocs int) (err error) {
 	if w == nil {
 		return errors.New("Nil class pointer encountered.")
 	}
 	assert2(w.indexWriter != nil, "already closed?")
 	if w.numBufferedDocs > 0 {
-		err := w.flush()
-		if err != nil {
+		if err = w.flush(); err != nil {
 			return err
 		}
 	} else {
@@ -360,8 +369,10 @@ func (w *CompressingStoredFieldsWriter) Finish(fis model.FieldInfos, numDocs int
 	}
 	assert2(w.docBase == numDocs,
 		"Wrote %v docs, finish called with numDocs=%v", w.docBase, numDocs)
-	err := w.indexWriter.finish(numDocs)
-	if err != nil {
+	if err = w.indexWriter.finish(numDocs, w.fieldsStream.FilePointer()); err != nil {
+		return err
+	}
+	if err = codec.WriteFooter(w.fieldsStream); err != nil {
 		return err
 	}
 	assert(w.bufferedDocs.length == 0)
