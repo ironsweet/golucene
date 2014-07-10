@@ -3,6 +3,7 @@ package index
 import (
 	"fmt"
 	// "github.com/balzaczyy/golucene/core/util"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"io"
 	"math"
 	// "sort"
@@ -170,7 +171,7 @@ func (mp *MergePolicyImpl) Size(info *SegmentCommitInfo, w *IndexWriter) (n int6
 	if err != nil {
 		return 0, err
 	}
-	docCount := info.info.DocCount()
+	docCount := info.Info.DocCount()
 	if docCount <= 0 {
 		return byteSize, nil
 	}
@@ -192,8 +193,8 @@ func (mp *MergePolicyImpl) isMerged(infos *SegmentInfos,
 	assert(w != nil)
 	hasDeletions := w.readerPool.numDeletedDocs(info) > 0
 	return !hasDeletions &&
-		!info.info.HasSeparateNorms() &&
-		info.info.Dir == w.directory &&
+		!info.Info.HasSeparateNorms() &&
+		info.Info.Dir == w.directory &&
 		(mp.noCFSRatio > 0 && mp.noCFSRatio < 1 || mp.maxCFSSegmentSize < math.MaxInt64)
 }
 
@@ -286,7 +287,7 @@ func NewOneMerge(segments []*SegmentCommitInfo) *OneMerge {
 	copy(segments2, segments)
 	count := 0
 	for _, info := range segments {
-		count += info.info.DocCount()
+		count += info.Info.DocCount()
 	}
 	return &OneMerge{
 		maxNumSegments: -1,
@@ -487,7 +488,7 @@ func (a *BySizeDescendingSegments) Less(i, j int) bool {
 	if sz1 != sz2 {
 		return sz1 < sz2
 	}
-	return a.values[i].info.Name < a.values[j].info.Name
+	return a.values[i].Info.Name < a.values[j].Info.Name
 }
 
 func (tmp *TieredMergePolicy) FindMerges(mergeTrigger MergeTrigger,
@@ -748,7 +749,7 @@ pro-rated by percentage of non-deleted documents if
 SetCalibrateSizeByDeletes() is set.
 */
 func (mp *LogMergePolicy) sizeDocs(info *SegmentCommitInfo, w *IndexWriter) (n int64, err error) {
-	infoDocCount := info.info.DocCount()
+	infoDocCount := info.Info.DocCount()
 	if mp.calibrateSizeByDeletes {
 		delCount := w.readerPool.numDeletedDocs(info)
 		assert(delCount <= infoDocCount)

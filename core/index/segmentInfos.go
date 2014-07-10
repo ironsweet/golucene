@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"strconv"
@@ -616,7 +617,7 @@ func (sis *SegmentInfos) Clone() *SegmentInfos {
 		Segments:       nil,
 	}
 	for _, info := range sis.Segments {
-		assert(info.info.Codec() != nil)
+		assert(info.Info.Codec() != nil)
 		clone.Segments = append(clone.Segments, info.Clone())
 	}
 	for k, v := range sis.userData {
@@ -675,8 +676,8 @@ func (sis *SegmentInfos) files(dir store.Directory, includeSegmentsFile bool) []
 		}
 	}
 	for _, info := range sis.Segments {
-		assert(info.info.Dir == dir)
-		// if info.info.dir == dir {
+		assert(info.Info.Dir == dir)
+		// if info.Info.dir == dir {
 		for _, file := range info.Files() {
 			files[file] = true
 		}
@@ -774,7 +775,7 @@ func (sis *SegmentInfos) changed() {
 func (sis *SegmentInfos) createBackupSegmentInfos() []*SegmentCommitInfo {
 	ans := make([]*SegmentCommitInfo, len(sis.Segments))
 	for i, info := range sis.Segments {
-		assert(info.info.Codec() != nil)
+		assert(info.Info.Codec() != nil)
 		ans[i] = info.Clone()
 	}
 	return ans

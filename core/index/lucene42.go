@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/codec/compressing"
+	"github.com/balzaczyy/golucene/core/codec/lucene40"
 	// "github.com/balzaczyy/golucene/core/codec/lucene42"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
@@ -27,7 +28,7 @@ var Lucene42Codec = &CodecImpl{
 	fieldsFormat:     newLucene41StoredFieldsFormat(),
 	vectorsFormat:    newLucene42TermVectorsFormat(),
 	fieldInfosFormat: newLucene42FieldInfosFormat(),
-	infosFormat:      newLucene40SegmentInfoFormat(),
+	infosFormat:      lucene40.NewLucene40SegmentInfoFormat(),
 	// liveDocsFormat: newLucene40LiveDocsFormat(),
 	// Returns the postings format that should be used for writing new
 	// segments of field.

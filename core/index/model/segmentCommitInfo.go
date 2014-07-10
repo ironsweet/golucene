@@ -1,8 +1,7 @@
-package index
+package model
 
 import (
 	"fmt"
-	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 )
 
@@ -11,7 +10,7 @@ import (
 // Embeds a [read-only] SegmentInfo and adds per-commit fields.
 type SegmentCommitInfo struct {
 	// The SegmentInfo that we wrap.
-	info *model.SegmentInfo
+	Info *SegmentInfo
 	// How many deleted docs in the segment:
 	delCount int
 	// Generation number of the live docs file (-1 if there are no deletes yet)
@@ -26,7 +25,7 @@ type SegmentCommitInfo struct {
 	BufferedUpdatesGen int64
 }
 
-func NewSegmentCommitInfo(info *model.SegmentInfo,
+func NewSegmentCommitInfo(info *SegmentInfo,
 	delCount int, delGen, fieldInfosGen, docValuesGen int64) *SegmentCommitInfo {
 
 	panic("not implemented yet")
@@ -36,7 +35,7 @@ func NewSegmentCommitInfo(info *model.SegmentInfo,
 		nextWriteDelGen = delGen + 1
 	}
 	return &SegmentCommitInfo{
-		info:            info,
+		Info:            info,
 		delCount:        delCount,
 		delGen:          delGen,
 		nextWriteDelGen: nextWriteDelGen,
@@ -45,7 +44,7 @@ func NewSegmentCommitInfo(info *model.SegmentInfo,
 }
 
 /* Called when we succeed in writing deletes */
-func (info *SegmentCommitInfo) advanceDelGen() {
+func (info *SegmentCommitInfo) AdvanceDelGen() {
 	info.delGen, info.nextWriteDelGen = info.nextWriteDelGen, info.delGen+1
 	info.sizeInBytes = -1
 }
@@ -54,7 +53,7 @@ func (info *SegmentCommitInfo) advanceDelGen() {
 Called if there was an error while writing deletes, so that we don't
 try to write to the same file more than once.
 */
-func (info *SegmentCommitInfo) advanceNextWriteDelGen() {
+func (info *SegmentCommitInfo) AdvanceNextWriteDelGen() {
 	info.nextWriteDelGen++
 }
 
@@ -68,7 +67,7 @@ func (si *SegmentCommitInfo) SizeInBytes() (sum int64, err error) {
 	if si.sizeInBytes == -1 {
 		sum = 0
 		for _, fileName := range si.Files() {
-			d, err := si.info.Dir.FileLength(fileName)
+			d, err := si.Info.Dir.FileLength(fileName)
 			if err != nil {
 				return 0, err
 			}
@@ -79,17 +78,25 @@ func (si *SegmentCommitInfo) SizeInBytes() (sum int64, err error) {
 	return si.sizeInBytes, nil
 }
 
+type myCodec interface {
+	LiveDocsFormat() myLiveDocsFormat
+}
+
+type myLiveDocsFormat interface {
+	Files(*SegmentCommitInfo) []string
+}
+
 // Returns all files in use by this segment.
 func (si *SegmentCommitInfo) Files() []string {
 	panic("not implemented yet")
 	// Start from the wrapped info's files:
 	files := make(map[string]bool)
-	for name, _ := range si.info.Files() {
+	for name, _ := range si.Info.Files() {
 		files[name] = true
 	}
 
 	// Must separately add any live docs files
-	for _, name := range si.info.Codec().(Codec).LiveDocsFormat().Files(si) {
+	for _, name := range si.Info.Codec().(myCodec).LiveDocsFormat().Files(si) {
 		files[name] = true
 	}
 
@@ -100,7 +107,7 @@ func (si *SegmentCommitInfo) Files() []string {
 	return ans
 }
 
-func (si *SegmentCommitInfo) setBufferedUpdatesGen(v int64) {
+func (si *SegmentCommitInfo) SetBufferedUpdatesGen(v int64) {
 	si.BufferedUpdatesGen = v
 	si.sizeInBytes = -1
 }
@@ -111,20 +118,35 @@ func (si *SegmentCommitInfo) HasDeletions() bool {
 	return si.delGen != -1
 }
 
-func (si *SegmentCommitInfo) setDelCount(delCount int) {
-	assert2(delCount >= 0 && delCount <= si.info.DocCount(),
-		"invalid delCount=%v (docCount=%v)", delCount, si.info.DocCount())
+/* Returns the next available generation numbre of the live docs file. */
+func (si *SegmentCommitInfo) NextDelGen() int64 {
+	return si.nextWriteDelGen
+}
+
+/* Returns generation number of the live docs file or -1 if there are no deletes yet. */
+func (si *SegmentCommitInfo) DelGen() int64 {
+	return si.delGen
+}
+
+/* Returns the number of deleted docs in the segment. */
+func (si *SegmentCommitInfo) DelCount() int {
+	return si.delCount
+}
+
+func (si *SegmentCommitInfo) SetDelCount(delCount int) {
+	assert2(delCount >= 0 && delCount <= si.Info.DocCount(),
+		"invalid delCount=%v (docCount=%v)", delCount, si.Info.DocCount())
 	si.delCount = delCount
 }
 
 func (si *SegmentCommitInfo) StringOf(dir store.Directory, pendingDelCount int) string {
 	panic("not implemented yet")
-	return si.info.StringOf(dir, si.delCount+pendingDelCount)
+	return si.Info.StringOf(dir, si.delCount+pendingDelCount)
 }
 
 func (si *SegmentCommitInfo) String() string {
 	panic("not implemented yet")
-	s := si.info.StringOf(si.info.Dir, si.delCount)
+	s := si.Info.StringOf(si.Info.Dir, si.delCount)
 	if si.delGen != -1 {
 		s = fmt.Sprintf("%v:delGen=%v", s, si.delGen)
 	}
@@ -137,7 +159,7 @@ func (si *SegmentCommitInfo) Clone() *SegmentCommitInfo {
 	// ever clone after a failed write and before the next successful
 	// write?), but just do it to be safe:
 	return &SegmentCommitInfo{
-		info:            si.info,
+		Info:            si.Info,
 		delCount:        si.delCount,
 		delGen:          si.delGen,
 		nextWriteDelGen: si.nextWriteDelGen,

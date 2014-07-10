@@ -3,7 +3,7 @@ package index
 import (
 	"fmt"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
-	"github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
@@ -146,7 +146,7 @@ type PostingsFormat interface {
 	// Returns this posting format's name
 	Name() string
 	// Writes a new segment
-	FieldsConsumer(state *model.SegmentWriteState) (FieldsConsumer, error)
+	FieldsConsumer(state *SegmentWriteState) (FieldsConsumer, error)
 	// Reads a segment. NOTE: by the time this call returns, it must
 	// hold open any files it will need to use; else, those files may
 	// be deleted. Additionally, required fiels may be deleted during
@@ -215,7 +215,7 @@ for the field.
 type FieldsConsumer interface {
 	io.Closer
 	// Add a new field
-	addField(field *model.FieldInfo) (TermsConsumer, error)
+	addField(field *FieldInfo) (TermsConsumer, error)
 }
 
 // codecs/DocValuesFormat.java
@@ -235,7 +235,7 @@ included.
 type DocValuesFormat interface {
 	Name() string
 	// Returns a DocValuesConsumer to write docvalues to the index.
-	FieldsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error)
+	FieldsConsumer(state *SegmentWriteState) (w DocValuesConsumer, err error)
 	// Returns a DocValuesProducer to read docvalues from the index.
 	//
 	// NOTE: by the time this call returns, it must
@@ -280,7 +280,7 @@ the values multiple times.
 type DocValuesConsumer interface {
 	io.Closer
 	// Writes numeric docvalues for a field.
-	AddNumericField(*model.FieldInfo, func() (interface{}, bool)) error
+	AddNumericField(*FieldInfo, func() (interface{}, bool)) error
 }
 
 // codecs/StoredFieldsFormat.java
@@ -288,9 +288,9 @@ type DocValuesConsumer interface {
 // Controls the format of stored fields
 type StoredFieldsFormat interface {
 	// Returns a StoredFieldsReader to load stored fields.
-	FieldsReader(d store.Directory, si *model.SegmentInfo, fn model.FieldInfos, context store.IOContext) (r StoredFieldsReader, err error)
+	FieldsReader(d store.Directory, si *SegmentInfo, fn FieldInfos, context store.IOContext) (r StoredFieldsReader, err error)
 	// Returns a StoredFieldsWriter to write stored fields.
-	FieldsWriter(d store.Directory, si *model.SegmentInfo, context store.IOContext) (w StoredFieldsWriter, err error)
+	FieldsWriter(d store.Directory, si *SegmentInfo, context store.IOContext) (w StoredFieldsWriter, err error)
 }
 
 // codecs/TermVectorsFormat.java
@@ -298,9 +298,9 @@ type StoredFieldsFormat interface {
 // Controls the format of term vectors
 type TermVectorsFormat interface {
 	// Returns a TermVectorsReader to read term vectors.
-	VectorsReader(d store.Directory, si *model.SegmentInfo, fn model.FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
+	VectorsReader(d store.Directory, si *SegmentInfo, fn FieldInfos, ctx store.IOContext) (r TermVectorsReader, err error)
 	// Returns a TermVectorsWriter to write term vectors.
-	VectorsWriter(d store.Directory, si *model.SegmentInfo, ctx store.IOContext) (w TermVectorsWriter, err error)
+	VectorsWriter(d store.Directory, si *SegmentInfo, ctx store.IOContext) (w TermVectorsWriter, err error)
 }
 
 // codecs/FieldInfosFormat.java
@@ -316,37 +316,17 @@ type FieldInfosFormat interface {
 // codecs/FieldInfosReader.java
 
 // Codec API for reading FieldInfos.
-type FieldInfosReader func(d store.Directory, name, suffix string, ctx store.IOContext) (infos model.FieldInfos, err error)
+type FieldInfosReader func(d store.Directory, name, suffix string, ctx store.IOContext) (infos FieldInfos, err error)
 
 // Codec API for writing FieldInfos.
-type FieldInfosWriter func(d store.Directory, name string, infos model.FieldInfos, ctx store.IOContext) error
-
-// codecs/SegmentInfoFormat.java
-
-// Expert: Control the format of SegmentInfo (segment metadata file).
-type SegmentInfoFormat interface {
-	// Returns the SegmentInfoReader for reading SegmentInfo instances.
-	SegmentInfoReader() SegmentInfoReader
-	// Returns the SegmentInfoWriter for writing SegmentInfo instances.
-	SegmentInfoWriter() SegmentInfoWriter
-}
-
-// codecs/SegmentInfoReader.java
-
-// Read SegmentInfo data from a directory.
-type SegmentInfoReader func(d store.Directory, name string, ctx store.IOContext) (info *model.SegmentInfo, err error)
-
-// codecs/SegmentInfoWriter.java
-
-// Write SegmentInfo data.
-type SegmentInfoWriter func(d store.Directory, info *model.SegmentInfo, infos model.FieldInfos, ctx store.IOContext) error
+type FieldInfosWriter func(d store.Directory, name string, infos FieldInfos, ctx store.IOContext) error
 
 // codecs/NormsFormat.java
 
 // Encodes/decodes per-document score normalization values.
 type NormsFormat interface {
 	// Returns a DocValuesConsumer to write norms to the index.
-	NormsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error)
+	NormsConsumer(state *SegmentWriteState) (w DocValuesConsumer, err error)
 	// Returns a DocValuesProducer to read norms from the index.
 	//
 	// NOTE: by the time this call returns, it must
@@ -365,10 +345,10 @@ type NormsFormat interface {
 // Abstract API that produces numeric, binary and sorted docvalues.
 type DocValuesProducer interface {
 	io.Closer
-	Numeric(field *model.FieldInfo) (v NumericDocValues, err error)
-	Binary(field *model.FieldInfo) (v BinaryDocValues, err error)
-	Sorted(field *model.FieldInfo) (v SortedDocValues, err error)
-	SortedSet(field *model.FieldInfo) (v SortedSetDocValues, err error)
+	Numeric(field *FieldInfo) (v NumericDocValues, err error)
+	Binary(field *FieldInfo) (v BinaryDocValues, err error)
+	Sorted(field *FieldInfo) (v SortedDocValues, err error)
+	SortedSet(field *FieldInfo) (v SortedSetDocValues, err error)
 }
 
 // codecs/LiveDocsFormat.java

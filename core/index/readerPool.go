@@ -1,6 +1,7 @@
 package index
 
 import (
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"strings"
 	"sync"
 )
@@ -127,7 +128,7 @@ func (pool *ReaderPool) get(info *SegmentCommitInfo, create bool) *ReadersAndUpd
 	pool.Lock() // synchronized
 	defer pool.Unlock()
 
-	assertn(info.info.Dir == pool.owner.directory, "info.dir=%v vs %v", info.info.Dir, pool.owner.directory)
+	assertn(info.Info.Dir == pool.owner.directory, "info.dir=%v vs %v", info.Info.Dir, pool.owner.directory)
 
 	rld, ok := pool.readerMap[info]
 	if !ok {
@@ -156,9 +157,9 @@ func (pool *ReaderPool) get(info *SegmentCommitInfo, create bool) *ReadersAndUpd
 func (pool *ReaderPool) noDups() bool {
 	seen := make(map[string]bool)
 	for info, _ := range pool.readerMap {
-		_, ok := seen[info.info.Name]
+		_, ok := seen[info.Info.Name]
 		assert(!ok)
-		seen[info.info.Name] = true
+		seen[info.Info.Name] = true
 	}
 	return true
 }
@@ -169,7 +170,7 @@ isn't being pooled, the segmentInfo's delCount is returned.
 */
 func (pool *ReaderPool) numDeletedDocs(info *SegmentCommitInfo) int {
 	// ensureOpen(false)
-	delCount := info.delCount
+	delCount := info.DelCount()
 	if rld := pool.get(info, false); rld != nil {
 		delCount += rld.pendingDeleteCount()
 	}
@@ -193,5 +194,5 @@ Returns a string description of the specified segment, for debugging.
 */
 func (pool *ReaderPool) segmentToString(info *SegmentCommitInfo) string {
 	// TODO synchronized
-	return info.StringOf(info.info.Dir, pool.numDeletedDocs(info)-info.delCount)
+	return info.StringOf(info.Info.Dir, pool.numDeletedDocs(info)-info.DelCount())
 }

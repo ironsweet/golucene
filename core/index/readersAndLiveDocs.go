@@ -1,6 +1,7 @@
 package index
 
 import (
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
@@ -145,7 +146,7 @@ func (rld *ReadersAndUpdates) writeLiveDocs(dir store.Directory) (bool, error) {
 	log.Printf("rld.writeLiveDocs seg=%v pendingDelCount=%v", rld.info, rld._pendingDeleteCount)
 	if rld._pendingDeleteCount != 0 {
 		// We have new deletes
-		assert(rld._liveDocs.Length() == rld.info.info.DocCount())
+		assert(rld._liveDocs.Length() == rld.info.Info.DocCount())
 
 		// Do this so we can delete any created files on error; this
 		// saves all codecs from having to do it:
@@ -159,7 +160,7 @@ func (rld *ReadersAndUpdates) writeLiveDocs(dir store.Directory) (bool, error) {
 			if !success {
 				// Advance only the nextWriteDelGen so that a 2nd attempt to
 				// write will write to a new file
-				rld.info.advanceNextWriteDelGen()
+				rld.info.AdvanceNextWriteDelGen()
 
 				// Dleete any prtially created files(s):
 				trackingDir.EachCreatedFiles(func(filename string) {
@@ -168,7 +169,7 @@ func (rld *ReadersAndUpdates) writeLiveDocs(dir store.Directory) (bool, error) {
 			}
 		}()
 
-		err := rld.info.info.Codec().(Codec).LiveDocsFormat().WriteLiveDocs(rld._liveDocs.(util.MutableBits),
+		err := rld.info.Info.Codec().(Codec).LiveDocsFormat().WriteLiveDocs(rld._liveDocs.(util.MutableBits),
 			trackingDir, rld.info, rld._pendingDeleteCount, store.IO_CONTEXT_DEFAULT)
 		if err != nil {
 			return false, err
@@ -178,9 +179,9 @@ func (rld *ReadersAndUpdates) writeLiveDocs(dir store.Directory) (bool, error) {
 		// If we hit an error in the line above (e.g. disk full) then
 		// info's delGen remains pointing to the previous (successfully
 		// written) del docs:
-		rld.info.advanceDelGen()
-		rld.info.delCount += rld._pendingDeleteCount
-		assert(rld.info.delCount <= rld.info.info.DocCount())
+		rld.info.AdvanceDelGen()
+		rld.info.SetDelCount(rld.info.DelCount() + rld._pendingDeleteCount)
+		assert(rld.info.DelCount() <= rld.info.Info.DocCount())
 
 		rld._pendingDeleteCount = 0
 		return true, nil

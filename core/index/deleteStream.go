@@ -3,6 +3,7 @@ package index
 import (
 	"errors"
 	"fmt"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
@@ -246,15 +247,15 @@ func (ds *BufferedUpdatesStream) applyDeletesAndUpdates(readerPool *ReaderPool, 
 					if err == nil {
 						err = ds.applyDocValuesUpdates(packet.binaryDVUpdates, rld, reader, dvUpdates)
 						if err == nil && dvUpdates.any() {
-							err = rld.writeFieldUpdates(info.info.Dir, dvUpdates)
+							err = rld.writeFieldUpdates(info.Info.Dir, dvUpdates)
 						}
 					}
 				}
 				if err != nil {
 					return
 				}
-				fullDelCount := rld.info.delCount + rld.pendingDeleteCount()
-				infoDocCount := rld.info.info.DocCount()
+				fullDelCount := rld.info.DelCount() + rld.pendingDeleteCount()
+				infoDocCount := rld.info.Info.DocCount()
 				assert(fullDelCount <= infoDocCount)
 				return delCount, fullDelCount == infoDocCount, nil
 			}()
@@ -285,7 +286,7 @@ func (ds *BufferedUpdatesStream) applyDeletesAndUpdates(readerPool *ReaderPool, 
 			// the next packet and seginfo.
 			delIDX--
 			infosIDX--
-			info.setBufferedUpdatesGen(gen)
+			info.SetBufferedUpdatesGen(gen)
 
 		} else {
 			log.Println("  gt")
@@ -315,7 +316,7 @@ func (ds *BufferedUpdatesStream) applyDeletesAndUpdates(readerPool *ReaderPool, 
 							if err == nil {
 								err = ds.applyDocValuesUpdates(coalescedUpdates.binaryDVUpdates, rld, reader, dvUpdates)
 								if err == nil && dvUpdates.any() {
-									err = rld.writeFieldUpdates(info.info.Dir, dvUpdates)
+									err = rld.writeFieldUpdates(info.Info.Dir, dvUpdates)
 								}
 							}
 						}
@@ -324,8 +325,8 @@ func (ds *BufferedUpdatesStream) applyDeletesAndUpdates(readerPool *ReaderPool, 
 						return
 					}
 
-					fullDelCount := rld.info.delCount + rld.pendingDeleteCount()
-					infoDocCount := rld.info.info.DocCount()
+					fullDelCount := rld.info.DelCount() + rld.pendingDeleteCount()
+					infoDocCount := rld.info.Info.DocCount()
 					assert(fullDelCount <= infoDocCount)
 					return delCount, fullDelCount == infoDocCount, nil
 				}()
@@ -347,7 +348,7 @@ func (ds *BufferedUpdatesStream) applyDeletesAndUpdates(readerPool *ReaderPool, 
 						info, segGen, coalescedUpdates, delCount, suffix)
 				}
 			}
-			info.setBufferedUpdatesGen(gen)
+			info.SetBufferedUpdatesGen(gen)
 
 			infosIDX--
 		}

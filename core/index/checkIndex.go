@@ -187,7 +187,7 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 	var oldSegs string
 	var foundNonNilVersion = false
 	for _, si := range sis.Segments {
-		if version := si.info.Version(); version != "" {
+		if version := si.Info.Version(); version != "" {
 			foundNonNilVersion = true
 			if versionLess(version, oldest) {
 				oldest = version
@@ -268,36 +268,36 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 	result.maxSegmentName = -1
 
 	for i, info := range sis.Segments {
-		segmentName, err := strconv.ParseInt(info.info.Name[1:], 36, 32)
+		segmentName, err := strconv.ParseInt(info.Info.Name[1:], 36, 32)
 		if err != nil {
 			panic(err) // impossible
 		}
 		if int(segmentName) > result.maxSegmentName {
 			result.maxSegmentName = int(segmentName)
 		}
-		if _, ok := names[info.info.Name]; !ok {
+		if _, ok := names[info.Info.Name]; !ok {
 			continue
 		}
 		segInfoStat := new(SegmentInfoStatus)
 		result.segmentInfos = append(result.segmentInfos, segInfoStat)
-		infoDocCount := info.info.DocCount()
+		infoDocCount := info.Info.DocCount()
 		ch.msg("  %v of %v: name=%v docCount=%v ",
-			1+i, numSegments, info.info.Name, infoDocCount)
-		segInfoStat.name = info.info.Name
+			1+i, numSegments, info.Info.Name, infoDocCount)
+		segInfoStat.name = info.Info.Name
 		segInfoStat.docCount = infoDocCount
 
-		version := info.info.Version()
+		version := info.Info.Version()
 		if infoDocCount <= 0 && version != "" && !versionLess(version, "4.5") {
 			panic(fmt.Sprintf("illegal number of documents: maxDoc=%v", infoDocCount))
 		}
 
 		toLoseDocCount := infoDocCount
 		err = func() error {
-			codec := info.info.Codec().(Codec)
+			codec := info.Info.Codec().(Codec)
 			ch.msg("    codec = %v", codec)
 			segInfoStat.codec = codec
-			ch.msg("    compound = %v", info.info.IsCompoundFile())
-			segInfoStat.compound = info.info.IsCompoundFile()
+			ch.msg("    compound = %v", info.Info.IsCompoundFile())
+			segInfoStat.compound = info.Info.IsCompoundFile()
 			ch.msg("    numFiles = %v", len(info.Files()))
 			segInfoStat.numFiles = len(info.Files())
 			n, err := info.SizeInBytes()
@@ -305,18 +305,18 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 				return err
 			}
 			segInfoStat.sizeMB = float64(n) / (1024 * 1024)
-			if v := info.info.Attribute("Lucene3xSegmentInfoFormat.dsoffset"); v == "" {
+			if v := info.Info.Attribute("Lucene3xSegmentInfoFormat.dsoffset"); v == "" {
 				// don't print size in bytes if it's a 3.0 segment iwht shared docstores
 				ch.msg("    size (MB) = %v", segInfoStat.sizeMB)
 			}
 
-			diagnostics := info.info.Diagnostics()
+			diagnostics := info.Info.Diagnostics()
 			segInfoStat.diagnostics = diagnostics
 			if len(diagnostics) > 0 {
 				ch.msg("    diagnostics = %v", diagnostics)
 			}
 
-			atts := info.info.Attributes()
+			atts := info.Info.Attributes()
 			if len(atts) > 0 {
 				ch.msg("    attributes = %v", atts)
 			}
@@ -327,9 +327,9 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 				ch.msg("    no deletions")
 				segInfoStat.hasDeletions = false
 			} else {
-				ch.msg("     has deletions [delGen = %v]", info.delGen)
+				ch.msg("     has deletions [delGen = %v]", info.DelGen())
 				segInfoStat.hasDeletions = true
-				segInfoStat.deletionsGen = info.delGen
+				segInfoStat.deletionsGen = info.DelGen()
 			}
 
 			ch.msg("    test: open reader.........")
@@ -344,7 +344,7 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 			numDocs := reader.NumDocs()
 			toLoseDocCount = numDocs
 			if reader.hasDeletions() {
-				if n := infoDocCount - info.delCount; n != reader.NumDocs() {
+				if n := infoDocCount - info.DelCount(); n != reader.NumDocs() {
 					return errors.New(fmt.Sprintf(
 						"delete count mismatch: info=%v vs reader=%v",
 						n, reader.NumDocs()))
@@ -354,10 +354,10 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 						"too many deleted docs: maxDoc()=%v vs del count=%v",
 						reader.MaxDoc(), n))
 				}
-				if n := infoDocCount - numDocs; n != info.delCount {
+				if n := infoDocCount - numDocs; n != info.DelCount() {
 					return errors.New(fmt.Sprintf(
 						"delete count mismatch: info=%v vs reader=%v",
-						info.delCount, n))
+						info.DelCount(), n))
 				}
 				liveDocs := reader.LiveDocs()
 				if liveDocs == nil {
@@ -379,10 +379,10 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 				segInfoStat.numDeleted = infoDocCount - numDocs
 				ch.msg("OK [%v deleted docs]", segInfoStat.numDeleted)
 			} else {
-				if info.delCount != 0 {
+				if info.DelCount() != 0 {
 					return errors.New(fmt.Sprintf(
 						"delete count mismatch: info=%v vs reader=%v",
-						info.delCount, infoDocCount-numDocs))
+						info.DelCount(), infoDocCount-numDocs))
 				}
 				liveDocs := reader.LiveDocs()
 				if liveDocs != nil {

@@ -1,7 +1,8 @@
 package index
 
 import (
-// "github.com/balzaczyy/golucene/core/store"
+	// "github.com/balzaczyy/golucene/core/store"
+	"github.com/balzaczyy/golucene/core/codec/lucene40"
 )
 
 // codec/lucene45/Lucene45Codec.java
@@ -31,8 +32,8 @@ var Lucene45CodecImpl = func() *Lucene45Codec {
 		fieldsFormat:     newLucene41StoredFieldsFormat(),
 		vectorsFormat:    newLucene42TermVectorsFormat(),
 		fieldInfosFormat: newLucene42FieldInfosFormat(),
-		infosFormat:      newLucene40SegmentInfoFormat(),
-		liveDocsFormat:   new(Lucene40LiveDocsFormat),
+		infosFormat:      lucene40.NewLucene40SegmentInfoFormat(),
+		liveDocsFormat:   new(lucene40.Lucene40LiveDocsFormat),
 		postingsFormat: newPerFieldPostingsFormat(func(field string) PostingsFormat {
 			return f(field)
 		}),

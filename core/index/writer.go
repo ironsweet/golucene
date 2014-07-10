@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
-	"github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
@@ -186,7 +186,7 @@ type IndexWriter struct {
 	filesToCommit []string
 
 	segmentInfos         *SegmentInfos // the segments
-	globalFieldNumberMap *model.FieldNumbers
+	globalFieldNumberMap *FieldNumbers
 
 	docWriter  *DocumentsWriter
 	eventQueue *list.List
@@ -411,7 +411,7 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 	return ans, nil
 }
 
-// func (w *IndexWriter) fieldInfos(info *model.SegmentInfo) (infos model.FieldInfos, err error) {
+// func (w *IndexWriter) fieldInfos(info *SegmentInfo) (infos FieldInfos, err error) {
 // 	var cfsDir store.Directory
 // 	if info.IsCompoundFile() {
 // 		cfsDir, err = store.NewCompoundFileDirectory(
@@ -439,8 +439,8 @@ Loads or returns the alread loaded the global field number map for
 this SegmentInfos. If this SegmentInfos has no global field number
 map the returned instance is empty.
 */
-func (w *IndexWriter) fieldNumberMap() (m *model.FieldNumbers, err error) {
-	m = model.NewFieldNumbers()
+func (w *IndexWriter) fieldNumberMap() (m *FieldNumbers, err error) {
+	m = NewFieldNumbers()
 	for _, info := range w.segmentInfos.Segments {
 		fis, err := ReadFieldInfos(info)
 		if err != nil {
@@ -689,7 +689,7 @@ character U+FFFD.
 NOTE: if this method hits a memory issue, you should immediately
 close the writer. See above for details.
 */
-func (w *IndexWriter) AddDocument(doc []model.IndexableField) error {
+func (w *IndexWriter) AddDocument(doc []IndexableField) error {
 	return w.AddDocumentWithAnalyzer(doc, w.analyzer)
 }
 
@@ -703,7 +703,7 @@ error, and flushing/merging temporary free space requirements.
 NOTE: if this method hits a memory issue, you hsould immediately
 close the writer. See above for details.
 */
-func (w *IndexWriter) AddDocumentWithAnalyzer(doc []model.IndexableField, analyzer analysis.Analyzer) error {
+func (w *IndexWriter) AddDocumentWithAnalyzer(doc []IndexableField, analyzer analysis.Analyzer) error {
 	return w.UpdateDocument(nil, doc, analyzer)
 }
 
@@ -717,7 +717,7 @@ the add).
 NOTE: if this method hits a memory issue, you should immediately
 close he write. See above for details.
 */
-func (w *IndexWriter) UpdateDocument(term *Term, doc []model.IndexableField, analyzer analysis.Analyzer) error {
+func (w *IndexWriter) UpdateDocument(term *Term, doc []IndexableField, analyzer analysis.Analyzer) error {
 	w.ensureOpen()
 	var success = false
 	defer func() {
@@ -1116,7 +1116,7 @@ func (w *IndexWriter) publishFlushedSegment(newSegment *SegmentCommitInfo,
 	if w.infoStream.IsEnabled("IW") {
 		w.infoStream.Message("IW", "publish sets newSegment delGen=%v seg=%v", nextGen, w.readerPool.segmentToString(newSegment))
 	}
-	newSegment.setBufferedUpdatesGen(nextGen)
+	newSegment.SetBufferedUpdatesGen(nextGen)
 	w.segmentInfos.Segments = append(w.segmentInfos.Segments, newSegment)
 	return w._checkpoint()
 }
@@ -1520,11 +1520,11 @@ func (w *IndexWriter) registerMerge(merge *OneMerge) (bool, error) {
 	panic("not implemented yet")
 }
 
-func setDiagnostics(info *model.SegmentInfo, source string) {
+func setDiagnostics(info *SegmentInfo, source string) {
 	setDiagnosticsAndDetails(info, source, nil)
 }
 
-func setDiagnosticsAndDetails(info *model.SegmentInfo, source string, details map[string]string) {
+func setDiagnosticsAndDetails(info *SegmentInfo, source string, details map[string]string) {
 	ans := map[string]string{
 		"source":         source,
 		"lucene.version": util.LUCENE_VERSION,
@@ -1731,7 +1731,7 @@ file.
 func createCompoundFile(infoStream util.InfoStream,
 	directory store.Directory,
 	checkAbort CheckAbort,
-	info *model.SegmentInfo,
+	info *SegmentInfo,
 	context store.IOContext) (names []string, err error) {
 
 	filename := util.SegmentFileName(info.Name, "", store.COMPOUND_FILE_EXTENSION)
@@ -1797,7 +1797,7 @@ func (w *IndexWriter) deleteNewFiles(files []string) error {
 }
 
 /* Cleans up residuals from a segment that could not be entirely flushed due to an error */
-func (w *IndexWriter) flushFailed(info *model.SegmentInfo) error {
+func (w *IndexWriter) flushFailed(info *SegmentInfo) error {
 	w.Lock()
 	defer w.Unlock()
 	return w.deleter.refresh(info.Name)

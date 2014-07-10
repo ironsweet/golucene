@@ -48,7 +48,7 @@ func NewSegmentReader(si *SegmentCommitInfo, termInfosIndexDivisor int, context 
 	r.ARFieldsReader = r
 	r.si = si
 	log.Print("Obtaining SegmentCoreReaders...")
-	r.core, err = newSegmentCoreReaders(r, si.info.Dir, si, context, termInfosIndexDivisor)
+	r.core, err = newSegmentCoreReaders(r, si.Info.Dir, si, context, termInfosIndexDivisor)
 	if err != nil {
 		return r, err
 	}
@@ -74,7 +74,7 @@ func NewSegmentReader(si *SegmentCommitInfo, termInfosIndexDivisor int, context 
 		// assert si.getDelCount() == 0
 		// r.liveDocs = nil
 	}
-	r.numDocs = si.info.DocCount() - si.delCount
+	r.numDocs = si.Info.DocCount() - si.DelCount()
 	success = true
 	return r, nil
 }
@@ -123,7 +123,7 @@ func (r *SegmentReader) NumDocs() int {
 
 func (r *SegmentReader) MaxDoc() int {
 	// Don't call ensureOpen() here (it could affect performance)
-	return r.si.info.DocCount()
+	return r.si.Info.DocCount()
 }
 
 func (r *SegmentReader) TermVectorsReader() TermVectorsReader {
@@ -144,11 +144,11 @@ func (r *SegmentReader) checkBounds(docID int) {
 func (r *SegmentReader) String() string {
 	// SegmentInfo.toString takes dir and number of
 	// *pending* deletions; so we reverse compute that here:
-	return r.si.StringOf(r.si.info.Dir, r.si.info.DocCount()-r.numDocs-r.si.delCount)
+	return r.si.StringOf(r.si.Info.Dir, r.si.Info.DocCount()-r.numDocs-r.si.DelCount())
 }
 
 func (r *SegmentReader) SegmentName() string {
-	return r.si.info.Name
+	return r.si.Info.Name
 }
 
 func (r *SegmentReader) SegmentInfos() *SegmentCommitInfo {
@@ -159,7 +159,7 @@ func (r *SegmentReader) Directory() store.Directory {
 	// Don't ensureOpen here -- in certain cases, when a
 	// cloned/reopened reader needs to commit, it may call
 	// this method on the closed original reader
-	return r.si.info.Dir
+	return r.si.Info.Dir
 }
 
 func (r *SegmentReader) CoreCacheKey() interface{} {
@@ -301,12 +301,12 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 	// 	}
 	// }()
 
-	// codec := si.info.Codec().(Codec)
+	// codec := si.Info.Codec().(Codec)
 	// log.Print("Obtaining CFS Directory...")
 	// var cfsDir store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
-	// if si.info.IsCompoundFile() {
+	// if si.Info.IsCompoundFile() {
 	// 	log.Print("Detected CompoundFile.")
-	// 	name := util.SegmentFileName(si.info.Name, "", store.COMPOUND_FILE_EXTENSION)
+	// 	name := util.SegmentFileName(si.Info.Name, "", store.COMPOUND_FILE_EXTENSION)
 	// 	self.cfsReader, err = store.NewCompoundFileDirectory(dir, name, context, false)
 	// 	if err != nil {
 	// 		return self, err
@@ -318,7 +318,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 	// }
 	// log.Printf("CFS Directory: %v", cfsDir)
 	// log.Print("Reading FieldInfos...")
-	// self.fieldInfos, err = codec.FieldInfosFormat().FieldInfosReader()(cfsDir, si.info.Name, store.IO_CONTEXT_READONCE)
+	// self.fieldInfos, err = codec.FieldInfosFormat().FieldInfosReader()(cfsDir, si.Info.Name, store.IO_CONTEXT_READONCE)
 	// if err != nil {
 	// 	return self, err
 	// }
@@ -362,14 +362,14 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 	// }
 
 	// log.Print("Obtaining StoredFieldsReader...")
-	// self.fieldsReaderOrig, err = si.info.Codec().(Codec).StoredFieldsFormat().FieldsReader(cfsDir, si.info, self.fieldInfos, context)
+	// self.fieldsReaderOrig, err = si.Info.Codec().(Codec).StoredFieldsFormat().FieldsReader(cfsDir, si.info, self.fieldInfos, context)
 	// if err != nil {
 	// 	return self, err
 	// }
 
 	// if self.fieldInfos.HasVectors { // open term vector files only as needed
 	// 	log.Print("Obtaining TermVectorsReader...")
-	// 	self.termVectorsReaderOrig, err = si.info.Codec().(Codec).TermVectorsFormat().VectorsReader(cfsDir, si.info, self.fieldInfos, context)
+	// 	self.termVectorsReaderOrig, err = si.Info.Codec().(Codec).TermVectorsFormat().VectorsReader(cfsDir, si.info, self.fieldInfos, context)
 	// 	if err != nil {
 	// 		return self, err
 	// 	}
