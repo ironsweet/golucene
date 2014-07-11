@@ -59,3 +59,21 @@ func NewSegmentWriteStateFrom(state *SegmentWriteState,
 		state.Context,
 	}
 }
+
+// index/SegmentReadState.java
+
+type SegmentReadState struct {
+	Dir               store.Directory
+	SegmentInfo       *SegmentInfo
+	FieldInfos        FieldInfos
+	Context           store.IOContext
+	TermsIndexDivisor int
+	SegmentSuffix     string
+}
+
+func newSegmentReadState(dir store.Directory,
+	info *SegmentInfo, fieldInfos FieldInfos,
+	context store.IOContext, termsIndexDivisor int) SegmentReadState {
+
+	return SegmentReadState{dir, info, fieldInfos, context, termsIndexDivisor, ""}
+}

@@ -8,6 +8,7 @@ import (
 	// "github.com/balzaczyy/golucene/core/codec/lucene40"
 	"github.com/balzaczyy/golucene/core/codec/lucene41"
 	// docu "github.com/balzaczyy/golucene/core/document"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	. "github.com/balzaczyy/golucene/core/search/model"
 	"github.com/balzaczyy/golucene/core/store"
@@ -70,11 +71,11 @@ func (f *Lucene41PostingsFormat) FieldsConsumer(state *SegmentWriteState) (Field
 }
 
 func (f *Lucene41PostingsFormat) FieldsProducer(state SegmentReadState) (FieldsProducer, error) {
-	postingsReader, err := NewLucene41PostingsReader(state.dir,
-		state.fieldInfos,
-		state.segmentInfo,
-		state.context,
-		state.segmentSuffix)
+	postingsReader, err := NewLucene41PostingsReader(state.Dir,
+		state.FieldInfos,
+		state.SegmentInfo,
+		state.Context,
+		state.SegmentSuffix)
 	if err != nil {
 		return nil, err
 	}
@@ -89,13 +90,13 @@ func (f *Lucene41PostingsFormat) FieldsProducer(state SegmentReadState) (FieldsP
 		}
 	}()
 
-	fp, err := newBlockTreeTermsReader(state.dir,
-		state.fieldInfos,
-		state.segmentInfo,
+	fp, err := newBlockTreeTermsReader(state.Dir,
+		state.FieldInfos,
+		state.SegmentInfo,
 		postingsReader,
-		state.context,
-		state.segmentSuffix,
-		state.termsIndexDivisor)
+		state.Context,
+		state.SegmentSuffix,
+		state.TermsIndexDivisor)
 	if err != nil {
 		log.Print("DEBUG: ", err)
 		return fp, err

@@ -5,19 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/fst"
-	"io"
 	"log"
 	"sort"
 )
-
-type FieldsProducer interface {
-	Fields
-	io.Closer
-}
 
 // BlockTreeTermsReader.java
 

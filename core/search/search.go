@@ -2,6 +2,7 @@ package search
 
 import (
 	"fmt"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
@@ -343,10 +344,10 @@ type tfIDFSimScorer struct {
 	owner       *TFIDFSimilarity
 	stats       *idfStats
 	weightValue float32
-	norms       index.NumericDocValues
+	norms       NumericDocValues
 }
 
-func newTFIDFSimScorer(owner *TFIDFSimilarity, stats *idfStats, norms index.NumericDocValues) *tfIDFSimScorer {
+func newTFIDFSimScorer(owner *TFIDFSimilarity, stats *idfStats, norms NumericDocValues) *tfIDFSimScorer {
 	return &tfIDFSimScorer{owner, stats, stats.value, norms}
 }
 
@@ -396,7 +397,7 @@ func (stats *idfStats) Normalize(queryNorm float32, topLevelBoost float32) {
 }
 
 func (ss *TFIDFSimilarity) explainScore(doc int, freq Explanation,
-	stats *idfStats, norms index.NumericDocValues) Explanation {
+	stats *idfStats, norms NumericDocValues) Explanation {
 
 	// explain query weight
 	boostExpl := newExplanation(stats.queryBoost, "boost")

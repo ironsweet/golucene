@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 	// "github.com/balzaczyy/golucene/core/codec"
-	"github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"sync"
@@ -102,7 +103,7 @@ func newLucene42DocValuesProducer(state SegmentReadState,
 Lucene42DocValuesProducer.java/4.5.1/L138
 */
 func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput,
-	infos model.FieldInfos) (err error) {
+	infos FieldInfos) (err error) {
 
 	var fieldNumber int
 	var fieldType byte
@@ -159,7 +160,7 @@ func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput,
 	return
 }
 
-func (dvp *Lucene42DocValuesProducer) Numeric(field *model.FieldInfo) (v NumericDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) Numeric(field *FieldInfo) (v NumericDocValues, err error) {
 	dvp.lock.Lock()
 	defer dvp.lock.Unlock()
 
@@ -172,7 +173,7 @@ func (dvp *Lucene42DocValuesProducer) Numeric(field *model.FieldInfo) (v Numeric
 	return
 }
 
-func (dvp *Lucene42DocValuesProducer) loadNumeric(field *model.FieldInfo) (v NumericDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) loadNumeric(field *FieldInfo) (v NumericDocValues, err error) {
 	entry := dvp.numerics[int(field.Number)]
 	if err = dvp.data.Seek(entry.offset); err != nil {
 		return
@@ -199,17 +200,17 @@ func (dvp *Lucene42DocValuesProducer) loadNumeric(field *model.FieldInfo) (v Num
 	return
 }
 
-func (dvp *Lucene42DocValuesProducer) Binary(field *model.FieldInfo) (v BinaryDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) Binary(field *FieldInfo) (v BinaryDocValues, err error) {
 	panic("not implemented yet")
 	return nil, nil
 }
 
-func (dvp *Lucene42DocValuesProducer) Sorted(field *model.FieldInfo) (v SortedDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) Sorted(field *FieldInfo) (v SortedDocValues, err error) {
 	panic("not implemented yet")
 	return nil, nil
 }
 
-func (dvp *Lucene42DocValuesProducer) SortedSet(field *model.FieldInfo) (v SortedSetDocValues, err error) {
+func (dvp *Lucene42DocValuesProducer) SortedSet(field *FieldInfo) (v SortedSetDocValues, err error) {
 	panic("not implemented yet")
 	return nil, nil
 }

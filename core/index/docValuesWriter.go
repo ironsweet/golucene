@@ -1,14 +1,15 @@
 package index
 
 import (
-	"github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
 )
 
 type DocValuesWriter interface {
 	finish(int)
-	flush(model.SegmentWriteState, DocValuesConsumer) error
+	flush(*SegmentWriteState, DocValuesConsumer) error
 }
 
 // index/NumericDocValuesWriter.java
@@ -21,10 +22,10 @@ type NumericDocValuesWriter struct {
 	iwBytesUsed   util.Counter
 	bytesUsed     int64
 	docsWithField *util.FixedBitSet
-	fieldInfo     *model.FieldInfo
+	fieldInfo     *FieldInfo
 }
 
-func newNumericDocValuesWriter(fieldInfo *model.FieldInfo,
+func newNumericDocValuesWriter(fieldInfo *FieldInfo,
 	iwBytesUsed util.Counter, trackDocsWithField bool) *NumericDocValuesWriter {
 	ans := &NumericDocValuesWriter{
 		fieldInfo:   fieldInfo,
@@ -74,7 +75,7 @@ func (w *NumericDocValuesWriter) updateBytesUsed() {
 
 func (w *NumericDocValuesWriter) finish(numDoc int) {}
 
-func (w *NumericDocValuesWriter) flush(state *model.SegmentWriteState,
+func (w *NumericDocValuesWriter) flush(state *SegmentWriteState,
 	dvConsumer DocValuesConsumer) error {
 	maxDoc := state.SegmentInfo.DocCount()
 	dvConsumer.AddNumericField(w.fieldInfo, newNumericIterator(maxDoc, w))

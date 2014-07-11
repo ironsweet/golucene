@@ -3,6 +3,7 @@ package index
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -208,7 +209,7 @@ func (w *BlockTreeTermsWriter) writeIndexTrailer(indexOut store.IndexOutput, dir
 	return indexOut.WriteLong(dirStart)
 }
 
-func (w *BlockTreeTermsWriter) addField(field *model.FieldInfo) (TermsConsumer, error) {
+func (w *BlockTreeTermsWriter) AddField(field *model.FieldInfo) (TermsConsumer, error) {
 	assert(w.currentField == nil || w.currentField.Name < field.Name)
 	w.currentField = field
 	return newTermsWriter(w, field), nil
@@ -580,18 +581,18 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 	return newPendingBlock(prefix, startFP, termCount != 0, isFloor, floorLeadByte, subIndices), nil
 }
 
-func (w *TermsWriter) comparator() func(a, b []byte) bool {
+func (w *TermsWriter) Comparator() func(a, b []byte) bool {
 	return util.UTF8SortedAsUnicodeLess
 }
 
-func (w *TermsWriter) startTerm(text []byte) (codec.PostingsConsumer, error) {
+func (w *TermsWriter) StartTerm(text []byte) (codec.PostingsConsumer, error) {
 	assert(w.owner != nil)
 	assert(w.owner.postingsWriter != nil)
 	err := w.owner.postingsWriter.StartTerm()
 	return w.owner.postingsWriter, err
 }
 
-func (w *TermsWriter) finishTerm(text []byte, stats *codec.TermStats) error {
+func (w *TermsWriter) FinishTerm(text []byte, stats *codec.TermStats) error {
 	assert(stats.DocFreq > 0)
 
 	if err := w.blockBuilder.Add(fst.ToIntsRef(text, w.scratchIntsRef), w.noOutputs.NoOutput()); err != nil {
@@ -604,7 +605,7 @@ func (w *TermsWriter) finishTerm(text []byte, stats *codec.TermStats) error {
 	// return err
 }
 
-func (w *TermsWriter) finish(sumTotalTermFreq, sumDocFreq int64, docCount int) error {
+func (w *TermsWriter) Finish(sumTotalTermFreq, sumDocFreq int64, docCount int) error {
 	if w.numTerms > 0 {
 		_, err := w.blockBuilder.Finish()
 		if err != nil {

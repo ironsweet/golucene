@@ -2,7 +2,9 @@ package index
 
 import (
 	"github.com/balzaczyy/golucene/core/codec/lucene40"
-	"github.com/balzaczyy/golucene/core/index/model"
+	"github.com/balzaczyy/golucene/core/codec/perfield"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
+	. "github.com/balzaczyy/golucene/core/index/model"
 )
 
 // lucene42/Lucene42RWCodec.java
@@ -20,14 +22,14 @@ var Lucene42RWCodec = &CodecImpl{
 	// segments of field.
 	//
 	// The default implemnetation always returns "Lucene41"
-	postingsFormat: newPerFieldPostingsFormat(func(field string) PostingsFormat {
+	postingsFormat: perfield.NewPerFieldPostingsFormat(func(field string) PostingsFormat {
 		panic("not implemented yet")
 	}),
 	// Returns the decvalues format that should be used for writing new
 	// segments of field.
 	//
 	// The default implementation always returns "Lucene42"
-	docValuesFormat: newPerFieldDocValuesFormat(func(field string) DocValuesFormat {
+	docValuesFormat: perfield.NewPerFieldDocValuesFormat(func(field string) DocValuesFormat {
 		return dv
 	}),
 	normsFormat: newLucene42NormsFormat(),
@@ -40,7 +42,7 @@ type Lucene42RWDocValuesFormat struct {
 	*Lucene42DocValuesFormat
 }
 
-func (f *Lucene42RWDocValuesFormat) FieldsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error) {
+func (f *Lucene42RWDocValuesFormat) FieldsConsumer(state *SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("not implemented yet")
 }
 

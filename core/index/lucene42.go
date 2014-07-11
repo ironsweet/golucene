@@ -6,8 +6,10 @@ import (
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/codec/compressing"
 	"github.com/balzaczyy/golucene/core/codec/lucene40"
+	"github.com/balzaczyy/golucene/core/codec/perfield"
 	// "github.com/balzaczyy/golucene/core/codec/lucene42"
-	"github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
@@ -34,14 +36,14 @@ var Lucene42Codec = &CodecImpl{
 	// segments of field.
 	//
 	// The default implemnetation always returns "Lucene41"
-	postingsFormat: newPerFieldPostingsFormat(func(field string) PostingsFormat {
+	postingsFormat: perfield.NewPerFieldPostingsFormat(func(field string) PostingsFormat {
 		panic("not implemented yet")
 	}),
 	// Returns the decvalues format that should be used for writing new
 	// segments of field.
 	//
 	// The default implementation always returns "Lucene42"
-	docValuesFormat: newPerFieldDocValuesFormat(func(field string) DocValuesFormat {
+	docValuesFormat: perfield.NewPerFieldDocValuesFormat(func(field string) DocValuesFormat {
 		panic("not implemented yet")
 	}),
 	normsFormat: newReadonlyLucene42NormsFormat(),
@@ -51,7 +53,7 @@ type readonlyLucene42NormsFormat struct {
 	*Lucene42NormsFormat
 }
 
-func (f *readonlyLucene42NormsFormat) NormsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error) {
+func (f *readonlyLucene42NormsFormat) NormsConsumer(state *SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("this codec can only be used for reading")
 }
 
@@ -152,10 +154,10 @@ const (
 )
 
 var Lucene42FieldInfosReader = func(dir store.Directory,
-	segment, suffix string, context store.IOContext) (fi model.FieldInfos, err error) {
+	segment, suffix string, context store.IOContext) (fi FieldInfos, err error) {
 
 	log.Printf("Reading FieldInfos from %v...", dir)
-	fi = model.FieldInfos{}
+	fi = FieldInfos{}
 	fileName := util.SegmentFileName(segment, "", LUCENE42_FI_EXTENSION)
 	log.Printf("Segment: %v", fileName)
 	input, err := dir.OpenInput(fileName, context)
@@ -187,7 +189,7 @@ var Lucene42FieldInfosReader = func(dir store.Directory,
 	}
 	log.Printf("Found %v FieldInfos.", size)
 
-	infos := make([]*model.FieldInfo, size)
+	infos := make([]*FieldInfo, size)
 	for i, _ := range infos {
 		name, err := input.ReadString()
 		if err != nil {
@@ -205,18 +207,18 @@ var Lucene42FieldInfosReader = func(dir store.Directory,
 		storeTermVector := (bits & LUCENE42_FI_STORE_TERMVECTOR) != 0
 		omitNorms := (bits & LUCENE42_FI_OMIT_NORMS) != 0
 		storePayloads := (bits & LUCENE42_FI_STORE_PAYLOADS) != 0
-		var indexOptions model.IndexOptions
+		var indexOptions IndexOptions
 		switch {
 		case !isIndexed:
-			indexOptions = model.IndexOptions(0)
+			indexOptions = IndexOptions(0)
 		case (bits & LUCENE42_FI_OMIT_TERM_FREQ_AND_POSITIONS) != 0:
-			indexOptions = model.INDEX_OPT_DOCS_ONLY
+			indexOptions = INDEX_OPT_DOCS_ONLY
 		case (bits & LUCENE42_FI_OMIT_POSITIONS) != 0:
-			indexOptions = model.INDEX_OPT_DOCS_AND_FREQS
+			indexOptions = INDEX_OPT_DOCS_AND_FREQS
 		case (bits & LUCENE42_FI_STORE_OFFSETS_IN_POSTINGS) != 0:
-			indexOptions = model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
+			indexOptions = INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
 		default:
-			indexOptions = model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
+			indexOptions = INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
 		}
 
 		// DV Types are packed in one byte
@@ -236,39 +238,39 @@ var Lucene42FieldInfosReader = func(dir store.Directory,
 		if err != nil {
 			return fi, err
 		}
-		infos[i] = model.NewFieldInfo(name, isIndexed, fieldNumber, storeTermVector,
+		infos[i] = NewFieldInfo(name, isIndexed, fieldNumber, storeTermVector,
 			omitNorms, storePayloads, indexOptions, docValuesType, normsType, -1, attributes)
 	}
 
 	if err = codec.CheckEOF(input); err != nil {
 		return fi, err
 	}
-	fi = model.NewFieldInfos(infos)
+	fi = NewFieldInfos(infos)
 	success = true
 	return fi, nil
 }
 
-func getDocValuesType(input store.IndexInput, b byte) (t model.DocValuesType, err error) {
+func getDocValuesType(input store.IndexInput, b byte) (t DocValuesType, err error) {
 	switch b {
 	case 0:
-		return model.DocValuesType(0), nil
+		return DocValuesType(0), nil
 	case 1:
-		return model.DOC_VALUES_TYPE_NUMERIC, nil
+		return DOC_VALUES_TYPE_NUMERIC, nil
 	case 2:
-		return model.DOC_VALUES_TYPE_BINARY, nil
+		return DOC_VALUES_TYPE_BINARY, nil
 	case 3:
-		return model.DOC_VALUES_TYPE_SORTED, nil
+		return DOC_VALUES_TYPE_SORTED, nil
 	case 4:
-		return model.DOC_VALUES_TYPE_SORTED_SET, nil
+		return DOC_VALUES_TYPE_SORTED_SET, nil
 	default:
-		return model.DocValuesType(0), errors.New(
+		return DocValuesType(0), errors.New(
 			fmt.Sprintf("invalid docvalues byte: %v (resource=%v)", b, input))
 	}
 }
 
 // lucene42/Lucene42FieldInfosWriter.java
 // var Lucene42FieldInfosWriter = func(dir store.Directory,
-// 	segName string, infos model.FieldInfos, ctx store.IOContext) (err error) {
+// 	segName string, infos FieldInfos, ctx store.IOContext) (err error) {
 
 // 	fileName := util.SegmentFileName(segName, "", LUCENE42_FI_EXTENSION)
 // 	var output store.IndexOutput
@@ -308,13 +310,13 @@ func getDocValuesType(input store.IndexInput, b byte) (t model.DocValuesType, er
 // 		}
 // 		if fi.IsIndexed() {
 // 			bits |= LUCENE42_FI_IS_INDEXED
-// 			assert(int(indexOptions) >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS) || !fi.HasPayloads())
+// 			assert(int(indexOptions) >= int(INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS) || !fi.HasPayloads())
 // 			switch indexOptions {
-// 			case model.INDEX_OPT_DOCS_ONLY:
+// 			case INDEX_OPT_DOCS_ONLY:
 // 				bits |= LUCENE42_FI_OMIT_TERM_FREQ_AND_POSITIONS
-// 			case model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS:
+// 			case INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS:
 // 				bits |= LUCENE42_FI_STORE_OFFSETS_IN_POSTINGS
-// 			case model.INDEX_OPT_DOCS_AND_FREQS:
+// 			case INDEX_OPT_DOCS_AND_FREQS:
 // 				bits |= LUCENE42_FI_OMIT_POSITIONS
 // 			}
 // 		}
@@ -349,7 +351,7 @@ func getDocValuesType(input store.IndexInput, b byte) (t model.DocValuesType, er
 // 	return nil
 // }
 
-// func docValuesByte(typ model.DocValuesType) byte {
+// func docValuesByte(typ DocValuesType) byte {
 // 	n := byte(typ)
 // 	assert(n >= 0 && n <= 4)
 // 	return n
@@ -495,7 +497,7 @@ func newLucene42NormsFormatWithOverhead(acceptableOverheadRatio float32) *Lucene
 	return &Lucene42NormsFormat{acceptableOverheadRatio}
 }
 
-func (f *Lucene42NormsFormat) NormsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error) {
+func (f *Lucene42NormsFormat) NormsConsumer(state *SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("this codec can only be used for reading")
 }
 
@@ -632,7 +634,7 @@ func (f *Lucene42DocValuesFormat) Name() string {
 	return "Lucene42"
 }
 
-func (f *Lucene42DocValuesFormat) FieldsConsumer(state *model.SegmentWriteState) (w DocValuesConsumer, err error) {
+func (f *Lucene42DocValuesFormat) FieldsConsumer(state *SegmentWriteState) (w DocValuesConsumer, err error) {
 	panic("this codec can only be used for reading")
 }
 

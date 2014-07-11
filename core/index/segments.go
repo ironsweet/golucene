@@ -416,30 +416,3 @@ func (r *SegmentCoreReaders) decRef() {
 	// 	r.notifyListener <- r.owner
 	// }
 }
-
-// type NumericDocValues interface {
-// 	Value(docID int) int64
-// }
-type NumericDocValues func(docID int) int64
-
-/* A per-document []byte */
-type BinaryDocValues interface {
-	// Lookup the value for document. The returned BytesRef may be
-	// re-used across calls to get() so make sure to copy it if you
-	// want to keep it around.
-	get(docId int) []byte
-}
-
-type SortedDocValues interface {
-	BinaryDocValues
-	ord(docID int) int
-	lookupOrd(int) []byte
-	valueCount() int
-}
-
-type SortedSetDocValues interface {
-	nextOrd() int64
-	setDocument(docID int)
-	lookupOrd(int64) []byte
-	valueCount() int64
-}

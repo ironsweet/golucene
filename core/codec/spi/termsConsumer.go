@@ -1,7 +1,7 @@
-package index
+package spi
 
 import (
-	"github.com/balzaczyy/golucene/core/codec"
+	. "github.com/balzaczyy/golucene/core/codec"
 )
 
 /*
@@ -18,16 +18,16 @@ The lifecycle is:
 type TermsConsumer interface {
 	// Starts a ew term in this field; this may be called with no
 	// corresponding call to finish if the term had no docs.
-	startTerm([]byte) (codec.PostingsConsumer, error)
+	StartTerm([]byte) (PostingsConsumer, error)
 	// Finishes the current term; numDocs must be > 0.
 	// stats.totalTermFreq will be -1 when term frequencies are omitted
 	// for the field.
-	finishTerm([]byte, *codec.TermStats) error
+	FinishTerm([]byte, *TermStats) error
 	// Called when we are done adding terms to this field.
 	// sumTotalTermFreq will be -1 when term frequencies are omitted
 	// for the field.
-	finish(sumTotalTermFreq, sumDocFreq int64, docCount int) error
+	Finish(sumTotalTermFreq, sumDocFreq int64, docCount int) error
 	// Return the BytesRef comparator used to sort terms before feeding
 	// to this API.
-	comparator() func(a, b []byte) bool
+	Comparator() func(a, b []byte) bool
 }

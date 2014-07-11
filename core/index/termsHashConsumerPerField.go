@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/codec"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 )
@@ -378,11 +379,11 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 		return nil // nothing to flush, don't bother the codc with the unindexed field
 	}
 
-	termsConsumer, err := consumer.addField(w.fieldInfo)
+	termsConsumer, err := consumer.AddField(w.fieldInfo)
 	if err != nil {
 		return err
 	}
-	termComp := termsConsumer.comparator()
+	termComp := termsConsumer.Comparator()
 
 	// CONFUSING: this.indexOptions holds the index options that were
 	// current when we first saw this field. But it's posible this has
@@ -445,7 +446,7 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 		// interacting with the TermsConsumer, only calling out to us
 		// (passing us the DocConsumer) to handle delivery of docs/positions
 
-		postingsConsumer, err := termsConsumer.startTerm(text.Value)
+		postingsConsumer, err := termsConsumer.StartTerm(text.Value)
 		if err != nil {
 			return err
 		}
@@ -567,7 +568,7 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 				return err
 			}
 		}
-		err = termsConsumer.finishTerm(text.Value, codec.NewTermStats(docFreq,
+		err = termsConsumer.FinishTerm(text.Value, codec.NewTermStats(docFreq,
 			map[bool]int64{true: totalTermFreq, false: -1}[writeTermFreq]))
 		if err != nil {
 			return err
@@ -576,7 +577,7 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 		sumDocFreq += int64(docFreq)
 	}
 
-	return termsConsumer.finish(
+	return termsConsumer.Finish(
 		map[bool]int64{true: sumTotalTermFreq, false: -1}[writeTermFreq],
 		sumDocFreq, visitedDocs.Cardinality())
 }
