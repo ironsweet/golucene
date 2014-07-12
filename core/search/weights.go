@@ -49,7 +49,7 @@ type Weight interface {
 	 * <b>NOTE:</b> null can be returned if no documents will be scored by this
 	 * query.
 	 */
-	Scorer(ctx *index.AtomicReaderContext, inOrder bool, topScorer bool, acceptDocs util.Bits) (sc Scorer, err error)
+	BulkScorer(*index.AtomicReaderContext, bool, util.Bits) (BulkScorer, error)
 	/**
 	 * Returns true iff this implementation scores docs only out of order. This
 	 * method is used in conjunction with {@link Collector}'s
@@ -62,4 +62,21 @@ type Weight interface {
 	 * the <code>Scorer</code> scores documents in-order.
 	 */
 	IsScoresDocsOutOfOrder() bool // usually false
+}
+
+type WeightImplSPI interface {
+	Scorer(*index.AtomicReaderContext, util.Bits) (Scorer, error)
+}
+
+type WeightImpl struct {
+	spi WeightImplSPI
+}
+
+func newWeightImpl(spi WeightImplSPI) *WeightImpl {
+	return &WeightImpl{spi}
+}
+
+func (w *WeightImpl) BulkScorer(ctx *index.AtomicReaderContext,
+	scoreDocsInOrder bool, acceptDoc util.Bits) (BulkScorer, error) {
+	panic("not implemented yet")
 }

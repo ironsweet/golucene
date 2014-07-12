@@ -59,6 +59,7 @@ func (q *TermQuery) String() string {
 }
 
 type TermWeight struct {
+	*WeightImpl
 	*TermQuery
 	similarity Similarity
 	stats      SimWeight
@@ -68,10 +69,17 @@ type TermWeight struct {
 func NewTermWeight(owner *TermQuery, ss *IndexSearcher, termStates index.TermContext) *TermWeight {
 	// assert(termStates != nil)
 	sim := ss.similarity
-	return &TermWeight{owner, sim, sim.computeWeight(
-		owner.boost,
-		ss.CollectionStatistics(owner.term.Field),
-		ss.TermStatistics(owner.term, termStates)), termStates}
+	ans := &TermWeight{
+		TermQuery:  owner,
+		similarity: sim,
+		stats: sim.computeWeight(
+			owner.boost,
+			ss.CollectionStatistics(owner.term.Field),
+			ss.TermStatistics(owner.term, termStates)),
+		termStates: termStates,
+	}
+	ans.WeightImpl = newWeightImpl(ans)
+	return ans
 }
 
 func (tw *TermWeight) String() string {
@@ -91,7 +99,7 @@ func (tw *TermWeight) IsScoresDocsOutOfOrder() bool {
 }
 
 func (tw *TermWeight) Scorer(context *index.AtomicReaderContext,
-	inOrder bool, topScorer bool, acceptDocs util.Bits) (sc Scorer, err error) {
+	acceptDocs util.Bits) (Scorer, error) {
 	assert2(tw.termStates.TopReaderContext == index.TopLevelContext(context),
 		"The top-reader used to create Weight (%v) is not the same as the current reader's top-reader (%v)",
 		tw.termStates.TopReaderContext, index.TopLevelContext(context))
@@ -132,7 +140,7 @@ func (tw *TermWeight) termNotInReader(reader index.IndexReader, term index.Term)
 }
 
 func (tw *TermWeight) Explain(ctx *index.AtomicReaderContext, doc int) (Explanation, error) {
-	scorer, err := tw.Scorer(ctx, true, false, ctx.Reader().(index.AtomicReader).LiveDocs())
+	scorer, err := tw.Scorer(ctx, ctx.Reader().(index.AtomicReader).LiveDocs())
 	if err != nil {
 		return nil, err
 	}

@@ -99,7 +99,7 @@ func (ss *IndexSearcher) SearchLWC(leaves []*index.AtomicReaderContext, w Weight
 		// TODO catch CollectionTerminatedException
 		c.SetNextReader(ctx)
 
-		scorer, err := w.Scorer(ctx, !c.AcceptsDocsOutOfOrder(), true,
+		scorer, err := w.BulkScorer(ctx, !c.AcceptsDocsOutOfOrder(),
 			ctx.Reader().(index.AtomicReader).LiveDocs())
 		if err != nil {
 			return err

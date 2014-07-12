@@ -3,7 +3,7 @@ package search
 import (
 	"fmt"
 	. "github.com/balzaczyy/golucene/core/index/model"
-	. "github.com/balzaczyy/golucene/core/search/model"
+	// . "github.com/balzaczyy/golucene/core/search/model"
 )
 
 // search/Scorer.java
@@ -11,7 +11,7 @@ import (
 type Scorer interface {
 	DocsEnum
 	IScorer
-	ScoreAndCollect(c Collector) error
+	// ScoreAndCollect(c Collector) error
 }
 
 type IScorer interface {
@@ -39,16 +39,16 @@ func newScorer(spi ScorerSPI, w Weight) *abstractScorer {
 /** Scores and collects all matching documents.
  * @param collector The collector to which all matching documents are passed.
  */
-func (s *abstractScorer) ScoreAndCollect(c Collector) (err error) {
-	assert(s.spi.DocId() == -1) // not started
-	c.SetScorer(s.spi.(Scorer))
-	doc, err := s.spi.NextDoc()
-	for doc != NO_MORE_DOCS && err == nil {
-		c.Collect(doc)
-		doc, err = s.spi.NextDoc()
-	}
-	return
-}
+// func (s *abstractScorer) ScoreAndCollect(c Collector) (err error) {
+// 	assert(s.spi.DocId() == -1) // not started
+// 	c.SetScorer(s.spi.(Scorer))
+// 	doc, err := s.spi.NextDoc()
+// 	for doc != NO_MORE_DOCS && err == nil {
+// 		c.Collect(doc)
+// 		doc, err = s.spi.NextDoc()
+// 	}
+// 	return
+// }
 
 func assert(ok bool) {
 	if !ok {
@@ -60,4 +60,17 @@ func assert2(ok bool, msg string, args ...interface{}) {
 	if !ok {
 		panic(fmt.Sprintf(msg, args...))
 	}
+}
+
+// search/BulkScorer.java
+
+/*
+This class is used to score a range of documents at once, and is
+returned by Weight.BulkScorer(). Only queries that have a more
+optimized means of scoring across a range of documents need to
+override this. Otherwise, a default implementation is wrapped around
+the Scorer returned by Weight.Scorer().
+*/
+type BulkScorer interface {
+	ScoreAndCollect(Collector) error
 }
