@@ -2,6 +2,7 @@ package util
 
 import (
 	"math"
+	"strconv"
 )
 
 // util/SmallFloat.java
@@ -20,6 +21,6 @@ func Byte315ToFloat(b byte) float32 {
 	return math.Float32frombits(bits)
 }
 
-func ItoHex(i int) string {
-	panic("not implemented yet")
+func ItoHex(i int64) string {
+	return strconv.FormatInt(i, 16)
 }

@@ -1,8 +1,9 @@
 package store
 
 import (
-// "hash"
-// "hash/crc32"
+	// "hash"
+	// "hash/crc32"
+	"github.com/balzaczyy/golucene/core/util"
 )
 
 // store/ChecksumIndexInput.java
@@ -18,50 +19,17 @@ type ChecksumIndexInput interface {
 
 type ChecksumIndexInputImpl struct {
 	*IndexInputImpl
-	// main   IndexInput
-	// digest hash.Hash32
 }
 
-// func NewChecksumIndexInput(main IndexInput) *ChecksumIndexInput {
-// 	ans := &ChecksumIndexInput{main: main, digest: crc32.NewIEEE()}
-// 	ans.IndexInputImpl = NewIndexInputImpl(fmt.Sprintf("ChecksumIndexInput(%v)", main), ans)
-// 	return ans
-// }
-
-// func (in *ChecksumIndexInput) ReadByte() (b byte, err error) {
-// 	if b, err = in.main.ReadByte(); err == nil {
-// 		in.digest.Write([]byte{b})
-// 	}
-// 	return b, err
-// }
-
-// func (in *ChecksumIndexInput) ReadBytes(buf []byte) error {
-// 	err := in.main.ReadBytes(buf)
-// 	if err == nil {
-// 		in.digest.Write(buf)
-// 	}
-// 	return err
-// }
-
-// func (in *ChecksumIndexInput) Checksum() int64 {
-// 	return int64(in.digest.Sum32())
-// }
-
-// func (in *ChecksumIndexInput) Close() error {
-// 	return in.main.Close()
-// }
-
-// func (in *ChecksumIndexInput) FilePointer() int64 {
-// 	return in.main.FilePointer()
-// }
+func NewChecksumIndexInput(desc string, spi util.DataReader) *ChecksumIndexInputImpl {
+	return &ChecksumIndexInputImpl{
+		NewIndexInputImpl(desc, spi),
+	}
+}
 
 func (in *ChecksumIndexInputImpl) Seek(pos int64) error {
 	panic("not implemented yet")
 }
-
-// func (in *ChecksumIndexInput) Length() int64 {
-// 	return in.main.Length()
-// }
 
 // store/ChecksumIndexOutput.java
 

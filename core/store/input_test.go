@@ -84,7 +84,7 @@ func TestReadBytes(t *testing.T) {
 
 	// run test with chunk size of 10 bytes
 	in, err := newSimpleFSIndexInput(fmt.Sprintf("SimpleFSIndexInput(path='%v')", tmpInputFile), tmpInputFile.Name(),
-		newTestIOContext(random()), 10)
+		newTestIOContext(random()))
 	if err != nil {
 		t.Error(err)
 	}
@@ -244,6 +244,10 @@ func (in *MyBufferedIndexInput) Close() error {
 
 func (in *MyBufferedIndexInput) Length() int64 {
 	return in.length
+}
+
+func (in *MyBufferedIndexInput) Slice(desc string, offset, length int64) (IndexInput, error) {
+	panic("not supported")
 }
 
 func (in *MyBufferedIndexInput) Clone() IndexInput {

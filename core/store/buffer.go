@@ -17,7 +17,7 @@ const MIN_BUFFER_SIZE = 8
 /* Base implementation class for buffered IndexInput. */
 type BufferedIndexInput struct {
 	*IndexInputImpl
-	SeekReader
+	spi            SeekReader
 	bufferSize     int
 	buffer         []byte
 	bufferStart    int64
@@ -31,8 +31,7 @@ func newBufferedIndexInput(spi SeekReader, desc string, context IOContext) *Buff
 
 func newBufferedIndexInputBySize(spi SeekReader, desc string, bufferSize int) *BufferedIndexInput {
 	checkBufferSize(bufferSize)
-	ans := &BufferedIndexInput{bufferSize: bufferSize}
-	ans.SeekReader = spi
+	ans := &BufferedIndexInput{spi: spi, bufferSize: bufferSize}
 	ans.IndexInputImpl = NewIndexInputImpl(desc, ans)
 	return ans
 }
@@ -105,10 +104,10 @@ func (in *BufferedIndexInput) ReadBytesBuffered(buf []byte, useBuffer bool) erro
 			// had in the buffer.
 			length := len(buf)
 			after := in.bufferStart + int64(in.bufferPosition) + int64(length)
-			if after > in.Length() {
+			if after > in.spi.Length() {
 				return errors.New(fmt.Sprintf("read past EOF: %v", in))
 			}
-			if err := in.readInternal(buf); err != nil {
+			if err := in.spi.readInternal(buf); err != nil {
 				return err
 			}
 			in.bufferStart = after
@@ -253,7 +252,7 @@ func (in *BufferedIndexInput) ReadVLong() (n int64, err error) {
 func (in *BufferedIndexInput) refill() error {
 	start := in.bufferStart + int64(in.bufferPosition)
 	end := start + int64(in.bufferSize)
-	if n := in.Length(); end > n { // don't read past EOF
+	if n := in.spi.Length(); end > n { // don't read past EOF
 		end = n
 	}
 	newLength := int(end - start)
@@ -263,9 +262,9 @@ func (in *BufferedIndexInput) refill() error {
 
 	if in.buffer == nil {
 		in.newBuffer(make([]byte, in.bufferSize)) // allocate buffer lazily
-		in.seekInternal(int64(in.bufferStart))
+		in.spi.seekInternal(int64(in.bufferStart))
 	}
-	in.readInternal(in.buffer[0:newLength])
+	in.spi.readInternal(in.buffer[0:newLength])
 	in.bufferLength = newLength
 	in.bufferStart = start
 	in.bufferPosition = 0
@@ -284,7 +283,7 @@ func (in *BufferedIndexInput) Seek(pos int64) error {
 		in.bufferStart = pos
 		in.bufferPosition = 0
 		in.bufferLength = 0 // trigger refill() on read()
-		return in.seekInternal(pos)
+		return in.spi.seekInternal(pos)
 	}
 }
 

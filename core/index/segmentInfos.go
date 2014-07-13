@@ -18,25 +18,24 @@ func message(format string, args ...interface{}) {
 
 type FindSegmentsFile struct {
 	directory                store.Directory
-	doBody                   func(segmentFileName string) (obj interface{}, err error)
+	doBody                   func(segmentFileName string) (interface{}, error)
 	defaultGenLookaheadCount int
 }
 
 func NewFindSegmentsFile(directory store.Directory,
-	doBody func(segmentFileName string) (obj interface{}, err error)) *FindSegmentsFile {
+	doBody func(segmentFileName string) (interface{}, error)) *FindSegmentsFile {
 	return &FindSegmentsFile{directory, doBody, 10}
 }
 
 // TODO support IndexCommit
-func (fsf *FindSegmentsFile) run(commit IndexCommit) (obj interface{}, err error) {
-	panic("not implemented yet")
+func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
 	fmt.Println("Finding segments file...")
-	// if commit != nil {
-	// 	if fsf.directory != commit.Directory {
-	// 		return nil, errors.New("the specified commit does not match the specified Directory")
-	// 	}
-	// 	return fsf.doBody(commit.SegmentsFileName)
-	// }
+	if commit != nil {
+		if fsf.directory != commit.Directory {
+			return nil, errors.New("the specified commit does not match the specified Directory")
+		}
+		return fsf.doBody(commit.SegmentsFileName)
+	}
 
 	lastGen := int64(-1)
 	gen := int64(0)
@@ -96,26 +95,33 @@ func (fsf *FindSegmentsFile) run(commit IndexCommit) (obj interface{}, err error
 				defer genInput.Close()
 				fmt.Println("Reading segments info...")
 
-				version, err := genInput.ReadInt()
-				if err != nil {
+				var version int
+				if version, err = genInput.ReadInt(); err != nil {
 					return nil, err
 				}
 				fmt.Printf("Version: %v\n", version)
-				if version == FORMAT_SEGMENTS_GEN_CURRENT {
+				if version == FORMAT_SEGMENTS_GEN_47 || version == FORMAT_SEGMENTS_GEN_CURRENT {
 					fmt.Println("Version is current.")
-					gen0, err := genInput.ReadLong()
-					if err != nil {
+					var gen0, gen1 int64
+					if gen0, err = genInput.ReadLong(); err != nil {
 						return nil, err
 					}
-					gen1, err := genInput.ReadLong()
-					if err != nil {
+					if gen1, err = genInput.ReadLong(); err != nil {
 						return nil, err
-					} else {
-						message("fallback check: %v; %v", gen0, gen1)
-						if gen0 == gen1 {
-							// The file is consistent.
-							genB = gen0
+					}
+					message("fallback check: %v; %v", gen0, gen1)
+					if version == FORMAT_SEGMENTS_GEN_CHECKSUM {
+						if err = codec.CheckFooter(genInput); err != nil {
+							return nil, err
 						}
+					} else {
+						if err = codec.CheckEOF(genInput); err != nil {
+							return nil, err
+						}
+					}
+					if gen0 == gen1 {
+						// The file is consistent.
+						genB = gen0
 					}
 				} else {
 					return nil, codec.NewIndexFormatTooNewError(genInput, version,
@@ -170,38 +176,36 @@ func (fsf *FindSegmentsFile) run(commit IndexCommit) (obj interface{}, err error
 		segmentFileName := util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", gen)
 		fmt.Printf("SegmentFileName: %v\n", segmentFileName)
 
-		v, err := fsf.doBody(segmentFileName)
-		if err != nil {
-			// Save the original root cause:
-			if exc == nil {
-				exc = err
-			}
-
-			message("primary Exception on '%v': %v; will retry: retryCount = %v; gen = %v",
-				segmentFileName, err, retryCount, gen)
-
-			if gen > 1 && useFirstMethod && retryCount == 1 {
-				// This is our second time trying this same segments
-				// file (because retryCount is 1), and, there is
-				// possibly a segments_(N-1) (because gen > 1).
-				// So, check if the segments_(N-1) exists and
-				// try it if so:
-				prevSegmentFileName := util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", gen-1)
-
-				if prevExists := fsf.directory.FileExists(prevSegmentFileName); prevExists {
-					message("fallback to prior segment file '%v'", prevSegmentFileName)
-					v, err = fsf.doBody(prevSegmentFileName)
-					if err != nil {
-						message("secondary Exception on '%v': %v; will retry", prevSegmentFileName, err)
-					} else {
-						message("success on fallback %v", prevSegmentFileName)
-						return v, nil
-					}
-				}
-			}
-		} else {
+		var v interface{}
+		if v, err = fsf.doBody(segmentFileName); err == nil {
 			message("success on %v", segmentFileName)
 			return v, nil
+		}
+		// Save the original root cause:
+		if exc == nil {
+			exc = err
+		}
+
+		message("primary Exception on '%v': %v; will retry: retryCount = %v; gen = %v",
+			segmentFileName, err, retryCount, gen)
+
+		if gen > 1 && useFirstMethod && retryCount == 1 {
+			// This is our second time trying this same segments
+			// file (because retryCount is 1), and, there is
+			// possibly a segments_(N-1) (because gen > 1).
+			// So, check if the segments_(N-1) exists and
+			// try it if so:
+			prevSegmentFileName := util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", gen-1)
+
+			if prevExists := fsf.directory.FileExists(prevSegmentFileName); prevExists {
+				message("fallback to prior segment file '%v'", prevSegmentFileName)
+				if v, err = fsf.doBody(prevSegmentFileName); err != nil {
+					message("secondary Exception on '%v': %v; will retry", prevSegmentFileName, err)
+				} else {
+					message("success on fallback %v", prevSegmentFileName)
+					return v, nil
+				}
+			}
 		}
 	}
 }

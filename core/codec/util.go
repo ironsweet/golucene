@@ -140,11 +140,19 @@ func CheckFooter(in ChecksumIndexInput) (int64, error) {
 	panic("not implemented yet")
 }
 
-type IndexInput interface{}
+type IndexInput interface {
+	FilePointer() int64
+	Length() int64
+}
 
 /* Checks that the stream is positioned at the end, and returns error if it is not. */
 func CheckEOF(in IndexInput) error {
-	panic("not implementd yet")
+	if in.FilePointer() != in.Length() {
+		return errors.New(fmt.Sprintf(
+			"did not read all bytes from file: read %v vs size %v (resources: %v)",
+			in.FilePointer(), in.Length(), in))
+	}
+	return nil
 }
 
 /*

@@ -272,7 +272,11 @@ func NewDirectoryImpl(spi DirectoryImplSPI) *DirectoryImpl {
 }
 
 func (d *DirectoryImpl) OpenChecksumInput(name string, ctx IOContext) (ChecksumIndexInput, error) {
-	panic("not implemented yet")
+	in, err := d.spi.OpenInput(name, ctx)
+	if err != nil {
+		return nil, err
+	}
+	return newBufferedChecksumIndexInput(in), nil
 }
 
 /*

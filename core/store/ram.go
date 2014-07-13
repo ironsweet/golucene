@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 	"hash"
-	// "hash/crc32"
+	"hash/crc32"
 	"math"
 	"os"
 	"sync"
@@ -54,7 +54,7 @@ func NewRAMDirectory() *RAMDirectory {
 }
 
 func (d *RAMDirectory) LockID() string {
-	return fmt.Sprintf("lucene-%v", util.ItoHex(int(uintptr(unsafe.Pointer(&d)))))
+	return fmt.Sprintf("lucene-%v", util.ItoHex(int64(uintptr(unsafe.Pointer(&d)))))
 }
 
 func (rd *RAMDirectory) ListAll() (names []string, err error) {
@@ -496,7 +496,7 @@ func NewRAMOutputStream(f *RAMFile, checksum bool) *RAMOutputStream {
 	out := &RAMOutputStream{file: f, currentBufferIndex: -1}
 	out.IndexOutputImpl = NewIndexOutput(out)
 	if checksum {
-		panic("not implemented yet")
+		out.crc = newBufferedChecksum(crc32.NewIEEE())
 	}
 	return out
 }

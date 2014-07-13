@@ -17,7 +17,7 @@ func TestByteCount(t *testing.T) {
 		for j := 0; j <= 1; j++ {
 			format := PackedFormat(j)
 			for bpv := uint32(1); bpv <= 64; bpv++ {
-				byteCount := format.ByteCount(PACKED_VERSION_CURRENT, valueCount, bpv)
+				byteCount := format.ByteCount(VERSION_CURRENT, valueCount, bpv)
 				msg := fmt.Sprintf("format=%v, byteCount=%v, valueCount=%v, bpv=%v", format, byteCount, valueCount, bpv)
 				if byteCount*8 < int64(valueCount)*int64(bpv) {
 					t.Errorf(msg)

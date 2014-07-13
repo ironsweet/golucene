@@ -3,7 +3,6 @@ package store
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -44,7 +43,7 @@ func (lock *SimpleFSLock) Obtain() (ok bool, err error) {
 	}
 	var f *os.File
 	if f, err = os.Create(lock.file); err == nil {
-		log.Printf("File '%v' is created.", f.Name())
+		fmt.Printf("File '%v' is created.\n", f.Name())
 		ok = true
 		defer f.Close()
 	}
@@ -122,14 +121,11 @@ func NewSimpleFSDirectory(path string) (d *SimpleFSDirectory, err error) {
 	return
 }
 
-func (d *SimpleFSDirectory) OpenInput(name string, context IOContext) (in IndexInput, err error) {
+func (d *SimpleFSDirectory) OpenInput(name string, context IOContext) (IndexInput, error) {
 	d.EnsureOpen()
 	fpath := filepath.Join(d.path, name)
-	log.Printf("Opening %v...", fpath)
-	panic("not implemented yet")
-	sin, err := newSimpleFSIndexInput(fmt.Sprintf("SimpleFSIndexInput(path='%v')", fpath),
-		fpath, context, d.chunkSize)
-	return sin, err
+	fmt.Printf("Opening %v...\n", fpath)
+	return newSimpleFSIndexInput(fmt.Sprintf("SimpleFSIndexInput(path='%v')", fpath), fpath, context)
 }
 
 // func (d *SimpleFSDirectory) CreateSlicer(name string, ctx IOContext) (slicer IndexInputSlicer, err error) {
@@ -190,46 +186,62 @@ type SimpleFSIndexInput struct {
 	end int64
 }
 
-func newSimpleFSIndexInput(desc, path string, context IOContext, chunkSize int) (in *SimpleFSIndexInput, err error) {
-	panic("not implemented yet")
-	// super, err := newFSIndexInput(desc, path, context, chunkSize)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// in = &SimpleFSIndexInput{super, &sync.Mutex{}}
-	// in.SeekReader = in
-	// return in, nil
+func newSimpleFSIndexInput(desc, path string, ctx IOContext) (*SimpleFSIndexInput, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	fstat, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	ans := new(SimpleFSIndexInput)
+	ans.BufferedIndexInput = newBufferedIndexInput(ans, desc, ctx)
+	ans.file = f
+	ans.off = 0
+	ans.end = fstat.Size()
+	ans.fileLock = &sync.Mutex{}
+	return ans, nil
 }
 
-func newSimpleFSIndexInputFromFileSlice(desc string, file *os.File, off, length int64, bufferSize, chunkSize int) *SimpleFSIndexInput {
-	panic("not implemented yet")
-	// super := newFSIndexInputFromFileSlice(desc, file, off, length, bufferSize, chunkSize)
-	// ans := &SimpleFSIndexInput{super, &sync.Mutex{}}
-	// ans.SeekReader = ans
-	// return ans
+func newSimpleFSIndexInputFromFileSlice(desc string, file *os.File, off, length int64, bufferSize int) *SimpleFSIndexInput {
+	ans := new(SimpleFSIndexInput)
+	ans.BufferedIndexInput = newBufferedIndexInputBySize(ans, desc, bufferSize)
+	ans.file = file
+	ans.off = off
+	ans.end = off + length
+	ans.isClone = true
+	return ans
 }
 
 func (in *SimpleFSIndexInput) Close() error {
-	panic("not implemented yet")
-	// if in == nil {
-	// 	return nil
-	// }
-	// return in.FSIndexInput.Close()
+	if !in.isClone {
+		return in.file.Close()
+	}
+	return nil
 }
 
 func (in *SimpleFSIndexInput) Clone() IndexInput {
-	panic("not implemented yet")
-	// ans := &SimpleFSIndexInput{in.FSIndexInput.Clone().(*FSIndexInput), &sync.Mutex{}}
-	// ans.SeekReader = ans
-	// return ans
+	ans := &SimpleFSIndexInput{
+		in.BufferedIndexInput.Clone(),
+		in.fileLock,
+		in.file,
+		true,
+		in.off,
+		in.end,
+	}
+	ans.spi = ans
+	return ans
 }
 
 func (in *SimpleFSIndexInput) Slice(desc string, offset, length int64) (IndexInput, error) {
-	panic("not implemented yet")
+	ans := newSimpleFSIndexInputFromFileSlice(desc, in.file, in.off+offset, length, in.bufferSize)
+	ans.fileLock = in.fileLock // share same file lock
+	return ans, nil
 }
 
 func (in *SimpleFSIndexInput) Length() int64 {
-	panic("not implemented yet")
+	return in.end - in.off
 }
 
 func (in *SimpleFSIndexInput) readInternal(buf []byte) error {
@@ -267,10 +279,4 @@ func (in *SimpleFSIndexInput) readInternal(buf []byte) error {
 	return nil
 }
 
-// func (in *SimpleFSIndexInput) seekInternal(pos int64) error {
-// 	return nil // nothing
-// }
-
-// func (in *SimpleFSIndexInput) String() string {
-// 	return in.desc
-// }
+func (in *SimpleFSIndexInput) seekInternal(pos int64) error { return nil }

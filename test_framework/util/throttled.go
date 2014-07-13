@@ -58,11 +58,6 @@ func MBitsToBytes(mBits int) int {
 	return mBits * 125000
 }
 
-func (out *ThrottledIndexOutput) Flush() error {
-	<-time.After(time.Duration(out.closeDelayMillis + out.delay(true)))
-	return out.delegate.Flush()
-}
-
 func (out *ThrottledIndexOutput) Close() error {
 	<-time.After(time.Duration(out.closeDelayMillis + out.delay(true)))
 	return out.delegate.Close()
@@ -70,10 +65,6 @@ func (out *ThrottledIndexOutput) Close() error {
 
 func (out *ThrottledIndexOutput) FilePointer() int64 {
 	return out.delegate.FilePointer()
-}
-
-func (out *ThrottledIndexOutput) Length() (int64, error) {
-	return out.delegate.Length()
 }
 
 func (out *ThrottledIndexOutput) WriteByte(b byte) error {
