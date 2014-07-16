@@ -22,8 +22,15 @@ and allocates separate byte streams per token. Consumers of this
 class, eg FreqProxTermsWriter and TermVectorsConsumer, write their
 own byte streams under each term.
 */
-type TermsHash struct {
-	nextTermsHash *TermsHash
+type TermsHash interface {
+	startDocument()
+	finishDocument() error
+	abort()
+	setTermBytePool(*util.ByteBlockPool)
+}
+
+type TermsHashImpl struct {
+	nextTermsHash TermsHash
 
 	intPool      *util.IntBlockPool
 	bytePool     *util.ByteBlockPool
@@ -36,9 +43,9 @@ type TermsHash struct {
 }
 
 func newTermsHash(docWriter *DocumentsWriterPerThread,
-	trackAllocations bool, nextTermsHash *TermsHash) *TermsHash {
+	trackAllocations bool, nextTermsHash TermsHash) *TermsHashImpl {
 
-	ans := &TermsHash{
+	ans := &TermsHashImpl{
 		docState:         docWriter.docState,
 		trackAllocations: trackAllocations,
 		nextTermsHash:    nextTermsHash,
@@ -52,12 +59,16 @@ func newTermsHash(docWriter *DocumentsWriterPerThread,
 	}
 	if nextTermsHash != nil {
 		ans.termBytePool = ans.bytePool
-		nextTermsHash.termBytePool = ans.bytePool
+		nextTermsHash.setTermBytePool(ans.bytePool)
 	}
 	return ans
 }
 
-func (hash *TermsHash) abort() {
+func (hash *TermsHashImpl) setTermBytePool(p *util.ByteBlockPool) {
+	hash.termBytePool = p
+}
+
+func (hash *TermsHashImpl) abort() {
 	defer func() {
 		if hash.nextTermsHash != nil {
 			hash.nextTermsHash.abort()
@@ -67,13 +78,13 @@ func (hash *TermsHash) abort() {
 }
 
 /* Clear all state */
-func (hash *TermsHash) reset() {
+func (hash *TermsHashImpl) reset() {
 	// we don't reuse so we drop everything and don't fill with 0
 	hash.intPool.Reset(false, false)
 	hash.bytePool.Reset(false, false)
 }
 
-func (hash *TermsHash) flush(fieldsToFlush map[string]*TermsHashPerField,
+func (hash *TermsHashImpl) flush(fieldsToFlush map[string]*TermsHashPerField,
 	state *model.SegmentWriteState) error {
 	panic("not implemented yet")
 	// childFields := make(map[string]TermsHashConsumerPerField)
@@ -102,14 +113,14 @@ func (hash *TermsHash) flush(fieldsToFlush map[string]*TermsHashPerField,
 // 	return newTermsHashPerField(docInverterPerField, h, h.nextTermsHash, fieldInfo)
 // }
 
-func (h *TermsHash) finishDocument() error {
+func (h *TermsHashImpl) finishDocument() error {
 	if h.nextTermsHash != nil {
 		return h.nextTermsHash.finishDocument()
 	}
 	return nil
 }
 
-func (h *TermsHash) startDocument() {
+func (h *TermsHashImpl) startDocument() {
 	if h.nextTermsHash != nil {
 		h.nextTermsHash.startDocument()
 	}

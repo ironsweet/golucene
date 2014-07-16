@@ -31,10 +31,10 @@ func NewFindSegmentsFile(directory store.Directory,
 func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
 	fmt.Println("Finding segments file...")
 	if commit != nil {
-		if fsf.directory != commit.Directory {
+		if fsf.directory != commit.Directory() {
 			return nil, errors.New("the specified commit does not match the specified Directory")
 		}
-		return fsf.doBody(commit.SegmentsFileName)
+		return fsf.doBody(commit.SegmentsFileName())
 	}
 
 	lastGen := int64(-1)
@@ -95,7 +95,7 @@ func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
 				defer genInput.Close()
 				fmt.Println("Reading segments info...")
 
-				var version int
+				var version int32
 				if version, err = genInput.ReadInt(); err != nil {
 					return nil, err
 				}
@@ -111,7 +111,7 @@ func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
 					}
 					message("fallback check: %v; %v", gen0, gen1)
 					if version == FORMAT_SEGMENTS_GEN_CHECKSUM {
-						if err = codec.CheckFooter(genInput); err != nil {
+						if _, err = codec.CheckFooter(genInput); err != nil {
 							return nil, err
 						}
 					} else {
@@ -177,6 +177,7 @@ func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
 		fmt.Printf("SegmentFileName: %v\n", segmentFileName)
 
 		var v interface{}
+		var err error
 		if v, err = fsf.doBody(segmentFileName); err == nil {
 			message("success on %v", segmentFileName)
 			return v, nil
@@ -213,8 +214,13 @@ func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
 // index/SegmentInfos.java
 
 const (
-	VERSION_40                   = 0
+	VERSION_40 = 0
+
+	// Used for the segments.gen file only!
+	// Whenver you add a new format, make it 1 smaller (negative version logic)!
+	FORMAT_SEGMENTS_GEN_47       = -2
 	FORMAT_SEGMENTS_GEN_CHECKSUM = -3
+	FORMAT_SEGMENTS_GEN_START    = FORMAT_SEGMENTS_GEN_47
 	// Current format of segments.gen
 	FORMAT_SEGMENTS_GEN_CURRENT = FORMAT_SEGMENTS_GEN_CHECKSUM
 )

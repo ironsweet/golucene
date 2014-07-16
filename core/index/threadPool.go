@@ -100,25 +100,24 @@ func (tp *DocumentsWriterPerThreadPool) reset(threadState *ThreadState, closed b
 
 /*
 It's unfortunately that Go doesn't support 'Thread Affinity'. Default
-strategy is FIFO.
+strategy is LIFO.
 */
-func (tp *DocumentsWriterPerThreadPool) lockAny() *ThreadState {
-	panic("not implemented yet")
-	res := tp.findNextAvailableThreadState()
-	if res == nil {
-		res = tp.newThreadState()
-		if res == nil {
-			// Wait for thread state released by others
-			tp.hasMoreStates.L.Lock()
-			defer tp.hasMoreStates.L.Unlock()
+func (tp *DocumentsWriterPerThreadPool) lockAny() (res *ThreadState) {
+	for res == nil {
+		if res = tp.findNextAvailableThreadState(); res == nil {
+			// ThreadState is already locked before return by this method:
+			if res = tp.newThreadState(); res == nil {
+				// Wait until a thread state freez up:
+				func() {
+					tp.hasMoreStates.L.Lock()
+					defer tp.hasMoreStates.L.Unlock()
 
-			for res == nil {
-				tp.hasMoreStates.Wait()
-				res = tp.findNextAvailableThreadState()
+					tp.hasMoreStates.Wait()
+				}()
 			}
 		}
 	}
-	return res
+	return
 }
 
 func (tp *DocumentsWriterPerThreadPool) lock(id int, wait bool) *ThreadState {
@@ -152,10 +151,32 @@ func (tp *DocumentsWriterPerThreadPool) findNextAvailableThreadState() *ThreadSt
 	defer tp.Unlock()
 
 	if tp.freeList.Len() > 0 {
-		e := tp.lockedList.Front()
-		tp.lockedList.Remove(e)
+		// Important that we are LIFO here! This way if number of
+		// concurrent indexing threads was once high, but has now
+		// reduced, we only use a limited number of thread states:
+		e := tp.freeList.Back()
 		id := e.Value.(int)
-		tp.freeList.PushBack(id)
+		tp.freeList.Remove(e)
+
+		if tp.threadStates[id].dwpt == nil {
+			// This thread-state is not initialized, e.g. it was just
+			// flushed. See if we can instead find another free thread
+			// state that already has docs indexed. This way if incoming
+			// thread concurrentcy has decreased, we don't leave docs
+			// indefinitely buffered, tying up RAM. This will instead get
+			// thread states flushed, freein up RAM for larger segment
+			// flushes:
+			for e = tp.freeList.Front(); e != nil; e = e.Next() {
+				if id2 := e.Value.(int); tp.threadStates[id2].dwpt != nil {
+					// Use this one instead, and swap it with the
+					// un-initialized one:
+					tp.freeList.PushFront(id)
+					id = id2
+					tp.freeList.Remove(e)
+					break
+				}
+			}
+		}
 		return tp.threadStates[id]
 	}
 	return nil
@@ -167,19 +188,17 @@ nil.
 
 NOTE: the returned ThreadState is already locked iff non-nil.
 */
-func (tp *DocumentsWriterPerThreadPool) newThreadState() *ThreadState {
-	panic("not implemented yet")
+func (tp *DocumentsWriterPerThreadPool) newThreadState() (ts *ThreadState) {
 	tp.Lock()
 	defer tp.Unlock()
 
 	// Create a new empty thread state if possible
 	if len(tp.threadStates) < cap(tp.threadStates) {
-		ts := newThreadState(len(tp.threadStates))
+		ts = newThreadState(len(tp.threadStates))
 		tp.threadStates = append(tp.threadStates, ts)
 		tp.lockedList.PushBack(ts.id)
-		return ts
 	}
-	return nil
+	return
 }
 
 func (tp *DocumentsWriterPerThreadPool) foreach(f func(state *ThreadState)) {

@@ -20,22 +20,23 @@ import (
 // index/TermVectorsConsumer.java
 
 type TermVectorsConsumer struct {
+	*TermsHashImpl
+
 	writer TermVectorsWriter
+
+	docWriter *DocumentsWriterPerThread
 
 	hasVectors       bool
 	numVectorsFields int
 	lastDocId        int
 	perFields        []*TermVectorsConsumerPerField
-
-	lastVectorFieldName string
 }
 
 func newTermVectorsConsumer(docWriter *DocumentsWriterPerThread) *TermVectorsConsumer {
-	panic("not implemneted yet")
-	// return &TermVectorsConsumer{
-	// 	docWriter: docWriter,
-	// 	docState:  docWriter.docState,
-	// }
+	return &TermVectorsConsumer{
+		TermsHashImpl: newTermsHash(docWriter, false, nil),
+		docWriter:     docWriter,
+	}
 }
 
 func (tvc *TermVectorsConsumer) flush(fieldsToFlush map[string]TermsHashPerField,
@@ -176,12 +177,14 @@ func (c *TermVectorsConsumer) startDocument() {
 // index/FreqProxTermsWriter.java
 
 type FreqProxTermsWriter struct {
+	*TermsHashImpl
 }
 
-// TODO: would be nice to factor out more of this, e.g. the
-// FreqProxFieldMergeState, and code to visit all Fields under the
-// same FieldInfo together, up into TermsHash*. Other writers would
-// presumably share a lot of this...
+func newFreqProxTermsWriter(docWriter *DocumentsWriterPerThread, termVectors TermsHash) *FreqProxTermsWriter {
+	return &FreqProxTermsWriter{
+		newTermsHash(docWriter, true, termVectors),
+	}
+}
 
 func (w *FreqProxTermsWriter) flush(fieldsToFlush map[string]TermsHashPerField,
 	state *model.SegmentWriteState) (err error) {

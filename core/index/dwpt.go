@@ -18,42 +18,8 @@ const DWPT_VERBOSE = true
 // process the documents.
 type IndexingChain func(documentsWriterPerThread *DocumentsWriterPerThread) DocConsumer
 
-var defaultIndexingChain = func(documentsWriterPerThread *DocumentsWriterPerThread) DocConsumer {
-	panic("not implemented yet")
-	/*
-	   This is the current indexing chain:
-
-	   DocConsumer / DocConsumerPerThread
-	     --> code: DocFieldProcessor
-	       --> DocFieldConsumer / DocFieldConsumerPerField
-	         --> code: DocFieldConsumers / DocFieldConsumersPerField
-	           --> code: DocInverter / DocInverterPerField
-	             --> InvertedDocConsumer / InvertedDocConsumerPerField
-	               --> code: TermsHash / TermsHashPerField
-	                 --> TermsHashConsumer / TermsHashConsumerPerField
-	                   --> code: FreqProxTermsWriter / FreqProxTermsWriterPerField
-	                   --> code: TermVectorsTermsWriter / TermVectorsTermsWriterPerField
-	             --> InvertedDocEndConsumer / InvertedDocConsumerPerField
-	               --> code: NormsConsumer / NormsConsumerPerField
-	       --> StoredFieldsConsumer
-	         --> TwoStoredFieldConsumers
-	           -> code: StoredFieldsProcessor
-	           -> code: DocValuesProcessor
-	*/
-
-	// Build up indexing chain:
-
-	// termVectorsWriter := newTermVectorsConsumer(documentsWriterPerThread)
-	// freqProxWriter := new(FreqProxTermsWriter)
-
-	// termsHash := newTermsHash(documentsWriterPerThread, freqProxWriter, true,
-	// 	newTermsHash(documentsWriterPerThread, termVectorsWriter, false, nil))
-	// normsWriter := new(NormsConsumer)
-	// docInverter := newDocInverter(documentsWriterPerThread.docState, termsHash, normsWriter)
-	// storedFields := newTwoStoredFieldsConsumers(
-	// 	newStoredFieldsProcessor(documentsWriterPerThread),
-	// 	newDocValuesProcessor(documentsWriterPerThread._bytesUsed))
-	// return newDocFieldProcessor(documentsWriterPerThread, docInverter, storedFields)
+var defaultIndexingChain = func(dwpt *DocumentsWriterPerThread) DocConsumer {
+	return newDefaultIndexingChain(dwpt)
 }
 
 type docState struct {
@@ -215,42 +181,28 @@ func (dwpt *DocumentsWriterPerThread) updateDocument(doc []IndexableField,
 		dwpt.infoStream.Message("DWPT", "update delTerm=%v docID=%v seg=%v ",
 			delTerm, dwpt.docState.docID, dwpt.segmentInfo.Name)
 	}
-	panic("not implemented yet")
-	// err := func() error {
-	// 	var success = false
-	// 	defer func() {
-	// 		if !success {
-	// 			if !dwpt.aborting {
-	// 				// mark document as deleted
-	// 				dwpt.deleteDocID(dwpt.docState.docID)
-	// 				dwpt.numDocsInRAM++
-	// 			} else {
-	// 				dwpt.abort(dwpt.filesToDelete)
-	// 			}
-	// 		}
-	// 	}()
-	// 	defer dwpt.docState.clear()
-	// 	err := dwpt.consumer.processDocument()
-	// 	success = err == nil
-	// 	return err
-	// }()
-	// if err != nil {
-	// 	return err
-	// }
-	// err = func() error {
-	// 	var success = false
-	// 	defer func() {
-	// 		if !success {
-	// 			dwpt.abort(dwpt.filesToDelete)
-	// 		}
-	// 	}()
-	// 	err := dwpt.consumer.finishDocument()
-	// 	success = err == nil
-	// 	return err
-	// }()
-	// if err != nil {
-	// 	return err
-	// }
+	if err := func() error {
+		var success = false
+		defer func() {
+			if !success {
+				if !dwpt.aborting {
+					// mark document as deleted
+					dwpt.deleteDocID(dwpt.docState.docID)
+					dwpt.numDocsInRAM++
+				} else {
+					dwpt.abort(dwpt.filesToDelete)
+				}
+			}
+		}()
+		defer dwpt.docState.clear()
+		if err := dwpt.consumer.processDocument(); err != nil {
+			return err
+		}
+		success = true
+		return nil
+	}(); err != nil {
+		return err
+	}
 	dwpt.finishDocument(delTerm)
 	return nil
 }

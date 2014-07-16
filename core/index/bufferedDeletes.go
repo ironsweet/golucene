@@ -32,9 +32,10 @@ DocumentsWriterDeleteQueue
 */
 type BufferedUpdates struct {
 	numTermDeletes int32 // atomic
-	terms          map[*Term]int
-	queries        map[interface{}]int
-	docIDs         []int
+
+	terms   map[*Term]int
+	queries map[interface{}]int
+	docIDs  []int
 
 	numericUpdates map[string]map[*Term]*DocValuesUpdate
 
@@ -46,11 +47,12 @@ type BufferedUpdates struct {
 }
 
 func newBufferedUpdates() *BufferedUpdates {
-	panic("not implemented yet")
-	// return &BufferedUpdates{
-	// 	terms:   make(map[*Term]int),
-	// 	queries: make(map[interface{}]int),
-	// }
+	return &BufferedUpdates{
+		terms:          make(map[*Term]int),
+		queries:        make(map[interface{}]int),
+		numericUpdates: make(map[string]map[*Term]*DocValuesUpdate),
+		binaryUpdates:  make(map[string]map[*Term]*DocValuesUpdate),
+	}
 }
 
 func (bd *BufferedUpdates) String() string {

@@ -41,7 +41,7 @@ type TermsHashPerFieldSPI interface {
 type TermsHashPerFieldImpl struct {
 	spi TermsHashPerFieldSPI
 
-	termsHash *TermsHash
+	termsHash *TermsHashImpl
 
 	nextPerField TermsHashPerField
 	docState     *docState
@@ -71,7 +71,7 @@ type TermsHashPerFieldImpl struct {
 }
 
 func newTermsHashPerField(streamCount int, fieldState *FieldInvertState,
-	termsHash *TermsHash, nextTermsHash TermsHashPerField,
+	termsHash *TermsHashImpl, nextTermsHash TermsHashPerField,
 	fieldInfo *model.FieldInfo) *TermsHashPerFieldImpl {
 	panic("not implemented yet")
 

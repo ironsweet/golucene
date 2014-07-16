@@ -11,18 +11,17 @@ import (
 A delegating Directory that records which files were written to and deleted.
 */
 type TrackingDirectoryWrapper struct {
-	sync.Locker
 	Directory
+	sync.Locker
 	createdFilenames map[string]bool // synchronized
 }
 
 func NewTrackingDirectoryWrapper(other Directory) *TrackingDirectoryWrapper {
-	panic("not implemented yet")
-	// return &TrackingDirectoryWrapper{
-	// 	Locker:           &sync.Mutex{},
-	// 	Directory:        other,
-	// 	createdFilenames: make(map[string]bool),
-	// }
+	return &TrackingDirectoryWrapper{
+		Directory:        other,
+		Locker:           &sync.Mutex{},
+		createdFilenames: make(map[string]bool),
+	}
 }
 
 func (w *TrackingDirectoryWrapper) DeleteFile(name string) error {
