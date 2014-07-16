@@ -164,9 +164,8 @@ func (c *TermVectorsConsumer) addFieldToFlush(fieldToFlush *TermVectorsConsumerP
 }
 
 func (c *TermVectorsConsumer) startDocument() {
-	panic("not implemented yet")
-	// assert(c.clearLastVectorFieldName())
-	// c.reset()
+	c.resetFields()
+	c.numVectorsFields = 0
 }
 
 // func (c *TermVectorsConsumer) clearLastVectorFieldName() bool {
