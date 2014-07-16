@@ -20,6 +20,8 @@ type DefaultIndexingChain struct {
 	storedFieldsWriter StoredFieldsWriter // lazy init
 	lastStoredDocId    int
 
+	fieldHash []*PerField
+
 	nextFieldGen int64
 
 	// Holds fields seen in each document
@@ -66,7 +68,17 @@ func (c *DefaultIndexingChain) fillStoredFields(docId int) (err error) {
 }
 
 func (c *DefaultIndexingChain) abort() {
-	panic("not implemented yet")
+	// E.g. close any open files in the stored fields writer:
+	if c.storedFieldsWriter != nil {
+		c.storedFieldsWriter.Abort() // ignore error
+	}
+
+	// E.g. close any open files in the term vectors writer:
+	c.termsHash.abort()
+
+	for i, _ := range c.fieldHash {
+		c.fieldHash[i] = nil
+	}
 }
 
 /* Calls StoredFieldsWriter.startDocument, aborting the segment if it hits any error. */
