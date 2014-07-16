@@ -37,10 +37,11 @@ type DocumentsWriterFlushControl struct {
 	flushingWriters map[*DocumentsWriterPerThread]int64
 
 	maxConfiguredRamBuffer float64
-	peakActiveBytes        int64
-	peakFlushBytes         int64
-	peakNetBytes           int64
-	peakDelta              int64
+	peakActiveBytes        int64 // assert only
+	peakFlushBytes         int64 // assert only
+	peakNetBytes           int64 // assert only
+	peakDelta              int64 // assert only
+	flushByRAMWasDisabled  bool  // assert only
 
 	*DocumentsWriterStallControl // mixin
 
@@ -102,9 +103,9 @@ func (fc *DocumentsWriterFlushControl) _netBytes() int64 {
 }
 
 func (fc *DocumentsWriterFlushControl) assertMemory() {
-	panic("not implemented yet")
 	maxRamMB := fc.config.RAMBufferSizeMB()
-	if maxRamMB == DISABLE_AUTO_FLUSH {
+	if fc.flushByRAMWasDisabled || maxRamMB == DISABLE_AUTO_FLUSH {
+		fc.flushByRAMWasDisabled = true
 		return
 	}
 	// for this assert we must be tolerant to ram buffer changes!
@@ -112,7 +113,7 @@ func (fc *DocumentsWriterFlushControl) assertMemory() {
 		fc.maxConfiguredRamBuffer = maxRamMB
 	}
 	ram := fc._flushBytes + fc._activeBytes
-	ramBufferBytes := int64(fc.maxConfiguredRamBuffer * 1024 * 1024)
+	ramBufferBytes := int64(fc.maxConfiguredRamBuffer) * 1024 * 1024
 	// take peakDelta into account - worst case is that all flushing,
 	// pending and blocked DWPT had maxMem and the last doc had the
 	// peakDelta
@@ -149,9 +150,12 @@ func (fc *DocumentsWriterFlushControl) assertMemory() {
 			1/2 of the maxRamBufferMB
 		*/
 		assertn(ram <= expected,
-			"actual mem: %v, expected mem: %v, flush mem: %v, active mem: %v, pending DWPT: %v, flushing DWPT: %v, blocked DWPT: %v, peakDelta mem: %v",
+			"actual mem: %v, expected mem: %v, flush mem: %v, active mem: %v, "+
+				"pending DWPT: %v, flushing DWPT: %v, blocked DWPT: %v, "+
+				"peakDelta mem: %v bytes, ramBufferBytes=%v, maxConfiguredRamBuffer=%v",
 			ram, expected, fc._flushBytes, fc._activeBytes, fc.numPending,
-			len(fc.flushingWriters), fc.blockedFlushes.Len(), fc.peakDelta)
+			len(fc.flushingWriters), fc.blockedFlushes.Len(), fc.peakDelta,
+			ramBufferBytes, fc.maxConfiguredRamBuffer)
 	}
 }
 
