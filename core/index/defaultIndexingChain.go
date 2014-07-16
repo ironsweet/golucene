@@ -1,7 +1,9 @@
 package index
 
 import (
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
+	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -15,7 +17,8 @@ type DefaultIndexingChain struct {
 	// Writes postings and term vectors:
 	termsHash TermsHash
 
-	lastStoredDocId int
+	storedFieldsWriter StoredFieldsWriter // lazy init
+	lastStoredDocId    int
 
 	nextFieldGen int64
 
@@ -33,6 +36,15 @@ func newDefaultIndexingChain(docWriter *DocumentsWriterPerThread) *DefaultIndexi
 		termsHash:  newFreqProxTermsWriter(docWriter, termVectorsWriter),
 		fields:     make([]*PerField, 1),
 	}
+}
+
+// TODO: can we remove this lazy-init / make cleaner / do it another way...?
+func (c *DefaultIndexingChain) initStoredFieldsWriter() (err error) {
+	if c.storedFieldsWriter == nil {
+		c.storedFieldsWriter, err = c.docWriter.codec.StoredFieldsFormat().FieldsWriter(
+			c.docWriter.directory, c.docWriter.segmentInfo, store.IO_CONTEXT_DEFAULT)
+	}
+	return
 }
 
 func (c *DefaultIndexingChain) flush(state *SegmentWriteState) error {
@@ -58,8 +70,24 @@ func (c *DefaultIndexingChain) abort() {
 }
 
 /* Calls StoredFieldsWriter.startDocument, aborting the segment if it hits any error. */
-func (c *DefaultIndexingChain) startStoredFields() error {
-	panic("not implemented yet")
+func (c *DefaultIndexingChain) startStoredFields() (err error) {
+	var success = false
+	defer func() {
+		if !success {
+			c.docWriter.setAborting()
+		}
+	}()
+
+	if err = c.initStoredFieldsWriter(); err != nil {
+		return
+	}
+	if err = c.storedFieldsWriter.StartDocument(); err != nil {
+		return
+	}
+	success = true
+
+	c.lastStoredDocId++
+	return nil
 }
 
 /* Calls StoredFieldsWriter.finishDocument(), aborting the segment if it hits any error. */
