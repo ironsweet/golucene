@@ -137,16 +137,19 @@ func (c *TermVectorsConsumer) finishDocument() error {
 }
 
 func (tvc *TermVectorsConsumer) abort() {
-	panic("not implemented yet")
-	// tvc.hasVectors = false
+	tvc.hasVectors = false
 
-	// if tvc.writer != nil {
-	// 	tvc.writer.abort()
-	// 	tvc.writer = nil
-	// }
+	defer func() {
+		if tvc.writer != nil {
+			tvc.writer.Abort()
+			tvc.writer = nil
+		}
 
-	// tvc.lastDocId = 0
-	// tvc.reset()
+		tvc.lastDocId = 0
+		tvc.reset()
+	}()
+
+	tvc.TermsHashImpl.abort()
 }
 
 func (tvc *TermVectorsConsumer) resetFields() {
