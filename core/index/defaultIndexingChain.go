@@ -6,7 +6,7 @@ import (
 )
 
 /* Default general purpose indexing chain, which handles indexing all types of fields */
-type DefaultIndexChain struct {
+type DefaultIndexingChain struct {
 	bytesUsed  util.Counter
 	docState   *docState
 	docWriter  *DocumentsWriterPerThread
@@ -15,15 +15,17 @@ type DefaultIndexChain struct {
 	// Writes postings and term vectors:
 	termsHash TermsHash
 
+	lastStoredDocId int
+
 	nextFieldGen int64
 
 	// Holds fields seen in each document
 	fields []*PerField
 }
 
-func newDefaultIndexingChain(docWriter *DocumentsWriterPerThread) *DefaultIndexChain {
+func newDefaultIndexingChain(docWriter *DocumentsWriterPerThread) *DefaultIndexingChain {
 	termVectorsWriter := newTermVectorsConsumer(docWriter)
-	return &DefaultIndexChain{
+	return &DefaultIndexingChain{
 		docWriter:  docWriter,
 		fieldInfos: docWriter.fieldInfos,
 		docState:   docWriter.docState,
@@ -33,7 +35,7 @@ func newDefaultIndexingChain(docWriter *DocumentsWriterPerThread) *DefaultIndexC
 	}
 }
 
-func (c *DefaultIndexChain) flush(state *SegmentWriteState) error {
+func (c *DefaultIndexingChain) flush(state *SegmentWriteState) error {
 	panic("not implemented yet")
 }
 
@@ -41,25 +43,31 @@ func (c *DefaultIndexChain) flush(state *SegmentWriteState) error {
 Catch up for all docs before us that had no stored fields, or hit
 non-aborting errors before writing stored fields.
 */
-func (c *DefaultIndexChain) fillStoredFields(docId int) error {
-	panic("not implemented yet")
+func (c *DefaultIndexingChain) fillStoredFields(docId int) (err error) {
+	for err == nil && c.lastStoredDocId < docId {
+		err = c.startStoredFields()
+		if err == nil {
+			err = c.finishStoredFields()
+		}
+	}
+	return
 }
 
-func (c *DefaultIndexChain) abort() {
+func (c *DefaultIndexingChain) abort() {
 	panic("not implemented yet")
 }
 
 /* Calls StoredFieldsWriter.startDocument, aborting the segment if it hits any error. */
-func (c *DefaultIndexChain) startStoredFields() error {
+func (c *DefaultIndexingChain) startStoredFields() error {
 	panic("not implemented yet")
 }
 
 /* Calls StoredFieldsWriter.finishDocument(), aborting the segment if it hits any error. */
-func (c *DefaultIndexChain) finishStoredFields() error {
+func (c *DefaultIndexingChain) finishStoredFields() error {
 	panic("not implemented yet")
 }
 
-func (c *DefaultIndexChain) processDocument() (err error) {
+func (c *DefaultIndexingChain) processDocument() (err error) {
 	// How many indexed field names we've seen (collapses multiple
 	// field instances by the same name):
 	fieldCount := 0
@@ -118,13 +126,13 @@ func (c *DefaultIndexChain) processDocument() (err error) {
 	return nil
 }
 
-func (c *DefaultIndexChain) processField(field IndexableField,
+func (c *DefaultIndexingChain) processField(field IndexableField,
 	fieldGen int64, fieldCount int) (int, error) {
 	panic("not implemented yet")
 }
 
 type PerField struct {
-	*DefaultIndexChain // acess at least docState, termsHash.
+	*DefaultIndexingChain // acess at least docState, termsHash.
 }
 
 func (f *PerField) finish() error {
