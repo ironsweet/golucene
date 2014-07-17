@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -309,51 +310,55 @@ func (d *FSDirectory) String() string {
 // 	return fmt.Sprintf("%v, off=%v, end=%v", in.BufferedIndexInput.String(), in.off, in.end)
 // }
 
+type FilteredWriteCloser struct {
+	io.WriteCloser
+	f func(p []byte) (int, error)
+}
+
+func filter(w io.WriteCloser, f func(p []byte) (int, error)) *FilteredWriteCloser {
+	return &FilteredWriteCloser{w, f}
+}
+
+func (w *FilteredWriteCloser) Write(p []byte) (int, error) {
+	return w.f(p)
+}
+
 /*
 Writes output with File.Write([]byte) (int, error)
 */
 type FSIndexOutput struct {
 	*OutputStreamIndexOutput
-	parent *FSDirectory
-	name   string
-	// file   *os.File
-	// isOpen bool // volatile
+	*FSDirectory
+	name string
 }
 
 func newFSIndexOutput(parent *FSDirectory, name string) (*FSIndexOutput, error) {
-	panic("not implemented yet")
-	// file, err := os.OpenFile(filepath.Join(parent.path, name), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0660)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// out := &FSIndexOutput{
-	// 	parent: parent,
-	// 	name:   name,
-	// 	file:   file,
-	// 	isOpen: true,
-	// }
-	// out.BufferedIndexOutput = NewBufferedIndexOutput(CHUNK_SIZE, out)
-	// return out, nil
+	file, err := os.OpenFile(filepath.Join(parent.path, name), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0660)
+	if err != nil {
+		return nil, err
+	}
+	return &FSIndexOutput{
+		newOutputStreamIndexOutput(filter(file, func(p []byte) (int, error) {
+			// This implementation ensures, that we never write more than CHUNK_SIZE bytes:
+			chunk := CHUNK_SIZE
+			offset, length := 0, len(p)
+			for length > 0 {
+				if length < chunk {
+					chunk = length
+				}
+				n, err := file.Write(p[offset : offset+chunk])
+				if err != nil {
+					return offset, err
+				}
+				length -= n
+				offset += n
+			}
+			return offset, nil
+		}), CHUNK_SIZE),
+		parent,
+		name,
+	}, nil
 }
-
-// func (out *FSIndexOutput) FlushBuffer(b []byte) error {
-// 	assert(out.isOpen)
-// 	offset, size := 0, len(b)
-// 	for size > 0 {
-// 		toWrite := CHUNK_SIZE
-// 		if size < toWrite {
-// 			toWrite = size
-// 		}
-// 		_, err := out.file.Write(b[offset : offset+toWrite])
-// 		if err != nil {
-// 			return err
-// 		}
-// 		offset += toWrite
-// 		size -= toWrite
-// 	}
-// 	assert(size == 0)
-// 	return nil
-// }
 
 func (out *FSIndexOutput) Close() error {
 	panic("not implemented yet")
@@ -369,11 +374,3 @@ func (out *FSIndexOutput) Close() error {
 	// }
 	// return nil
 }
-
-// func (out *FSIndexOutput) Length() (int64, error) {
-// 	info, err := out.file.Stat()
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	return info.Size(), nil
-// }
