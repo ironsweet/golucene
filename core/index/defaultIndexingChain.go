@@ -104,7 +104,17 @@ func (c *DefaultIndexingChain) startStoredFields() (err error) {
 
 /* Calls StoredFieldsWriter.finishDocument(), aborting the segment if it hits any error. */
 func (c *DefaultIndexingChain) finishStoredFields() error {
-	panic("not implemented yet")
+	var success = false
+	defer func() {
+		if !success {
+			c.docWriter.setAborting()
+		}
+	}()
+	if err := c.storedFieldsWriter.FinishDocument(); err != nil {
+		return err
+	}
+	success = true
+	return nil
 }
 
 func (c *DefaultIndexingChain) processDocument() (err error) {
