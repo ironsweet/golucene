@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
@@ -178,13 +179,96 @@ func (c *DefaultIndexingChain) processDocument() (err error) {
 
 func (c *DefaultIndexingChain) processField(field IndexableField,
 	fieldGen int64, fieldCount int) (int, error) {
+
+	var fieldName string = field.Name()
+	var fieldType IndexableFieldType = field.FieldType()
+	var fp *PerField
+
+	// Invert indexed fields:
+	if fieldType.Indexed() {
+
+		// if the field omits norms, the boost cannot be indexed.
+		if fieldType.OmitNorms() && field.Boost() != 1 {
+			panic(fmt.Sprintf(
+				"You cannot set an index-time boost: norms are omitted for field '%v'",
+				fieldName))
+		}
+
+		fp = c.getOrAddField(fieldName, fieldType, true)
+		first := fp.fieldGen != fieldGen
+		if err := fp.invert(field, first); err != nil {
+			return 0, err
+		}
+
+		if first {
+			c.fields[fieldCount] = fp
+			fieldCount++
+			fp.fieldGen = fieldGen
+		}
+	} else {
+		panic("not implemented yet")
+	}
+
+	// Add stored fields:
+	if fieldType.Stored() {
+		panic("not implemented yet")
+	} else {
+		panic("not implemented yet")
+	}
+
+	if dvType := fieldType.DocValueType(); int(dvType) != 0 {
+		if fp == nil {
+			panic("not implemented yet")
+		}
+		panic("not implemented yet")
+	}
+
+	return fieldCount, nil
+}
+
+func (c *DefaultIndexingChain) getOrAddField(name string,
+	fieldType IndexableFieldType, invert bool) *PerField {
 	panic("not implemented yet")
 }
 
 type PerField struct {
 	*DefaultIndexingChain // acess at least docState, termsHash.
+
+	fieldInfo  *FieldInfo
+	similarity Similarity
+
+	// We use this to know when a PerField is seen for the first time
+	// in the current document.
+	fieldGen int64
+}
+
+func newPerField(parent *DefaultIndexingChain,
+	fieldInfo *FieldInfo, invert bool) *PerField {
+
+	ans := &PerField{
+		DefaultIndexingChain: parent,
+		fieldInfo:            fieldInfo,
+		similarity:           parent.docState.similarity,
+		fieldGen:             -1,
+	}
+	if invert {
+		ans.setInvertState()
+	}
+	return ans
+}
+
+func (f *PerField) setInvertState() {
+	panic("not implemented yet")
 }
 
 func (f *PerField) finish() error {
+	panic("not implemented yet")
+}
+
+/*
+Inverts one field for one document; first is true if this is the
+first time we are seeing this field name in this document.
+*/
+func (f *PerField) invert(field IndexableField, first bool) error {
 	panic("not implemented yet")
 }
