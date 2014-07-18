@@ -36,10 +36,13 @@ func newTermVectorsConsumerPerField(invertState *FieldInvertState,
 	termsWriter *TermVectorsConsumer,
 	fieldInfo *model.FieldInfo) *TermVectorsConsumerPerField {
 
-	return &TermVectorsConsumerPerField{
-		TermsHashPerFieldImpl: newTermsHashPerField(2, invertState, termsWriter, nil, fieldInfo),
-		termsWriter:           termsWriter,
+	ans := &TermVectorsConsumerPerField{
+		termsWriter: termsWriter,
 	}
+	ans.TermsHashPerFieldImpl = newTermsHashPerField(
+		ans, 2, invertState, termsWriter,
+		termsWriter.TermsHashImpl, nil, fieldInfo)
+	return ans
 }
 
 // func (c *TermVectorsConsumerPerField) streamCount() int { return 2 }
@@ -126,6 +129,10 @@ func (c *TermVectorsConsumerPerField) start(fields []model.IndexableField, count
 // }
 
 func (c *TermVectorsConsumerPerField) newTerm(termId int) error {
+	panic("not implemented yet")
+}
+
+func (c *TermVectorsConsumerPerField) newPostingsArray() {
 	panic("not implemented yet")
 }
 

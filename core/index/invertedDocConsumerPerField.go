@@ -41,7 +41,7 @@ type TermsHashPerFieldSPI interface {
 type TermsHashPerFieldImpl struct {
 	spi TermsHashPerFieldSPI
 
-	termsHash *TermsHashImpl
+	termsHash TermsHash
 
 	nextPerField TermsHashPerField
 	docState     *docState
@@ -70,30 +70,33 @@ type TermsHashPerFieldImpl struct {
 	intUptoStart int
 }
 
-func newTermsHashPerField(streamCount int, fieldState *FieldInvertState,
-	termsHash TermsHash, nextTermsHash TermsHashPerField,
+/*
+streamCount: how many streams this field stores per term. E.g.
+doc(+freq) is 1 stream, prox+offset is a second.
+*/
+func newTermsHashPerField(spi TermsHashPerFieldSPI,
+	streamCount int, fieldState *FieldInvertState,
+	termsHash TermsHash, termsHashImpl *TermsHashImpl,
+	nextPerField TermsHashPerField,
 	fieldInfo *model.FieldInfo) *TermsHashPerFieldImpl {
-	panic("not implemented yet")
 
-	// ans := &TermsHashPerField{
-	// 	intPool:      termsHash.intPool,
-	// 	bytePool:     termsHash.bytePool,
-	// 	termBytePool: termsHash.termBytePool,
-	// 	docState:     termsHash.docState,
-	// 	termsHash:    termsHash,
-	// 	bytesUsed:    termsHash.bytesUsed,
-	// 	fieldState:   docInverterPerField.fieldState,
-	// 	fieldInfo:    fieldInfo,
-	// }
-	// ans.consumer = termsHash.consumer.addField(ans, fieldInfo)
-	// byteStarts := newPostingsBytesStartArray(ans, termsHash.bytesUsed)
-	// ans.bytesHash = util.NewBytesRefHash(termsHash.termBytePool, HASH_INIT_SIZE, byteStarts)
-	// ans.streamCount = ans.consumer.streamCount()
-	// ans.numPostingInt = 2 * ans.streamCount
-	// if nextTermsHash != nil {
-	// 	ans.nextPerField = nextTermsHash.addField(docInverterPerField, fieldInfo).(*TermsHashPerField)
-	// }
-	// return ans
+	ans := &TermsHashPerFieldImpl{
+		spi:           spi,
+		intPool:       termsHashImpl.intPool,
+		bytePool:      termsHashImpl.bytePool,
+		termBytePool:  termsHashImpl.termBytePool,
+		docState:      termsHashImpl.docState,
+		termsHash:     termsHash,
+		bytesUsed:     termsHashImpl.bytesUsed,
+		fieldState:    fieldState,
+		streamCount:   streamCount,
+		numPostingInt: 2 * streamCount,
+		fieldInfo:     fieldInfo,
+		nextPerField:  nextPerField,
+	}
+	byteStarts := newPostingsBytesStartArray(ans, ans.bytesUsed)
+	ans.bytesHash = util.NewBytesRefHash(termsHashImpl.termBytePool, HASH_INIT_SIZE, byteStarts)
+	return ans
 }
 
 // func (h *TermsHashPerField) shrinkHash(targetSize int) {
@@ -258,6 +261,7 @@ func newPostingsBytesStartArray(perField *TermsHashPerFieldImpl,
 
 func (ss *PostingsBytesStartArray) Init() []int {
 	if ss.perField.postingsArray == nil {
+		assert(ss.perField.spi != nil)
 		arr := ss.perField.spi.createPostingsArray(2)
 		ss.perField.spi.newPostingsArray()
 		ss.bytesUsed.AddAndGet(int64(arr.size * arr.bytesPerPosting()))

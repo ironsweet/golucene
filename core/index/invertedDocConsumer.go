@@ -27,6 +27,7 @@ type TermsHash interface {
 	finishDocument() error
 	abort()
 	setTermBytePool(*util.ByteBlockPool)
+
 	TermsHashImplSPI
 }
 
