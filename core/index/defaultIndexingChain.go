@@ -22,8 +22,10 @@ type DefaultIndexingChain struct {
 	lastStoredDocId    int
 
 	fieldHash []*PerField
+	hashMask  int
 
-	nextFieldGen int64
+	totalFieldCount int
+	nextFieldGen    int64
 
 	// Holds fields seen in each document
 	fields []*PerField
@@ -37,6 +39,8 @@ func newDefaultIndexingChain(docWriter *DocumentsWriterPerThread) *DefaultIndexi
 		docState:   docWriter.docState,
 		bytesUsed:  docWriter._bytesUsed,
 		termsHash:  newFreqProxTermsWriter(docWriter, termVectorsWriter),
+		fieldHash:  make([]*PerField, 2),
+		hashMask:   1,
 		fields:     make([]*PerField, 1),
 	}
 }
@@ -80,6 +84,10 @@ func (c *DefaultIndexingChain) abort() {
 	for i, _ := range c.fieldHash {
 		c.fieldHash[i] = nil
 	}
+}
+
+func (c *DefaultIndexingChain) rehash() {
+	panic("not implemented yet")
 }
 
 /* Calls StoredFieldsWriter.startDocument, aborting the segment if it hits any error. */
@@ -228,7 +236,51 @@ func (c *DefaultIndexingChain) processField(field IndexableField,
 
 func (c *DefaultIndexingChain) getOrAddField(name string,
 	fieldType IndexableFieldType, invert bool) *PerField {
-	panic("not implemented yet")
+
+	// Make sure we have a PerField allocated
+	hashPos := hashstr(name) & c.hashMask
+	fp := c.fieldHash[hashPos]
+	for fp != nil && fp.fieldInfo.Name != name {
+		fp = fp.next
+	}
+
+	if fp == nil {
+		// First time we are seeing this field in this segment
+
+		fi := c.fieldInfos.AddOrUpdate(name, fieldType)
+
+		fp = newPerField(c, fi, invert)
+		fp.next = c.fieldHash[hashPos]
+		c.fieldHash[hashPos] = fp
+		c.totalFieldCount++
+
+		// At most 50% load factor:
+		if c.totalFieldCount >= len(c.fieldHash)/2 {
+			c.rehash()
+		}
+
+		if c.totalFieldCount > len(c.fieldHash) {
+			newFields := make([]*PerField, util.Oversize(c.totalFieldCount, util.NUM_BYTES_OBJECT_REF))
+			copy(newFields, c.fields)
+			c.fields = newFields
+		}
+
+	} else {
+		panic("not implemented yet")
+	}
+
+	return fp
+}
+
+const primeRK = 16777619
+
+/* simple string hash used by Go strings package */
+func hashstr(sep string) int {
+	hash := uint32(0)
+	for i := 0; i < len(sep); i++ {
+		hash = hash*primeRK + uint32(sep[i])
+	}
+	return int(hash)
 }
 
 type PerField struct {
@@ -240,6 +292,9 @@ type PerField struct {
 	// We use this to know when a PerField is seen for the first time
 	// in the current document.
 	fieldGen int64
+
+	// Used by the hash table
+	next *PerField
 }
 
 func newPerField(parent *DefaultIndexingChain,
