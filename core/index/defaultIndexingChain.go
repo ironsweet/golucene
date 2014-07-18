@@ -289,6 +289,9 @@ type PerField struct {
 	fieldInfo  *FieldInfo
 	similarity Similarity
 
+	invertState       *FieldInvertState
+	termsHashPerField TermsHashPerField
+
 	// We use this to know when a PerField is seen for the first time
 	// in the current document.
 	fieldGen int64
@@ -313,7 +316,8 @@ func newPerField(parent *DefaultIndexingChain,
 }
 
 func (f *PerField) setInvertState() {
-	panic("not implemented yet")
+	f.invertState = newFieldInvertState(f.fieldInfo.Name)
+	f.termsHashPerField = f.termsHash.addField(f.invertState, f.fieldInfo)
 }
 
 func (f *PerField) finish() error {

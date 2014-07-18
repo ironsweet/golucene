@@ -33,10 +33,11 @@ type TermVectorsConsumer struct {
 }
 
 func newTermVectorsConsumer(docWriter *DocumentsWriterPerThread) *TermVectorsConsumer {
-	return &TermVectorsConsumer{
-		TermsHashImpl: newTermsHash(docWriter, false, nil),
-		docWriter:     docWriter,
+	ans := &TermVectorsConsumer{
+		docWriter: docWriter,
 	}
+	ans.TermsHashImpl = newTermsHash(ans, docWriter, false, nil)
+	return ans
 }
 
 func (tvc *TermVectorsConsumer) flush(fieldsToFlush map[string]TermsHashPerField,
@@ -183,9 +184,9 @@ type FreqProxTermsWriter struct {
 }
 
 func newFreqProxTermsWriter(docWriter *DocumentsWriterPerThread, termVectors TermsHash) *FreqProxTermsWriter {
-	return &FreqProxTermsWriter{
-		newTermsHash(docWriter, true, termVectors),
-	}
+	ans := &FreqProxTermsWriter{}
+	ans.TermsHashImpl = newTermsHash(ans, docWriter, true, termVectors)
+	return ans
 }
 
 func (w *FreqProxTermsWriter) flush(fieldsToFlush map[string]TermsHashPerField,

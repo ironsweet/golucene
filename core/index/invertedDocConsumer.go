@@ -1,7 +1,7 @@
 package index
 
 import (
-	"github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -27,9 +27,16 @@ type TermsHash interface {
 	finishDocument() error
 	abort()
 	setTermBytePool(*util.ByteBlockPool)
+	TermsHashImplSPI
+}
+
+type TermsHashImplSPI interface {
+	addField(*FieldInvertState, *FieldInfo) TermsHashPerField
 }
 
 type TermsHashImpl struct {
+	spi TermsHashImplSPI
+
 	nextTermsHash TermsHash
 
 	intPool      *util.IntBlockPool
@@ -42,10 +49,12 @@ type TermsHashImpl struct {
 	trackAllocations bool
 }
 
-func newTermsHash(docWriter *DocumentsWriterPerThread,
+func newTermsHash(spi TermsHashImplSPI,
+	docWriter *DocumentsWriterPerThread,
 	trackAllocations bool, nextTermsHash TermsHash) *TermsHashImpl {
 
 	ans := &TermsHashImpl{
+		spi:              spi,
 		docState:         docWriter.docState,
 		trackAllocations: trackAllocations,
 		nextTermsHash:    nextTermsHash,
@@ -85,7 +94,7 @@ func (hash *TermsHashImpl) reset() {
 }
 
 func (hash *TermsHashImpl) flush(fieldsToFlush map[string]*TermsHashPerField,
-	state *model.SegmentWriteState) error {
+	state *SegmentWriteState) error {
 	panic("not implemented yet")
 	// childFields := make(map[string]TermsHashConsumerPerField)
 	// var nextChildFieldFields map[string]InvertedDocConsumerPerField
