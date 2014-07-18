@@ -35,15 +35,11 @@ type TermVectorsConsumerPerField struct {
 func newTermVectorsConsumerPerField(invertState *FieldInvertState,
 	termsWriter *TermVectorsConsumer,
 	fieldInfo *model.FieldInfo) *TermVectorsConsumerPerField {
-	panic("not implemented yet")
 
-	// return &TermVectorsConsumerPerField{
-	// 	termsHashPerField: termsHashPerField,
-	// 	termsWriter:       termsWriter,
-	// 	fieldInfo:         fieldInfo,
-	// 	docState:          termsHashPerField.docState,
-	// 	fieldState:        termsHashPerField.fieldState,
-	// }
+	return &TermVectorsConsumerPerField{
+		TermsHashPerFieldImpl: newTermsHashPerField(2, invertState, termsWriter, nil, fieldInfo),
+		termsWriter:           termsWriter,
+	}
 }
 
 // func (c *TermVectorsConsumerPerField) streamCount() int { return 2 }

@@ -71,7 +71,7 @@ type TermsHashPerFieldImpl struct {
 }
 
 func newTermsHashPerField(streamCount int, fieldState *FieldInvertState,
-	termsHash *TermsHashImpl, nextTermsHash TermsHashPerField,
+	termsHash TermsHash, nextTermsHash TermsHashPerField,
 	fieldInfo *model.FieldInfo) *TermsHashPerFieldImpl {
 	panic("not implemented yet")
 
