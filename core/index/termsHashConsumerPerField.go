@@ -186,7 +186,7 @@ type FreqProxTermsWriterPerField struct {
 
 func newFreqProxTermsWriterPerField(invertState *FieldInvertState,
 	termsHash TermsHash, fieldInfo *model.FieldInfo,
-	nextPerField *TermsHashPerField) *FreqProxTermsWriterPerField {
+	nextPerField TermsHashPerField) *FreqProxTermsWriterPerField {
 	panic("not implemented yet")
 	// ans := &FreqProxTermsWriterPerField{
 	// 	termsHashPerField: termsHashPerField,

@@ -266,6 +266,7 @@ func (a FreqProxTermsWriterPerFields) Less(i, j int) bool {
 
 func (w *FreqProxTermsWriter) addField(invertState *FieldInvertState,
 	fieldInfo *model.FieldInfo) TermsHashPerField {
-	panic("not implemented yet")
-	// return newFreqProxTermsWriterPerField(invertState, w, fieldInfo, w.nex)
+
+	return newFreqProxTermsWriterPerField(invertState, w, fieldInfo,
+		w.nextTermsHash.addField(invertState, fieldInfo))
 }
