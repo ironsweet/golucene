@@ -23,6 +23,8 @@ import (
 type TermVectorsConsumerPerField struct {
 	*TermsHashPerFieldImpl
 
+	termVectorsPostingsArray *TermVectorsPostingArray
+
 	termsWriter *TermVectorsConsumer
 
 	doVectors, doVectorPositions, doVectorOffsets, doVectorPayloads bool
@@ -39,9 +41,12 @@ func newTermVectorsConsumerPerField(invertState *FieldInvertState,
 	ans := &TermVectorsConsumerPerField{
 		termsWriter: termsWriter,
 	}
-	ans.TermsHashPerFieldImpl = newTermsHashPerField(
+	ans.TermsHashPerFieldImpl = new(TermsHashPerFieldImpl)
+	ans.TermsHashPerFieldImpl._constructor(
 		ans, 2, invertState, termsWriter,
 		termsWriter.TermsHashImpl, nil, fieldInfo)
+	fmt.Println("DEBUG3", ans)
+	fmt.Println("DEBUG4", ans.TermsHashPerFieldImpl.spi)
 	return ans
 }
 
@@ -133,7 +138,11 @@ func (c *TermVectorsConsumerPerField) newTerm(termId int) error {
 }
 
 func (c *TermVectorsConsumerPerField) newPostingsArray() {
-	panic("not implemented yet")
+	if c.postingsArray != nil {
+		c.termVectorsPostingsArray = c.postingsArray.PostingsArray.(*TermVectorsPostingArray)
+	} else {
+		c.termVectorsPostingsArray = nil
+	}
 }
 
 func (c *TermVectorsConsumerPerField) createPostingsArray(size int) *ParallelPostingsArray {

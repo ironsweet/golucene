@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	ta "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
@@ -73,30 +74,32 @@ type TermsHashPerFieldImpl struct {
 /*
 streamCount: how many streams this field stores per term. E.g.
 doc(+freq) is 1 stream, prox+offset is a second.
+
+NOTE: due to Go's embedded inheritance, it has to be invoked after it
+is initialized and embedded by child class.
 */
-func newTermsHashPerField(spi TermsHashPerFieldSPI,
+func (h *TermsHashPerFieldImpl) _constructor(spi TermsHashPerFieldSPI,
 	streamCount int, fieldState *FieldInvertState,
 	termsHash TermsHash, termsHashImpl *TermsHashImpl,
 	nextPerField TermsHashPerField,
-	fieldInfo *model.FieldInfo) *TermsHashPerFieldImpl {
+	fieldInfo *model.FieldInfo) {
 
-	ans := &TermsHashPerFieldImpl{
-		spi:           spi,
-		intPool:       termsHashImpl.intPool,
-		bytePool:      termsHashImpl.bytePool,
-		termBytePool:  termsHashImpl.termBytePool,
-		docState:      termsHashImpl.docState,
-		termsHash:     termsHash,
-		bytesUsed:     termsHashImpl.bytesUsed,
-		fieldState:    fieldState,
-		streamCount:   streamCount,
-		numPostingInt: 2 * streamCount,
-		fieldInfo:     fieldInfo,
-		nextPerField:  nextPerField,
-	}
-	byteStarts := newPostingsBytesStartArray(ans, ans.bytesUsed)
-	ans.bytesHash = util.NewBytesRefHash(termsHashImpl.termBytePool, HASH_INIT_SIZE, byteStarts)
-	return ans
+	fmt.Println("DEBUG2", spi)
+
+	h.spi = spi
+	h.intPool = termsHashImpl.intPool
+	h.bytePool = termsHashImpl.bytePool
+	h.termBytePool = termsHashImpl.termBytePool
+	h.docState = termsHashImpl.docState
+	h.termsHash = termsHash
+	h.bytesUsed = termsHashImpl.bytesUsed
+	h.fieldState = fieldState
+	h.streamCount = streamCount
+	h.numPostingInt = 2 * streamCount
+	h.fieldInfo = fieldInfo
+	h.nextPerField = nextPerField
+	byteStarts := newPostingsBytesStartArray(h, h.bytesUsed)
+	h.bytesHash = util.NewBytesRefHash(termsHashImpl.termBytePool, HASH_INIT_SIZE, byteStarts)
 }
 
 // func (h *TermsHashPerField) shrinkHash(targetSize int) {
@@ -261,7 +264,6 @@ func newPostingsBytesStartArray(perField *TermsHashPerFieldImpl,
 
 func (ss *PostingsBytesStartArray) Init() []int {
 	if ss.perField.postingsArray == nil {
-		assert(ss.perField.spi != nil)
 		arr := ss.perField.spi.createPostingsArray(2)
 		ss.perField.spi.newPostingsArray()
 		ss.bytesUsed.AddAndGet(int64(arr.size * arr.bytesPerPosting()))
