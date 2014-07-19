@@ -45,8 +45,6 @@ func newTermVectorsConsumerPerField(invertState *FieldInvertState,
 	ans.TermsHashPerFieldImpl._constructor(
 		ans, 2, invertState, termsWriter,
 		termsWriter.TermsHashImpl, nil, fieldInfo)
-	fmt.Println("DEBUG3", ans)
-	fmt.Println("DEBUG4", ans.TermsHashPerFieldImpl.spi)
 	return ans
 }
 

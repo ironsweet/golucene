@@ -47,7 +47,7 @@ func (q *TermQuery) CreateWeight(ss *IndexSearcher) (w Weight, err error) {
 		termState.DocFreq = q.docFreq
 	}
 
-	return NewTermWeight(q, ss, *termState), nil
+	return NewTermWeight(q, ss, termState), nil
 }
 
 func (q *TermQuery) String() string {
@@ -63,11 +63,11 @@ type TermWeight struct {
 	*TermQuery
 	similarity Similarity
 	stats      SimWeight
-	termStates index.TermContext
+	termStates *index.TermContext
 }
 
-func NewTermWeight(owner *TermQuery, ss *IndexSearcher, termStates index.TermContext) *TermWeight {
-	// assert(termStates != nil)
+func NewTermWeight(owner *TermQuery, ss *IndexSearcher, termStates *index.TermContext) *TermWeight {
+	assert(termStates != nil)
 	sim := ss.similarity
 	ans := &TermWeight{
 		TermQuery:  owner,
@@ -129,7 +129,7 @@ func (tw *TermWeight) termsEnum(ctx *index.AtomicReaderContext) (TermsEnum, erro
 	}
 	terms := ctx.Reader().(index.AtomicReader).Terms(tw.term.Field)
 	te := terms.Iterator(nil)
-	err := te.SeekExactFromLast(tw.term.Bytes, *state)
+	err := te.SeekExactFromLast(tw.term.Bytes, state)
 	return te, err
 }
 

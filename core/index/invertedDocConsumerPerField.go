@@ -1,7 +1,6 @@
 package index
 
 import (
-	"fmt"
 	ta "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
@@ -83,8 +82,6 @@ func (h *TermsHashPerFieldImpl) _constructor(spi TermsHashPerFieldSPI,
 	termsHash TermsHash, termsHashImpl *TermsHashImpl,
 	nextPerField TermsHashPerField,
 	fieldInfo *model.FieldInfo) {
-
-	fmt.Println("DEBUG2", spi)
 
 	h.spi = spi
 	h.intPool = termsHashImpl.intPool

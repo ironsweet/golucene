@@ -56,7 +56,7 @@ func (t *Term) String() string {
 
 type TermContext struct {
 	TopReaderContext IndexReaderContext
-	states           []*TermState
+	states           []TermState
 	DocFreq          int
 	TotalTermFreq    int64
 }
@@ -72,7 +72,7 @@ func NewTermContext(ctx IndexReaderContext) *TermContext {
 	} else {
 		n = len(ctx.Leaves())
 	}
-	return &TermContext{TopReaderContext: ctx, states: make([]*TermState, n)}
+	return &TermContext{TopReaderContext: ctx, states: make([]TermState, n)}
 }
 
 /**
@@ -117,19 +117,20 @@ func NewTermContextFromTerm(ctx IndexReaderContext, t Term) (tc *TermContext, er
 }
 
 func (tc *TermContext) register(state TermState, ord, docFreq int, totalTermFreq int64) {
-	// assert ord >= 0 && ord < len(states)
-	// assert states[ord] == null : "state for ord: " + ord + " already registered";
+	assert2(state != nil, "state must not be nil")
+	assert(ord >= 0 && ord < len(tc.states))
+	assert2(tc.states[ord] == nil, "state for ord: %v already registered", ord)
 	tc.DocFreq += docFreq
 	if tc.TotalTermFreq >= 0 && totalTermFreq >= 0 {
 		tc.TotalTermFreq += totalTermFreq
 	} else {
 		tc.TotalTermFreq = -1
 	}
-	tc.states[ord] = &state
+	tc.states[ord] = state
 }
 
-func (tc *TermContext) State(ord int) *TermState {
-	// asert ord >= 0 && ord < len(states)
+func (tc *TermContext) State(ord int) TermState {
+	assert(ord >= 0 && ord < len(tc.states))
 	return tc.states[ord]
 }
 

@@ -48,6 +48,10 @@ func newDefaultIndexingChain(docWriter *DocumentsWriterPerThread) *DefaultIndexi
 // TODO: can we remove this lazy-init / make cleaner / do it another way...?
 func (c *DefaultIndexingChain) initStoredFieldsWriter() (err error) {
 	if c.storedFieldsWriter == nil {
+		assert(c != nil)
+		assert(c.docWriter != nil)
+		assert(c.docWriter.codec != nil)
+		assert(c.docWriter.codec.StoredFieldsFormat() != nil)
 		c.storedFieldsWriter, err = c.docWriter.codec.StoredFieldsFormat().FieldsWriter(
 			c.docWriter.directory, c.docWriter.segmentInfo, store.IO_CONTEXT_DEFAULT)
 	}

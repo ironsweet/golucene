@@ -188,7 +188,7 @@ func (ss *IndexSearcher) String() string {
 	return fmt.Sprintf("IndexSearcher(%v)", ss.reader)
 }
 
-func (ss *IndexSearcher) TermStatistics(term index.Term, context index.TermContext) TermStatistics {
+func (ss *IndexSearcher) TermStatistics(term index.Term, context *index.TermContext) TermStatistics {
 	return NewTermStatistics(term.Bytes, int64(context.DocFreq), context.TotalTermFreq)
 }
 
