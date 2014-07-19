@@ -1,4 +1,4 @@
-package index
+package spi
 
 import (
 	. "github.com/balzaczyy/golucene/core/index/model"
@@ -28,9 +28,9 @@ type PostingsReaderBase interface {
 	/** Return a newly created empty TermState */
 	NewTermState() *BlockTermState
 	/** Actually decode metadata for next term */
-	decodeTerm([]int64, util.DataInput, *FieldInfo, *BlockTermState, bool) error
+	DecodeTerm([]int64, util.DataInput, *FieldInfo, *BlockTermState, bool) error
 	/** Must fully consume state, since after this call that
 	 *  TermState may be reused. */
-	docs(fieldInfo *FieldInfo, state *BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int) (de DocsEnum, err error)
+	Docs(fieldInfo *FieldInfo, state *BlockTermState, skipDocs util.Bits, reuse DocsEnum, flags int) (de DocsEnum, err error)
 	// docsAndPositions(fieldInfo FieldInfo, state BlockTermState, skipDocs util.Bits)
 }

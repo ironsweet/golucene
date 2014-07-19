@@ -1,6 +1,7 @@
-package index
+package lucene41
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/util/packed"
 	"math"
 )
@@ -94,6 +95,18 @@ func NewForUtilInto(accetableOverheadRatio float32, out DataOutput) (ForUtil, er
 		}
 	}
 	return ans, err
+}
+
+func assert(ok bool) {
+	if !ok {
+		panic("assert fail")
+	}
+}
+
+func assert2(ok bool, msg string, args ...interface{}) {
+	if !ok {
+		panic(fmt.Sprintf(msg, args...))
+	}
 }
 
 type DataInput interface {

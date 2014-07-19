@@ -3,6 +3,7 @@ package index
 import (
 	// "github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/codec/lucene40"
+	"github.com/balzaczyy/golucene/core/codec/lucene41"
 	"github.com/balzaczyy/golucene/core/codec/perfield"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
@@ -32,10 +33,10 @@ func Init() {
 
 var Lucene45CodecImpl = func() *Lucene45Codec {
 	f := func(string) PostingsFormat {
-		return newLucene41PostingsFormat()
+		return lucene41.NewLucene41PostingsFormat()
 	}
 	codec := NewCodec("Lucene45",
-		newLucene41StoredFieldsFormat(),
+		lucene41.NewLucene41StoredFieldsFormat(),
 		newLucene42TermVectorsFormat(),
 		newLucene42FieldInfosFormat(),
 		lucene40.NewLucene40SegmentInfoFormat(),

@@ -2,7 +2,7 @@ package index
 
 import (
 	// "bytes"
-	// "fmt"
+	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 	"math"
 	"sync/atomic"
@@ -195,6 +195,18 @@ func freezeBufferedUpdates(deletes *BufferedUpdates, isPrivate bool) *FrozenBuff
 		binaryDVUpdates:  allBinaryUpdates,
 		bytesUsed:        bytesUsed,
 		numTermDeletes:   int(atomic.LoadInt32(&deletes.numTermDeletes)),
+	}
+}
+
+func assert(ok bool) {
+	if !ok {
+		panic("assert fail")
+	}
+}
+
+func assert2(ok bool, msg string, args ...interface{}) {
+	if !ok {
+		panic(fmt.Sprintf(msg, args...))
 	}
 }
 

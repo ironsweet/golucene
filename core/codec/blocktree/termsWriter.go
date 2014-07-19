@@ -1,4 +1,4 @@
-package index
+package blocktree
 
 import (
 	"fmt"
@@ -29,7 +29,7 @@ type PostingsWriterBase interface {
 
 	// Called once after startup, before any terms have been added.
 	// Implementations typically write a header to the provided termsOut.
-	init(store.IndexOutput) error
+	Init(store.IndexOutput) error
 	// Start a new term. Note that a matching call to finishTerm() is
 	// done, only if the term has at least one document.
 	StartTerm() error
@@ -519,13 +519,13 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 			}
 
 			// write term stats, to separate []byte blob:
-			if err := w.suffixWriter.WriteVInt(int32(state.docFreq)); err != nil {
+			if err := w.suffixWriter.WriteVInt(int32(state.DocFreq)); err != nil {
 				return nil, err
 			}
 			if w.fieldInfo.IndexOptions() != model.INDEX_OPT_DOCS_ONLY {
-				assert2(state.totalTermFreq >= int64(state.docFreq),
-					"%v vs %v", state.totalTermFreq, state.docFreq)
-				if err := w.suffixWriter.WriteVLong(state.totalTermFreq - int64(state.docFreq)); err != nil {
+				assert2(state.TotalTermFreq >= int64(state.DocFreq),
+					"%v vs %v", state.TotalTermFreq, state.DocFreq)
+				if err := w.suffixWriter.WriteVLong(state.TotalTermFreq - int64(state.DocFreq)); err != nil {
 					return nil, err
 				}
 			}

@@ -160,6 +160,10 @@ func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput,
 	return
 }
 
+func asInt(n int32, err error) (n2 int, err2 error) {
+	return int(n), err
+}
+
 func (dvp *Lucene42DocValuesProducer) Numeric(field *FieldInfo) (v NumericDocValues, err error) {
 	dvp.lock.Lock()
 	defer dvp.lock.Unlock()

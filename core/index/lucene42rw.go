@@ -2,6 +2,7 @@ package index
 
 import (
 	"github.com/balzaczyy/golucene/core/codec/lucene40"
+	"github.com/balzaczyy/golucene/core/codec/lucene41"
 	"github.com/balzaczyy/golucene/core/codec/perfield"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
@@ -13,7 +14,7 @@ var dv = newLucene42RWDocValuesFormat()
 
 // Read-write version of Lucene42Codec for testing.
 var Lucene42RWCodec = NewCodec("Lucene42",
-	newLucene41StoredFieldsFormat(),
+	lucene41.NewLucene41StoredFieldsFormat(),
 	newLucene42TermVectorsFormat(),
 	newLucene42FieldInfosFormat(),
 	lucene40.NewLucene40SegmentInfoFormat(),

@@ -6,6 +6,7 @@ import (
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/codec/compressing"
 	"github.com/balzaczyy/golucene/core/codec/lucene40"
+	"github.com/balzaczyy/golucene/core/codec/lucene41"
 	"github.com/balzaczyy/golucene/core/codec/perfield"
 	// "github.com/balzaczyy/golucene/core/codec/lucene42"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
@@ -26,7 +27,7 @@ If you want to reuse functionality of this codec, in another codec,
 extend FilterCodec.
 */
 var Lucene42Codec = NewCodec("Lucene42Codec",
-	newLucene41StoredFieldsFormat(),
+	lucene41.NewLucene41StoredFieldsFormat(),
 	newLucene42TermVectorsFormat(),
 	newLucene42FieldInfosFormat(),
 	lucene40.NewLucene40SegmentInfoFormat(),
