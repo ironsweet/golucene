@@ -12,28 +12,20 @@ import (
 var dv = newLucene42RWDocValuesFormat()
 
 // Read-write version of Lucene42Codec for testing.
-var Lucene42RWCodec = &CodecImpl{
-	fieldsFormat:     newLucene41StoredFieldsFormat(),
-	vectorsFormat:    newLucene42TermVectorsFormat(),
-	fieldInfosFormat: newLucene42FieldInfosFormat(),
-	infosFormat:      lucene40.NewLucene40SegmentInfoFormat(),
-	// liveDocsFormat: newLucene40LiveDocsFormat(),
-	// Returns the postings format that should be used for writing new
-	// segments of field.
-	//
-	// The default implemnetation always returns "Lucene41"
-	postingsFormat: perfield.NewPerFieldPostingsFormat(func(field string) PostingsFormat {
+var Lucene42RWCodec = NewCodec("Lucene42",
+	newLucene41StoredFieldsFormat(),
+	newLucene42TermVectorsFormat(),
+	newLucene42FieldInfosFormat(),
+	lucene40.NewLucene40SegmentInfoFormat(),
+	nil, // liveDocsFormat
+	perfield.NewPerFieldPostingsFormat(func(field string) PostingsFormat {
 		panic("not implemented yet")
 	}),
-	// Returns the decvalues format that should be used for writing new
-	// segments of field.
-	//
-	// The default implementation always returns "Lucene42"
-	docValuesFormat: perfield.NewPerFieldDocValuesFormat(func(field string) DocValuesFormat {
+	perfield.NewPerFieldDocValuesFormat(func(field string) DocValuesFormat {
 		return dv
 	}),
-	normsFormat: newLucene42NormsFormat(),
-}
+	newLucene42NormsFormat(),
+)
 
 // lucene42/Lucene42RWDocValuesFormat.java
 

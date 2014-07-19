@@ -3,6 +3,7 @@ package index
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	"github.com/balzaczyy/golucene/core/util"
 	"reflect"
 )

@@ -26,25 +26,28 @@ type Lucene45Codec struct {
 	PostingsFormatForField func(string) PostingsFormat
 }
 
+func Init() {
+	RegisterCodec(Lucene42Codec, Lucene45CodecImpl)
+}
+
 var Lucene45CodecImpl = func() *Lucene45Codec {
 	f := func(string) PostingsFormat {
 		return newLucene41PostingsFormat()
 	}
-	codec := &CodecImpl{
-		name:             "Lucene45",
-		fieldsFormat:     newLucene41StoredFieldsFormat(),
-		vectorsFormat:    newLucene42TermVectorsFormat(),
-		fieldInfosFormat: newLucene42FieldInfosFormat(),
-		infosFormat:      lucene40.NewLucene40SegmentInfoFormat(),
-		liveDocsFormat:   new(lucene40.Lucene40LiveDocsFormat),
-		postingsFormat: perfield.NewPerFieldPostingsFormat(func(field string) PostingsFormat {
+	codec := NewCodec("Lucene45",
+		newLucene41StoredFieldsFormat(),
+		newLucene42TermVectorsFormat(),
+		newLucene42FieldInfosFormat(),
+		lucene40.NewLucene40SegmentInfoFormat(),
+		new(lucene40.Lucene40LiveDocsFormat),
+		perfield.NewPerFieldPostingsFormat(func(field string) PostingsFormat {
 			return f(field)
 		}),
-		docValuesFormat: perfield.NewPerFieldDocValuesFormat(func(field string) DocValuesFormat {
+		perfield.NewPerFieldDocValuesFormat(func(field string) DocValuesFormat {
 			panic("not implemented yet")
 		}),
-		normsFormat: newLucene42NormsFormat(),
-	}
+		newLucene42NormsFormat(),
+	)
 	return &Lucene45Codec{codec, f}
 }()
 

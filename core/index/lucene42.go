@@ -25,29 +25,20 @@ postings and docvalues formats.
 If you want to reuse functionality of this codec, in another codec,
 extend FilterCodec.
 */
-var Lucene42Codec = &CodecImpl{
-	name:             "Lucene42Codec",
-	fieldsFormat:     newLucene41StoredFieldsFormat(),
-	vectorsFormat:    newLucene42TermVectorsFormat(),
-	fieldInfosFormat: newLucene42FieldInfosFormat(),
-	infosFormat:      lucene40.NewLucene40SegmentInfoFormat(),
-	// liveDocsFormat: newLucene40LiveDocsFormat(),
-	// Returns the postings format that should be used for writing new
-	// segments of field.
-	//
-	// The default implemnetation always returns "Lucene41"
-	postingsFormat: perfield.NewPerFieldPostingsFormat(func(field string) PostingsFormat {
+var Lucene42Codec = NewCodec("Lucene42Codec",
+	newLucene41StoredFieldsFormat(),
+	newLucene42TermVectorsFormat(),
+	newLucene42FieldInfosFormat(),
+	lucene40.NewLucene40SegmentInfoFormat(),
+	nil, // liveDocsFormat
+	perfield.NewPerFieldPostingsFormat(func(field string) PostingsFormat {
 		panic("not implemented yet")
 	}),
-	// Returns the decvalues format that should be used for writing new
-	// segments of field.
-	//
-	// The default implementation always returns "Lucene42"
-	docValuesFormat: perfield.NewPerFieldDocValuesFormat(func(field string) DocValuesFormat {
+	perfield.NewPerFieldDocValuesFormat(func(field string) DocValuesFormat {
 		panic("not implemented yet")
 	}),
-	normsFormat: newReadonlyLucene42NormsFormat(),
-}
+	newReadonlyLucene42NormsFormat(),
+)
 
 type readonlyLucene42NormsFormat struct {
 	*Lucene42NormsFormat

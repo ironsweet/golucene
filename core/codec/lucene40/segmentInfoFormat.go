@@ -1,7 +1,7 @@
 package lucene40
 
 import (
-	"github.com/balzaczyy/golucene/core/codec/spi"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	// . "github.com/balzaczyy/golucene/core/index/model"
 	// "github.com/balzaczyy/golucene/core/store"
 )
@@ -39,8 +39,8 @@ Field Descriptions:
 - Files is a list of files referred to by this segment.
 */
 type Lucene40SegmentInfoFormat struct {
-	reader spi.SegmentInfoReader
-	writer spi.SegmentInfoWriter
+	reader SegmentInfoReader
+	writer SegmentInfoWriter
 }
 
 func NewLucene40SegmentInfoFormat() *Lucene40SegmentInfoFormat {
@@ -50,11 +50,11 @@ func NewLucene40SegmentInfoFormat() *Lucene40SegmentInfoFormat {
 	}
 }
 
-func (f *Lucene40SegmentInfoFormat) SegmentInfoReader() spi.SegmentInfoReader {
+func (f *Lucene40SegmentInfoFormat) SegmentInfoReader() SegmentInfoReader {
 	return f.reader
 }
 
-func (f *Lucene40SegmentInfoFormat) SegmentInfoWriter() spi.SegmentInfoWriter {
+func (f *Lucene40SegmentInfoFormat) SegmentInfoWriter() SegmentInfoWriter {
 	return f.writer
 }
 

@@ -1,7 +1,6 @@
-package index
+package spi
 
 import (
-	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -53,6 +52,19 @@ type CodecImpl struct {
 	normsFormat      NormsFormat
 }
 
+func NewCodec(name string,
+	fieldsFormat StoredFieldsFormat,
+	vectorsFormat TermVectorsFormat,
+	fieldInfosFormat FieldInfosFormat,
+	infosFormat SegmentInfoFormat,
+	liveDocsFormat LiveDocsFormat,
+	postingsFormat PostingsFormat,
+	docValuesFormat DocValuesFormat,
+	normsFormat NormsFormat) *CodecImpl {
+	return &CodecImpl{name, fieldsFormat, vectorsFormat, fieldInfosFormat,
+		infosFormat, liveDocsFormat, postingsFormat, docValuesFormat, normsFormat}
+}
+
 func (codec *CodecImpl) Name() string {
 	return codec.name
 }
@@ -97,10 +109,7 @@ func (codec *CodecImpl) String() string {
 	return codec.name
 }
 
-var allCodecs = map[string]Codec{
-	"Lucene42": Lucene42Codec,
-	"Lucene45": Lucene45CodecImpl,
-}
+var allCodecs = make(map[string]Codec)
 
 // workaround Lucene Java's SPI mechanism
 func RegisterCodec(codecs ...Codec) {
@@ -124,7 +133,11 @@ func AvailableCodecs() []string {
 }
 
 // Expert: returns the default codec used for newly created IndexWriterConfig(s).
-var DefaultCodec = func() Codec { return LoadCodec("Lucene45") }
+var DefaultCodec = func() Codec {
+	ans := LoadCodec("Lucene49")
+	assert(ans != nil)
+	return ans
+}
 
 // codecs/StoredFieldsFormat.java
 

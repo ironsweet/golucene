@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	std "github.com/balzaczyy/golucene/analysis/standard"
+	_ "github.com/balzaczyy/golucene/core/codec/lucene49"
 	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
