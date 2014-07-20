@@ -61,5 +61,8 @@ func (a *PackedTokenAttributeImpl) SetOffset(startOffset, endOffset int) {
 }
 
 func (a *PackedTokenAttributeImpl) Clear() {
-	panic("not implemented yet")
+	a.CharTermAttributeImpl.Clear()
+	a.positionIncrement, a.positionLength = 1, 1
+	a.startOffset, a.endOffset = 0, 0
+	a.typ = DEFAULT_TYPE
 }
