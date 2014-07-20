@@ -28,6 +28,8 @@ type TermsHash interface {
 	abort()
 	setTermBytePool(*util.ByteBlockPool)
 
+	fields() *TermsHashImpl // workaround abstract class
+
 	TermsHashImplSPI
 }
 
@@ -72,6 +74,10 @@ func newTermsHash(spi TermsHashImplSPI,
 		nextTermsHash.setTermBytePool(ans.bytePool)
 	}
 	return ans
+}
+
+func (h *TermsHashImpl) fields() *TermsHashImpl {
+	return h
 }
 
 func (hash *TermsHashImpl) setTermBytePool(p *util.ByteBlockPool) {

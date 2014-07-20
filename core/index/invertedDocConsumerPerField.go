@@ -79,9 +79,10 @@ is initialized and embedded by child class.
 */
 func (h *TermsHashPerFieldImpl) _constructor(spi TermsHashPerFieldSPI,
 	streamCount int, fieldState *FieldInvertState,
-	termsHash TermsHash, termsHashImpl *TermsHashImpl,
-	nextPerField TermsHashPerField,
+	termsHash TermsHash, nextPerField TermsHashPerField,
 	fieldInfo *model.FieldInfo) {
+
+	termsHashImpl := termsHash.fields()
 
 	h.spi = spi
 	h.intPool = termsHashImpl.intPool

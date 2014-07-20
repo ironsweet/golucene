@@ -5,14 +5,14 @@ import (
 	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/codec"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
-	"github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
 // type TermsHashConsumerPerField interface {
-// 	start([]model.IndexableField, int) (bool, error)
+// 	start([]IndexableField, int) (bool, error)
 // 	finish() error
-// 	startField(model.IndexableField) error
+// 	startField(IndexableField) error
 // 	newTerm(int) error
 // 	streamCount() int
 // 	createPostingsArray(int) *ParallelPostingsArray
@@ -36,21 +36,20 @@ type TermVectorsConsumerPerField struct {
 
 func newTermVectorsConsumerPerField(invertState *FieldInvertState,
 	termsWriter *TermVectorsConsumer,
-	fieldInfo *model.FieldInfo) *TermVectorsConsumerPerField {
+	fieldInfo *FieldInfo) *TermVectorsConsumerPerField {
 
 	ans := &TermVectorsConsumerPerField{
 		termsWriter: termsWriter,
 	}
 	ans.TermsHashPerFieldImpl = new(TermsHashPerFieldImpl)
 	ans.TermsHashPerFieldImpl._constructor(
-		ans, 2, invertState, termsWriter,
-		termsWriter.TermsHashImpl, nil, fieldInfo)
+		ans, 2, invertState, termsWriter, nil, fieldInfo)
 	return ans
 }
 
 // func (c *TermVectorsConsumerPerField) streamCount() int { return 2 }
 
-func (c *TermVectorsConsumerPerField) start(fields []model.IndexableField, count int) (bool, error) {
+func (c *TermVectorsConsumerPerField) start(fields []IndexableField, count int) (bool, error) {
 	panic("not implemented yet")
 	// c.doVectors = false
 	// c.doVectorPositions = false
@@ -116,7 +115,7 @@ func (c *TermVectorsConsumerPerField) start(fields []model.IndexableField, count
 // 	c.maxNumPostings = 0
 // }
 
-// func (c *TermVectorsConsumerPerField) startField(f model.IndexableField) error {
+// func (c *TermVectorsConsumerPerField) startField(f IndexableField) error {
 // 	atts := c.fieldState.attributeSource
 // 	if c.doVectorOffsets {
 // 		c.offsetAttribute = atts.Add("OffsetAttribute").(OffsetAttribute)
@@ -180,7 +179,7 @@ type FreqProxTermsWriterPerField struct {
 
 	// parent            *FreqProxTermsWriter
 	// termsHashPerField *TermsHashPerField
-	// fieldInfo         *model.FieldInfo
+	// fieldInfo         *FieldInfo
 	// docState          *docState
 	// fieldState        *FieldInvertState
 
@@ -195,18 +194,24 @@ type FreqProxTermsWriterPerField struct {
 }
 
 func newFreqProxTermsWriterPerField(invertState *FieldInvertState,
-	termsHash TermsHash, fieldInfo *model.FieldInfo,
+	termsHash TermsHash, fieldInfo *FieldInfo,
 	nextPerField TermsHashPerField) *FreqProxTermsWriterPerField {
-	panic("not implemented yet")
-	// ans := &FreqProxTermsWriterPerField{
-	// 	termsHashPerField: termsHashPerField,
-	// 	parent:            parent,
-	// 	fieldInfo:         fieldInfo,
-	// 	docState:          termsHashPerField.docState,
-	// 	fieldState:        termsHashPerField.fieldState,
-	// }
-	// ans.setIndexOptions(fieldInfo.IndexOptions())
-	// return ans
+
+	indexOptions := fieldInfo.IndexOptions()
+	assert(int(indexOptions) != 0)
+	hasProx := indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
+	ans := &FreqProxTermsWriterPerField{
+		hasFreq:    indexOptions >= INDEX_OPT_DOCS_AND_FREQS,
+		hasProx:    hasProx,
+		hasOffsets: indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS,
+	}
+	streamCount := map[bool]int{true: 2, false: 1}[hasProx]
+	ans.TermsHashPerFieldImpl = new(TermsHashPerFieldImpl)
+	ans.TermsHashPerFieldImpl._constructor(
+		ans, streamCount, invertState,
+		termsHash, nextPerField, fieldInfo,
+	)
+	return ans
 }
 
 // func (w *FreqProxTermsWriterPerField) streamCount() int {
@@ -233,11 +238,11 @@ func (w *FreqProxTermsWriterPerField) finish() error {
 // 	w.payloadAttribute = nil
 // }
 
-// func (w *FreqProxTermsWriterPerField) setIndexOptions(indexOptions model.IndexOptions) {
+// func (w *FreqProxTermsWriterPerField) setIndexOptions(indexOptions IndexOptions) {
 // 	if n := int(indexOptions); n > 0 {
-// 		w.hasFreq = n >= int(model.INDEX_OPT_DOCS_AND_FREQS)
-// 		w.hasProx = n >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS)
-// 		w.hasOffsets = n >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS)
+// 		w.hasFreq = n >= int(INDEX_OPT_DOCS_AND_FREQS)
+// 		w.hasProx = n >= int(INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS)
+// 		w.hasOffsets = n >= int(INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS)
 // 	} else {
 // 		// field could later be updated with indexed=true, so set everything on
 // 		w.hasFreq = true
@@ -246,7 +251,7 @@ func (w *FreqProxTermsWriterPerField) finish() error {
 // 	}
 // }
 
-// func (w *FreqProxTermsWriterPerField) start(fields []model.IndexableField, count int) (bool, error) {
+// func (w *FreqProxTermsWriterPerField) start(fields []IndexableField, count int) (bool, error) {
 // 	for _, field := range fields[:count] {
 // 		if field.FieldType().Indexed() {
 // 			return true, nil
@@ -255,7 +260,7 @@ func (w *FreqProxTermsWriterPerField) finish() error {
 // 	return false, nil
 // }
 
-func (w *FreqProxTermsWriterPerField) start(f model.IndexableField, first bool) error {
+func (w *FreqProxTermsWriterPerField) start(f IndexableField, first bool) error {
 	panic("not implemented yet")
 	// atts := w.fieldState.attributeSource
 	// if atts.Has("PayloadAttribute") {
@@ -322,6 +327,10 @@ func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
 	return nil
 }
 
+func (w *FreqProxTermsWriterPerField) newPostingsArray() {
+	w.freqProxPostingsArray = w.postingsArray.PostingsArray.(*FreqProxPostingsArray)
+}
+
 func (w *FreqProxTermsWriterPerField) createPostingsArray(size int) *ParallelPostingsArray {
 	panic("not implemented yet")
 	// return newFreqProxPostingsArray(size, w.hasFreq, w.hasProx, w.hasOffsets)
@@ -384,7 +393,7 @@ Walk through all unique text tokens (Posting instances) found in this
 field and serialie them into a single RAM segment.
 */
 func (w *FreqProxTermsWriterPerField) flush(fieldName string,
-	consumer FieldsConsumer, state *model.SegmentWriteState) error {
+	consumer FieldsConsumer, state *SegmentWriteState) error {
 	if !w.fieldInfo.IsIndexed() {
 		return nil // nothing to flush, don't bother the codc with the unindexed field
 	}
@@ -404,9 +413,9 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 	currentFieldIndexOptions := w.fieldInfo.IndexOptions()
 	assert(int(currentFieldIndexOptions) != 0)
 
-	writeTermFreq := int(currentFieldIndexOptions) >= int(model.INDEX_OPT_DOCS_AND_FREQS)
-	writePositions := int(currentFieldIndexOptions) >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS)
-	writeOffsets := int(currentFieldIndexOptions) >= int(model.INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS)
+	writeTermFreq := int(currentFieldIndexOptions) >= int(INDEX_OPT_DOCS_AND_FREQS)
+	writePositions := int(currentFieldIndexOptions) >= int(INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS)
+	writeOffsets := int(currentFieldIndexOptions) >= int(INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS)
 
 	readTermFreq := w.hasFreq
 	readPositions := w.hasProx
