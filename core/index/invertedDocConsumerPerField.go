@@ -28,6 +28,7 @@ const HASH_INIT_SIZE = 4
 
 type TermsHashPerField interface {
 	reset()
+	add() error
 	finish() error
 	start(IndexableField, bool) bool
 }

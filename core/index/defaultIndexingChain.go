@@ -365,10 +365,10 @@ func (f *PerField) invert(field IndexableField, first bool) error {
 	if err := func() (err error) {
 		// only bother checking offsets if something will consume them
 		// TODO: after we fix analyzers, also check if termVectorOffsets will be indexed.
-		// checkOffsets := fieldType.IndexOptions() == INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
+		checkOffsets := fieldType.IndexOptions() == INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
 
-		// lastStartOffset := 0
-		// lastPosition := 0
+		lastStartOffset := 0
+		lastPosition := 0
 
 		// To assist people in tracking down problems in analysis components,
 		// we wish to write the field name to the infostream when we fail.
@@ -430,7 +430,50 @@ func (f *PerField) invert(field IndexableField, first bool) error {
 			if !ok {
 				break
 			}
-			panic("not implemented yet")
+
+			// if we hit an error in stream.next below (which is fairly
+			// common, e.g. if analyzer chokes on a given document), then
+			// it's non-aborting and (above) this one document will be
+			// marked as deleted, but still consume a docId
+
+			posIncr := f.invertState.posIncrAttribute.PositionIncrement()
+			if f.invertState.position += posIncr; f.invertState.position < lastPosition {
+				assert2(posIncr != 0,
+					"first position increment must be > 0 (got 0) for field '%v'",
+					field.Name)
+				panic(fmt.Sprintf(
+					"position increments (and gaps) must be >= 0 (got %v) for field '%v'",
+					posIncr, field.Name))
+			}
+			lastPosition = f.invertState.position
+			if posIncr == 0 {
+				f.invertState.numOverlap++
+			}
+
+			if checkOffsets {
+				startOffset := f.invertState.offset + f.invertState.offsetAttribute.StartOffset()
+				endOffset := f.invertState.offset + f.invertState.offsetAttribute.EndOffset()
+				assert2(startOffset >= lastStartOffset && startOffset <= endOffset,
+					"startOffset must be non-negative, "+
+						"and endOffset must be >= startOffset, "+
+						"and offsets must not go backwards "+
+						"startOffset=%v,endOffset=%v,lastStartOffset=%v for field '%v'",
+					startOffset, endOffset, lastStartOffset, field.Name)
+			}
+
+			fmt.Printf("  term=%v\n", f.invertState.termAttribute)
+
+			// if we hit an error in here, we abort all buffered documents
+			// since the last flush, on the likelihood that the internal
+			// state of the terms hash is now corrupt and should not be
+			// flushed to a new segment:
+			aborting = true
+			if err = f.termsHashPerField.add(); err != nil {
+				return err
+			}
+			aborting = false
+
+			f.invertState.length++
 		}
 
 		// trigger streams to perform end-of-stream operations
