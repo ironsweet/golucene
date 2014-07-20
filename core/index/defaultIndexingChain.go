@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/core/analysis"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
@@ -318,6 +319,9 @@ type PerField struct {
 
 	// Used by the hash table
 	next *PerField
+
+	// reused
+	tokenStream analysis.TokenStream
 }
 
 func newPerField(parent *DefaultIndexingChain,
@@ -349,5 +353,108 @@ Inverts one field for one document; first is true if this is the
 first time we are seeing this field name in this document.
 */
 func (f *PerField) invert(field IndexableField, first bool) error {
-	panic("not implemented yet")
+	if first {
+		// first time we're seeing this field (indexed) in this document:
+		f.invertState.reset()
+	}
+
+	fieldType := field.FieldType()
+
+	analyzed := fieldType.Tokenized() && f.docState.analyzer != nil
+
+	if err := func() (err error) {
+		// only bother checking offsets if something will consume them
+		// TODO: after we fix analyzers, also check if termVectorOffsets will be indexed.
+		// checkOffsets := fieldType.IndexOptions() == INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
+
+		// lastStartOffset := 0
+		// lastPosition := 0
+
+		// To assist people in tracking down problems in analysis components,
+		// we wish to write the field name to the infostream when we fail.
+		// We expect some caller to eventually deal with the real error, so
+		// we don't want any error handling, but rather a deferred function
+		// that takes note of the problem.
+		aborting := false
+		succeededInProcessingField := false
+		defer func() {
+			if err != nil {
+				if _, ok := err.(util.MaxBytesLengthExceededError); ok {
+					aborting = false
+					prefix := make([]byte, 30)
+					bigTerm := f.invertState.termAttribute.BytesRef()
+					copy(prefix, bigTerm.Value)
+					if f.docState.infoStream.IsEnabled("IW") {
+						f.docState.infoStream.Message("IW",
+							"ERROR: Document contains at least one immense term in field='%v' "+
+								"(whose UTF8 encoding is longer than the max length %v), "+
+								"all of which were skipped. Please correct the analyzer to not produce such terms. "+
+								"The prefix of the first immense term is: '%v...', original message: %v",
+							f.fieldInfo.Name, MAX_TERM_LENGTH_UTF8, string(prefix), err)
+					}
+				}
+			}
+			if !succeededInProcessingField && aborting {
+				f.docState.docWriter.setAborting()
+			}
+
+			if !succeededInProcessingField && f.docState.infoStream.IsEnabled("DW") {
+				f.docState.infoStream.Message("DW",
+					"An exception was thrown while processing field %v",
+					f.fieldInfo.Name)
+			}
+		}()
+
+		var stream analysis.TokenStream
+		stream, err = field.TokenStream(f.docState.analyzer, f.tokenStream)
+		if err != nil {
+			return err
+		}
+		defer stream.Close()
+
+		f.tokenStream = stream
+		// reset the TokenStream to the first token
+		if err = stream.Reset(); err != nil {
+			return err
+		}
+
+		f.invertState.setAttributeSource(stream.Attributes())
+
+		f.termsHashPerField.start(field, first)
+
+		for {
+			var ok bool
+			if ok, err = stream.IncrementToken(); err != nil {
+				return err
+			}
+			if !ok {
+				break
+			}
+			panic("not implemented yet")
+		}
+
+		// trigger streams to perform end-of-stream operations
+		if err = stream.End(); err != nil {
+			return err
+		}
+
+		// TODO: maybe add some safety? then again, it's already checked
+		// when we come back arond to the field...
+		f.invertState.position += f.invertState.posIncrAttribute.PositionIncrement()
+		f.invertState.offset += f.invertState.offsetAttribute.EndOffset()
+
+		// if there is an error coming through, we don't set this to true here:
+		succeededInProcessingField = true
+		return nil
+	}(); err != nil {
+		return err
+	}
+
+	if analyzed {
+		f.invertState.position += f.docState.analyzer.PositionIncrementGap(f.fieldInfo.Name)
+		f.invertState.offset += f.docState.analyzer.OffsetGap(f.fieldInfo.Name)
+	}
+
+	f.invertState.boost *= field.Boost()
+	return nil
 }

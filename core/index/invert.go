@@ -1,6 +1,7 @@
 package index
 
 import (
+	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -21,6 +22,11 @@ type FieldInvertState struct {
 	uniqueTermCount  int
 	boost            float32
 	attributeSource  *util.AttributeSource
+
+	offsetAttribute  OffsetAttribute
+	posIncrAttribute PositionIncrementAttribute
+	payloadAttribute PayloadAttribute
+	termAttribute    TermToBytesRefAttribute
 }
 
 /* Creates FieldInvertState for the specified field name. */
@@ -37,6 +43,11 @@ func (st *FieldInvertState) reset() {
 	st.maxTermFrequency = 0
 	st.uniqueTermCount = 0
 	st.boost = 1.0
+}
+
+/* Sets attributeSource to a new instance. */
+func (st *FieldInvertState) setAttributeSource(attributeSource *util.AttributeSource) {
+	panic("not implemented yet")
 }
 
 /* Get total number of terms in this field. */

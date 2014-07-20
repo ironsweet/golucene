@@ -2,7 +2,7 @@ package index
 
 import (
 	ta "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
-	"github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -12,9 +12,9 @@ import (
 // 	// Called once per field, and is given all IndexableField
 // 	// occurrences for this field in the document. Return true if you
 // 	// wish to see inverted tokens for these fields:
-// 	start([]model.IndexableField, int) (bool, error)
+// 	start([]IndexableField, int) (bool, error)
 // 	// Called before a field instance is being processed
-// 	startField(model.IndexableField)
+// 	startField(IndexableField)
 // 	// Called once per inverted token
 // 	add() error
 // 	// Called once per field per document, after all IndexableFields
@@ -29,6 +29,7 @@ const HASH_INIT_SIZE = 4
 type TermsHashPerField interface {
 	reset()
 	finish() error
+	start(IndexableField, bool) bool
 }
 
 type TermsHashPerFieldSPI interface {
@@ -57,7 +58,7 @@ type TermsHashPerFieldImpl struct {
 	streamCount   int
 	numPostingInt int
 
-	fieldInfo *model.FieldInfo
+	fieldInfo *FieldInfo
 
 	bytesHash *util.BytesRefHash
 
@@ -80,7 +81,7 @@ is initialized and embedded by child class.
 func (h *TermsHashPerFieldImpl) _constructor(spi TermsHashPerFieldSPI,
 	streamCount int, fieldState *FieldInvertState,
 	termsHash TermsHash, nextPerField TermsHashPerField,
-	fieldInfo *model.FieldInfo) {
+	fieldInfo *FieldInfo) {
 
 	termsHashImpl := termsHash.fields()
 
@@ -136,7 +137,7 @@ func (h *TermsHashPerFieldImpl) sortPostings(termComp func(a, b []byte) bool) []
 	return h.bytesHash.Sort(termComp)
 }
 
-// func (h *TermsHashPerField) startField(f model.IndexableField) {
+// func (h *TermsHashPerField) startField(f IndexableField) {
 // 	h.termAtt = h.fieldState.attributeSource.Get("TermToBytesRefAttribute").(ta.TermToBytesRefAttribute)
 // 	h.termBytesRef = h.termAtt.BytesRef()
 // 	assert(h.termBytesRef != nil)
@@ -146,7 +147,7 @@ func (h *TermsHashPerFieldImpl) sortPostings(termComp func(a, b []byte) bool) []
 // 	}
 // }
 
-// func (h *TermsHashPerField) start(fields []model.IndexableField, count int) (bool, error) {
+// func (h *TermsHashPerField) start(fields []IndexableField, count int) (bool, error) {
 // 	var err error
 // 	h.doCall, err = h.consumer.start(fields, count)
 // 	if err != nil {

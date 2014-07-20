@@ -34,6 +34,8 @@ type Analyzer interface {
 	// contents. See the Analysis package documentation for some
 	// examples demonstrating this.
 	TokenStreamForString(fieldName, text string) (TokenStream, error)
+	PositionIncrementGap(string) int
+	OffsetGap(string) int
 }
 
 type AnalyzerSPI interface {
@@ -105,6 +107,14 @@ func (a *AnalyzerImpl) TokenStreamForString(fieldName, text string) (TokenStream
 
 func (a *AnalyzerImpl) InitReader(fieldName string, reader io.ReadCloser) io.ReadCloser {
 	return reader
+}
+
+func (a *AnalyzerImpl) PositionIncrementGap(fieldName string) int {
+	return 0
+}
+
+func (a *AnalyzerImpl) OffsetGap(fieldName string) int {
+	return 1
 }
 
 type myTokenizer interface {

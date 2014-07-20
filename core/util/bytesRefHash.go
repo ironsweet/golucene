@@ -1,6 +1,8 @@
 package util
 
-import ()
+import (
+	"fmt"
+)
 
 /*
 BytesRefHash is a special purpose hash map like data structure
@@ -175,8 +177,14 @@ func (h *BytesRefHash) Clear(resetPool bool) {
 	}
 }
 
+type MaxBytesLengthExceededError string
+
+func (e MaxBytesLengthExceededError) Error() string {
+	return string(e)
+}
+
 /* Adds a new BytesRef. */
-func (h *BytesRefHash) Add(bytes []byte) (int, bool) {
+func (h *BytesRefHash) Add(bytes []byte) (int, error) {
 	assert(bytes != nil)
 	assert(len(bytes) > 0)
 	assert2(h.bytesStart != nil, "Bytesstart is null - not initialized")
@@ -189,7 +197,9 @@ func (h *BytesRefHash) Add(bytes []byte) (int, bool) {
 		// new entry
 		if len2 := 2 + len(bytes); len2+h.pool.ByteUpto > BYTE_BLOCK_SIZE {
 			if len2 > BYTE_BLOCK_SIZE {
-				return 0, false
+				return 0, MaxBytesLengthExceededError(fmt.Sprintf(
+					"bytes can be at most %v in length; got %v",
+					BYTE_BLOCK_SIZE-2, len(bytes)))
 			}
 			h.pool.NextBuffer()
 		}
@@ -226,9 +236,9 @@ func (h *BytesRefHash) Add(bytes []byte) (int, bool) {
 		if h.count == h.hashHalfSize {
 			h.rehash(2*h.hashSize, true)
 		}
-		return e, true
+		return e, nil
 	}
-	return -(e + 1), true
+	return -(e + 1), nil
 }
 
 func (h *BytesRefHash) findHash(bytes []byte) int {

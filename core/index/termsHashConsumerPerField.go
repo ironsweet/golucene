@@ -49,7 +49,7 @@ func newTermVectorsConsumerPerField(invertState *FieldInvertState,
 
 // func (c *TermVectorsConsumerPerField) streamCount() int { return 2 }
 
-func (c *TermVectorsConsumerPerField) start(fields []IndexableField, count int) (bool, error) {
+func (c *TermVectorsConsumerPerField) start(fields IndexableField, first bool) bool {
 	panic("not implemented yet")
 	// c.doVectors = false
 	// c.doVectorPositions = false
@@ -260,7 +260,7 @@ func (w *FreqProxTermsWriterPerField) finish() error {
 // 	return false, nil
 // }
 
-func (w *FreqProxTermsWriterPerField) start(f IndexableField, first bool) error {
+func (w *FreqProxTermsWriterPerField) start(f IndexableField, first bool) bool {
 	panic("not implemented yet")
 	// atts := w.fieldState.attributeSource
 	// if atts.Has("PayloadAttribute") {
