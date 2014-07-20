@@ -17,6 +17,8 @@ func (fac *DefaultAttributeFactory) Create(name string) *util.AttributeImpl {
 		return newOffsetAttributeImpl()
 	case "TypeAttribute":
 		return newTypeAttributeImpl()
+	case "PayloadAttribute":
+		return newPayloadAttributeImpl()
 	}
 	panic(fmt.Sprintf("not supported yet: %v", name))
 }

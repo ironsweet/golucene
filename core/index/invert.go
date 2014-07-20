@@ -50,9 +50,10 @@ func (st *FieldInvertState) setAttributeSource(attributeSource *util.AttributeSo
 	if st.attributeSource != attributeSource {
 		st.attributeSource = attributeSource
 		st.termAttribute = attributeSource.Get("TermToBytesRefAttribute").(TermToBytesRefAttribute)
-		st.posIncrAttribute = attributeSource.Get("PositionIncrementAttribute").(PositionIncrementAttribute)
-		st.offsetAttribute = attributeSource.Get("OffsetAttribute").(OffsetAttribute)
-		st.payloadAttribute = attributeSource.Get("PayloadAttribute").(PayloadAttribute)
+		st.posIncrAttribute = attributeSource.Add("PositionIncrementAttribute").(PositionIncrementAttribute)
+		st.offsetAttribute = attributeSource.Add("OffsetAttribute").(OffsetAttribute)
+		// st.payloadAttribute = attributeSource.Get("PayloadAttribute").(PayloadAttribute)
+		st.payloadAttribute = nil
 	}
 }
 
