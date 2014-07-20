@@ -91,7 +91,23 @@ func (c *DefaultIndexingChain) abort() {
 }
 
 func (c *DefaultIndexingChain) rehash() {
-	panic("not implemented yet")
+	newHashSize := 2 * len(c.fieldHash)
+	assert(newHashSize > len(c.fieldHash))
+
+	newHashArray := make([]*PerField, newHashSize)
+
+	// rehash
+	newHashMask := newHashSize - 1
+	for _, fp0 := range c.fieldHash {
+		for fp0 != nil {
+			hashPos2 := hashstr(fp0.fieldInfo.Name) & newHashMask
+			fp0.next, newHashArray[hashPos2], fp0 =
+				newHashArray[hashPos2], fp0, fp0.next
+		}
+	}
+
+	c.fieldHash = newHashArray
+	c.hashMask = newHashMask
 }
 
 /* Calls StoredFieldsWriter.startDocument, aborting the segment if it hits any error. */
