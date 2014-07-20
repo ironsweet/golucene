@@ -261,19 +261,10 @@ func (w *FreqProxTermsWriterPerField) finish() error {
 // }
 
 func (w *FreqProxTermsWriterPerField) start(f IndexableField, first bool) bool {
-	panic("not implemented yet")
-	// atts := w.fieldState.attributeSource
-	// if atts.Has("PayloadAttribute") {
-	// 	w.payloadAttribute = atts.Get("PayloadAttribute").(PayloadAttribute)
-	// } else {
-	// 	w.payloadAttribute = nil
-	// }
-	// if w.hasOffsets {
-	// 	w.offsetAttribute = atts.Add("OffsetAttribute").(OffsetAttribute)
-	// } else {
-	// 	w.offsetAttribute = nil
-	// }
-	// return nil
+	w.TermsHashPerFieldImpl.start(f, first)
+	w.payloadAttribute = w.fieldState.payloadAttribute
+	w.offsetAttribute = w.fieldState.offsetAttribute
+	return true
 }
 
 func (w *FreqProxTermsWriterPerField) writeProx(termId, proxCode int) {

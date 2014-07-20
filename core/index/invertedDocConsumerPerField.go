@@ -251,6 +251,21 @@ func (h *TermsHashPerFieldImpl) finish() error {
 	return nil
 }
 
+/*
+Start adding a new field instance; first is true if this is the first
+time this field name was seen in the document.
+*/
+func (h *TermsHashPerFieldImpl) start(field IndexableField, first bool) bool {
+	if h.termAtt = h.fieldState.termAttribute; h.termAtt != nil {
+		// EmptyTokenStream can have nil term att
+		h.termBytesRef = h.termAtt.BytesRef()
+	}
+	if h.nextPerField != nil {
+		h.doNextCall = h.nextPerField.start(field, first)
+	}
+	return true
+}
+
 type PostingsBytesStartArray struct {
 	perField  *TermsHashPerFieldImpl
 	bytesUsed util.Counter
