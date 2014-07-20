@@ -47,50 +47,44 @@ func newTermVectorsConsumerPerField(invertState *FieldInvertState,
 	return ans
 }
 
-// func (c *TermVectorsConsumerPerField) streamCount() int { return 2 }
+func (c *TermVectorsConsumerPerField) start(field IndexableField, first bool) bool {
+	t := field.FieldType()
+	assert(t.Indexed())
 
-func (c *TermVectorsConsumerPerField) start(fields IndexableField, first bool) bool {
-	panic("not implemented yet")
-	// c.doVectors = false
-	// c.doVectorPositions = false
-	// c.doVectorOffsets = false
-	// c.doVectorPayloads = false
-	// c.hasPayloads = false
+	if first {
 
-	// for _, field := range fields[:count] {
-	// 	t := field.FieldType()
-	// 	if t.Indexed() {
-	// 		if t.StoreTermVectors() {
-	// 			panic("not implemented yet")
-	// 		} else {
-	// 			assert2(!t.StoreTermVectorOffsets(),
-	// 				"cannot index term vector offsets when term vectors are not indexed (field='%v')",
-	// 				field.Name())
-	// 			assert2(!t.StoreTermVectorPositions(),
-	// 				"cannot index term vector positions when term vectors are not indexed (field='%v')",
-	// 				field.Name())
-	// 			assert2(!t.StoreTermVectorPayloads(),
-	// 				"cannot index term vector payloads when term vectors are not indexed (field='%v')",
-	// 				field.Name())
-	// 		}
-	// 	} else {
-	// 		panic("not implemented yet")
-	// 	}
-	// }
+		if c.bytesHash.Size() != 0 {
+			// only necessary if previous doc hit a non-aborting error
+			// while writing vectors in this field:
+			c.reset()
+		}
 
-	// if c.doVectors {
-	// 	c.termsWriter.hasVectors = true
-	// 	if c.termsHashPerField.bytesHash.Size() != 0 {
-	// 		// Only necessary if previous doc hit a non-aborting error
-	// 		// while writing vectors in this field:
-	// 		c.termsHashPerField.reset()
-	// 	}
-	// }
+		c.bytesHash.Reinit()
 
-	// // TODO: only if needed for performance
-	// // perThread.postingsCount = 0
+		c.hasPayloads = false
 
-	// return c.doVectors, nil
+		if c.doVectors = t.StoreTermVectors(); c.doVectors {
+			panic("not implemented yet")
+		} else {
+			assert2(!t.StoreTermVectorOffsets(),
+				"cannot index term vector offsets when term vectors are not indexed (field='%v')",
+				field.Name())
+			assert2(!t.StoreTermVectorPositions(),
+				"cannot index term vector positions when term vectors are not indexed (field='%v')",
+				field.Name())
+			assert2(!t.StoreTermVectorPayloads(),
+				"cannot index term vector payloads when term vectors are not indexed (field='%v')",
+				field.Name())
+		}
+	} else {
+		panic("not implemented yet")
+	}
+
+	if c.doVectors {
+		panic("not implemented yet")
+	}
+
+	return c.doVectors
 }
 
 // /*
