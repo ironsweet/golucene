@@ -1,4 +1,4 @@
-package index
+package lucene42
 
 import (
 	"errors"

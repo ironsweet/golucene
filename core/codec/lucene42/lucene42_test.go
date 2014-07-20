@@ -1,4 +1,4 @@
-package index
+package lucene42
 
 import (
 	"github.com/balzaczyy/golucene/core/store"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestReadFieldInfos(t *testing.T) {
-	path := "../search/testdata/osx/belfrysample"
+	path := "../../search/testdata/osx/belfrysample"
 	d, err := store.OpenFSDirectory(path)
 	if err != nil {
 		t.Error(err)

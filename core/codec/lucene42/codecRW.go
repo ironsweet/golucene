@@ -1,4 +1,4 @@
-package index
+package lucene42
 
 import (
 	"github.com/balzaczyy/golucene/core/codec/lucene40"
@@ -15,8 +15,8 @@ var dv = newLucene42RWDocValuesFormat()
 // Read-write version of Lucene42Codec for testing.
 var Lucene42RWCodec = NewCodec("Lucene42",
 	lucene41.NewLucene41StoredFieldsFormat(),
-	newLucene42TermVectorsFormat(),
-	newLucene42FieldInfosFormat(),
+	NewLucene42TermVectorsFormat(),
+	NewLucene42FieldInfosFormat(),
 	lucene40.NewLucene40SegmentInfoFormat(),
 	nil, // liveDocsFormat
 	perfield.NewPerFieldPostingsFormat(func(field string) PostingsFormat {
@@ -25,7 +25,7 @@ var Lucene42RWCodec = NewCodec("Lucene42",
 	perfield.NewPerFieldDocValuesFormat(func(field string) DocValuesFormat {
 		return dv
 	}),
-	newLucene42NormsFormat(),
+	NewLucene42NormsFormat(),
 )
 
 // lucene42/Lucene42RWDocValuesFormat.java

@@ -4,6 +4,7 @@ import (
 	// "github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/codec/lucene40"
 	"github.com/balzaczyy/golucene/core/codec/lucene41"
+	"github.com/balzaczyy/golucene/core/codec/lucene42"
 	"github.com/balzaczyy/golucene/core/codec/perfield"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
@@ -27,8 +28,8 @@ type Lucene45Codec struct {
 	PostingsFormatForField func(string) PostingsFormat
 }
 
-func Init() {
-	RegisterCodec(Lucene42Codec, Lucene45CodecImpl)
+func init() {
+	RegisterCodec(Lucene45CodecImpl)
 }
 
 var Lucene45CodecImpl = func() *Lucene45Codec {
@@ -37,8 +38,8 @@ var Lucene45CodecImpl = func() *Lucene45Codec {
 	}
 	codec := NewCodec("Lucene45",
 		lucene41.NewLucene41StoredFieldsFormat(),
-		newLucene42TermVectorsFormat(),
-		newLucene42FieldInfosFormat(),
+		lucene42.NewLucene42TermVectorsFormat(),
+		lucene42.NewLucene42FieldInfosFormat(),
 		lucene40.NewLucene40SegmentInfoFormat(),
 		new(lucene40.Lucene40LiveDocsFormat),
 		perfield.NewPerFieldPostingsFormat(func(field string) PostingsFormat {
@@ -47,7 +48,7 @@ var Lucene45CodecImpl = func() *Lucene45Codec {
 		perfield.NewPerFieldDocValuesFormat(func(field string) DocValuesFormat {
 			panic("not implemented yet")
 		}),
-		newLucene42NormsFormat(),
+		lucene42.NewLucene42NormsFormat(),
 	)
 	return &Lucene45Codec{codec, f}
 }()
@@ -69,6 +70,6 @@ type Lucene45DocvaluesProducer struct {
 // expert: instantiate a new reader
 func newLucene45DocValuesProducer(
 	state SegmentReadState, dataCodec, dataExtension, metaCodec, metaExtension string) (
-	dvp *Lucene42DocValuesProducer, err error) {
+	dvp *lucene42.Lucene42DocValuesProducer, err error) {
 	panic("not implemented yet")
 }
