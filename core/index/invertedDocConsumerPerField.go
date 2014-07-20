@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	ta "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
@@ -28,12 +29,15 @@ const HASH_INIT_SIZE = 4
 
 type TermsHashPerField interface {
 	reset()
+	addFrom(int) error
 	add() error
 	finish() error
 	start(IndexableField, bool) bool
 }
 
 type TermsHashPerFieldSPI interface {
+	// Called when a term is seen for the first time.
+	newTerm(int) error
 	// Called when postings array is initialized or resized.
 	newPostingsArray()
 	// Creates a new postings array of the specified size.
@@ -172,56 +176,66 @@ func (h *TermsHashPerFieldImpl) addFrom(textStart int) error {
 	panic("not implemented yet")
 }
 
-/* Primary entry point (for first TermsHash) */
-func (h *TermsHashPerFieldImpl) add() error {
-	panic("not implemented yet")
-	// // We are first in the chain so we must "intern" the term text into
-	// // textStart address. Get the text & hash of this term.
-	// termId, ok := h.bytesHash.Add(h.termBytesRef.Value, h.termAtt.FillBytesRef())
-	// if !ok {
-	// 	// Not enough room in current block. Just skip this term, to
-	// 	// remain as robust as ossible during indexing. A TokenFilter can
-	// 	// be inserted into the analyzer chain if other behavior is
-	// 	// wanted (pruning the term to a prefix, returning an error, etc).
-	// 	panic("not implemented yet")
-	// 	return nil
-	// }
+// Simpler version of Lucene's own method
+func utf8ToString(iso8859_1_buf []byte) string {
+	buf := make([]rune, len(iso8859_1_buf))
+	for i, b := range iso8859_1_buf {
+		buf[i] = rune(b)
+	}
+	return string(buf)
+}
 
-	// if termId >= 0 { // new posting
-	// 	h.bytesHash.ByteStart(termId)
-	// 	// init stream slices
-	// 	if h.numPostingInt+h.intPool.IntUpto > util.INT_BLOCK_SIZE {
-	// 		h.intPool.NextBuffer()
-	// 	}
+/*
+Called once per inverted token. This is the primary entry point (for
+first TermsHash); postings use this API.
+*/
+func (h *TermsHashPerFieldImpl) add() (err error) {
+	h.termAtt.FillBytesRef()
 
-	// 	if util.BYTE_BLOCK_SIZE-h.bytePool.ByteUpto < h.numPostingInt*util.FIRST_LEVEL_SIZE {
-	// 		panic("not implemented yet")
-	// 	}
+	// We are first in the chain so we must "intern" the term text into
+	// textStart address. Get the text & hash of this term.
+	var termId int
+	if termId, err = h.bytesHash.Add(h.termBytesRef.Value); err != nil {
+		return
+	}
 
-	// 	h.intUptos = h.intPool.Buffer
-	// 	h.intUptoStart = h.intPool.IntUpto
-	// 	h.intPool.IntUpto += h.streamCount
+	fmt.Printf("add term=%v doc=%v termId=%v\n",
+		utf8ToString(h.termBytesRef.Value), h.docState.docID, termId)
 
-	// 	h.postingsArray.intStarts[termId] = h.intUptoStart + h.intPool.IntOffset
+	if termId >= 0 { // new posting
+		h.bytesHash.ByteStart(termId)
+		// init stream slices
+		if h.numPostingInt+h.intPool.IntUpto > util.INT_BLOCK_SIZE {
+			h.intPool.NextBuffer()
+		}
 
-	// 	for i := 0; i < h.streamCount; i++ {
-	// 		upto := h.bytePool.NewSlice(util.FIRST_LEVEL_SIZE)
-	// 		h.intUptos[h.intUptoStart+i] = upto + h.bytePool.ByteOffset
-	// 	}
-	// 	h.postingsArray.byteStarts[termId] = h.intUptos[h.intUptoStart]
+		if util.BYTE_BLOCK_SIZE-h.bytePool.ByteUpto < h.numPostingInt*util.FIRST_LEVEL_SIZE {
+			panic("not implemented yet")
+		}
 
-	// 	err := h.consumer.newTerm(termId)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// } else {
-	// 	panic("not implemented yet")
-	// }
+		h.intUptos = h.intPool.Buffer
+		h.intUptoStart = h.intPool.IntUpto
+		h.intPool.IntUpto += h.streamCount
 
-	// if h.doNextCall {
-	// 	return h.nextPerField.addFrom(h.postingsArray.textStarts[termId])
-	// }
-	// return nil
+		h.postingsArray.intStarts[termId] = h.intUptoStart + h.intPool.IntOffset
+
+		for i := 0; i < h.streamCount; i++ {
+			upto := h.bytePool.NewSlice(util.FIRST_LEVEL_SIZE)
+			h.intUptos[h.intUptoStart+i] = upto + h.bytePool.ByteOffset
+		}
+		h.postingsArray.byteStarts[termId] = h.intUptos[h.intUptoStart]
+
+		if err = h.spi.newTerm(termId); err != nil {
+			return
+		}
+	} else {
+		panic("not implemented yet")
+	}
+
+	if h.doNextCall {
+		return h.nextPerField.addFrom(h.postingsArray.textStarts[termId])
+	}
+	return nil
 }
 
 func (h *TermsHashPerFieldImpl) writeByte(stream int, b byte) {
