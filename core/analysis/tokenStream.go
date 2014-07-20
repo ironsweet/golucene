@@ -141,7 +141,7 @@ var DEFAULT_TOKEN_ATTRIBUTE_FACTORY = assembleAttributeFactory(
 /* A TokenStream using the default attribute factory. */
 func NewTokenStream() *TokenStreamImpl {
 	return &TokenStreamImpl{
-		atts: util.NewAttributeSourceWith(DEFAULT_ATTRIBUTE_FACTORY),
+		atts: util.NewAttributeSourceWith(DEFAULT_TOKEN_ATTRIBUTE_FACTORY),
 	}
 }
 

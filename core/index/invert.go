@@ -47,7 +47,13 @@ func (st *FieldInvertState) reset() {
 
 /* Sets attributeSource to a new instance. */
 func (st *FieldInvertState) setAttributeSource(attributeSource *util.AttributeSource) {
-	panic("not implemented yet")
+	if st.attributeSource != attributeSource {
+		st.attributeSource = attributeSource
+		st.termAttribute = attributeSource.Get("TermToBytesRefAttribute").(TermToBytesRefAttribute)
+		st.posIncrAttribute = attributeSource.Get("PositionIncrementAttribute").(PositionIncrementAttribute)
+		st.offsetAttribute = attributeSource.Get("OffsetAttribute").(OffsetAttribute)
+		st.payloadAttribute = attributeSource.Get("PayloadAttribute").(PayloadAttribute)
+	}
 }
 
 /* Get total number of terms in this field. */
