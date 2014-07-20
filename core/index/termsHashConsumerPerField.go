@@ -328,12 +328,18 @@ func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
 }
 
 func (w *FreqProxTermsWriterPerField) newPostingsArray() {
-	w.freqProxPostingsArray = w.postingsArray.PostingsArray.(*FreqProxPostingsArray)
+	if w.postingsArray != nil {
+		w.freqProxPostingsArray = w.postingsArray.PostingsArray.(*FreqProxPostingsArray)
+	}
 }
 
 func (w *FreqProxTermsWriterPerField) createPostingsArray(size int) *ParallelPostingsArray {
-	panic("not implemented yet")
-	// return newFreqProxPostingsArray(size, w.hasFreq, w.hasProx, w.hasOffsets)
+	indexOptions := w.fieldInfo.IndexOptions()
+	assert(indexOptions != 0)
+	hasFreq := indexOptions >= INDEX_OPT_DOCS_AND_FREQS
+	hasProx := indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
+	hasOffsets := indexOptions >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
+	return newFreqProxPostingsArray(size, hasFreq, hasProx, hasOffsets)
 }
 
 type FreqProxPostingsArray struct {
