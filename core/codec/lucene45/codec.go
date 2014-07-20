@@ -1,4 +1,4 @@
-package index
+package lucene45
 
 import (
 	// "github.com/balzaczyy/golucene/core/store"
