@@ -360,17 +360,10 @@ func newFSIndexOutput(parent *FSDirectory, name string) (*FSIndexOutput, error) 
 	}, nil
 }
 
-func (out *FSIndexOutput) Close() error {
-	panic("not implemented yet")
-	// out.parent.onIndexOutputClosed(out)
-	// // only close the file if it has not been closed yet
-	// if out.isOpen {
-	// 	var err error
-	// 	defer func() {
-	// 		out.isOpen = false
-	// 		util.CloseWhileHandlingError(err, out.file)
-	// 	}()
-	// 	err = out.BufferedIndexOutput.Close()
-	// }
-	// return nil
+func (out *FSIndexOutput) Close() (err error) {
+	defer func() {
+		err = out.OutputStreamIndexOutput.Close()
+	}()
+	out.onIndexOutputClosed(out.name)
+	return nil
 }

@@ -46,6 +46,10 @@ func (out *OutputStreamIndexOutput) WriteBytes(p []byte) error {
 	return nil
 }
 
+func (out *OutputStreamIndexOutput) Close() error {
+	return out.os.Close()
+}
+
 func (out *OutputStreamIndexOutput) FilePointer() int64 {
 	return out.bytesWritten
 }
