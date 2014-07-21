@@ -101,7 +101,7 @@ func (c *DefaultIndexingChain) rehash() {
 	newHashMask := newHashSize - 1
 	for _, fp0 := range c.fieldHash {
 		for fp0 != nil {
-			hashPos2 := hashstr(fp0.fieldInfo.Name) & newHashMask
+			hashPos2 := util.Hashstr(fp0.fieldInfo.Name) & newHashMask
 			fp0.next, newHashArray[hashPos2], fp0 =
 				newHashArray[hashPos2], fp0, fp0.next
 		}
@@ -259,7 +259,7 @@ func (c *DefaultIndexingChain) getOrAddField(name string,
 	fieldType IndexableFieldType, invert bool) *PerField {
 
 	// Make sure we have a PerField allocated
-	hashPos := hashstr(name) & c.hashMask
+	hashPos := util.Hashstr(name) & c.hashMask
 	fp := c.fieldHash[hashPos]
 	for fp != nil && fp.fieldInfo.Name != name {
 		fp = fp.next
@@ -291,17 +291,6 @@ func (c *DefaultIndexingChain) getOrAddField(name string,
 	}
 
 	return fp
-}
-
-const primeRK = 16777619
-
-/* simple string hash used by Go strings package */
-func hashstr(sep string) int {
-	hash := uint32(0)
-	for i := 0; i < len(sep); i++ {
-		hash = hash*primeRK + uint32(sep[i])
-	}
-	return int(hash)
 }
 
 type PerField struct {

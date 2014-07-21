@@ -223,17 +223,6 @@ type DocConsumer interface {
 // 	return a[i].fieldInfo.Name < a[j].fieldInfo.Name
 // }
 
-// const primeRK = 16777619
-
-// /* simple string hash used by Go strings package */
-// func hashstr(sep string) int {
-// 	hash := uint32(0)
-// 	for i := 0; i < len(sep); i++ {
-// 		hash = hash*primeRK + uint32(sep[i])
-// 	}
-// 	return int(hash)
-// }
-
 // func (p *DocFieldProcessor) finishDocument() (err error) {
 // 	defer func() {
 // 		err = mergeError(err, p.consumer.finishDocument())
