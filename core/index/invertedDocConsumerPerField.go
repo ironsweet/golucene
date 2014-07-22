@@ -294,9 +294,9 @@ func newPostingsBytesStartArray(perField *TermsHashPerFieldImpl,
 func (ss *PostingsBytesStartArray) Init() []int {
 	if ss.perField.postingsArray == nil {
 		arr := ss.perField.spi.createPostingsArray(2)
+		ss.perField.postingsArray = arr
 		ss.perField.spi.newPostingsArray()
 		ss.bytesUsed.AddAndGet(int64(arr.size * arr.bytesPerPosting()))
-		ss.perField.postingsArray = arr
 	}
 	return ss.perField.postingsArray.textStarts
 }

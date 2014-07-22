@@ -258,7 +258,7 @@ func (h *BytesRefHash) rehash(newSize int, hashOnData bool) {
 }
 
 func (h *BytesRefHash) doHash(p []byte) int {
-	return MurmurHash3_x86_32(p, GOOD_FAST_HASH_SEED)
+	return int(MurmurHash3_x86_32(p, GOOD_FAST_HASH_SEED))
 }
 
 /*

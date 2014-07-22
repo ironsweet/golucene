@@ -288,6 +288,7 @@ func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
 	w.docState.testPoint("FreqProxTermsWriterPerField.newTerm start")
 
 	postings := w.freqProxPostingsArray
+	assert(postings != nil)
 
 	postings.lastDocIDs[termId] = w.docState.docID
 	if !w.hasFreq {
@@ -313,9 +314,7 @@ func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
 }
 
 func (w *FreqProxTermsWriterPerField) newPostingsArray() {
-	if w.postingsArray != nil {
-		w.freqProxPostingsArray = w.postingsArray.PostingsArray.(*FreqProxPostingsArray)
-	}
+	w.freqProxPostingsArray = w.postingsArray.PostingsArray.(*FreqProxPostingsArray)
 }
 
 func (w *FreqProxTermsWriterPerField) createPostingsArray(size int) *ParallelPostingsArray {
