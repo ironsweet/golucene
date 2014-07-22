@@ -240,7 +240,27 @@ func (c *DefaultIndexingChain) processField(field IndexableField,
 
 	// Add stored fields:
 	if fieldType.Stored() {
-		panic("not implemented yet")
+		if fp == nil {
+			panic("not implemented yet")
+		}
+		if fieldType.Stored() {
+			if err := func() error {
+				var success = false
+				defer func() {
+					if !success {
+						c.docWriter.setAborting()
+					}
+				}()
+
+				if err := c.storedFieldsWriter.WriteField(fp.fieldInfo, field); err != nil {
+					return err
+				}
+				success = true
+				return nil
+			}(); err != nil {
+				return 0, err
+			}
+		}
 	} else {
 		panic("not implemented yet")
 	}
