@@ -354,7 +354,10 @@ func (f *PerField) setInvertState() {
 }
 
 func (f *PerField) finish() error {
-	panic("not implemented yet")
+	if !f.fieldInfo.OmitsNorms() {
+		panic("not implemented yet")
+	}
+	return f.termsHashPerField.finish()
 }
 
 /*
