@@ -83,58 +83,62 @@ func (c *TermVectorsConsumer) fill(docId int) error {
 	return nil
 }
 
-func (c *TermVectorsConsumer) finishDocument() error {
-	panic("not implemented yet")
-	// c.docWriter.testPoint("TermVectorsTermsWriter.finishDocument start")
+func (c *TermVectorsConsumer) initTermVectorsWriter() error {
+	if c.writer == nil {
+		panic("not implemented yet")
+	}
+	return nil
+}
 
-	// if !c.hasVectors {
-	// 	return nil
-	// }
+type TermVectorsConsumerPerFields []*TermVectorsConsumerPerField
 
-	// var err error
-	// // initTermVectorsWriter
-	// if c.writer == nil {
-	// 	w := c.docWriter
-	// 	ctx := store.NewIOContextForFlush(&store.FlushInfo{
-	// 		w.numDocsInRAM,
-	// 		w.bytesUsed(),
-	// 	})
-	// 	c.writer, err = w.codec.TermVectorsFormat().VectorsWriter(w.directory, w.segmentInfo, ctx)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	c.lastDocId = 0
-	// }
+func (a TermVectorsConsumerPerFields) Len() int      { return len(a) }
+func (a TermVectorsConsumerPerFields) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a TermVectorsConsumerPerFields) Less(i, j int) bool {
+	return a[i].fieldInfo.Name < a[j].fieldInfo.Name
+}
 
-	// err = c.fill(c.docState.docID)
-	// if err != nil {
-	// 	return err
-	// }
+func (c *TermVectorsConsumer) finishDocument() (err error) {
+	c.docWriter.testPoint("TermVectorsTermsWriter.finishDocument start")
 
-	// // Append term vectors to the real outputs:
-	// err = c.writer.startDocument(c.numVectorsFields)
-	// if err != nil {
-	// 	return err
-	// }
-	// for i := 0; i < c.numVectorsFields; i++ {
-	// 	err = c.perFields[i].finishDocument()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	// err = c.writer.finishDocument()
-	// if err != nil {
-	// 	return err
-	// }
+	if !c.hasVectors {
+		return
+	}
 
-	// assertn(c.lastDocId == c.docState.docID, "lastDocID=%v docState.docID=%v", c.lastDocId, c.docState.docID)
+	// Fields in term vectors are UTF16 sorted: (?)
+	util.IntroSort(TermVectorsConsumerPerFields(c.perFields[:c.numVectorsFields]))
 
-	// c.lastDocId++
+	if err = c.initTermVectorsWriter(); err != nil {
+		return
+	}
 
-	// termsHash.reset()
-	// c.reset()
-	// c.docWriter.testPoint("TermVectorsTermsWriter.finishDocument end")
-	// return nil
+	if err = c.fill(c.docState.docID); err != nil {
+		return
+	}
+
+	// Append term vectors to the real outputs:
+	if err = c.writer.StartDocument(c.numVectorsFields); err != nil {
+		return
+	}
+	for i := 0; i < c.numVectorsFields; i++ {
+		if err = c.perFields[i].finishDocument(); err != nil {
+			return
+		}
+	}
+	if err = c.writer.FinishDocument(); err != nil {
+		return
+	}
+
+	assert2(c.lastDocId == c.docState.docID,
+		"lastDocID=%v docState.docID=%v",
+		c.lastDocId, c.docState.docID)
+
+	c.lastDocId++
+
+	c.TermsHashImpl.reset()
+	c.resetFields()
+	c.docWriter.testPoint("TermVectorsTermsWriter.finishDocument end")
+	return
 }
 
 func (tvc *TermVectorsConsumer) abort() {

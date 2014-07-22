@@ -100,9 +100,9 @@ func (c *TermVectorsConsumerPerField) start(field IndexableField, first bool) bo
 // 	return nil
 // }
 
-// func (c *TermVectorsConsumerPerField) finishDocument() error {
-// 	panic("not implemented yet")
-// }
+func (c *TermVectorsConsumerPerField) finishDocument() error {
+	panic("not implemented yet")
+}
 
 // func (c *TermVectorsConsumerPerField) shrinkHash() {
 // 	c.termsHashPerField.shrinkHash(c.maxNumPostings)
