@@ -195,69 +195,68 @@ func newFreqProxTermsWriter(docWriter *DocumentsWriterPerThread, termVectors Ter
 
 func (w *FreqProxTermsWriter) flush(fieldsToFlush map[string]TermsHashPerField,
 	state *model.SegmentWriteState) (err error) {
-	panic("not implemented yet")
-	// // Gather all FieldData's that have postings, across all ThreadStates
-	// var allFields []*FreqProxTermsWriterPerField
 
-	// for _, f := range fieldsToFlush {
-	// 	perField := f.(*FreqProxTermsWriterPerField)
-	// 	if perField.termsHashPerField.bytesHash.Size() > 0 {
-	// 		allFields = append(allFields, perField)
-	// 	}
-	// }
+	if err = w.TermsHashImpl.flush(fieldsToFlush, state); err != nil {
+		return
+	}
 
-	// // Sort by field name
-	// util.IntroSort(FreqProxTermsWriterPerFields(allFields))
+	// Gather all FieldData's that have postings, across all ThreadStates
+	var allFields []*FreqProxTermsWriterPerField
 
-	// var consumer FieldsConsumer
-	// consumer, err = state.SegmentInfo.Codec().(Codec).PostingsFormat().FieldsConsumer(state)
-	// if err != nil {
-	// 	return err
-	// }
+	for _, f := range fieldsToFlush {
+		if perField := f.(*FreqProxTermsWriterPerField); perField.bytesHash.Size() > 0 {
+			allFields = append(allFields, perField)
+		}
+	}
 
-	// var success = false
-	// defer func() {
-	// 	if success {
-	// 		err = mergeError(err, util.Close(consumer))
-	// 	} else {
-	// 		util.CloseWhileSuppressingError(consumer)
-	// 	}
-	// }()
+	// Sort by field name
+	util.IntroSort(FreqProxTermsWriterPerFields(allFields))
 
-	// var termsHash *TermsHash
-	// // Current writer chain:
-	// // FieldsConsumer
-	// // -> IMPL: FormatPostingsTermsDictWriter
-	// // -> TermsConsumer
-	// // -> IMPL: FormatPostingsTermsDictWriter.TermsWriter
-	// // -> DocsConsumer
-	// // -> IMPL: FormatPostingsDocWriter
-	// // -> PositionsConsumer
-	// // -> IMPL: FormatPostingsPositionsWriter
+	var consumer FieldsConsumer
+	if consumer, err = state.SegmentInfo.Codec().(Codec).PostingsFormat().FieldsConsumer(state); err != nil {
+		return
+	}
 
-	// for _, fieldWriter := range allFields {
-	// 	fieldInfo := fieldWriter.fieldInfo
+	var success = false
+	defer func() {
+		if success {
+			err = util.Close(consumer)
+		} else {
+			util.CloseWhileSuppressingError(consumer)
+		}
+	}()
 
-	// 	// If this field has postings then add them to the segment
-	// 	err = fieldWriter.flush(fieldInfo.Name, consumer, state)
-	// 	if err != nil {
-	// 		return err
-	// 	}
+	var termsHash TermsHash
+	// Current writer chain:
+	// FieldsConsumer
+	// -> IMPL: FormatPostingsTermsDictWriter
+	// -> TermsConsumer
+	// -> IMPL: FormatPostingsTermsDictWriter.TermsWriter
+	// -> DocsConsumer
+	// -> IMPL: FormatPostingsDocWriter
+	// -> PositionsConsumer
+	// -> IMPL: FormatPostingsPositionsWriter
 
-	// 	perField := fieldWriter.termsHashPerField
-	// 	assert(termsHash == nil || termsHash == perField.termsHash)
-	// 	termsHash = perField.termsHash
-	// 	numPostings := perField.bytesHash.Size()
-	// 	perField.reset()
-	// 	perField.shrinkHash(numPostings)
-	// 	fieldWriter.reset()
-	// }
+	for _, fieldWriter := range allFields {
+		fieldInfo := fieldWriter.fieldInfo
 
-	// if termsHash != nil {
-	// 	termsHash.reset()
-	// }
-	// success = true
-	// return
+		// If this field has postings then add them to the segment
+		if err = fieldWriter.flush(fieldInfo.Name, consumer, state); err != nil {
+			return
+		}
+
+		perField := fieldWriter
+		assert(termsHash == nil || termsHash == perField.termsHash)
+		termsHash = perField.termsHash
+		perField.reset()
+		fieldWriter.reset()
+	}
+
+	if termsHash != nil {
+		termsHash.reset()
+	}
+	success = true
+	return nil
 }
 
 type FreqProxTermsWriterPerFields []*FreqProxTermsWriterPerField

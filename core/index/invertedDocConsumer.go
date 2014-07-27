@@ -26,6 +26,7 @@ type TermsHash interface {
 	startDocument()
 	finishDocument() error
 	abort()
+	reset()
 	setTermBytePool(*util.ByteBlockPool)
 	flush(map[string]TermsHashPerField, *SegmentWriteState) error
 
@@ -101,7 +102,7 @@ func (hash *TermsHashImpl) reset() {
 	hash.bytePool.Reset(false, false)
 }
 
-func (hash *TermsHashImpl) flush(fieldsToFlush map[string]*TermsHashPerField,
+func (hash *TermsHashImpl) flush(fieldsToFlush map[string]TermsHashPerField,
 	state *SegmentWriteState) error {
 	panic("not implemented yet")
 	// childFields := make(map[string]TermsHashConsumerPerField)
