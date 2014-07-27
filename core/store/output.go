@@ -81,14 +81,8 @@ type IndexOutput interface {
 	// Flush() error
 	// Returns the current position in this file, where the next write will occur.
 	FilePointer() int64
-	// Set the file length. By default, this method does nothing (it's
-	// optional for a Directory to implement it). But, certain
-	// Directory implementations (for example FSDirectory) can use this
-	// to inform the unerlying IO system to pre-allocate the file to
-	// the specified size. If the length is longer than the current
-	// file length, the bytes added to the file are undefined.
-	// Otherwise the file is truncated.
-	// SetLength(length int64) error
+	// Returns the current checksum of bytes written so far
+	Checksum() int64
 }
 
 type IndexOutputImpl struct {

@@ -636,3 +636,8 @@ func (out *RAMOutputStream) FilePointer() int64 {
 	}
 	return out.bufferStart + int64(out.bufferPosition)
 }
+
+func (out *RAMOutputStream) Checksum() int64 {
+	assert2(out.crc != nil, "internal RAMOutputStream created with checksum disabled")
+	return int64(out.crc.Sum32())
+}

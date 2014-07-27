@@ -7,8 +7,11 @@ import (
 
 // codecs/CodecUtil.java
 
-/* Constant to identify the start of a codec header */
+/* Constant to identify the start of a codec header. */
 const CODEC_MAGIC = 0x3fd76c17
+
+/* Constant to identify the start of a codec footer. */
+const FOOTER_MAGIC = ^CODEC_MAGIC
 
 type DataOutput interface {
 	WriteInt(n int32) error
@@ -115,7 +118,11 @@ func NewIndexFormatTooOldError(in DataInput, version, minVersion, maxVersion int
 		in, version, minVersion, maxVersion))
 }
 
-type IndexOutput interface{}
+type IndexOutput interface {
+	WriteInt(n int32) error
+	WriteLong(n int64) error
+	Checksum() int64
+}
 
 /*
 Writes a codec footer, which records both a checksum algorithm ID and
@@ -129,8 +136,13 @@ CodecFooter --> Magic,AlgorithmID,Checksum
 	- Checksum --> uint64. The actual checksum value for all previous
 		bytes in the stream, including the bytes from Magic and AlgorithmID.
 */
-func WriteFooter(out IndexOutput) error {
-	panic("not implemented yet")
+func WriteFooter(out IndexOutput) (err error) {
+	if err = out.WriteInt(FOOTER_MAGIC); err == nil {
+		if err = out.WriteInt(0); err == nil {
+			err = out.WriteLong(out.Checksum())
+		}
+	}
+	return
 }
 
 type ChecksumIndexInput interface{}

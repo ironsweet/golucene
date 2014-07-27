@@ -364,3 +364,7 @@ func (out *DirectCFSIndexOutput) WriteBytes(b []byte) error {
 	out.writtenBytes += int64(len(b))
 	return out.delegate.WriteBytes(b)
 }
+
+func (out *DirectCFSIndexOutput) Checksum() int64 {
+	return out.delegate.Checksum()
+}

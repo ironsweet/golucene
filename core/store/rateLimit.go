@@ -211,6 +211,10 @@ func (out *RateLimitedIndexOutput) FilePointer() int64 {
 	panic("not implementd yet")
 }
 
+func (out *RateLimitedIndexOutput) Checksum() int64 {
+	return out.delegate.Checksum()
+}
+
 func (out *RateLimitedIndexOutput) WriteByte(b byte) error {
 	panic("not implemented yet")
 }
