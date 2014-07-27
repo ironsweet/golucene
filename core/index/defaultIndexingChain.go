@@ -106,8 +106,39 @@ func (c *DefaultIndexingChain) flush(state *SegmentWriteState) (err error) {
 }
 
 /* Writes all buffered doc values (called from flush()) */
-func (c *DefaultIndexingChain) writeDocValues(state *SegmentWriteState) error {
-	panic("not implemented yet")
+func (c *DefaultIndexingChain) writeDocValues(state *SegmentWriteState) (err error) {
+	docCount := state.SegmentInfo.DocCount()
+	var dvConsumer DocValuesConsumer
+	var success = false
+	if success {
+		err = util.Close(dvConsumer)
+	} else {
+		util.CloseWhileSuppressingError(dvConsumer)
+	}
+
+	for _, perField := range c.fieldHash {
+		for perField != nil {
+			if perField.docValuesWriter != nil {
+				if dvConsumer == nil {
+					// lazy init
+					fmt := state.SegmentInfo.Codec().(Codec).DocValuesFormat()
+					if dvConsumer, err = fmt.FieldsConsumer(state); err != nil {
+						return
+					}
+				}
+
+				perField.docValuesWriter.finish(docCount)
+				if err = perField.docValuesWriter.flush(state, dvConsumer); err != nil {
+					return
+				}
+				perField.docValuesWriter = nil
+			}
+			perField = perField.next
+		}
+	}
+
+	success = true
+	return nil
 }
 
 /*
@@ -423,6 +454,9 @@ type PerField struct {
 
 	invertState       *FieldInvertState
 	termsHashPerField TermsHashPerField
+
+	// non-nil if this field ever had doc values in this segment:
+	docValuesWriter DocValuesWriter
 
 	// We use this to know when a PerField is seen for the first time
 	// in the current document.
