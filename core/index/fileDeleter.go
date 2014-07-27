@@ -232,6 +232,11 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 	return fd, nil
 }
 
+func (fd *IndexFileDeleter) ensureOpen() {
+	assert2(fd.writer != nil, "this IndexWriter is closed")
+	fd.writer.ClosingControl.ensureOpen(false)
+}
+
 /*
 Remove the CommitPoint(s) in the commitsToDelete list by decRef'ing
 all files from each SegmentInfos.
@@ -498,8 +503,8 @@ func (fd *IndexFileDeleter) deleteNewFiles(files []string) {
 }
 
 func (del *IndexFileDeleter) deleteFile(filename string) {
-	panic("not implemented yet")
 	//assert locked()
+	del.ensureOpen()
 	if del.infoStream.IsEnabled("IFD") {
 		del.infoStream.Message("IFD", "delete '%v'", filename)
 	}
