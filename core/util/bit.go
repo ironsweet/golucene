@@ -88,9 +88,9 @@ func pop_array(arr []int64) int {
 }
 
 func ZigZagEncodeLong(l int64) int64 {
-	panic("not implemented yet")
+	return (l >> 63) ^ (l << 1)
 }
 
 func ZigZagDecodeLong(l int64) int64 {
-	panic("not implemented yet")
+	return int64(uint64(l)>>1) ^ -(l & 1)
 }
