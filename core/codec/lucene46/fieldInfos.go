@@ -32,6 +32,6 @@ var Lucene46FieldInfosReader = func(dir store.Directory,
 }
 
 var Lucene46FieldInfosWriter = func(dir store.Directory,
-	segName string, infos FieldInfos, ctx store.IOContext) (err error) {
+	segName, suffix string, infos FieldInfos, ctx store.IOContext) (err error) {
 	panic("not implemented yet")
 }

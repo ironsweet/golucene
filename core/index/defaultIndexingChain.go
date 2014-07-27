@@ -59,7 +59,54 @@ func (c *DefaultIndexingChain) initStoredFieldsWriter() (err error) {
 	return
 }
 
-func (c *DefaultIndexingChain) flush(state *SegmentWriteState) error {
+func (c *DefaultIndexingChain) flush(state *SegmentWriteState) (err error) {
+	// NOTE: caller (DWPT) handles aborting on any error from this method
+
+	numDocs := state.SegmentInfo.DocCount()
+	if err = c.writeNorms(state); err != nil {
+		return
+	}
+	if err = c.writeDocValues(state); err != nil {
+		return
+	}
+
+	// it's possible all docs hit non-aboritng errors...
+	if err = c.initStoredFieldsWriter(); err != nil {
+		return
+	}
+	if err = c.fillStoredFields(numDocs); err != nil {
+		return
+	}
+	if err = c.storedFieldsWriter.Finish(state.FieldInfos, numDocs); err != nil {
+		return
+	}
+	if err = c.storedFieldsWriter.Close(); err != nil {
+		return
+	}
+
+	fieldsToFlush := make(map[string]TermsHashPerField)
+	for _, perField := range c.fieldHash {
+		for perField != nil {
+			if perField.invertState != nil {
+				fieldsToFlush[perField.fieldInfo.Name] = perField.termsHashPerField
+			}
+			perField = perField.next
+		}
+	}
+
+	if err = c.termsHash.flush(fieldsToFlush, state); err != nil {
+		return
+	}
+
+	// important to save after asking consumer to flush so consumer can
+	// alter the FieldInfo* if necessary. E.g., FreqProxTermsWriter does
+	// this with FieldInfo.storePayload.
+	infosWriter := c.docWriter.codec.FieldInfosFormat().FieldInfosWriter()
+	return infosWriter(state.Directory, state.SegmentInfo.Name, "", state.FieldInfos, store.IO_CONTEXT_DEFAULT)
+}
+
+/* Writes all buffered doc values (called from flush()) */
+func (c *DefaultIndexingChain) writeDocValues(state *SegmentWriteState) error {
 	panic("not implemented yet")
 }
 
@@ -75,6 +122,10 @@ func (c *DefaultIndexingChain) fillStoredFields(docId int) (err error) {
 		}
 	}
 	return
+}
+
+func (c *DefaultIndexingChain) writeNorms(state *SegmentWriteState) error {
+	panic("not implemented yet")
 }
 
 func (c *DefaultIndexingChain) abort() {

@@ -27,6 +27,7 @@ type TermsHash interface {
 	finishDocument() error
 	abort()
 	setTermBytePool(*util.ByteBlockPool)
+	flush(map[string]TermsHashPerField, *SegmentWriteState) error
 
 	fields() *TermsHashImpl // workaround abstract class
 

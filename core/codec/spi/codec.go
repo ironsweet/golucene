@@ -175,7 +175,7 @@ type FieldInfosFormat interface {
 type FieldInfosReader func(d store.Directory, name, suffix string, ctx store.IOContext) (infos FieldInfos, err error)
 
 // Codec API for writing FieldInfos.
-type FieldInfosWriter func(d store.Directory, name string, infos FieldInfos, ctx store.IOContext) error
+type FieldInfosWriter func(d store.Directory, name, suffix string, infos FieldInfos, ctx store.IOContext) error
 
 // codecs/NormsFormat.java
 
