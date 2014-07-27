@@ -121,7 +121,6 @@ func (tp *DocumentsWriterPerThreadPool) lockAny() (res *ThreadState) {
 }
 
 func (tp *DocumentsWriterPerThreadPool) lock(id int, wait bool) *ThreadState {
-	panic("not implemented yet")
 	tp.Lock()
 	defer tp.Unlock()
 
