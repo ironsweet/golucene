@@ -34,7 +34,7 @@ func newLucene49Codec() *Lucene49Codec {
 		lucene46.NewLucene46SegmentInfoFormat(),
 		new(lucene40.Lucene40LiveDocsFormat),
 		perfield.NewPerFieldPostingsFormat(func(field string) PostingsFormat {
-			panic("not implemented yet")
+			return LoadPostingsFormat("Lucene41")
 		}),
 		perfield.NewPerFieldDocValuesFormat(func(field string) DocValuesFormat {
 			panic("not implemented yet")

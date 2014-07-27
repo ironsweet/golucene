@@ -1,12 +1,17 @@
 package lucene41
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/codec/blocktree"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
 )
+
+func init() {
+	fmt.Println("Registering PostingsFormat: Lucene 4.1")
+	RegisterPostingsFormat(NewLucene41PostingsFormat())
+}
 
 // codecs/lucene41/Lucene41PostingsFormat.java
 
@@ -72,10 +77,7 @@ func (f *Lucene41PostingsFormat) FieldsProducer(state SegmentReadState) (FieldsP
 	success := false
 	defer func() {
 		if !success {
-			log.Printf("Failed to load FieldsProducer for %v.", f.Name())
-			if err != nil {
-				log.Print("DEBUG ", err)
-			}
+			fmt.Printf("Failed to load FieldsProducer for %v.", f.Name())
 			util.CloseWhileSuppressingError(postingsReader)
 		}
 	}()
@@ -88,7 +90,6 @@ func (f *Lucene41PostingsFormat) FieldsProducer(state SegmentReadState) (FieldsP
 		state.SegmentSuffix,
 		state.TermsIndexDivisor)
 	if err != nil {
-		log.Print("DEBUG: ", err)
 		return fp, err
 	}
 	success = true

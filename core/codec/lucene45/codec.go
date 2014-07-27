@@ -33,9 +33,6 @@ func init() {
 }
 
 var Lucene45CodecImpl = func() *Lucene45Codec {
-	f := func(string) PostingsFormat {
-		return lucene41.NewLucene41PostingsFormat()
-	}
 	codec := NewCodec("Lucene45",
 		lucene41.NewLucene41StoredFieldsFormat(),
 		lucene42.NewLucene42TermVectorsFormat(),
@@ -43,7 +40,7 @@ var Lucene45CodecImpl = func() *Lucene45Codec {
 		lucene40.NewLucene40SegmentInfoFormat(),
 		new(lucene40.Lucene40LiveDocsFormat),
 		perfield.NewPerFieldPostingsFormat(func(field string) PostingsFormat {
-			return f(field)
+			return LoadPostingsFormat("Lucene41")
 		}),
 		perfield.NewPerFieldDocValuesFormat(func(field string) DocValuesFormat {
 			panic("not implemented yet")
