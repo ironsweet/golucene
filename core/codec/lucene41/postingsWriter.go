@@ -487,7 +487,31 @@ func (w *Lucene41PostingsWriter) encodeTerm(longs []int64,
 	// return nil
 }
 
-func (w *Lucene41PostingsWriter) Close() error {
-	panic("not implemented yet")
-	// return util.Close(w.docOut, w.posOut, w.payOut)
+func (w *Lucene41PostingsWriter) Close() (err error) {
+	var success = false
+	defer func() {
+		if success {
+			err = util.Close(w.docOut, w.posOut, w.payOut)
+		} else {
+			util.CloseWhileSuppressingError(w.docOut, w.posOut, w.payOut)
+		}
+		w.docOut = nil
+		w.posOut = nil
+		w.payOut = nil
+	}()
+
+	if err == nil && w.docOut != nil {
+		err = codec.WriteFooter(w.docOut)
+	}
+	if err == nil && w.posOut != nil {
+		err = codec.WriteFooter(w.posOut)
+	}
+	if err == nil && w.payOut != nil {
+		err = codec.WriteFooter(w.payOut)
+	}
+	if err != nil {
+		return
+	}
+	success = true
+	return nil
 }
