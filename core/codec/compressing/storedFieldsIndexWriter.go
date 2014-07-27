@@ -1,6 +1,7 @@
 package compressing
 
 import (
+	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
@@ -209,18 +210,21 @@ func (w *StoredFieldsIndexWriter) writeIndex(numDocs int, startPointer int64) er
 	return nil
 }
 
-func (w *StoredFieldsIndexWriter) finish(numDocs int, maxPointer int64) error {
+func (w *StoredFieldsIndexWriter) finish(numDocs int, maxPointer int64) (err error) {
 	assert(w != nil)
 	assert2(numDocs == w.totalDocs, "Expected %v docs, but got %v", numDocs, w.totalDocs)
 	if w.blockChunks > 0 {
-		if err := w.writeBlock(); err != nil {
-			return err
+		if err = w.writeBlock(); err != nil {
+			return
 		}
 	}
-	if err := w.fieldsIndexOut.WriteVInt(0); err != nil { // end marker
-		return err
+	if err = w.fieldsIndexOut.WriteVInt(0); err != nil { // end marker
+		return
 	}
-	panic("not implemented yet")
+	if err = w.fieldsIndexOut.WriteVLong(maxPointer); err != nil {
+		return
+	}
+	return codec.WriteFooter(w.fieldsIndexOut)
 }
 
 func (w *StoredFieldsIndexWriter) Close() error {
