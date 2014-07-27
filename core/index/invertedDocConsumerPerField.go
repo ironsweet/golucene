@@ -28,6 +28,7 @@ import (
 const HASH_INIT_SIZE = 4
 
 type TermsHashPerField interface {
+	next() TermsHashPerField
 	reset()
 	addFrom(int) error
 	add() error
@@ -106,12 +107,9 @@ func (h *TermsHashPerFieldImpl) _constructor(spi TermsHashPerFieldSPI,
 	h.bytesHash = util.NewBytesRefHash(termsHashImpl.termBytePool, HASH_INIT_SIZE, byteStarts)
 }
 
-// func (h *TermsHashPerField) shrinkHash(targetSize int) {
-// 	// Fully free the bytesHash on each flush but keep the pool
-// 	// untouched. bytesHash.clear will clear the BytesStartArray and
-// 	// in turn the ParallelPostingsArray too
-// 	h.bytesHash.Clear(false)
-// }
+func (h *TermsHashPerFieldImpl) next() TermsHashPerField {
+	return h.nextPerField
+}
 
 func (h *TermsHashPerFieldImpl) reset() {
 	h.bytesHash.Clear(false)

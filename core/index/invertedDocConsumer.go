@@ -104,26 +104,15 @@ func (hash *TermsHashImpl) reset() {
 
 func (hash *TermsHashImpl) flush(fieldsToFlush map[string]TermsHashPerField,
 	state *SegmentWriteState) error {
-	panic("not implemented yet")
-	// childFields := make(map[string]TermsHashConsumerPerField)
-	// var nextChildFieldFields map[string]InvertedDocConsumerPerField
-	// if hash.nextTermsHash != nil {
-	// 	nextChildFieldFields = make(map[string]InvertedDocConsumerPerField)
-	// }
 
-	// for k, v := range fieldsToFlush {
-	// 	perField := v.(*TermsHashPerField)
-	// 	childFields[k] = perField.consumer
-	// 	if hash.nextTermsHash != nil {
-	// 		nextChildFieldFields[k] = perField.nextPerField
-	// 	}
-	// }
-
-	// err := hash.consumer.flush(childFields, state)
-	// if err == nil && hash.nextTermsHash != nil {
-	// 	err = hash.nextTermsHash.flush(nextChildFieldFields, state)
-	// }
-	// return err
+	if hash.nextTermsHash != nil {
+		nextChildFields := make(map[string]TermsHashPerField)
+		for k, v := range fieldsToFlush {
+			nextChildFields[k] = v.next()
+		}
+		return hash.nextTermsHash.flush(nextChildFields, state)
+	}
+	return nil
 }
 
 // func (h *TermsHash) addField(docInverterPerField *DocInverterPerField,
