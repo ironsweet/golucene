@@ -1,5 +1,9 @@
 package util
 
+import (
+	"reflect"
+)
+
 // util.RamUsageEstimator.java
 
 // amd64 system
@@ -48,5 +52,30 @@ this will be the memory taken by slice storage (no subreferences will
 be followed). For objects, this will be the memory taken by the fields.
 */
 func ShallowSizeOf(obj interface{}) int64 {
-	panic("not implemented yet")
+	if obj == nil {
+		return 0
+	}
+	if reflect.TypeOf(obj).Kind() == reflect.Slice {
+		return shallowSizeOfArray(obj)
+	}
+	panic("not supported yet")
+}
+
+/* Return shallow size of any array */
+func shallowSizeOfArray(arr interface{}) int64 {
+	size := int64(NUM_BYTES_ARRAY_HEADER)
+	v := reflect.ValueOf(arr)
+	if length := v.Len(); length > 0 {
+		switch v.Kind() {
+		case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16,
+			reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8,
+			reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Float32,
+			reflect.Float64, reflect.Complex64, reflect.Complex128:
+			// primitive type
+			size += int64(length) * int64(v.Elem().Type().Size())
+		default:
+			size += int64(length * NUM_BYTES_OBJECT_REF)
+		}
+	}
+	return AlignObjectSize(size)
 }
