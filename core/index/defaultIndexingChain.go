@@ -124,8 +124,46 @@ func (c *DefaultIndexingChain) fillStoredFields(docId int) (err error) {
 	return
 }
 
-func (c *DefaultIndexingChain) writeNorms(state *SegmentWriteState) error {
-	panic("not implemented yet")
+func (c *DefaultIndexingChain) writeNorms(state *SegmentWriteState) (err error) {
+	var success = false
+	var normsConsumer DocValuesConsumer
+	defer func() {
+		if success {
+			err = util.Close(normsConsumer)
+		} else {
+			util.CloseWhileSuppressingError(normsConsumer)
+		}
+	}()
+
+	if state.FieldInfos.HasNorms {
+		normsFormat := state.SegmentInfo.Codec().(Codec).NormsFormat()
+		assert(normsFormat != nil)
+		if normsConsumer, err = normsFormat.NormsConsumer(state); err != nil {
+			return
+		}
+
+		for _, fi := range state.FieldInfos.Values {
+			perField := c.perField(fi.Name)
+			assert(perField != nil)
+
+			// we must check the final value of omitNorms for the FieldInfo:
+			// it could have changed for this field since the first time we
+			// added it.
+			if !fi.OmitsNorms() {
+				if perField.norms != nil {
+					perField.norms.finish(state.SegmentInfo.DocCount())
+					if err = perField.norms.flush(state, normsConsumer); err != nil {
+						return
+					}
+					assert(fi.NormType() == DOC_VALUES_TYPE_NUMERIC)
+				} else if fi.IsIndexed() {
+					assert2(fi.NormType() == 0, "got %v; field=%v", fi.NormType(), fi.Name)
+				}
+			}
+		}
+	}
+	success = true
+	return nil
 }
 
 func (c *DefaultIndexingChain) abort() {
@@ -326,6 +364,19 @@ func (c *DefaultIndexingChain) processField(field IndexableField,
 	return fieldCount, nil
 }
 
+/*
+Returns a previously created PerField, or nil if this field name
+wasn't seen yet.
+*/
+func (c *DefaultIndexingChain) perField(name string) *PerField {
+	hashPos := util.Hashstr(name) & c.hashMask
+	fp := c.fieldHash[hashPos]
+	for fp != nil && fp.fieldInfo.Name != name {
+		fp = fp.next
+	}
+	return fp
+}
+
 func (c *DefaultIndexingChain) getOrAddField(name string,
 	fieldType IndexableFieldType, invert bool) *PerField {
 
@@ -379,6 +430,9 @@ type PerField struct {
 
 	// Used by the hash table
 	next *PerField
+
+	// Lazy init'd:
+	norms *NumericDocValuesWriter
 
 	// reused
 	tokenStream analysis.TokenStream
