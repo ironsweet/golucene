@@ -30,6 +30,7 @@ type PostingsWriterBase interface {
 	// Called once after startup, before any terms have been added.
 	// Implementations typically write a header to the provided termsOut.
 	Init(store.IndexOutput) error
+	NewTermState() *BlockTermState
 	// Start a new term. Note that a matching call to finishTerm() is
 	// done, only if the term has at least one document.
 	StartTerm() error
@@ -117,7 +118,8 @@ type BlockTreeTermsWriter struct {
 	fieldInfos     model.FieldInfos
 	currentField   *model.FieldInfo
 
-	fields []*FieldMetaData
+	fields  []*FieldMetaData
+	segment string
 
 	scratchBytes *store.RAMOutputStream
 
@@ -148,6 +150,7 @@ func NewBlockTreeTermsWriter(state *model.SegmentWriteState,
 		minItemsInBlock: minItemsInBlock,
 		maxItemsInBlock: maxItemsInBlock,
 		postingsWriter:  postingsWriter,
+		segment:         state.SegmentInfo.Name,
 		scratchBytes:    store.NewRAMOutputStreamBuffer(),
 		// bytesWriter:     store.NewRAMOutputStreamBuffer(),
 		// bytesWriter2:    store.NewRAMOutputStreamBuffer(),
@@ -594,17 +597,30 @@ func (w *TermsWriter) StartTerm(text []byte) (codec.PostingsConsumer, error) {
 	return w.owner.postingsWriter, err
 }
 
-func (w *TermsWriter) FinishTerm(text []byte, stats *codec.TermStats) error {
+func (w *TermsWriter) FinishTerm(text []byte, stats *codec.TermStats) (err error) {
 	assert(stats.DocFreq > 0)
+	fmt.Printf("BTTW.finishTerm term=%v:%v seg=%v df=%v",
+		w.fieldInfo.Name, utf8ToString(text), w.owner.segment, stats.DocFreq)
 
-	if err := w.blockBuilder.Add(fst.ToIntsRef(text, w.scratchIntsRef), w.noOutputs.NoOutput()); err != nil {
-		return err
+	if err = w.blockBuilder.Add(fst.ToIntsRef(text, w.scratchIntsRef), w.noOutputs.NoOutput()); err != nil {
+		return
 	}
-	panic("not implemented yet")
-	// w.pending = append(w.pending, newPendingTerm(util.DeepCopyOf(util.NewBytesRef(text)).Value, stats))
-	// err = w.owner.postingsWriter.FinishTerm(stats)
-	// w.numTerms++
-	// return err
+	state := w.owner.postingsWriter.NewTermState()
+	state.DocFreq = stats.DocFreq
+	state.TotalTermFreq = stats.TotalTermFreq
+	if err = w.owner.postingsWriter.FinishTerm(state); err != nil {
+		return
+	}
+
+	term := newPendingTerm(util.DeepCopyOf(util.NewBytesRef(text)).Value, state)
+	w.pending = append(w.pending, term)
+	w.numTerms++
+
+	if w.minTerm == nil {
+		w.minTerm = util.DeepCopyOf(util.NewBytesRef(text)).Value
+	}
+	w.maxTerm = util.DeepCopyOf(util.NewBytesRef(text)).Value
+	return nil
 }
 
 func (w *TermsWriter) Finish(sumTotalTermFreq, sumDocFreq int64, docCount int) error {

@@ -219,6 +219,10 @@ func (ts *intBlockTermState) String() string {
 		ts.BlockTermState, ts.docStartFP, ts.posStartFP, ts.payStartFP, ts.lastPosBlockOffset, ts.skipOffset, ts.singletonDocID)
 }
 
+func (w *Lucene41PostingsWriter) NewTermState() *BlockTermState {
+	return newIntBlockTermState().BlockTermState
+}
+
 func (w *Lucene41PostingsWriter) Init(termsOut store.IndexOutput) error {
 	err := codec.WriteHeader(termsOut, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_CURRENT)
 	if err == nil {
