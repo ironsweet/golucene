@@ -30,6 +30,7 @@ type PostingsWriterBase interface {
 	// Called once after startup, before any terms have been added.
 	// Implementations typically write a header to the provided termsOut.
 	Init(store.IndexOutput) error
+	Start(store.IndexOutput) error
 	// Start a new term. Note that a matching call to finishTerm() is
 	// done, only if the term has at least one document.
 	StartTerm() error
@@ -37,7 +38,7 @@ type PostingsWriterBase interface {
 	// term's summary statistics.
 	FinishTerm(*BlockTermState) error
 	// Called when the writing switches to another field.
-	SetField(fieldInfo *model.FieldInfo) int
+	SetField(fieldInfo *model.FieldInfo)
 }
 
 // codec/BlockTreeTermsWriter.java
@@ -131,64 +132,63 @@ though in some cases, the blocks may be smaller than the min.
 func NewBlockTreeTermsWriter(state *model.SegmentWriteState,
 	postingsWriter PostingsWriterBase,
 	minItemsInBlock, maxItemsInBlock int) (*BlockTreeTermsWriter, error) {
-	panic("not implemented yet")
-	// assert2(minItemsInBlock >= 2, "minItemsInBlock must be >= 2; got %v", minItemsInBlock)
-	// assert2(maxItemsInBlock >= 1, "maxItemsInBlock must be >= 1; got %v", maxItemsInBlock)
-	// assert2(minItemsInBlock <= maxItemsInBlock,
-	// 	"maxItemsInBlock must be >= minItemsInBlock; got maxItemsInBlock=%v minItemsInBlock=%v",
-	// 	maxItemsInBlock, minItemsInBlock)
-	// assert2(2*(minItemsInBlock-1) <= maxItemsInBlock,
-	// 	"maxItemsInBlock must be at least 2*(minItemsInBlock-1; got maxItemsInBlock=%v minItemsInBlock=%v",
-	// 	maxItemsInBlock, minItemsInBlock)
+	assert2(minItemsInBlock >= 2, "minItemsInBlock must be >= 2; got %v", minItemsInBlock)
+	assert2(maxItemsInBlock >= 1, "maxItemsInBlock must be >= 1; got %v", maxItemsInBlock)
+	assert2(minItemsInBlock <= maxItemsInBlock,
+		"maxItemsInBlock must be >= minItemsInBlock; got maxItemsInBlock=%v minItemsInBlock=%v",
+		maxItemsInBlock, minItemsInBlock)
+	assert2(2*(minItemsInBlock-1) <= maxItemsInBlock,
+		"maxItemsInBlock must be at least 2*(minItemsInBlock-1; got maxItemsInBlock=%v minItemsInBlock=%v",
+		maxItemsInBlock, minItemsInBlock)
 
-	// ans := &BlockTreeTermsWriter{
-	// 	fieldInfos:      state.FieldInfos,
-	// 	minItemsInBlock: minItemsInBlock,
-	// 	maxItemsInBlock: maxItemsInBlock,
-	// 	postingsWriter:  postingsWriter,
-	// 	scratchBytes:    store.NewRAMOutputStreamBuffer(),
-	// 	bytesWriter:     store.NewRAMOutputStreamBuffer(),
-	// 	bytesWriter2:    store.NewRAMOutputStreamBuffer(),
-	// }
-	// ans.spi = ans
-	// var out, indexOut store.IndexOutput
-	// if err := func() error {
-	// 	var success = false
-	// 	defer func() {
-	// 		if !success {
-	// 			util.CloseWhileSuppressingError(out, indexOut)
-	// 		}
-	// 	}()
+	ans := &BlockTreeTermsWriter{
+		fieldInfos:      state.FieldInfos,
+		minItemsInBlock: minItemsInBlock,
+		maxItemsInBlock: maxItemsInBlock,
+		postingsWriter:  postingsWriter,
+		scratchBytes:    store.NewRAMOutputStreamBuffer(),
+		bytesWriter:     store.NewRAMOutputStreamBuffer(),
+		bytesWriter2:    store.NewRAMOutputStreamBuffer(),
+	}
+	ans.spi = ans
+	var out, indexOut store.IndexOutput
+	if err := func() error {
+		var success = false
+		defer func() {
+			if !success {
+				util.CloseWhileSuppressingError(out, indexOut)
+			}
+		}()
 
-	// 	var err error
-	// 	termsFileName := util.SegmentFileName(state.SegmentInfo.Name, state.SegmentSuffix, TERMS_EXTENSION)
-	// 	if out, err = state.Directory.CreateOutput(termsFileName, state.Context); err != nil {
-	// 		return err
-	// 	}
-	// 	if err = ans.spi.WriteHeader(out); err != nil {
-	// 		return err
-	// 	}
+		var err error
+		termsFileName := util.SegmentFileName(state.SegmentInfo.Name, state.SegmentSuffix, TERMS_EXTENSION)
+		if out, err = state.Directory.CreateOutput(termsFileName, state.Context); err != nil {
+			return err
+		}
+		if err = ans.spi.WriteHeader(out); err != nil {
+			return err
+		}
 
-	// 	termsIndexFileName := util.SegmentFileName(state.SegmentInfo.Name, state.SegmentSuffix, TERMS_INDEX_EXTENSION)
-	// 	if indexOut, err = state.Directory.CreateOutput(termsIndexFileName, state.Context); err != nil {
-	// 		return err
-	// 	}
-	// 	if err = ans.spi.WriteIndexHeader(indexOut); err != nil {
-	// 		return err
-	// 	}
+		termsIndexFileName := util.SegmentFileName(state.SegmentInfo.Name, state.SegmentSuffix, TERMS_INDEX_EXTENSION)
+		if indexOut, err = state.Directory.CreateOutput(termsIndexFileName, state.Context); err != nil {
+			return err
+		}
+		if err = ans.spi.WriteIndexHeader(indexOut); err != nil {
+			return err
+		}
 
-	// 	// have consumer write its format/header
-	// 	if err = postingsWriter.Start(out); err != nil {
-	// 		return err
-	// 	}
-	// 	success = true
-	// 	return nil
-	// }(); err != nil {
-	// 	return nil, err
-	// }
-	// ans.out = out
-	// ans.indexOut = indexOut
-	// return ans, nil
+		// have consumer write its format/header
+		if err = postingsWriter.Start(out); err != nil {
+			return err
+		}
+		success = true
+		return nil
+	}(); err != nil {
+		return nil, err
+	}
+	ans.out = out
+	ans.indexOut = indexOut
+	return ans, nil
 }
 
 func (w *BlockTreeTermsWriter) WriteHeader(out store.IndexOutput) error {

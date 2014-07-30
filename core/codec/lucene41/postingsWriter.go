@@ -32,6 +32,8 @@ type Lucene41PostingsWriter struct {
 	posOut store.IndexOutput
 	payOut store.IndexOutput
 
+	termsOut store.IndexOutput
+
 	lastState *intBlockTermState
 
 	fieldHasFreqs     bool
@@ -225,14 +227,21 @@ func (w *Lucene41PostingsWriter) Init(termsOut store.IndexOutput) error {
 	return err
 }
 
-func (w *Lucene41PostingsWriter) SetField(fieldInfo *FieldInfo) int {
-	n := int(fieldInfo.IndexOptions())
-	w.fieldHasFreqs = n >= int(INDEX_OPT_DOCS_AND_FREQS)
-	w.fieldHasPositions = n >= int(INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS)
-	w.fieldHasOffsets = n >= int(INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS)
+func (w *Lucene41PostingsWriter) Start(termsOut store.IndexOutput) (err error) {
+	w.termsOut = termsOut
+	if err = codec.WriteHeader(termsOut, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_CURRENT); err == nil {
+		err = termsOut.WriteVInt(LUCENE41_BLOCK_SIZE)
+	}
+	return
+}
+
+func (w *Lucene41PostingsWriter) SetField(fieldInfo *FieldInfo) {
+	n := fieldInfo.IndexOptions()
+	w.fieldHasFreqs = n >= INDEX_OPT_DOCS_AND_FREQS
+	w.fieldHasPositions = n >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
+	w.fieldHasOffsets = n >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
 	w.fieldHasPayloads = fieldInfo.HasPayloads()
 	w.skipWriter.SetField(w.fieldHasPositions, w.fieldHasOffsets, w.fieldHasPayloads)
-	panic("not implemented yet")
 }
 
 func (w *Lucene41PostingsWriter) StartTerm() error {
