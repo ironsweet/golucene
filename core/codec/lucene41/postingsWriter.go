@@ -180,6 +180,8 @@ type intBlockTermState struct {
 	singletonDocID int
 }
 
+var emptyState = newIntBlockTermState()
+
 func newIntBlockTermState() *intBlockTermState {
 	ts := &intBlockTermState{
 		skipOffset:         -1,
@@ -232,7 +234,16 @@ func (w *Lucene41PostingsWriter) SetField(fieldInfo *FieldInfo) int {
 	w.fieldHasOffsets = n >= int(INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS)
 	w.fieldHasPayloads = fieldInfo.HasPayloads()
 	w.skipWriter.SetField(w.fieldHasPositions, w.fieldHasOffsets, w.fieldHasPayloads)
-	panic("not implemented yet")
+	w.lastState = emptyState
+	if w.fieldHasPositions {
+		if w.fieldHasPayloads || w.fieldHasOffsets {
+			return 3 // doc + pos + pay FP
+		} else {
+			return 2 // doc + pos FP
+		}
+	} else {
+		return 1 // doc FP
+	}
 }
 
 func (w *Lucene41PostingsWriter) StartTerm() error {
