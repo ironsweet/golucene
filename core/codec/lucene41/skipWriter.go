@@ -20,6 +20,11 @@ type SkipWriter struct {
 	fieldHasPositions bool
 	fieldHasOffsets   bool
 	fieldHasPayloads  bool
+
+	initialized bool
+	lastDocFP   int64
+	lastPosFP   int64
+	lastPayFP   int64
 }
 
 func NewSkipWriter(maxSkipLevels, blockSize, docCount int,
@@ -49,7 +54,14 @@ func (w *SkipWriter) SetField(fieldHasPositions, fieldHasOffsets, fieldHasPayloa
 }
 
 func (w *SkipWriter) ResetSkip() {
-	panic("not implemented yet")
+	w.lastDocFP = w.docOut.FilePointer()
+	if w.fieldHasPositions {
+		w.lastPosFP = w.posOut.FilePointer()
+		if w.fieldHasOffsets || w.fieldHasPayloads {
+			w.lastPayFP = w.payOut.FilePointer()
+		}
+	}
+	w.initialized = false
 }
 
 func (w *SkipWriter) initSkip() {
