@@ -576,9 +576,9 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 	}
 
 	// write term stats []byte blob
-	if err = w.owner.out.WriteVInt(int32(w.suffixWriter.FilePointer())); err == nil {
-		if err = w.suffixWriter.WriteTo(w.owner.out); err == nil {
-			w.suffixWriter.Reset()
+	if err = w.owner.out.WriteVInt(int32(w.statsWriter.FilePointer())); err == nil {
+		if err = w.statsWriter.WriteTo(w.owner.out); err == nil {
+			w.statsWriter.Reset()
 		}
 	}
 	if err != nil {
@@ -586,7 +586,14 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 	}
 
 	// Write term meta data []byte blob
-	panic("not implemented yet")
+	if err = w.owner.out.WriteVInt(int32(w.metaWriter.FilePointer())); err == nil {
+		if err = w.metaWriter.WriteTo(w.owner.out); err == nil {
+			w.metaWriter.Reset()
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
 
 	// remove slice replaced by block:
 	w.pending = append(w.pending[:start], w.pending[start+length:]...)
