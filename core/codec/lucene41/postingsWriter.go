@@ -430,76 +430,38 @@ func (w *Lucene41PostingsWriter) FinishTerm(_state *BlockTermState) error {
 
 func (w *Lucene41PostingsWriter) EncodeTerm(longs []int64,
 	out util.DataOutput, fieldInfo *FieldInfo, _state *BlockTermState,
-	absolute bool) error {
-	panic("not implemented yet")
-	// func (w *Lucene41PostingsWriter) flushTermsBlock(start, count int) error {
-	// if count == 0 {
-	// 	return w.termsOut.WriteByte(0)
-	// }
+	absolute bool) (err error) {
 
-	// assert(start <= len(w.pendingTerms))
-	// assert(count <= start)
-
-	// limit := len(w.pendingTerms) - start + count
-
-	// lastDocStartFP := int64(0)
-	// lastPosStartFP := int64(0)
-	// lastPayStartFP := int64(0)
-	// for _, term := range w.pendingTerms[limit-count : limit] {
-	// 	if term.singletonDocId == -1 {
-	// 		err := w.bytesWriter.WriteVLong(term.docStartFP - lastDocStartFP)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		lastDocStartFP = term.docStartFP
-	// 	} else {
-	// 		err := w.bytesWriter.WriteVInt(int32(term.singletonDocId))
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
-
-	// 	if w.fieldHasPositions {
-	// 		err := w.bytesWriter.WriteVLong(term.posStartFP - lastPosStartFP)
-	// 		if err == nil {
-	// 			lastPosStartFP = term.posStartFP
-	// 			if term.lastPosBlockOffset != -1 {
-	// 				err = w.bytesWriter.WriteVLong(term.lastPosBlockOffset)
-	// 			}
-	// 		}
-	// 		if err == nil && (w.fieldHasPayloads || w.fieldHasOffsets) && term.payStartFP != -1 {
-	// 			err = w.bytesWriter.WriteVLong(term.payStartFP - lastPayStartFP)
-	// 			if err == nil {
-	// 				lastPayStartFP = term.payStartFP
-	// 			}
-	// 		}
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
-
-	// 	if term.skipOffset != -1 {
-	// 		err := w.bytesWriter.WriteVLong(term.skipOffset)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
-
-	// err := w.termsOut.WriteVInt(int32(w.bytesWriter.FilePointer()))
-	// if err == nil {
-	// 	err = w.bytesWriter.WriteTo(w.termsOut)
-	// 	if err == nil {
-	// 		w.bytesWriter.Reset()
-	// 	}
-	// }
-	// if err != nil {
-	// 	return err
-	// }
-
-	// // remove the terms we just wrote:
-	// w.pendingTerms = append(w.pendingTerms[:limit-count], w.pendingTerms[limit:]...)
-	// return nil
+	assert(longs != nil)
+	assert(len(longs) > 0)
+	state := _state.Self.(*intBlockTermState)
+	if absolute {
+		w.lastState = emptyState
+	}
+	longs[0] = state.docStartFP - w.lastState.docStartFP
+	if w.fieldHasPositions {
+		longs[1] = state.posStartFP - w.lastState.posStartFP
+		if w.fieldHasPayloads || w.fieldHasOffsets {
+			longs[2] = state.payStartFP - w.lastState.payStartFP
+		}
+	}
+	if state.singletonDocID != -1 {
+		if err = out.WriteVInt(int32(state.singletonDocID)); err != nil {
+			return
+		}
+	}
+	if w.fieldHasPositions && state.lastPosBlockOffset != -1 {
+		if err = out.WriteVLong(state.lastPosBlockOffset); err != nil {
+			return
+		}
+	}
+	if state.skipOffset != -1 {
+		if err = out.WriteVLong(state.skipOffset); err != nil {
+			return
+		}
+	}
+	w.lastState = state
+	return nil
 }
 
 func (w *Lucene41PostingsWriter) Close() (err error) {

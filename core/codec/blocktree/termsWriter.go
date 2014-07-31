@@ -418,6 +418,7 @@ func newTermsWriter(owner *BlockTreeTermsWriter,
 			return nil
 		}, false, packed.PackedInts.COMPACT,
 		true, 15)
+	ans.longsSize = owner.postingsWriter.SetField(fieldInfo)
 	return ans
 }
 
@@ -506,6 +507,7 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 
 	var termCount int
 
+	assert(w.longsSize > 0)
 	longs := make([]int64, w.longsSize)
 	var absolute = true
 
