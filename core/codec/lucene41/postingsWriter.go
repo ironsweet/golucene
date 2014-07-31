@@ -428,8 +428,8 @@ func (w *Lucene41PostingsWriter) FinishTerm(_state *BlockTermState) error {
 	return nil
 }
 
-func (w *Lucene41PostingsWriter) encodeTerm(longs []int64,
-	out DataOutput, fieldInfo *FieldInfo, _state *BlockTermState,
+func (w *Lucene41PostingsWriter) EncodeTerm(longs []int64,
+	out util.DataOutput, fieldInfo *FieldInfo, _state *BlockTermState,
 	absolute bool) error {
 	panic("not implemented yet")
 	// func (w *Lucene41PostingsWriter) flushTermsBlock(start, count int) error {

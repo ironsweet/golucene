@@ -2,6 +2,7 @@ package lucene41
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
 	"math"
 )
@@ -61,12 +62,8 @@ type ForUtil struct {
 	iterations   []int32
 }
 
-type DataOutput interface {
-	WriteVInt(int32) error
-}
-
 /* Create a new ForUtil instance and save state into out. */
-func NewForUtilInto(accetableOverheadRatio float32, out DataOutput) (ForUtil, error) {
+func NewForUtilInto(accetableOverheadRatio float32, out util.DataOutput) (ForUtil, error) {
 	ans, err := ForUtil{}, out.WriteVInt(packed.VERSION_CURRENT)
 	if err != nil {
 		return ans, err

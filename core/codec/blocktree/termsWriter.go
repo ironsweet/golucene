@@ -37,6 +37,7 @@ type PostingsWriterBase interface {
 	// Finishes the current term. The provided TermStats contains the
 	// term's summary statistics.
 	FinishTerm(*BlockTermState) error
+	EncodeTerm([]int64, util.DataOutput, *model.FieldInfo, *BlockTermState, bool) error
 	// Called when the writing switches to another field.
 	SetField(fieldInfo *model.FieldInfo) int
 }
@@ -505,8 +506,8 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 
 	var termCount int
 
-	// longs := make([]int64, w.longsSize)
-	// var absolute = true
+	longs := make([]int64, w.longsSize)
+	var absolute = true
 
 	if isLeafBlock {
 		subIndices = nil
@@ -516,7 +517,7 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 			state := term.state
 			suffix := len(term.term) - prefixLength
 			// for leaf block we write suffix straight
-			if err := w.suffixWriter.WriteVInt(int32(suffix)); err != nil {
+			if err = w.suffixWriter.WriteVInt(int32(suffix)); err != nil {
 				return nil, err
 			}
 			if err = w.suffixWriter.WriteBytes(term.term[prefixLength : prefixLength+suffix]); err != nil {
@@ -536,7 +537,20 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 			}
 
 			// Write term meta data
-			panic("not implemented yet")
+			if err = w.owner.postingsWriter.EncodeTerm(longs, w.bytesWriter, w.fieldInfo, state, absolute); err != nil {
+				return nil, err
+			}
+			for _, v := range longs {
+				assert(v >= 0)
+				if err = w.metaWriter.WriteVLong(v); err != nil {
+					return nil, err
+				}
+			}
+			if err = w.bytesWriter.WriteTo(w.metaWriter); err != nil {
+				return nil, err
+			}
+			w.bytesWriter.Reset()
+			absolute = false
 		}
 		termCount = length
 	} else {
