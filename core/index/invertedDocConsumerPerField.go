@@ -306,6 +306,7 @@ func (ss *PostingsBytesStartArray) Grow() []int {
 
 func (ss *PostingsBytesStartArray) Clear() []int {
 	if arr := ss.perField.postingsArray; arr != nil {
+		fmt.Println("DEBUG3", ss.perField)
 		ss.bytesUsed.AddAndGet(-int64(arr.size * arr.bytesPerPosting()))
 		ss.perField.postingsArray = nil
 		ss.perField.spi.newPostingsArray()

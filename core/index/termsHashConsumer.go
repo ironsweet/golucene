@@ -245,10 +245,8 @@ func (w *FreqProxTermsWriter) flush(fieldsToFlush map[string]TermsHashPerField,
 			return
 		}
 
-		perField := fieldWriter
-		assert(termsHash == nil || termsHash == perField.termsHash)
-		termsHash = perField.termsHash
-		perField.reset()
+		assert(termsHash == nil || termsHash == fieldWriter.termsHash)
+		termsHash = fieldWriter.termsHash
 		fieldWriter.reset()
 	}
 
