@@ -219,6 +219,5 @@ func (bd *FrozenBufferedUpdates) String() string {
 }
 
 func (d *FrozenBufferedUpdates) any() bool {
-	panic("not implemented yet")
-	return d.termCount > 0 || len(d._queries) > 0
+	return d.termCount > 0 || len(d._queries) > 0 || len(d.numericDVUpdates) > 0 || len(d.binaryDVUpdates) > 0
 }
