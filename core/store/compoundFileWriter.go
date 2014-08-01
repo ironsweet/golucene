@@ -108,11 +108,12 @@ func (w *CompoundFileWriter) output(ctx IOContext) (IndexOutput, error) {
 /* Closes all resouces and writes the entry table */
 func (w *CompoundFileWriter) Close() (err error) {
 	if w.closed {
+		fmt.Println("CompoundFileWriter is already closed.")
 		return nil
 	}
 
 	// TODO this code should clean up after itself (remove partial .cfs/.cfe)
-	if func() {
+	if err = func() (err error) {
 		var success = false
 		defer func() {
 			if success {
@@ -138,6 +139,7 @@ func (w *CompoundFileWriter) Close() (err error) {
 			return
 		}
 		success = true
+		return nil
 	}(); err != nil {
 		return
 	}

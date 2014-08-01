@@ -10,6 +10,7 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
+	"os"
 	"runtime"
 	"strconv"
 	"sync"
@@ -1549,17 +1550,25 @@ func (w *IndexWriter) segString() string {
 }
 
 // called only from assert
-func (w *IndexWriter) assertFilesExist(toSync *SegmentInfos) {
-	panic("not implemented yet")
+func (w *IndexWriter) assertFilesExist(toSync *SegmentInfos) error {
 	files := toSync.files(w.directory, false)
 	for _, filename := range files {
-		assertn(w.directory.FileExists(filename), "file %v does not exist", filename)
+		allFiles, err := w.directory.ListAll()
+		if err != nil {
+			return err
+		}
+		ok, err := w.slowFileExists(w.directory, filename)
+		if err != nil {
+			return err
+		}
+		assert2(ok, "file %v does not exist; files=%v", filename, allFiles)
 		// If this trips it means we are missing a call to checkpoint
 		// somewhere, because by the time we are called, deleter should
 		// know about every file referenced by the current head
 		// segmentInfos:
-		assertn(w.deleter.exists(filename), "IndexFileDeleter doesn't know about file %v", filename)
+		assert2(w.deleter.exists(filename), "IndexFileDeleter doesn't know about file %v", filename)
 	}
+	return nil
 }
 
 /* For infoStream output */
@@ -1598,7 +1607,7 @@ func (w *IndexWriter) startCommit(toSync *SegmentInfos) error {
 		w.infoStream.Message("IW", "startCommit(): start")
 	}
 
-	func() {
+	if err := func() error {
 		w.Lock()
 		defer w.Unlock()
 
@@ -1610,7 +1619,7 @@ func (w *IndexWriter) startCommit(toSync *SegmentInfos) error {
 			}
 			w.deleter.decRefFiles(w.filesToCommit)
 			w.filesToCommit = nil
-			return
+			return nil
 		}
 
 		if w.infoStream.IsEnabled("IW") {
@@ -1618,8 +1627,10 @@ func (w *IndexWriter) startCommit(toSync *SegmentInfos) error {
 				w.readerPool.segmentsToString(toSync.Segments), w.changeCount)
 		}
 
-		w.assertFilesExist(toSync)
-	}()
+		return w.assertFilesExist(toSync)
+	}(); err != nil {
+		return err
+	}
 
 	w.testPoint("midStartCommit")
 
@@ -1773,6 +1784,7 @@ func createCompoundFile(infoStream util.InfoStream,
 				return
 			}
 		}
+		success = true
 	}()
 	if err != nil {
 		return
@@ -1816,6 +1828,18 @@ func (w *IndexWriter) doAfterSegmentFlushed(triggerMerge bool, forcePurge bool) 
 	}()
 	_, err = w.purge(forcePurge)
 	return err
+}
+
+func (w *IndexWriter) slowFileExists(dir store.Directory, filename string) (bool, error) {
+	o, err := dir.OpenInput(filename, store.IO_CONTEXT_DEFAULT)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer o.Close()
+	return true, nil
 }
 
 /*
