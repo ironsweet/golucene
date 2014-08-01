@@ -216,6 +216,7 @@ func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
 
 const (
 	VERSION_40 = 0
+	VERSION_49 = 3
 
 	// Used for the segments.gen file only!
 	// Whenver you add a new format, make it 1 smaller (negative version logic)!
@@ -505,87 +506,96 @@ func (sis *SegmentInfos) ReadAll(directory store.Directory) error {
 	return err
 }
 
-func (sis *SegmentInfos) write(directory store.Directory) error {
-	panic("not implemented yet")
-	// segmentsFilename := sis.nextSegmentFilename()
+func (sis *SegmentInfos) write(directory store.Directory) (err error) {
+	segmentsFilename := sis.nextSegmentFilename()
 
-	// // Always advance the generation on write:
-	// if sis.generation == -1 {
-	// 	sis.generation = 1
-	// } else {
-	// 	sis.generation++
-	// }
+	// Always advance the generation on write:
+	if sis.generation == -1 {
+		sis.generation = 1
+	} else {
+		sis.generation++
+	}
 
-	// var segnOutput *store.ChecksumIndexOutput
-	// var success = false
+	var segnOutput store.IndexOutput
+	var success = false
 	// var upgradedSIFiles = make(map[string]bool)
 
-	// defer func() {
-	// 	if !success {
-	// 		// We hit an error above; try to close the file but suppress
-	// 		// any errors
-	// 		util.CloseWhileSuppressingError(segnOutput)
+	defer func() {
+		if !success {
+			// We hit an error above; try to close the file but suppress
+			// any errors
+			util.CloseWhileSuppressingError(segnOutput)
 
-	// 		for filename, _ := range upgradedSIFiles {
-	// 			directory.DeleteFile(filename) // ignore error
-	// 		}
+			// for filename, _ := range upgradedSIFiles {
+			// 	directory.DeleteFile(filename) // ignore error
+			// }
 
-	// 		// Try not to leave a truncated segments_N fle in the index:
-	// 		directory.DeleteFile(segmentsFilename) // ignore error
-	// 	}
-	// }()
+			// Try not to leave a truncated segments_N fle in the index:
+			directory.DeleteFile(segmentsFilename) // ignore error
+		}
+	}()
 
-	// out, err := directory.CreateOutput(segmentsFilename, store.IO_CONTEXT_DEFAULT)
-	// if err != nil {
-	// 	return err
-	// }
-	// segnOutput = store.NewChecksumIndexOutput(out)
-	// err = codec.WriteHeader(segnOutput, "segments", VERSION_40)
-	// if err != nil {
-	// 	return err
-	// }
-	// err = segnOutput.WriteLong(sis.version)
-	// if err == nil {
-	// 	err = segnOutput.WriteInt(int32(sis.counter))
-	// 	if err == nil {
-	// 		err = segnOutput.WriteInt(int32(len(sis.Segments)))
-	// 	}
-	// }
-	// if err != nil {
-	// 	return err
-	// }
-	// for _, siPerCommit := range sis.Segments {
-	// 	si := siPerCommit.info
-	// 	err = segnOutput.WriteString(si.Name)
-	// 	if err == nil {
-	// 		err = segnOutput.WriteString(si.Codec().(Codec).Name())
-	// 		if err == nil {
-	// 			err = segnOutput.WriteLong(siPerCommit.delGen)
-	// 			if err == nil {
-	// 				err = segnOutput.WriteInt(int32(siPerCommit.delCount))
-	// 			}
-	// 		}
-	// 	}
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	assert(si.Dir == directory)
+	if segnOutput, err = directory.CreateOutput(segmentsFilename, store.IO_CONTEXT_DEFAULT); err != nil {
+		return
+	}
+	if err = codec.WriteHeader(segnOutput, "segments", VERSION_49); err != nil {
+		return
+	}
+	if err = segnOutput.WriteLong(sis.version); err == nil {
+		if err = segnOutput.WriteInt(int32(sis.counter)); err == nil {
+			err = segnOutput.WriteInt(int32(len(sis.Segments)))
+		}
+	}
+	if err != nil {
+		return
+	}
+	for _, siPerCommit := range sis.Segments {
+		si := siPerCommit.Info
+		if err = segnOutput.WriteString(si.Name); err == nil {
+			if err = segnOutput.WriteString(si.Codec().(Codec).Name()); err == nil {
+				if err = segnOutput.WriteLong(siPerCommit.DelGen()); err == nil {
+					assert2(siPerCommit.DelCount() >= 0 && siPerCommit.DelCount() <= si.DocCount(),
+						"cannot write segment: invalid docCount segment=%v docCount=%v delCount=%v",
+						si.Name, si.DocCount(), siPerCommit.DelCount())
+					if err = segnOutput.WriteInt(int32(siPerCommit.DelCount())); err == nil {
+						if err = segnOutput.WriteLong(siPerCommit.FieldInfosGen()); err == nil {
+							if err = segnOutput.WriteLong(siPerCommit.DocValuesGen()); err == nil {
+								if err = segnOutput.WriteStringSet(siPerCommit.FieldInfosFiles()); err == nil {
+									dvUpdatesFiles := siPerCommit.DocValuesUpdatesFiles()
+									if err = segnOutput.WriteInt(int32(len(dvUpdatesFiles))); err == nil {
+										for k, v := range dvUpdatesFiles {
+											if err = segnOutput.WriteInt(int32(k)); err != nil {
+												break
+											}
+											if err = segnOutput.WriteStringSet(v); err != nil {
+												break
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		if err != nil {
+			return
+		}
+		assert(si.Dir == directory)
 
-	// 	assert(siPerCommit.delCount <= si.DocCount())
-
-	// 	// If this segment is pre-4.x, perform a one-time "upgrade" to
-	// 	// write the .si file for it:
-	// 	if version := si.Version(); version == "" || versionLess(version, "4.0") {
-	// 		panic("not implemented yet")
-	// 	}
-	// }
-	// err = segnOutput.WriteStringStringMap(sis.userData)
-	// if err != nil {
-	// 	return err
-	// }
-	// sis.pendingSegnOutput = segnOutput
-	// success = true
-	// return nil
+		// If this segment is pre-4.x, perform a one-time "upgrade" to
+		// write the .si file for it:
+		if version := si.Version(); version == "" || versionLess(version, "4.0") {
+			panic("not implemented yet")
+		}
+	}
+	if err = segnOutput.WriteStringStringMap(sis.userData); err != nil {
+		return
+	}
+	sis.pendingSegnOutput = segnOutput
+	success = true
+	return nil
 }
 
 func versionLess(a, b string) bool {

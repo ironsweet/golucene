@@ -69,6 +69,14 @@ func NewSegmentCommitInfo(info *SegmentInfo,
 	return ans
 }
 
+func (si *SegmentCommitInfo) DocValuesUpdatesFiles() map[int]map[string]bool {
+	return si.dvUpdatesFiles
+}
+
+func (si *SegmentCommitInfo) FieldInfosFiles() map[string]bool {
+	return si.fieldInfosFiles
+}
+
 /* Called when we succeed in writing deletes */
 func (info *SegmentCommitInfo) AdvanceDelGen() {
 	info.delGen, info.nextWriteDelGen = info.nextWriteDelGen, info.delGen+1
@@ -153,6 +161,14 @@ func (si *SegmentCommitInfo) SetBufferedUpdatesGen(v int64) {
 // commit.
 func (si *SegmentCommitInfo) HasDeletions() bool {
 	return si.delGen != -1
+}
+
+func (si *SegmentCommitInfo) FieldInfosGen() int64 {
+	return si.fieldInfosGen
+}
+
+func (si *SegmentCommitInfo) DocValuesGen() int64 {
+	return si.docValuesGen
 }
 
 /* Returns the next available generation numbre of the live docs file. */
