@@ -1,7 +1,8 @@
-package model
+package spi
 
 import (
 	"fmt"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 )
 
@@ -103,14 +104,6 @@ func (si *SegmentCommitInfo) SizeInBytes() (sum int64, err error) {
 	return si.sizeInBytes, nil
 }
 
-type myCodec interface {
-	LiveDocsFormat() myLiveDocsFormat
-}
-
-type myLiveDocsFormat interface {
-	Files(*SegmentCommitInfo) []string
-}
-
 // Returns all files in use by this segment.
 func (si *SegmentCommitInfo) Files() []string {
 	// Start from the wrapped info's files:
@@ -120,7 +113,7 @@ func (si *SegmentCommitInfo) Files() []string {
 	}
 
 	// Must separately add any live docs files
-	for _, name := range si.Info.Codec().(myCodec).LiveDocsFormat().Files(si) {
+	for _, name := range si.Info.Codec().(Codec).LiveDocsFormat().Files(si) {
 		files[name] = true
 	}
 

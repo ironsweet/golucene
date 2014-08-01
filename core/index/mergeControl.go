@@ -2,7 +2,7 @@ package index
 
 import (
 	"container/list"
-	. "github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	"github.com/balzaczyy/golucene/core/util"
 	"sync"
 )
