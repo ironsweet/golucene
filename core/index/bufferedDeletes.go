@@ -95,8 +95,8 @@ func (bd *BufferedUpdates) clear() {
 }
 
 func (bd *BufferedUpdates) any() bool {
-	panic("not implemented yet")
-	// return len(bd.terms) > 0 || len(bd.docIDs) > 0 || len(bd.queries) > 0
+	return len(bd.terms) > 0 || len(bd.docIDs) > 0 || len(bd.queries) > 0 ||
+		len(bd.numericUpdates) > 0 || len(bd.binaryUpdates) > 0
 }
 
 // index/FrozenBufferedUpdates.java

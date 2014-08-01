@@ -551,7 +551,7 @@ func (f *PerField) invert(field IndexableField, first bool) error {
 
 			if !succeededInProcessingField && f.docState.infoStream.IsEnabled("DW") {
 				f.docState.infoStream.Message("DW",
-					"An exception was thrown while processing field %v",
+					"An error was returned while processing field %v",
 					f.fieldInfo.Name)
 			}
 		}()

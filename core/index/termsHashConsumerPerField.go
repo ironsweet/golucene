@@ -314,6 +314,7 @@ func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
 }
 
 func (w *FreqProxTermsWriterPerField) newPostingsArray() {
+	assert(w.postingsArray.PostingsArray != nil)
 	w.freqProxPostingsArray = w.postingsArray.PostingsArray.(*FreqProxPostingsArray)
 }
 
