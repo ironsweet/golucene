@@ -9,6 +9,11 @@ import (
 	"strconv"
 )
 
+// index/SegmentInfo.java
+
+const NO = -1
+const YES = 1
+
 type SegmentInfo struct {
 	Dir            store.Directory
 	version        string
