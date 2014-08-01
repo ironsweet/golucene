@@ -320,6 +320,9 @@ func (d *DirectoryImpl) Copy(to Directory, src, dest string, ctx IOContext) (err
 		} else {
 			util.CloseWhileSuppressingError(os, is)
 		}
+		defer func() {
+			recover() // ignore panic
+		}()
 		to.DeleteFile(dest) // ignore error
 	}()
 
