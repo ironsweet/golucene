@@ -18,6 +18,14 @@ type SegmentCommitInfo struct {
 	// Normally 1+delGen, unless an exception was hit on last attempt to write:
 	nextWriteDelGen int64
 
+	fieldInfosGen int64
+
+	nextWriteFieldInfosGen int64
+
+	docValuesGen int64
+
+	nextWriteDocValuesGen int64
+
 	sizeInBytes int64 // volatile
 
 	// NOTE: only used by in-RAM by IW to track buffered deletes;
@@ -28,19 +36,27 @@ type SegmentCommitInfo struct {
 func NewSegmentCommitInfo(info *SegmentInfo,
 	delCount int, delGen, fieldInfosGen, docValuesGen int64) *SegmentCommitInfo {
 
-	panic("not implemented yet")
-
-	nextWriteDelGen := int64(1)
+	ans := &SegmentCommitInfo{
+		Info:                   info,
+		delCount:               delCount,
+		delGen:                 delGen,
+		nextWriteDelGen:        1,
+		fieldInfosGen:          fieldInfosGen,
+		nextWriteFieldInfosGen: 1,
+		docValuesGen:           docValuesGen,
+		nextWriteDocValuesGen:  1,
+		sizeInBytes:            -1,
+	}
 	if delGen != -1 {
-		nextWriteDelGen = delGen + 1
+		ans.nextWriteDelGen = delGen + 1
 	}
-	return &SegmentCommitInfo{
-		Info:            info,
-		delCount:        delCount,
-		delGen:          delGen,
-		nextWriteDelGen: nextWriteDelGen,
-		sizeInBytes:     -1,
+	if fieldInfosGen != -1 {
+		ans.nextWriteFieldInfosGen = fieldInfosGen + 1
 	}
+	if docValuesGen != -1 {
+		ans.nextWriteDocValuesGen = docValuesGen + 1
+	}
+	return ans
 }
 
 /* Called when we succeed in writing deletes */
