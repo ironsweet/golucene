@@ -841,49 +841,49 @@ func (w *IndexWriter) maybeMerge(trigger MergeTrigger, maxNumSegments int) error
 	return err
 }
 
-func (w *IndexWriter) updatePendingMerges(trigger MergeTrigger, maxNumSegments int) (bool, error) {
-	panic("not implemented yet")
-	// w.Lock() // synchronized
-	// defer w.Unlock()
-	// assert(maxNumSegments == -1 || maxNumSegments > 0)
-	// if w.stopMerges {
-	// 	return nil
-	// }
+func (w *IndexWriter) updatePendingMerges(trigger MergeTrigger, maxNumSegments int) (found bool, err error) {
+	w.Lock() // synchronized
+	defer w.Unlock()
 
-	// var err error
-	// var spec MergeSpecification
-	// if maxNumSegments != UNBOUNDED_MAX_MERGE_SEGMENTS {
-	// 	assertn(trigger == MERGE_TRIGGER_EXPLICIT || trigger == MERGE_FINISHED,
-	// 		"Expected EXPLIT or MEGE_FINISHED as trigger even with maxNumSegments set but was: %v",
-	// 		MergeTriggerName(trigger))
-	// 	spec, err = w.mergePolicy.FindForcedMerges(
-	// 		w.segmentInfos,
-	// 		maxNumSegments,
-	// 		w.segmentsToMerge)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	if spec != nil {
-	// 		for _, merge := range spec {
-	// 			merge.maxNumSegments = maxNumSegments
-	// 		}
-	// 	}
-	// } else {
-	// 	spec, err = w.mergePolicy.FindMerges(trigger, w.segmentInfos)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
+	// in case infoStream was disabled on init, but then enabled at some
+	// point, try again to log the config here:
+	w.messageState()
 
-	// if spec != nil {
-	// 	for _, merge := range spec {
-	// 		_, err = w.registerMerge(merge)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
-	// return nil
+	assert(maxNumSegments == -1 || maxNumSegments > 0)
+	if w.stopMerges {
+		return false, nil
+	}
+
+	var spec MergeSpecification
+	if maxNumSegments != UNBOUNDED_MAX_MERGE_SEGMENTS {
+		assertn(trigger == MERGE_TRIGGER_EXPLICIT || trigger == MERGE_FINISHED,
+			"Expected EXPLIT or MEGE_FINISHED as trigger even with maxNumSegments set but was: %v",
+			MergeTriggerName(trigger))
+		if spec, err = w.mergePolicy.FindForcedMerges(
+			w.segmentInfos,
+			maxNumSegments,
+			w.segmentsToMerge, w); err != nil {
+			return false, err
+		}
+		if found = spec != nil; found {
+			for _, merge := range spec {
+				merge.maxNumSegments = maxNumSegments
+			}
+		}
+	} else {
+		if spec, err = w.mergePolicy.FindMerges(trigger, w.segmentInfos, w); err != nil {
+			return false, err
+		}
+	}
+
+	if found = spec != nil; found {
+		for _, merge := range spec {
+			if _, err = w.registerMerge(merge); err != nil {
+				return false, err
+			}
+		}
+	}
+	return true, nil
 }
 
 /*
