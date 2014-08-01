@@ -1,6 +1,7 @@
 package index
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
@@ -656,6 +657,16 @@ func (sis *SegmentInfos) rollbackCommit(dir store.Directory) {
 		// Suppress so we keep throwing the original error in our caller
 		util.DeleteFilesIgnoringErrors(dir, segmentFilename)
 	}
+}
+
+func (sis *SegmentInfos) toString(dir store.Directory) string {
+	var buffer bytes.Buffer
+	buffer.WriteString(sis.SegmentsFileName())
+	buffer.WriteString(":")
+	for _, info := range sis.Segments {
+		buffer.WriteString(info.StringOf(dir, 0))
+	}
+	return buffer.String()
 }
 
 /*

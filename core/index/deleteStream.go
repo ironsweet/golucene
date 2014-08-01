@@ -7,7 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
-	// "math"
+	"math"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -376,31 +376,34 @@ Removes any BufferedUpdates that we no longer need to store because
 all segments in the index have had the deletes applied.
 */
 func (ds *BufferedUpdatesStream) prune(infos *SegmentInfos) {
-	panic("not implemented yet")
-	// ds.assertDeleteStats()
-	// var minGen int64 = math.MaxInt64
-	// for _, info := range infos.Segments {
-	// 	if info.BufferedUpdatesGen < minGen {
-	// 		minGen = info.BufferedUpdatesGen
-	// 	}
-	// }
+	ds.assertDeleteStats()
+	var minGen int64 = math.MaxInt64
+	for _, info := range infos.Segments {
+		if info.BufferedUpdatesGen < minGen {
+			minGen = info.BufferedUpdatesGen
+		}
+	}
 
-	// if ds.infoStream.IsEnabled("BD") {
-	// 	ds.infoStream.Message("BD", "prune sis=%v minGen=%v packetCount=%v",
-	// 		infos, minGen, len(ds.deletes))
-	// }
-	// for delIDX, limit := 0, len(ds.deletes); delIDX < limit; delIDX++ {
-	// 	if ds.deletes[delIDX].gen >= minGen {
-	// 		ds.pruneDeletes(delIDX)
-	// 		ds.assertDeleteStats()
-	// 		return
-	// 	}
-	// }
+	if ds.infoStream.IsEnabled("BD") {
+		var dir store.Directory
+		if len(infos.Segments) > 0 {
+			dir = infos.Segments[0].Info.Dir
+		}
+		ds.infoStream.Message("BD", "prune sis=%v minGen=%v packetCount=%v",
+			infos.toString(dir), minGen, len(ds.updates))
+	}
+	for delIDX, update := range ds.updates {
+		if update.gen >= minGen {
+			ds.pruneUpdates(delIDX)
+			ds.assertDeleteStats()
+			return
+		}
+	}
 
-	// // All deletes pruned
-	// ds.pruneDeletes(len(ds.deletes))
-	// assert(!ds.any())
-	// ds.assertDeleteStats()
+	// All deletes pruned
+	ds.pruneUpdates(len(ds.updates))
+	assert(!ds.any())
+	ds.assertDeleteStats()
 }
 
 func (ds *BufferedUpdatesStream) pruneUpdates(count int) {
