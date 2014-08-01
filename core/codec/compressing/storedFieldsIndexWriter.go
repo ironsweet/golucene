@@ -228,7 +228,9 @@ func (w *StoredFieldsIndexWriter) finish(numDocs int, maxPointer int64) (err err
 }
 
 func (w *StoredFieldsIndexWriter) Close() error {
-	assert(w != nil)
+	if w == nil {
+		return nil
+	}
 	assert(w.fieldsIndexOut != nil)
 	return w.fieldsIndexOut.Close()
 }
