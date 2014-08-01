@@ -3,6 +3,7 @@ package codec
 import (
 	"errors"
 	"fmt"
+	"github.com/balzaczyy/golucene/core/util"
 )
 
 // codecs/CodecUtil.java
@@ -145,16 +146,60 @@ func WriteFooter(out IndexOutput) (err error) {
 	return
 }
 
-type ChecksumIndexInput interface{}
+type ChecksumIndexInput interface {
+	IndexInput
+	Checksum() int64
+}
 
 /* Validates the codec footer previously written by WriteFooter(). */
-func CheckFooter(in ChecksumIndexInput) (int64, error) {
-	panic("not implemented yet")
+func CheckFooter(in ChecksumIndexInput) (cs int64, err error) {
+	if err = validateFooter(in); err == nil {
+		cs = in.Checksum()
+		var cs2 int64
+		if cs2, err = in.ReadLong(); err == nil {
+			if cs != cs2 {
+				err = errors.New(fmt.Sprintf(
+					"checksum failed (hardware problem?): expected=%v actual=%v (resource=%v)",
+					util.ItoHex(cs2), util.ItoHex(cs), in))
+			}
+			if err == nil && in.FilePointer() != in.Length() {
+				err = errors.New(fmt.Sprintf(
+					"did not read all bytes from file: read %v vs size %v (resource: %v)",
+					in.FilePointer(), in.Length(), in))
+			}
+		}
+	}
+	return
+}
+
+func validateFooter(in IndexInput) error {
+	magic, err := in.ReadInt()
+	if err != nil {
+		return err
+	}
+	if magic != FOOTER_MAGIC {
+		return errors.New(fmt.Sprintf(
+			"codec footer mismatch: actual footer=%v vs expected footer=%v (resource: %v)",
+			magic, FOOTER_MAGIC, in))
+	}
+
+	algorithmId, err := in.ReadInt()
+	if err != nil {
+		return err
+	}
+	if algorithmId != 0 {
+		return errors.New(fmt.Sprintf(
+			"codec footer mismatch: unknown algorithmID: %v",
+			algorithmId))
+	}
+	return nil
 }
 
 type IndexInput interface {
 	FilePointer() int64
 	Length() int64
+	ReadInt() (int32, error)
+	ReadLong() (int64, error)
 }
 
 /* Checks that the stream is positioned at the end, and returns error if it is not. */
