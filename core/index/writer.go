@@ -575,18 +575,18 @@ func (w *IndexWriter) closeInternal(waitForMerges bool, doFlush bool) (ok bool, 
 	}
 
 	if doFlush {
-		err = w.commitInternal()
-		if err != nil {
+		if err = w.commitInternal(); err != nil {
 			return false, err
 		}
 	}
 
-	panic("not implemented yet")
+	if _, err = w.docWriter.processEvents(w, false, true); err != nil {
+		return false, err
+	}
 
 	// commitInternal calls ReaderPool.commit, which writes any pending
 	// liveDocs from ReaderPool, so it's safe to drop all readers now:
-	err = w.readerPool.dropAll(true)
-	if err != nil {
+	if err = w.readerPool.dropAll(true); err != nil {
 		return false, err
 	}
 	w.deleter.Close() // no error
@@ -596,8 +596,7 @@ func (w *IndexWriter) closeInternal(waitForMerges bool, doFlush bool) (ok bool, 
 	}
 
 	if w.writeLock != nil {
-		err = w.writeLock.Close()
-		if err != nil {
+		if err = w.writeLock.Close(); err != nil {
 			return false, err
 		}
 		w.writeLock = nil
