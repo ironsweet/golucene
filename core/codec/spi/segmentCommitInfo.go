@@ -177,8 +177,18 @@ func (si *SegmentCommitInfo) SetDelCount(delCount int) {
 }
 
 func (si *SegmentCommitInfo) StringOf(dir store.Directory, pendingDelCount int) string {
-	panic("not implemented yet")
-	return si.Info.StringOf(dir, si.delCount+pendingDelCount)
+	s := si.Info.StringOf(dir, si.delCount+pendingDelCount)
+	var sDelGen, sFieldInfosGen, sDocValuesGen string
+	if si.delGen != -1 {
+		sDelGen = fmt.Sprintf(":delGen=%v", si.delGen)
+	}
+	if si.fieldInfosGen != -1 {
+		sFieldInfosGen = fmt.Sprintf(":fieldInfosGen=%v", si.fieldInfosGen)
+	}
+	if si.docValuesGen != -1 {
+		sDocValuesGen = fmt.Sprintf(":dvGen=%v", si.docValuesGen)
+	}
+	return fmt.Sprintf("%v%v%v%v", s, sDelGen, sFieldInfosGen, sDocValuesGen)
 }
 
 func (si *SegmentCommitInfo) String() string {
