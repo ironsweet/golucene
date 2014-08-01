@@ -201,14 +201,24 @@ func (si *SegmentCommitInfo) String() string {
 }
 
 func (si *SegmentCommitInfo) Clone() *SegmentCommitInfo {
-	panic("not implemented yet")
+	clone := NewSegmentCommitInfo(si.Info, si.delCount, si.delGen, si.fieldInfosGen, si.docValuesGen)
 	// Not clear that we need ot carry over nextWriteDelGen (i.e. do we
 	// ever clone after a failed write and before the next successful
 	// write?), but just do it to be safe:
-	return &SegmentCommitInfo{
-		Info:            si.Info,
-		delCount:        si.delCount,
-		delGen:          si.delGen,
-		nextWriteDelGen: si.nextWriteDelGen,
+	clone.nextWriteDelGen = si.nextWriteDelGen
+	clone.nextWriteFieldInfosGen = si.nextWriteFieldInfosGen
+	clone.nextWriteDocValuesGen = si.nextWriteDocValuesGen
+
+	// deep clone
+	for k, v := range si.genUpdatesFiles {
+		clone.genUpdatesFiles[k] = v
 	}
+	for k, v := range si.dvUpdatesFiles {
+		clone.dvUpdatesFiles[k] = v
+	}
+	for k, v := range si.fieldInfosFiles {
+		clone.fieldInfosFiles[k] = v
+	}
+
+	return clone
 }
