@@ -87,6 +87,10 @@ func (info *FieldInfo) DocValuesType() DocValuesType {
 	return info.docValueType
 }
 
+func (info *FieldInfo) DocValuesGen() int64 {
+	return info.dvGen
+}
+
 /* Returns DocValuesType of the norm. This may be 0 if the field has no norms. */
 func (info *FieldInfo) NormType() DocValuesType {
 	return info.normType
