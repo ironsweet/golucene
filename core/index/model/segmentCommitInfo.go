@@ -26,6 +26,12 @@ type SegmentCommitInfo struct {
 
 	nextWriteDocValuesGen int64
 
+	dvUpdatesFiles map[int]map[string]bool
+
+	fieldInfosFiles map[string]bool
+
+	genUpdatesFiles map[int64]map[string]bool
+
 	sizeInBytes int64 // volatile
 
 	// NOTE: only used by in-RAM by IW to track buffered deletes;
@@ -45,6 +51,9 @@ func NewSegmentCommitInfo(info *SegmentInfo,
 		nextWriteFieldInfosGen: 1,
 		docValuesGen:           docValuesGen,
 		nextWriteDocValuesGen:  1,
+		dvUpdatesFiles:         make(map[int]map[string]bool),
+		fieldInfosFiles:        make(map[string]bool),
+		genUpdatesFiles:        make(map[int64]map[string]bool),
 		sizeInBytes:            -1,
 	}
 	if delGen != -1 {
@@ -104,7 +113,6 @@ type myLiveDocsFormat interface {
 
 // Returns all files in use by this segment.
 func (si *SegmentCommitInfo) Files() []string {
-	panic("not implemented yet")
 	// Start from the wrapped info's files:
 	files := make(map[string]bool)
 	for name, _ := range si.Info.Files() {
@@ -113,6 +121,26 @@ func (si *SegmentCommitInfo) Files() []string {
 
 	// Must separately add any live docs files
 	for _, name := range si.Info.Codec().(myCodec).LiveDocsFormat().Files(si) {
+		files[name] = true
+	}
+
+	// Must separately add any per-gen updates files. This can go away
+	// when we get rid of genUpdatesFiles (6.0)
+	for _, names := range si.genUpdatesFiles {
+		for name, _ := range names {
+			files[name] = true
+		}
+	}
+
+	// must separately add any field updates files
+	for _, names := range si.dvUpdatesFiles {
+		for name, _ := range names {
+			files[name] = true
+		}
+	}
+
+	// must separately add fieldInfos files
+	for name, _ := range si.fieldInfosFiles {
 		files[name] = true
 	}
 
