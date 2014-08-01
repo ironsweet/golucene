@@ -748,6 +748,9 @@ func (w *BlockTreeTermsWriter) Close() (err error) {
 	return
 }
 
-func writeBytesRef(out store.IndexOutput, bytes []byte) error {
-	panic("not implemented yet")
+func writeBytesRef(out store.IndexOutput, bytes []byte) (err error) {
+	if err = out.WriteVInt(int32(len(bytes))); err == nil {
+		err = out.WriteBytes(bytes)
+	}
+	return
 }

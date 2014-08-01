@@ -291,6 +291,7 @@ func newPostingsBytesStartArray(perField *TermsHashPerFieldImpl,
 
 func (ss *PostingsBytesStartArray) Init() []int {
 	if ss.perField.postingsArray == nil {
+		fmt.Println("DEBUG1", ss.perField)
 		arr := ss.perField.spi.createPostingsArray(2)
 		ss.perField.postingsArray = arr
 		ss.perField.spi.newPostingsArray()
