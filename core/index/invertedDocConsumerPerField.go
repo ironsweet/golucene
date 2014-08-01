@@ -291,7 +291,6 @@ func newPostingsBytesStartArray(perField *TermsHashPerFieldImpl,
 
 func (ss *PostingsBytesStartArray) Init() []int {
 	if ss.perField.postingsArray == nil {
-		fmt.Println("DEBUG1", ss.perField)
 		arr := ss.perField.spi.createPostingsArray(2)
 		ss.perField.postingsArray = arr
 		ss.perField.spi.newPostingsArray()
@@ -306,7 +305,6 @@ func (ss *PostingsBytesStartArray) Grow() []int {
 
 func (ss *PostingsBytesStartArray) Clear() []int {
 	if arr := ss.perField.postingsArray; arr != nil {
-		fmt.Println("DEBUG3", ss.perField)
 		ss.bytesUsed.AddAndGet(-int64(arr.size * arr.bytesPerPosting()))
 		ss.perField.postingsArray = nil
 		ss.perField.spi.newPostingsArray()

@@ -314,11 +314,11 @@ func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
 }
 
 func (w *FreqProxTermsWriterPerField) newPostingsArray() {
-	fmt.Println("DEBUG2", w.TermsHashPerFieldImpl)
 	if arr := w.postingsArray; arr != nil {
 		w.freqProxPostingsArray = arr.PostingsArray.(*FreqProxPostingsArray)
+	} else {
+		w.freqProxPostingsArray = nil
 	}
-	w.freqProxPostingsArray = nil
 }
 
 func (w *FreqProxTermsWriterPerField) createPostingsArray(size int) *ParallelPostingsArray {
