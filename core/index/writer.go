@@ -533,13 +533,9 @@ func (w *IndexWriter) CloseAndWait(waitForMerge bool) error {
 			return w.rollbackInternal()
 		}
 		ok, err = w.closeInternal(waitForMerge, true)
-		w.assertEventQueueAfterClose()
+		w.docWriter.assertEventQueueAfterClose()
 		return
 	})
-}
-
-func (w *IndexWriter) assertEventQueueAfterClose() {
-	panic("not implemented yet")
 }
 
 /*

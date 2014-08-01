@@ -2,6 +2,7 @@ package index
 
 import (
 	"container/list"
+	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
@@ -564,11 +565,21 @@ func (dw *DocumentsWriter) processEvents(writer *IndexWriter,
 	defer dw.eventsLock.RUnlock()
 
 	for e := dw.events.Front(); e != nil; e = e.Next() {
+		dw.events.Remove(e)
 		processed = true
-		err = e.Value.(Event)(writer, triggerMerge, forcePurge)
-		if err != nil {
+		if err = e.Value.(Event)(writer, triggerMerge, forcePurge); err != nil {
 			break
 		}
 	}
 	return
+}
+
+func (dw *DocumentsWriter) assertEventQueueAfterClose() {
+	dw.eventsLock.RLock()
+	defer dw.eventsLock.RUnlock()
+
+	for e := dw.events.Front(); e != nil; e = e.Next() {
+		// TODO find a better way to compare event type
+		assert(fmt.Sprintf("%v", e.Value) == fmt.Sprintf("%v", mergePendingEvent))
+	}
 }
