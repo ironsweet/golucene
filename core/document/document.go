@@ -1,7 +1,8 @@
 package document
 
 import (
-	"github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
+	. "github.com/balzaczyy/golucene/core/index/model"
 )
 
 // document/Document.java
@@ -18,15 +19,15 @@ import (
  * ScoreDoc#doc} or {@link IndexReader#document(int)}.
  */
 type Document struct {
-	fields []model.IndexableField
+	fields []IndexableField
 }
 
 /** Constructs a new document with no fields. */
 func NewDocument() *Document {
-	return &Document{make([]model.IndexableField, 0)}
+	return &Document{make([]IndexableField, 0)}
 }
 
-func (doc *Document) Fields() []model.IndexableField {
+func (doc *Document) Fields() []IndexableField {
 	return doc.fields
 }
 
@@ -40,7 +41,7 @@ func (doc *Document) Fields() []model.IndexableField {
  * a document has to be deleted from an index and a new changed version of that
  * document has to be added.</p>
  */
-func (doc *Document) Add(field model.IndexableField) {
+func (doc *Document) Add(field IndexableField) {
 	doc.fields = append(doc.fields, field)
 }
 
@@ -84,13 +85,13 @@ func NewDocumentStoredFieldVisitor() *DocumentStoredFieldVisitor {
 	}
 }
 
-func (visitor *DocumentStoredFieldVisitor) BinaryField(fi *model.FieldInfo, value []byte) error {
+func (visitor *DocumentStoredFieldVisitor) BinaryField(fi *FieldInfo, value []byte) error {
 	panic("not implemented yet")
 	// visitor.doc.add(newStoredField(fieldInfo.name, value))
 	// return nil
 }
 
-func (visitor *DocumentStoredFieldVisitor) StringField(fi *model.FieldInfo, value string) error {
+func (visitor *DocumentStoredFieldVisitor) StringField(fi *FieldInfo, value string) error {
 	ft := NewFieldTypeFrom(TEXT_FIELD_TYPE_STORED)
 	ft.storeTermVectors = fi.HasVectors()
 	ft.indexed = fi.IsIndexed()
@@ -100,23 +101,23 @@ func (visitor *DocumentStoredFieldVisitor) StringField(fi *model.FieldInfo, valu
 	return nil
 }
 
-func (visitor *DocumentStoredFieldVisitor) IntField(fi *model.FieldInfo, value int) error {
+func (visitor *DocumentStoredFieldVisitor) IntField(fi *FieldInfo, value int) error {
 	panic("not implemented yet")
 }
 
-func (visitor *DocumentStoredFieldVisitor) LongField(fi *model.FieldInfo, value int64) error {
+func (visitor *DocumentStoredFieldVisitor) LongField(fi *FieldInfo, value int64) error {
 	panic("not implemented yet")
 }
 
-func (visitor *DocumentStoredFieldVisitor) FloatField(fi *model.FieldInfo, value float32) error {
+func (visitor *DocumentStoredFieldVisitor) FloatField(fi *FieldInfo, value float32) error {
 	panic("not implemented yet")
 }
 
-func (visitor *DocumentStoredFieldVisitor) DoubleField(fi *model.FieldInfo, value float64) error {
+func (visitor *DocumentStoredFieldVisitor) DoubleField(fi *FieldInfo, value float64) error {
 	panic("not implemented yet")
 }
 
-func (visitor *DocumentStoredFieldVisitor) NeedsField(fi *model.FieldInfo) (status StoredFieldVisitorStatus, err error) {
+func (visitor *DocumentStoredFieldVisitor) NeedsField(fi *FieldInfo) (status StoredFieldVisitorStatus, err error) {
 	if visitor.fieldsToAdd == nil {
 		status = STORED_FIELD_VISITOR_STATUS_YES
 	} else if _, ok := visitor.fieldsToAdd[fi.Name]; ok {
@@ -133,17 +134,9 @@ func (visitor *DocumentStoredFieldVisitor) Document() *Document {
 
 type StoredFieldVisitorAdapter struct{}
 
-func (va *StoredFieldVisitorAdapter) BinaryField(fi *model.FieldInfo, value []byte) error  { return nil }
-func (va *StoredFieldVisitorAdapter) StringField(fi *model.FieldInfo, value string) error  { return nil }
-func (va *StoredFieldVisitorAdapter) IntField(fi *model.FieldInfo, value int) error        { return nil }
-func (va *StoredFieldVisitorAdapter) LongField(fi *model.FieldInfo, value int64) error     { return nil }
-func (va *StoredFieldVisitorAdapter) FloatField(fi *model.FieldInfo, value float32) error  { return nil }
-func (va *StoredFieldVisitorAdapter) DoubleField(fi *model.FieldInfo, value float64) error { return nil }
-
-type StoredFieldVisitorStatus int
-
-const (
-	STORED_FIELD_VISITOR_STATUS_YES  = StoredFieldVisitorStatus(1)
-	STORED_FIELD_VISITOR_STATUS_NO   = StoredFieldVisitorStatus(2)
-	STORED_FIELD_VISITOR_STATUS_STOP = StoredFieldVisitorStatus(3)
-)
+func (va *StoredFieldVisitorAdapter) BinaryField(fi *FieldInfo, value []byte) error  { return nil }
+func (va *StoredFieldVisitorAdapter) StringField(fi *FieldInfo, value string) error  { return nil }
+func (va *StoredFieldVisitorAdapter) IntField(fi *FieldInfo, value int) error        { return nil }
+func (va *StoredFieldVisitorAdapter) LongField(fi *FieldInfo, value int64) error     { return nil }
+func (va *StoredFieldVisitorAdapter) FloatField(fi *FieldInfo, value float32) error  { return nil }
+func (va *StoredFieldVisitorAdapter) DoubleField(fi *FieldInfo, value float64) error { return nil }

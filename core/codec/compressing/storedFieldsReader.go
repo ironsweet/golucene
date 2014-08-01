@@ -6,7 +6,6 @@ import (
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/codec/lucene40"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
-	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -315,11 +314,11 @@ func (r *CompressingStoredFieldsReader) VisitDocument(docID int, visitor StoredF
 			return err
 		}
 		switch status {
-		case docu.STORED_FIELD_VISITOR_STATUS_YES:
+		case STORED_FIELD_VISITOR_STATUS_YES:
 			r.readField(documentInput, visitor, fieldInfo, bits)
-		case docu.STORED_FIELD_VISITOR_STATUS_NO:
+		case STORED_FIELD_VISITOR_STATUS_NO:
 			panic("not implemented yet")
-		case docu.STORED_FIELD_VISITOR_STATUS_STOP:
+		case STORED_FIELD_VISITOR_STATUS_STOP:
 			return nil
 		}
 	}

@@ -1,7 +1,6 @@
 package spi
 
 import (
-	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index/model"
 	"io"
 )
@@ -15,8 +14,16 @@ type StoredFieldVisitor interface {
 	LongField(fi *model.FieldInfo, value int64) error
 	FloatField(fi *model.FieldInfo, value float32) error
 	DoubleField(fi *model.FieldInfo, value float64) error
-	NeedsField(fi *model.FieldInfo) (docu.StoredFieldVisitorStatus, error)
+	NeedsField(fi *model.FieldInfo) (StoredFieldVisitorStatus, error)
 }
+
+type StoredFieldVisitorStatus int
+
+const (
+	STORED_FIELD_VISITOR_STATUS_YES  = StoredFieldVisitorStatus(1)
+	STORED_FIELD_VISITOR_STATUS_NO   = StoredFieldVisitorStatus(2)
+	STORED_FIELD_VISITOR_STATUS_STOP = StoredFieldVisitorStatus(3)
+)
 
 // codecs/StoredFieldsReader.java
 
