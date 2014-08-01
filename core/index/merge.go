@@ -2,11 +2,11 @@ package index
 
 import (
 	"fmt"
-	// "github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
+	// "github.com/balzaczyy/golucene/core/util"
 	"io"
 	"math"
-	// "sort"
+	"sort"
 	"sync"
 )
 
@@ -492,129 +492,121 @@ func (a *BySizeDescendingSegments) Less(i, j int) bool {
 }
 
 func (tmp *TieredMergePolicy) FindMerges(mergeTrigger MergeTrigger,
-	infos *SegmentInfos, w *IndexWriter) (MergeSpecification, error) {
-	panic("not implemented yet")
+	infos *SegmentInfos, w *IndexWriter) (spec MergeSpecification, err error) {
 
-	// if tmp.verbose() {
-	// 	tmp.message("findMerges: %v segments", len(infos.Segments))
-	// }
-	// if len(infos.Segments) == 0 {
-	// 	return nil, nil
-	// }
-	// merging := make(map[*SegmentCommitInfo]bool)
-	// for info, _ := range tmp.Writer.Get().(*IndexWriter).MergingSegments() {
-	// 	merging[info] = true
-	// }
-	// toBeMerged := make(map[*SegmentCommitInfo]bool)
+	if tmp.verbose(w) {
+		tmp.message(w, "findMerges: %v segments", len(infos.Segments))
+	}
+	if len(infos.Segments) == 0 {
+		return nil, nil
+	}
+	merging := w.MergingSegments()
+	toBeMerged := make(map[*SegmentCommitInfo]bool)
 
-	// infosSorted := make([]*SegmentCommitInfo, len(infos.Segments))
-	// copy(infosSorted, infos.Segments)
-	// sort.Sort(&BySizeDescendingSegments{infosSorted, tmp})
+	infosSorted := make([]*SegmentCommitInfo, len(infos.Segments))
+	copy(infosSorted, infos.Segments)
+	sort.Sort(&BySizeDescendingSegments{infosSorted, w, tmp})
 
-	// // Compute total index bytes & print details about the index
-	// totIndexBytes := int64(0)
-	// minSegmentBytes := int64(math.MaxInt64)
-	// for _, info := range infosSorted {
-	// 	segBytes, err := tmp.Size(info)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	if tmp.verbose() {
-	// 		var extra string
-	// 		if _, ok := merging[info]; ok {
-	// 			extra = " [merging]"
-	// 		}
-	// 		if segBytes >= tmp.maxMergedSegmentBytes/2 {
-	// 			extra += " [skip: too large]"
-	// 		} else {
-	// 			extra += " [floored]"
-	// 		}
-	// 		tmp.message("  seg=%v size=%v MB%v",
-	// 			tmp.Writer.Get().(*IndexWriter).readerPool.segmentToString(info),
-	// 			fmt.Sprintf("%.3f", float32(segBytes)/1024/1024), extra)
-	// 	}
+	// Compute total index bytes & print details about the index
+	totIndexBytes := int64(0)
+	minSegmentBytes := int64(math.MaxInt64)
+	for _, info := range infosSorted {
+		var segBytes int64
+		if segBytes, err = tmp.Size(info, w); err != nil {
+			return
+		}
+		if tmp.verbose(w) {
+			var extra string
+			if _, ok := merging[info]; ok {
+				extra = " [merging]"
+			}
+			if segBytes >= tmp.maxMergedSegmentBytes/2 {
+				extra += " [skip: too large]"
+			} else {
+				extra += " [floored]"
+			}
+			tmp.message(w, "  seg=%v size=%v MB%v",
+				w.readerPool.segmentToString(info),
+				fmt.Sprintf("%.3f", float32(segBytes)/1024/1024), extra)
+		}
 
-	// 	if segBytes < minSegmentBytes {
-	// 		minSegmentBytes = segBytes
-	// 	}
-	// 	// Accum total byte size
-	// 	totIndexBytes += segBytes
-	// }
+		if segBytes < minSegmentBytes {
+			minSegmentBytes = segBytes
+		}
+		// Accum total byte size
+		totIndexBytes += segBytes
+	}
 
-	// // If we have too-large segments, grace them out of the maxSegmentCount:
-	// tooBitCount := 0
-	// for tooBitCount < len(infosSorted) {
-	// 	n, err := tmp.Size(infosSorted[tooBitCount])
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	if n < tmp.maxMergedSegmentBytes/2 {
-	// 		break
-	// 	}
-	// 	totIndexBytes -= n
-	// 	tooBitCount++
-	// }
+	// If we have too-large segments, grace them out of the maxSegmentCount:
+	tooBigCount := 0
+	for tooBigCount < len(infosSorted) {
+		var n int64
+		if n, err = tmp.Size(infosSorted[tooBigCount], w); err != nil {
+			return nil, err
+		}
+		if n < tmp.maxMergedSegmentBytes/2 {
+			break
+		}
+		totIndexBytes -= n
+		tooBigCount++
+	}
 
-	// minSegmentBytes = tmp.floorSize(minSegmentBytes)
+	minSegmentBytes = tmp.floorSize(minSegmentBytes)
 
-	// // Compute max allowed segs in the index
-	// levelSize := minSegmentBytes
-	// bytesLeft := totIndexBytes
-	// allowedSegCount := float64(0)
-	// for {
-	// 	segCountLevel := float64(bytesLeft) / float64(levelSize)
-	// 	if segCountLevel < tmp.segsPerTier {
-	// 		allowedSegCount += math.Ceil(segCountLevel)
-	// 		break
-	// 	}
-	// 	allowedSegCount += tmp.segsPerTier
-	// 	bytesLeft -= int64(tmp.segsPerTier * float64(levelSize))
-	// 	levelSize *= int64(tmp.maxMergeAtOnce)
-	// }
-	// allowedSegCountInt := int(allowedSegCount)
+	// Compute max allowed segs in the index
+	levelSize := minSegmentBytes
+	bytesLeft := totIndexBytes
+	allowedSegCount := float64(0)
+	for {
+		if segCountLevel := float64(bytesLeft) / float64(levelSize); segCountLevel < tmp.segsPerTier {
+			allowedSegCount += math.Ceil(segCountLevel)
+			break
+		}
+		allowedSegCount += tmp.segsPerTier
+		bytesLeft -= int64(tmp.segsPerTier * float64(levelSize))
+		levelSize *= int64(tmp.maxMergeAtOnce)
+	}
+	allowedSegCountInt := int(allowedSegCount)
 
-	// var spec MergeSpecification
+	// Cycle to possibly select more than one merge
+	for {
+		mergingBytes := int64(0)
 
-	// // Cycle to possibly select more than one merge
-	// for {
-	// 	mergingBytes := int64(0)
+		// Gather eligible segments for merging, ie segments not already
+		// being merged and not already picked (by prior iteration of
+		// this loop) for merging:
+		var eligible []*SegmentCommitInfo
+		for _, info := range infosSorted[tooBigCount:] {
+			if _, ok := merging[info]; ok {
+				var n int64
+				if n, err = info.SizeInBytes(); err != nil {
+					return
+				}
+				mergingBytes += n
+			} else if _, ok := toBeMerged[info]; !ok {
+				eligible = append(eligible, info)
+			}
+		}
 
-	// 	// Gather eligible segments for merging, ie segments not already
-	// 	// being merged and not already picked (by prior iteration of
-	// 	// this loop) for merging:
-	// 	var eligible []*SegmentCommitInfo
-	// 	for idx := tooBitCount; idx < len(infosSorted); idx++ {
-	// 		info := infosSorted[idx]
-	// 		if _, ok := merging[info]; ok {
-	// 			n, err := info.SizeInBytes()
-	// 			if err != nil {
-	// 				return nil, err
-	// 			}
-	// 			mergingBytes += n
-	// 		} else if _, ok := toBeMerged[info]; ok {
-	// 			eligible = append(eligible, info)
-	// 		}
-	// 	}
+		// maxMergeIsRunning := mergingBytes >= tmp.maxMergedSegmentBytes
 
-	// 	// maxMergeIsRunning := mergingBytes >= tmp.maxMergedSegmentBytes
+		if tmp.verbose(w) {
+			tmp.message(w,
+				"  allowedSegmentCount=%v vs count=%v (eligible count=%v) tooBigCount=%v",
+				allowedSegCountInt, len(infosSorted), len(eligible), tooBigCount, w)
+		}
 
-	// 	if tmp.verbose() {
-	// 		tmp.message(
-	// 			"  allowedSegmentCount=%v vs count=%v (eligible count=%v) tooBitCount=%v",
-	// 			allowedSegCountInt, len(infosSorted), len(eligible), tooBitCount)
-	// 	}
+		if len(eligible) == 0 {
+			return // spec is nil
+		}
 
-	// 	if len(eligible) == 0 {
-	// 		return spec, nil
-	// 	}
-
-	// 	if len(eligible) >= allowedSegCountInt {
-	// 		// OK we are over budget -- find best merge!
-	// 		panic("not implemented yet")
-	// 	} else {
-	// 		return spec, nil
-	// 	}
-	// }
+		if len(eligible) > allowedSegCountInt {
+			// OK we are over budget -- find best merge!
+			panic("not implemented yet")
+		} else {
+			return
+		}
+	}
 }
 
 func (tmp *TieredMergePolicy) FindForcedMerges(infos *SegmentInfos,
