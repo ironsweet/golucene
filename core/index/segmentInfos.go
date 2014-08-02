@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"strconv"
@@ -216,6 +217,8 @@ func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
 
 const (
 	VERSION_40 = 0
+	VERSION_46 = 1
+	VERSION_48 = 2
 	VERSION_49 = 3
 
 	// Used for the segments.gen file only!
@@ -388,113 +391,143 @@ func (sis *SegmentInfos) nextSegmentFilename() string {
 Read a particular segmentFileName. Note that this may return IO error
 if a commit is in process.
 */
-func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string) error {
-	panic("not implemented yet")
-	// fmt.Printf("Reading segment info from %v...\n", segmentFileName)
-	// success := false
+func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string) (err error) {
+	fmt.Printf("Reading segment info from %v...\n", segmentFileName)
 
-	// // Clear any previous segments:
-	// sis.Clear()
+	// Clear any previous segments:
+	sis.Clear()
 
-	// sis.generation = GenerationFromSegmentsFileName(segmentFileName)
-	// sis.lastGeneration = sis.generation
+	sis.generation = GenerationFromSegmentsFileName(segmentFileName)
+	sis.lastGeneration = sis.generation
 
-	// main, err := directory.OpenInput(segmentFileName, store.IO_CONTEXT_READ)
-	// if err != nil {
-	// 	return err
-	// }
-	// input := store.NewChecksumIndexInput(main)
-	// defer func() {
-	// 	if !success {
-	// 		// Clear any segment infos we had loaded so we
-	// 		// have a clean slate on retry:
-	// 		sis.Clear()
-	// 		util.CloseWhileSuppressingError(input)
-	// 	} else {
-	// 		input.Close()
-	// 	}
-	// }()
+	var input store.ChecksumIndexInput
+	if input, err = directory.OpenChecksumInput(segmentFileName, store.IO_CONTEXT_READ); err != nil {
+		return
+	}
 
-	// format, err := input.ReadInt()
-	// if err != nil {
-	// 	return err
-	// }
-	// if format == codec.CODEC_MAGIC {
-	// 	// 4.0+
-	// 	_, err = codec.CheckHeaderNoMagic(input, "segments", VERSION_40, VERSION_40)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	sis.version, err = input.ReadLong()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	sis.counter, err = asInt(input.ReadInt())
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	numSegments, err := asInt(input.ReadInt())
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	if numSegments < 0 {
-	// 		return errors.New(fmt.Sprintf("invalid segment count: %v (resource: %v)", numSegments, input))
-	// 	}
-	// 	for seg := 0; seg < numSegments; seg++ {
-	// 		segName, err := input.ReadString()
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		codecName, err := input.ReadString()
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		fCodec := LoadCodec(codecName)
-	// 		assertn(fCodec != nil, "Invalid codec name: %v", codecName)
-	// 		fmt.Printf("SIS.read seg=%v codec=%v\n", seg, fCodec)
-	// 		info, err := fCodec.SegmentInfoFormat().SegmentInfoReader()(directory, segName, store.IO_CONTEXT_READ)
-	// 		// method := NewLucene42Codec()
-	// 		// info, err := method.ReadSegmentInfo(directory, segName, store.IO_CONTEXT_READ)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		// info.codec = method
-	// 		info.SetCodec(fCodec)
-	// 		delGen, err := input.ReadLong()
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		delCount, err := asInt(input.ReadInt())
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		if delCount < 0 || delCount > info.DocCount() {
-	// 			return errors.New(fmt.Sprintf("invalid deletion count: %v (resource: %v)", delCount, input))
-	// 		}
-	// 		sis.Segments = append(sis.Segments, NewSegmentCommitInfo(info, delCount, delGen))
-	// 	}
-	// 	sis.userData, err = input.ReadStringStringMap()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// } else {
-	// 	// TODO support <4.0 index
-	// 	panic("Index format pre-4.0 not supported yet")
-	// }
+	var success = false
+	defer func() {
+		if !success {
+			// Clear any segment infos we had loaded so we
+			// have a clean slate on retry:
+			sis.Clear()
+			util.CloseWhileSuppressingError(input)
+		} else {
+			err = input.Close()
+		}
+	}()
 
-	// checksumNow := int64(input.Checksum())
-	// checksumThen, err := input.ReadLong()
-	// if err != nil {
-	// 	return err
-	// }
-	// if checksumNow != checksumThen {
-	// 	return errors.New(fmt.Sprintf(
-	// 		"checksum mismatch in segments file: %v vs %v (resource: %v)",
-	// 		checksumNow, checksumThen, input))
-	// }
+	var format int
+	if format, err = asInt(input.ReadInt()); err != nil {
+		return
+	}
 
-	// success = true
-	// return nil
+	var actualFormat int
+	if format == codec.CODEC_MAGIC {
+		// 4.0+
+		if actualFormat, err = asInt(codec.CheckHeaderNoMagic(input, "segments", VERSION_40, VERSION_49)); err != nil {
+			return
+		}
+		if sis.version, err = input.ReadLong(); err != nil {
+			return
+		}
+		if sis.counter, err = asInt(input.ReadInt()); err != nil {
+			return
+		}
+		var numSegments int
+		if numSegments, err = asInt(input.ReadInt()); err != nil {
+			return
+		} else if numSegments < 0 {
+			return errors.New(fmt.Sprintf("invalid segment count: %v (resource: %v)", numSegments, input))
+		}
+		var segName, codecName string
+		var fCodec Codec
+		var delGen, fieldInfosGen, dvGen int64
+		var delCount int
+		for seg := 0; seg < numSegments; seg++ {
+			if segName, err = input.ReadString(); err != nil {
+				return
+			}
+			if codecName, err = input.ReadString(); err != nil {
+				return
+			}
+			fCodec = LoadCodec(codecName)
+			assert2(fCodec != nil, "Invalid codec name: %v", codecName)
+			fmt.Printf("SIS.read seg=%v codec=%v\n", seg, fCodec)
+			var info *SegmentInfo
+			if info, err = fCodec.SegmentInfoFormat().SegmentInfoReader().Read(directory, segName, store.IO_CONTEXT_READ); err != nil {
+				return
+			}
+			info.SetCodec(fCodec)
+			if delGen, err = input.ReadLong(); err != nil {
+				return
+			}
+			if delCount, err = asInt(input.ReadInt()); err != nil {
+				return
+			} else if delCount < 0 || delCount > info.DocCount() {
+				return errors.New(fmt.Sprintf(
+					"invalid deletion count: %v vs docCount=%v (resource: %v)",
+					delCount, info.DocCount(), input))
+			}
+			fieldInfosGen = -1
+			if actualFormat >= VERSION_46 {
+				if fieldInfosGen, err = input.ReadLong(); err != nil {
+					return
+				}
+			}
+			dvGen = -1
+			if actualFormat >= VERSION_49 {
+				if dvGen, err = input.ReadLong(); err != nil {
+					return
+				}
+			} else {
+				dvGen = fieldInfosGen
+			}
+			siPerCommit := NewSegmentCommitInfo(info, delCount, delGen, fieldInfosGen, dvGen)
+			if actualFormat >= VERSION_46 {
+				if actualFormat < VERSION_49 {
+					panic("not implemented yet")
+				} else {
+					panic("not implemented yet")
+				}
+			}
+			sis.Segments = append(sis.Segments, siPerCommit)
+		}
+		if sis.userData, err = input.ReadStringStringMap(); err != nil {
+			return err
+		}
+	} else {
+		// TODO support <4.0 index
+		panic("Index format pre-4.0 not supported yet")
+	}
+
+	if actualFormat >= VERSION_48 {
+		panic("not implemented yet")
+	} else {
+		var checksumNow = int64(input.Checksum())
+		var checksumThen int64
+		if checksumThen, err = input.ReadLong(); err != nil {
+			return
+		}
+		if checksumNow != checksumThen {
+			return errors.New(fmt.Sprintf(
+				"checksum mismatch in segments file: %v vs %v (resource: %v)",
+				checksumNow, checksumThen, input))
+		}
+		if err = codec.CheckEOF(input); err != nil {
+			return
+		}
+	}
+
+	success = true
+	return nil
+}
+
+func asInt(n int32, err error) (int, error) {
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
 }
 
 func (sis *SegmentInfos) ReadAll(directory store.Directory) error {
