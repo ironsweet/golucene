@@ -488,7 +488,22 @@ func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string)
 				if actualFormat < VERSION_49 {
 					panic("not implemented yet")
 				} else {
-					panic("not implemented yet")
+					var ss map[string]bool
+					if ss, err = input.ReadStringSet(); err != nil {
+						return err
+					}
+					siPerCommit.SetFieldInfosFiles(ss)
+					var dvUpdatesFiles map[int]map[string]bool
+					var numDVFields int
+					if numDVFields, err = asInt(input.ReadInt()); err != nil {
+						return err
+					}
+					if numDVFields == 0 {
+						dvUpdatesFiles = make(map[int]map[string]bool)
+					} else {
+						panic("not implemented yet")
+					}
+					siPerCommit.SetDocValuesUpdatesFiles(dvUpdatesFiles)
 				}
 			}
 			sis.Segments = append(sis.Segments, siPerCommit)
@@ -502,7 +517,9 @@ func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string)
 	}
 
 	if actualFormat >= VERSION_48 {
-		panic("not implemented yet")
+		if _, err = codec.CheckFooter(input); err != nil {
+			return
+		}
 	} else {
 		var checksumNow = int64(input.Checksum())
 		var checksumThen int64

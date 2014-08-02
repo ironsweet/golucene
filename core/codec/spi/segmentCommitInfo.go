@@ -73,8 +73,16 @@ func (si *SegmentCommitInfo) DocValuesUpdatesFiles() map[int]map[string]bool {
 	return si.dvUpdatesFiles
 }
 
+func (si *SegmentCommitInfo) SetDocValuesUpdatesFiles(dvUpdatesFiles map[int]map[string]bool) {
+	si.dvUpdatesFiles = dvUpdatesFiles
+}
+
 func (si *SegmentCommitInfo) FieldInfosFiles() map[string]bool {
 	return si.fieldInfosFiles
+}
+
+func (si *SegmentCommitInfo) SetFieldInfosFiles(fieldInfosFiles map[string]bool) {
+	si.fieldInfosFiles = fieldInfosFiles
 }
 
 /* Called when we succeed in writing deletes */
