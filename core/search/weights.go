@@ -1,7 +1,6 @@
 package search
 
 import (
-	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	. "github.com/balzaczyy/golucene/core/search/model"
 	"github.com/balzaczyy/golucene/core/util"
@@ -87,11 +86,9 @@ func (w *WeightImpl) BulkScorer(ctx *index.AtomicReaderContext,
 		return nil, err
 	} else if scorer == nil {
 		// no docs match
-		fmt.Println("DEBUG3")
 		return nil, nil
 	}
 
-	fmt.Println("DEBUG2")
 	// this impl always scores docs in order, so we can ignore scoreDocsInOrder:
 	return newDefaultScorer(scorer), nil
 }
@@ -117,7 +114,6 @@ func (s *DefaultBulkScorer) ScoreAndCollectUpto(collector Collector, max int) (o
 	doc := s.scorer.DocId()
 	if doc < 0 {
 		if doc, err = s.scorer.NextDoc(); err != nil {
-			fmt.Println("DEBUG1", doc)
 			return false, err
 		}
 	}

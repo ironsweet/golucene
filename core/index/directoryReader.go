@@ -115,13 +115,15 @@ func openStandardDirectoryReader(directory store.Directory,
 		readers := make([]AtomicReader, len(sis.Segments))
 		for i := len(sis.Segments) - 1; i >= 0; i-- {
 			sr, err := NewSegmentReader(sis.Segments[i], termInfosIndexDivisor, store.IO_CONTEXT_READ)
-			readers[i] = sr
 			if err != nil {
 				for _, r := range readers {
-					util.CloseWhileSuppressingError(r)
+					if r != nil {
+						util.CloseWhileSuppressingError(r)
+					}
 				}
 				return nil, err
 			}
+			readers[i] = sr
 		}
 		log.Printf("Obtained %v SegmentReaders.", len(readers))
 		return newStandardDirectoryReader(directory, readers, sis, termInfosIndexDivisor, false), nil

@@ -1,6 +1,7 @@
 package lucene46
 
 import (
+	"errors"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
@@ -17,6 +18,8 @@ const (
 
 	/* Codec header */
 	FI_CODEC_NAME            = "Lucene46FieldInfos"
+	FI_FORMAT_START          = 0
+	FI_FORMAT_CHECKSUM       = 1
 	FI_FORMAT_SORTED_NUMERIC = 2
 	FI_FORMAT_CURRENT        = FI_FORMAT_SORTED_NUMERIC
 
@@ -51,8 +54,120 @@ func (f *Lucene46FieldInfosFormat) FieldInfosWriter() FieldInfosWriter {
 }
 
 var Lucene46FieldInfosReader = func(dir store.Directory,
-	segment, suffix string, context store.IOContext) (fi FieldInfos, err error) {
-	panic("not implemented yet")
+	segment, suffix string, ctx store.IOContext) (fis FieldInfos, err error) {
+
+	filename := util.SegmentFileName(segment, suffix, FI_EXTENSION)
+	var input store.ChecksumIndexInput
+	if input, err = dir.OpenChecksumInput(filename, ctx); err != nil {
+		return
+	}
+
+	var success = false
+	defer func() {
+		if success {
+			err = input.Close()
+		} else {
+			util.CloseWhileSuppressingError(input)
+		}
+	}()
+
+	var codecVersion int
+	if codecVersion, err = asInt(codec.CheckHeader(input, FI_CODEC_NAME, FI_FORMAT_START, FI_FORMAT_CURRENT)); err != nil {
+		return
+	}
+
+	var size int
+	if size, err = asInt(input.ReadVInt()); err != nil {
+		return
+	}
+
+	var infos []*FieldInfo
+	var name string
+	var fieldNumber int32
+	var bits, val byte
+	var isIndexed, storeTermVector, omitNorms, storePayloads bool
+	var indexOptions IndexOptions
+	var docValuesType, normsType DocValuesType
+	var dvGen int64
+	var attributes map[string]string
+	for i := 0; i < size; i++ {
+		if name, err = input.ReadString(); err != nil {
+			return
+		}
+		if fieldNumber, err = input.ReadVInt(); err != nil {
+			return
+		}
+		if bits, err = input.ReadByte(); err != nil {
+			return
+		}
+		isIndexed = (bits & FI_IS_INDEXED) != 0
+		storeTermVector = (bits & FI_STORE_TERMVECTOR) != 0
+		omitNorms = (bits & FI_OMIT_NORMS) != 0
+		storePayloads = (bits & FI_STORE_PAYLOADS) != 0
+		switch {
+		case !isIndexed:
+			//
+		case (bits & FI_OMIT_TERM_FREQ_AND_POSITIONS) != 0:
+			indexOptions = INDEX_OPT_DOCS_ONLY
+		case (bits & FI_OMIT_POSITIONS) != 0:
+			indexOptions = INDEX_OPT_DOCS_AND_FREQS
+		case (bits & FI_STORE_OFFSETS_IN_POSTINGS) != 0:
+			indexOptions = INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
+		default:
+			indexOptions = FI_OMIT_TERM_FREQ_AND_POSITIONS
+		}
+
+		// DV types are packed in one byte
+		if val, err = input.ReadByte(); err != nil {
+			return
+		}
+		if docValuesType, err = getDocValuesType(input, val&0x0F); err != nil {
+			return
+		}
+		if normsType, err = getDocValuesType(input, (val>>4)&0x0F); err != nil {
+			return
+		}
+		if dvGen, err = input.ReadLong(); err != nil {
+			return
+		}
+		if attributes, err = input.ReadStringStringMap(); err != nil {
+			return
+		}
+		infos = append(infos, NewFieldInfo(name, isIndexed, fieldNumber,
+			storeTermVector, omitNorms, storePayloads, indexOptions,
+			docValuesType, normsType, dvGen, attributes))
+	}
+
+	if codecVersion >= FI_FORMAT_CHECKSUM {
+		if _, err = codec.CheckFooter(input); err != nil {
+			return
+		}
+	} else {
+		if err = codec.CheckEOF(input); err != nil {
+			return
+		}
+	}
+	fis = NewFieldInfos(infos)
+	success = true
+	return fis, nil
+}
+
+func getDocValuesType(input store.IndexInput, b byte) (t DocValuesType, err error) {
+	switch b {
+	case 0:
+		return DocValuesType(0), nil
+	case 1:
+		return DOC_VALUES_TYPE_NUMERIC, nil
+	case 2:
+		return DOC_VALUES_TYPE_BINARY, nil
+	case 3:
+		return DOC_VALUES_TYPE_SORTED, nil
+	case 4:
+		return DOC_VALUES_TYPE_SORTED_SET, nil
+	default:
+		return DocValuesType(0), errors.New(
+			fmt.Sprintf("invalid docvalues byte: %v (resource=%v)", b, input))
+	}
 }
 
 var Lucene46FieldInfosWriter = func(dir store.Directory,

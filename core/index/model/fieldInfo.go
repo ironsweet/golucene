@@ -163,10 +163,11 @@ const (
 type DocValuesType int
 
 const (
-	DOC_VALUES_TYPE_NUMERIC    = DocValuesType(1)
-	DOC_VALUES_TYPE_BINARY     = DocValuesType(2)
-	DOC_VALUES_TYPE_SORTED     = DocValuesType(3)
-	DOC_VALUES_TYPE_SORTED_SET = DocValuesType(4)
+	DOC_VALUES_TYPE_NUMERIC        = DocValuesType(1)
+	DOC_VALUES_TYPE_BINARY         = DocValuesType(2)
+	DOC_VALUES_TYPE_SORTED         = DocValuesType(3)
+	DOC_VALUES_TYPE_SORTED_SET     = DocValuesType(4)
+	DOC_VALUES_TYPE_SORTED_NUMERIC = DocValuesType(5)
 )
 
 // index/IndexableFieldType.java

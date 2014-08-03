@@ -90,19 +90,14 @@ func NewTermContextFromTerm(ctx IndexReaderContext, t *Term) (tc *TermContext, e
 	for _, leaf := range ctx.Leaves() {
 		fmt.Printf("  r=%v\n", leaf.reader)
 		if fields := leaf.reader.Fields(); fields != nil {
-			fmt.Println("DEBUG9", fields)
 			if terms := fields.Terms(t.Field); terms != nil {
-				fmt.Println("DEBUG10", terms)
 				termsEnum := terms.Iterator(nil)
-				fmt.Println("DEBUG11", termsEnum)
 				ok, err := termsEnum.SeekExact(t.Bytes)
-				fmt.Println("DEBUG12", ok, err)
 				if err != nil {
 					return nil, err
 				}
 				if ok {
 					termState, err := termsEnum.TermState()
-					fmt.Println("DEBUG13", termState, err)
 					if err != nil {
 						return nil, err
 					}
@@ -124,7 +119,6 @@ func NewTermContextFromTerm(ctx IndexReaderContext, t *Term) (tc *TermContext, e
 }
 
 func (tc *TermContext) register(state TermState, ord, docFreq int, totalTermFreq int64) {
-	fmt.Println("DEBUG7")
 	assert2(state != nil, "state must not be nil")
 	assert(ord >= 0 && ord < len(tc.states))
 	assert2(tc.states[ord] == nil, "state for ord: %v already registered", ord)
@@ -139,7 +133,6 @@ func (tc *TermContext) register(state TermState, ord, docFreq int, totalTermFreq
 
 func (tc *TermContext) State(ord int) TermState {
 	assert(ord >= 0 && ord < len(tc.states))
-	fmt.Println("DEBUG6", ord, tc.states)
 	return tc.states[ord]
 }
 
