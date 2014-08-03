@@ -94,31 +94,22 @@ func newIndexReader(spi IndexReaderImplSPI) *IndexReaderImpl {
 }
 
 func (r *IndexReaderImpl) decRef() error {
-	panic("not implemented yet")
-	// // only check refcount here (don't call ensureOpen()), so we can
-	// // still close the reader if it was made invalid by a child:
-	// if r.refCount <= 0 {
-	// 	return errors.New("this IndexReader is closed")
-	// }
+	// only check refcount here (don't call ensureOpen()), so we can
+	// still close the reader if it was made invalid by a child:
+	assert2(r.refCount > 0, "this IndexReader is closed")
 
-	// rc := atomic.AddInt32(&r.refCount, -1)
-	// if rc == 0 {
-	// 	success := false
-	// 	defer func() {
-	// 		if !success {
-	// 			// Put reference back on failure
-	// 			atomic.AddInt32(&r.refCount, 1)
-	// 		}
-	// 	}()
-	// 	r.doClose()
-	// 	success = true
-	// 	r.reportCloseToParentReaders()
-	// 	r.notifyReaderClosedListeners()
-	// } else if rc < 0 {
-	// 	panic(fmt.Sprintf("too many decRef calls: refCount is %v after decrement", rc))
-	// }
-
-	// return nil
+	rc := atomic.AddInt32(&r.refCount, -1)
+	assert2(rc >= 0, "too many decRef calls: refCount is %v after decrement", rc)
+	if rc == 0 {
+		r.closed = true
+		var err error
+		defer func() {
+			defer r.notifyReaderClosedListeners(err)
+			r.reportCloseToParentReaders()
+		}()
+		return r.doClose()
+	}
+	return nil
 }
 
 func (r *IndexReaderImpl) ensureOpen() {
@@ -200,7 +191,7 @@ func (r *IndexReaderImpl) Close() error {
 	defer r.lock.Unlock()
 	if !r.closed {
 		r.closed = true
-		return r.decRef()
+		r.decRef()
 	}
 	return nil
 }

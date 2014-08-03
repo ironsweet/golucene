@@ -6,6 +6,7 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	// "io"
+	"errors"
 	"log"
 	"strings"
 )
@@ -175,9 +176,18 @@ func (r *StandardDirectoryReader) doClose() error {
 	var firstErr error
 	for _, r := range r.getSequentialSubReaders() {
 		// try to close each reader, even if an error is returned
-		if err := r.decRef(); firstErr == nil {
-			firstErr = err
-		}
+		func() {
+			defer func() {
+				if err := recover(); firstErr == nil {
+					if s, ok := err.(string); ok {
+						firstErr = errors.New(s)
+					} else {
+						firstErr = errors.New(fmt.Sprintf("%v", err))
+					}
+				}
+			}()
+			r.decRef()
+		}()
 	}
 
 	if w := r.writer; w != nil {
