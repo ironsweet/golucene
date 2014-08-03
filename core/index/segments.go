@@ -1,6 +1,10 @@
 package index
 
 import (
+	"strconv"
+)
+
+import (
 	"fmt"
 	// docu "github.com/balzaczyy/golucene/core/document"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
@@ -103,8 +107,34 @@ func (r *SegmentReader) initDocValuesProducers(codec Codec) error {
 }
 
 /* Reads the most recent FieldInfos of the given segment info. */
-func ReadFieldInfos(info *SegmentCommitInfo) (FieldInfos, error) {
-	panic("not implemented yet")
+func ReadFieldInfos(info *SegmentCommitInfo) (fis FieldInfos, err error) {
+	var dir store.Directory
+	var closeDir bool
+	if info.FieldInfosGen() == -1 && info.Info.IsCompoundFile() {
+		// no fieldInfos gen and segment uses a compound file
+		if dir, err = store.NewCompoundFileDirectory(info.Info.Dir,
+			util.SegmentFileName(info.Info.Name, "", store.COMPOUND_FILE_EXTENSION),
+			store.IO_CONTEXT_READONCE, false); err != nil {
+			return
+		}
+		closeDir = true
+	} else {
+		panic("not implemented yet")
+	}
+
+	defer func() {
+		if closeDir {
+			err = mergeError(err, dir.Close())
+		}
+	}()
+
+	var segmentSuffix string
+	if n := info.FieldInfosGen(); n != -1 {
+		segmentSuffix = strconv.FormatInt(n, 36)
+	}
+	codec := info.Info.Codec().(Codec)
+	fisFormat := codec.FieldInfosFormat()
+	return fisFormat.FieldInfosReader()(dir, info.Info.Name, segmentSuffix, store.IO_CONTEXT_READONCE)
 }
 
 func (r *SegmentReader) LiveDocs() util.Bits {
