@@ -39,11 +39,11 @@ type SegmentReader struct {
  * @throws IOException if there is a low-level IO error
  */
 // TODO: why is this public?
-func NewSegmentReader(si *SegmentCommitInfo, termInfosIndexDivisor int, context store.IOContext) (r *SegmentReader, err error) {
-	panic("not implemented yet")
-	log.Print("Initializing SegmentReader...")
+func NewSegmentReader(si *SegmentCommitInfo,
+	termInfosIndexDivisor int, context store.IOContext) (r *SegmentReader, err error) {
+
 	r = &SegmentReader{}
-	log.Print("Obtaining AtomicReader...")
+	r.si = si
 	r.AtomicReaderImpl = newAtomicReader(r)
 	r.ARFieldsReader = r
 	r.si = si

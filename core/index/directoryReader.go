@@ -26,15 +26,16 @@ type DirectoryReaderImpl struct {
 	directory store.Directory
 }
 
-func newDirectoryReader(self IndexReader, directory store.Directory, segmentReaders []AtomicReader) *DirectoryReaderImpl {
+func newDirectoryReader(spi BaseCompositeReaderSPI, directory store.Directory, segmentReaders []AtomicReader) *DirectoryReaderImpl {
 	log.Printf("Initializing DirectoryReader with %v segment readers...", len(segmentReaders))
 	readers := make([]IndexReader, len(segmentReaders))
 	for i, v := range segmentReaders {
 		readers[i] = v
 	}
-	ans := &DirectoryReaderImpl{directory: directory}
-	ans.BaseCompositeReader = newBaseCompositeReader(self, readers)
-	return ans
+	return &DirectoryReaderImpl{
+		BaseCompositeReader: newBaseCompositeReader(spi, readers),
+		directory:           directory,
+	}
 }
 
 func OpenDirectoryReader(directory store.Directory) (r DirectoryReader, err error) {

@@ -63,8 +63,18 @@ type ReaderClosedListener interface {
 	onClose(IndexReader)
 }
 
+type IndexReaderImplSPI interface {
+	NumDocs() int
+	MaxDoc() int
+	VisitDocument(int, StoredFieldVisitor) error
+	doClose() error
+	Context() IndexReaderContext
+	DocFreq(Term) (int, error)
+}
+
 type IndexReaderImpl struct {
-	IndexReader
+	IndexReaderImplSPI
+
 	lock                      sync.Mutex
 	closed                    bool
 	closedByChild             bool
@@ -75,11 +85,11 @@ type IndexReaderImpl struct {
 	readerClosedListenersLock sync.RWMutex
 }
 
-func newIndexReader(self IndexReader) *IndexReaderImpl {
+func newIndexReader(spi IndexReaderImplSPI) *IndexReaderImpl {
 	return &IndexReaderImpl{
-		IndexReader:   self,
-		refCount:      1,
-		parentReaders: make(map[IndexReader]bool),
+		IndexReaderImplSPI: spi,
+		refCount:           1,
+		parentReaders:      make(map[IndexReader]bool),
 	}
 }
 
@@ -241,14 +251,23 @@ type AtomicReader interface {
 	ARFieldsReader
 }
 
-type AtomicReaderImpl struct {
-	*IndexReaderImpl
-	ARFieldsReader // need child class implementation
-	readerContext  *AtomicReaderContext
+type AtomicReaderImplSPI interface {
+	IndexReaderImplSPI
+	ARFieldsReader
 }
 
-func newAtomicReader(self IndexReader) *AtomicReaderImpl {
-	r := &AtomicReaderImpl{IndexReaderImpl: newIndexReader(self)}
+type AtomicReaderImpl struct {
+	*IndexReaderImpl
+	ARFieldsReader
+
+	readerContext *AtomicReaderContext
+}
+
+func newAtomicReader(spi AtomicReaderImplSPI) *AtomicReaderImpl {
+	r := &AtomicReaderImpl{
+		IndexReaderImpl: newIndexReader(spi),
+		ARFieldsReader:  spi,
+	}
 	r.readerContext = newAtomicReaderContextFromReader(r)
 	return r
 }

@@ -10,31 +10,31 @@ import (
 	"reflect"
 )
 
-type CompositeReaderPart interface {
+type CompositeReaderSPI interface {
 	getSequentialSubReaders() []IndexReader
 }
 
 type CompositeReader interface {
 	IndexReader
-	CompositeReaderPart
+	CompositeReaderSPI
 }
 
 type CompositeReaderImpl struct {
 	*IndexReaderImpl
-	CompositeReaderPart
+	CompositeReaderSPI
 	readerContext *CompositeReaderContext // lazy load
 }
 
-func newCompositeReader(self CompositeReader) *CompositeReaderImpl {
+func newCompositeReader(spi CompositeReaderSPI, self IndexReaderImplSPI) *CompositeReaderImpl {
 	return &CompositeReaderImpl{
-		IndexReaderImpl:     newIndexReader(self),
-		CompositeReaderPart: self,
+		IndexReaderImpl:    newIndexReader(self),
+		CompositeReaderSPI: spi,
 	}
 }
 
 func (r *CompositeReaderImpl) String() string {
 	var buf bytes.Buffer
-	class := reflect.TypeOf(r.IndexReader).Name()
+	class := reflect.TypeOf(r.IndexReaderImplSPI).Name()
 	if class != "" {
 		buf.WriteString(class)
 	} else {
@@ -58,9 +58,9 @@ func (r *CompositeReaderImpl) Context() IndexReaderContext {
 	r.ensureOpen()
 	// lazy init without thread safety for perf reasons: Building the readerContext twice does not hurt!
 	if r.readerContext == nil {
-		log.Print("Obtaining context for: ", r.IndexReader)
+		log.Print("Obtaining context for: ", r)
 		// assert getSequentialSubReaders() != null;
-		r.readerContext = newCompositeReaderContext(r.IndexReader.(CompositeReader))
+		r.readerContext = newCompositeReaderContext(r)
 	}
 	return r.readerContext
 }
@@ -178,6 +178,11 @@ func (rs ReaderSlice) String() string {
 	return fmt.Sprintf("slice start=%v length=%v readerIndex=%v", rs.start, rs.length, rs.readerIndex)
 }
 
+type BaseCompositeReaderSPI interface {
+	IndexReaderImplSPI
+	CompositeReaderSPI
+}
+
 type BaseCompositeReader struct {
 	*CompositeReaderImpl
 	subReaders []IndexReader
@@ -188,10 +193,10 @@ type BaseCompositeReader struct {
 	subReadersList []IndexReader
 }
 
-func newBaseCompositeReader(self IndexReader, readers []IndexReader) *BaseCompositeReader {
+func newBaseCompositeReader(spi BaseCompositeReaderSPI, readers []IndexReader) *BaseCompositeReader {
 	log.Printf("Initializing BaseCompositeReader with %v IndexReaders", len(readers))
 	ans := &BaseCompositeReader{}
-	ans.CompositeReaderImpl = newCompositeReader(self.(CompositeReader))
+	ans.CompositeReaderImpl = newCompositeReader(spi, spi)
 	ans.subReaders = readers
 	ans.subReadersList = make([]IndexReader, len(readers))
 	copy(ans.subReadersList, readers)
