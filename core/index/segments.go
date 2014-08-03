@@ -43,16 +43,20 @@ func NewSegmentReader(si *SegmentCommitInfo,
 	termInfosIndexDivisor int, context store.IOContext) (r *SegmentReader, err error) {
 
 	r = &SegmentReader{}
-	r.si = si
 	r.AtomicReaderImpl = newAtomicReader(r)
 	r.ARFieldsReader = r
+
 	r.si = si
-	log.Print("Obtaining SegmentCoreReaders...")
-	r.core, err = newSegmentCoreReaders(r, si.Info.Dir, si, context, termInfosIndexDivisor)
-	if err != nil {
-		return r, err
+	if r.fieldInfos, err = ReadFieldInfos(si); err != nil {
+		return nil, err
 	}
-	success := false
+	log.Print("Obtaining SegmentCoreReaders...")
+	if r.core, err = newSegmentCoreReaders(r, si.Info.Dir, si, context, termInfosIndexDivisor); err != nil {
+		return nil, err
+	}
+	// r.segDocValues = newSegmentDocValues()
+
+	var success = false
 	defer func() {
 		// With lock-less commits, it's entirely possible (and
 		// fine) to hit a FileNotFound exception above.  In
@@ -61,22 +65,28 @@ func NewSegmentReader(si *SegmentCommitInfo,
 		// wait for a GC to do so.
 		if !success {
 			log.Printf("Failed to initialize SegmentReader.")
-			if err != nil {
-				log.Print(err)
-			}
 			r.core.decRef()
 		}
 	}()
 
+	codec := si.Info.Codec().(Codec)
 	if si.HasDeletions() {
 		panic("not supported yet")
 	} else {
-		// assert si.getDelCount() == 0
-		// r.liveDocs = nil
+		assert(si.DelCount() == 0)
 	}
 	r.numDocs = si.Info.DocCount() - si.DelCount()
+
+	if r.fieldInfos.HasDocValues {
+		r.initDocValuesProducers(codec)
+	}
 	success = true
 	return r, nil
+}
+
+/* initialize the per-field DocValuesProducer */
+func (r *SegmentReader) initDocValuesProducers(codec Codec) error {
+	panic("not implemented yet")
 }
 
 /* Reads the most recent FieldInfos of the given segment info. */

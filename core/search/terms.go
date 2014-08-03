@@ -11,16 +11,16 @@ import (
 
 type TermQuery struct {
 	*AbstractQuery
-	term               index.Term
+	term               *index.Term
 	docFreq            int
 	perReaderTermState *index.TermContext
 }
 
-func NewTermQuery(t index.Term) *TermQuery {
+func NewTermQuery(t *index.Term) *TermQuery {
 	return NewTermQueryWithDocFreq(t, -1)
 }
 
-func NewTermQueryWithDocFreq(t index.Term, docFreq int) *TermQuery {
+func NewTermQueryWithDocFreq(t *index.Term, docFreq int) *TermQuery {
 	ans := &TermQuery{}
 	ans.AbstractQuery = NewAbstractQuery(ans)
 	ans.term = t
@@ -136,7 +136,7 @@ func (tw *TermWeight) termsEnum(ctx *index.AtomicReaderContext) (TermsEnum, erro
 	return te, err
 }
 
-func (tw *TermWeight) termNotInReader(reader index.IndexReader, term index.Term) bool {
+func (tw *TermWeight) termNotInReader(reader index.IndexReader, term *index.Term) bool {
 	n, err := reader.DocFreq(term)
 	assert(err == nil)
 	return n == 0

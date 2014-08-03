@@ -56,7 +56,7 @@ type IndexReader interface {
 	// returns 0 if the term of field does not exists. This method does
 	// not take into account deleted documents that have not yet been
 	// merged away.
-	DocFreq(Term) (int, error)
+	DocFreq(*Term) (int, error)
 }
 
 /* A custom listener that's invoked when the IndexReader is closed. */
@@ -70,7 +70,7 @@ type IndexReaderImplSPI interface {
 	VisitDocument(int, StoredFieldVisitor) error
 	doClose() error
 	Context() IndexReaderContext
-	DocFreq(Term) (int, error)
+	DocFreq(*Term) (int, error)
 }
 
 type IndexReaderImpl struct {
@@ -275,7 +275,7 @@ func (r *AtomicReaderImpl) Context() IndexReaderContext {
 	return r.readerContext
 }
 
-func (r *AtomicReaderImpl) DocFreq(term Term) (int, error) {
+func (r *AtomicReaderImpl) DocFreq(term *Term) (int, error) {
 	if fields := r.Fields(); fields != nil {
 		if terms := fields.Terms(term.Field); terms != nil {
 			termsEnum := terms.Iterator(nil)
@@ -291,7 +291,7 @@ func (r *AtomicReaderImpl) DocFreq(term Term) (int, error) {
 	return 0, nil
 }
 
-func (r *AtomicReaderImpl) TotalTermFreq(term Term) (n int64, err error) {
+func (r *AtomicReaderImpl) TotalTermFreq(term *Term) (n int64, err error) {
 	panic("not implemented yet")
 }
 

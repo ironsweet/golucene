@@ -235,7 +235,7 @@ func readEntries(handle IndexInput, dir Directory, name string) (mapping map[str
 		}
 
 		mapping = make(map[string]FileSlice)
-		fmt.Printf("Entries number: %v", numEntries)
+		fmt.Printf("Entries number: %v\n", numEntries)
 		for i := int32(0); i < numEntries; i++ {
 			id, err := entriesStream.ReadString()
 			if err != nil {

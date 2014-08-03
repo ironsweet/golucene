@@ -242,11 +242,11 @@ func (r *BaseCompositeReader) VisitDocument(docID int, visitor StoredFieldVisito
 	return r.subReaders[i].VisitDocument(docID-r.starts[i], visitor)
 }
 
-func (r *BaseCompositeReader) DocFreq(term Term) (int, error) {
+func (r *BaseCompositeReader) DocFreq(term *Term) (int, error) {
 	panic("not implemented yet")
 }
 
-func (r *BaseCompositeReader) TotalTermFreq(term Term) int64 {
+func (r *BaseCompositeReader) TotalTermFreq(term *Term) int64 {
 	panic("not implemented yet")
 }
 

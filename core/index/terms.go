@@ -24,8 +24,8 @@ type Term struct {
 	Bytes []byte
 }
 
-func NewTerm(fld string, text string) Term {
-	return Term{fld, []byte(text)}
+func NewTerm(fld string, text string) *Term {
+	return &Term{fld, []byte(text)}
 }
 
 /*
@@ -49,7 +49,7 @@ func (s TermSorter) Less(i, j int) bool {
 }
 
 func (t *Term) String() string {
-	return fmt.Sprintf("%v:%v", t.Field, string(t.Bytes))
+	return fmt.Sprintf("%v:%v", t.Field, utf8ToString(t.Bytes))
 }
 
 // TermContext.java
@@ -83,19 +83,26 @@ func NewTermContext(ctx IndexReaderContext) *TermContext {
  * <p>
  * Note: the given context must be a top-level context.
  */
-func NewTermContextFromTerm(ctx IndexReaderContext, t Term) (tc *TermContext, err error) {
-	// assert ctx != nil && ctx.IsTopLevel
+func NewTermContextFromTerm(ctx IndexReaderContext, t *Term) (tc *TermContext, err error) {
+	assert(ctx != nil && ctx.Parent() == nil)
 	perReaderTermState := NewTermContext(ctx)
+	fmt.Printf("prts.build term=%v\n", t)
 	for _, leaf := range ctx.Leaves() {
+		fmt.Printf("  r=%v\n", leaf.reader)
 		if fields := leaf.reader.Fields(); fields != nil {
+			fmt.Println("DEBUG9", fields)
 			if terms := fields.Terms(t.Field); terms != nil {
+				fmt.Println("DEBUG10", terms)
 				termsEnum := terms.Iterator(nil)
+				fmt.Println("DEBUG11", termsEnum)
 				ok, err := termsEnum.SeekExact(t.Bytes)
+				fmt.Println("DEBUG12", ok, err)
 				if err != nil {
 					return nil, err
 				}
 				if ok {
 					termState, err := termsEnum.TermState()
+					fmt.Println("DEBUG13", termState, err)
 					if err != nil {
 						return nil, err
 					}
