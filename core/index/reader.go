@@ -191,7 +191,7 @@ func (r *IndexReaderImpl) Close() error {
 	defer r.lock.Unlock()
 	if !r.closed {
 		r.closed = true
-		r.decRef()
+		return r.decRef()
 	}
 	return nil
 }
