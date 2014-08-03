@@ -8,7 +8,7 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
-	// "sync/atomic"
+	"sync/atomic"
 )
 
 // index/SegmentReader.java
@@ -200,7 +200,7 @@ func (r *SegmentReader) NormValues(field string) (v NumericDocValues, err error)
 }
 
 type CoreClosedListener interface {
-	onClose(r *SegmentReader)
+	onClose(r interface{})
 }
 
 // index/SegmentCoreReaders.java
@@ -231,7 +231,7 @@ type SegmentCoreReaders struct {
 
 	addListener    chan CoreClosedListener
 	removeListener chan CoreClosedListener
-	notifyListener chan *SegmentReader
+	notifyListener chan bool
 }
 
 func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *SegmentCommitInfo,
@@ -254,7 +254,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 	log.Print("Initializing listeners...")
 	self.addListener = make(chan CoreClosedListener)
 	self.removeListener = make(chan CoreClosedListener)
-	self.notifyListener = make(chan *SegmentReader)
+	self.notifyListener = make(chan bool)
 	// TODO re-enable later
 	go func() { // ensure listners are synchronized
 		coreClosedListeners := make([]CoreClosedListener, 0)
@@ -276,11 +276,11 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 						break
 					}
 				}
-			case owner := <-self.notifyListener:
+			case <-self.notifyListener:
 				log.Print("Shutting down SegmentCoreReaders...")
 				isRunning = false
 				for _, v := range coreClosedListeners {
-					v.onClose(owner)
+					v.onClose(self)
 				}
 			}
 		}
@@ -375,11 +375,11 @@ func (r *SegmentCoreReaders) normValues(infos FieldInfos,
 }
 
 func (r *SegmentCoreReaders) decRef() {
-	panic("not implemented yet")
-	// if atomic.AddInt32(&r.refCount, -1) == 0 {
-	// 	util.Close( /*self.termVectorsLocal, self.fieldsReaderLocal, docValuesLocal, r.normsLocal,*/
-	// 		r.fields, r.dvProducer, r.termVectorsReaderOrig, r.fieldsReaderOrig,
-	// 		r.cfsReader, r.normsProducer)
-	// 	r.notifyListener <- r.owner
-	// }
+	if atomic.AddInt32(&r.refCount, -1) == 0 {
+		fmt.Println("--- closing core readers")
+		util.Close( /*self.termVectorsLocal, self.fieldsReaderLocal,  r.normsLocal,*/
+			r.fields, r.termVectorsReaderOrig, r.fieldsReaderOrig,
+			r.cfsReader, r.normsProducer)
+		r.notifyListener <- true
+	}
 }
