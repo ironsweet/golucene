@@ -178,7 +178,7 @@ func (r *StandardDirectoryReader) doClose() error {
 		// try to close each reader, even if an error is returned
 		func() {
 			defer func() {
-				if err := recover(); firstErr == nil {
+				if err := recover(); err != nil && firstErr == nil {
 					if s, ok := err.(string); ok {
 						firstErr = errors.New(s)
 					} else {

@@ -2,6 +2,7 @@ package index
 
 import (
 	// "errors"
+	"errors"
 	"fmt"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	docu "github.com/balzaczyy/golucene/core/document"
@@ -131,11 +132,17 @@ func (r *IndexReaderImpl) registerParentReader(reader IndexReader) {
 }
 
 func (r *IndexReaderImpl) notifyReaderClosedListeners(err error) {
-	panic("not implemented yet")
 	r.readerClosedListenersLock.RLock()
 	defer r.readerClosedListenersLock.RUnlock()
 	for listener, _ := range r.readerClosedListeners {
-		listener.onClose(r)
+		func() {
+			defer func() {
+				if e := recover(); e != nil {
+					err = mergeError(err, errors.New(fmt.Sprintf("%v", e)))
+				}
+			}()
+			listener.onClose(r)
+		}()
 	}
 	return
 }
