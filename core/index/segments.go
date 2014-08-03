@@ -86,6 +86,19 @@ func NewSegmentReader(si *SegmentCommitInfo,
 
 /* initialize the per-field DocValuesProducer */
 func (r *SegmentReader) initDocValuesProducers(codec Codec) error {
+	// var dir store.Directory
+	// if r.core.cfsReader != nil {
+	// 	dir = r.core.cfsReader
+	// } else {
+	// 	dir = r.si.Info.Dir
+	// }
+	// dvFormat := codec.DocValuesFormat()
+
+	// termsIndexDivisor := r.core.termsIndexDivisor
+	if !r.si.HasFieldUpdates() {
+		panic("not implemented yet")
+	}
+
 	panic("not implemented yet")
 }
 

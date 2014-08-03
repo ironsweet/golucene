@@ -171,6 +171,10 @@ func (si *SegmentCommitInfo) HasDeletions() bool {
 	return si.delGen != -1
 }
 
+func (si *SegmentCommitInfo) HasFieldUpdates() bool {
+	return si.fieldInfosGen != -1
+}
+
 func (si *SegmentCommitInfo) FieldInfosGen() int64 {
 	return si.fieldInfosGen
 }
