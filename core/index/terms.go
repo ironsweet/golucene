@@ -117,6 +117,7 @@ func NewTermContextFromTerm(ctx IndexReaderContext, t Term) (tc *TermContext, er
 }
 
 func (tc *TermContext) register(state TermState, ord, docFreq int, totalTermFreq int64) {
+	fmt.Println("DEBUG7")
 	assert2(state != nil, "state must not be nil")
 	assert(ord >= 0 && ord < len(tc.states))
 	assert2(tc.states[ord] == nil, "state for ord: %v already registered", ord)
@@ -131,6 +132,7 @@ func (tc *TermContext) register(state TermState, ord, docFreq int, totalTermFreq
 
 func (tc *TermContext) State(ord int) TermState {
 	assert(ord >= 0 && ord < len(tc.states))
+	fmt.Println("DEBUG6", ord, tc.states)
 	return tc.states[ord]
 }
 

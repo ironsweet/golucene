@@ -100,11 +100,13 @@ func (tw *TermWeight) IsScoresDocsOutOfOrder() bool {
 
 func (tw *TermWeight) Scorer(context *index.AtomicReaderContext,
 	acceptDocs util.Bits) (Scorer, error) {
+
 	assert2(tw.termStates.TopReaderContext == index.TopLevelContext(context),
 		"The top-reader used to create Weight (%v) is not the same as the current reader's top-reader (%v)",
 		tw.termStates.TopReaderContext, index.TopLevelContext(context))
 	termsEnum, err := tw.termsEnum(context)
 	if termsEnum == nil || err != nil {
+		fmt.Println("DEBUG4", termsEnum)
 		return nil, err
 	}
 	assert(termsEnum != nil)
@@ -123,6 +125,7 @@ func (tw *TermWeight) Scorer(context *index.AtomicReaderContext,
 func (tw *TermWeight) termsEnum(ctx *index.AtomicReaderContext) (TermsEnum, error) {
 	state := tw.termStates.State(ctx.Ord)
 	if state == nil { // term is not present in that reader
+		fmt.Println("DEBUG5")
 		assert2(tw.termNotInReader(ctx.Reader(), tw.term),
 			"no termstate found but term exists in reader term=%v", tw.term)
 		return nil, nil

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	// . "github.com/balzaczyy/golucene/core/search/model"
+	"math"
 )
 
 // search/Scorer.java
@@ -73,4 +74,21 @@ the Scorer returned by Weight.Scorer().
 */
 type BulkScorer interface {
 	ScoreAndCollect(Collector) error
+}
+
+type BulkScorerImplSPI interface {
+	ScoreAndCollectUpto(Collector, int) (bool, error)
+}
+
+type BulkScorerImpl struct {
+	spi BulkScorerImplSPI
+}
+
+func newBulkScorer(spi BulkScorerImplSPI) *BulkScorerImpl {
+	return &BulkScorerImpl{spi}
+}
+
+func (bs *BulkScorerImpl) ScoreAndCollect(collector Collector) (err error) {
+	_, err = bs.spi.ScoreAndCollectUpto(collector, math.MaxInt32)
+	return
 }

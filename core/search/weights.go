@@ -1,7 +1,9 @@
 package search
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
+	. "github.com/balzaczyy/golucene/core/search/model"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -37,6 +39,7 @@ type Weight interface {
 	ValueForNormalization() float32
 	/** Assigns the query normalization factor and boost from parent queries to this. */
 	Normalize(norm float32, topLevelBoost float32)
+	// Scorer(*index.AtomicReaderContext, util.Bits) (Scorer, error)
 	/**
 	 * Returns a {@link Scorer} which scores documents in/out-of order according
 	 * to <code>scoreDocsInOrder</code>.
@@ -77,6 +80,55 @@ func newWeightImpl(spi WeightImplSPI) *WeightImpl {
 }
 
 func (w *WeightImpl) BulkScorer(ctx *index.AtomicReaderContext,
-	scoreDocsInOrder bool, acceptDoc util.Bits) (BulkScorer, error) {
+	scoreDocsInOrder bool, acceptDoc util.Bits) (bs BulkScorer, err error) {
+
+	var scorer Scorer
+	if scorer, err = w.spi.Scorer(ctx, acceptDoc); err != nil {
+		return nil, err
+	} else if scorer == nil {
+		// no docs match
+		fmt.Println("DEBUG3")
+		return nil, nil
+	}
+
+	fmt.Println("DEBUG2")
+	// this impl always scores docs in order, so we can ignore scoreDocsInOrder:
+	return newDefaultScorer(scorer), nil
+}
+
+/* Just wraps a Scorer and performs top scoring using it. */
+type DefaultBulkScorer struct {
+	*BulkScorerImpl
+	scorer Scorer
+}
+
+func newDefaultScorer(scorer Scorer) *DefaultBulkScorer {
+	assert(scorer != nil)
+	ans := &DefaultBulkScorer{scorer: scorer}
+	ans.BulkScorerImpl = newBulkScorer(ans)
+	return ans
+}
+
+func (s *DefaultBulkScorer) ScoreAndCollectUpto(collector Collector, max int) (ok bool, err error) {
+	collector.SetScorer(s.scorer)
+	if max == NO_MORE_DOCS {
+		return false, s.scoreAll(collector, s.scorer)
+	}
+	doc := s.scorer.DocId()
+	if doc < 0 {
+		if doc, err = s.scorer.NextDoc(); err != nil {
+			fmt.Println("DEBUG1", doc)
+			return false, err
+		}
+	}
+	return s.scoreRange(collector, s.scorer, doc, max)
+}
+
+func (s *DefaultBulkScorer) scoreRange(collector Collector,
+	scorer Scorer, currentDoc, end int) (bool, error) {
+	panic("not implemented yet")
+}
+
+func (s *DefaultBulkScorer) scoreAll(collector Collector, scorer Scorer) error {
 	panic("not implemented yet")
 }
