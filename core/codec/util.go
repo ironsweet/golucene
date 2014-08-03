@@ -14,6 +14,8 @@ const CODEC_MAGIC = 0x3fd76c17
 /* Constant to identify the start of a codec footer. */
 const FOOTER_MAGIC = ^CODEC_MAGIC
 
+const FOOTER_LENGTH = 16
+
 type DataOutput interface {
 	WriteInt(n int32) error
 	WriteString(s string) error

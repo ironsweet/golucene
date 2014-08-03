@@ -112,9 +112,13 @@ func newCompressingStoredFieldsReader(d store.Directory,
 		return nil, err
 	}
 	if r.version >= VERSION_CHECKSUM {
-		panic("not implemented yet")
+		if maxPointer+codec.FOOTER_LENGTH != r.fieldsStream.Length() {
+			return nil, errors.New(fmt.Sprintf(
+				"Invalid fieldsStream maxPointer (file truncated?): maxPointer=%v, length=%v",
+				maxPointer, r.fieldsStream.Length()))
+		}
 	} else {
-		panic("not implemented yet")
+		maxPointer = r.fieldsStream.Length()
 	}
 	r.maxPointer = maxPointer
 	codecNameDat := formatName + CODEC_SFX_DAT
@@ -128,10 +132,11 @@ func newCompressingStoredFieldsReader(d store.Directory,
 		r.version, fieldsVersion)
 	assert(int64(codec.HeaderLength(codecNameDat)) == r.fieldsStream.FilePointer())
 
+	r.chunkSize = -1
 	if r.version >= VERSION_BIG_CHUNKS {
-		panic("not implemented yet")
-	} else {
-		panic("not implemented yet")
+		if r.chunkSize, err = int32AsInt(r.fieldsStream.ReadVInt()); err != nil {
+			return nil, err
+		}
 	}
 
 	if r.packedIntsVersion, err = int32AsInt(r.fieldsStream.ReadVInt()); err != nil {
