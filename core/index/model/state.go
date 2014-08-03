@@ -71,7 +71,7 @@ type SegmentReadState struct {
 	SegmentSuffix     string
 }
 
-func newSegmentReadState(dir store.Directory,
+func NewSegmentReadState(dir store.Directory,
 	info *SegmentInfo, fieldInfos FieldInfos,
 	context store.IOContext, termsIndexDivisor int) SegmentReadState {
 
