@@ -43,31 +43,30 @@ type PostingsWriterBase interface {
 }
 
 // codec/BlockTreeTermsWriter.java
-
-/* Suggested degault value for the minItemsInBlock parameter. */
-const DEFAULT_MIN_BLOCK_SIZE = 25
-
-/* Suggested default value for the maxItemsInBlock parameter. */
-const DEFAULT_MAX_BLOCK_SIZE = 48
-
-/* Extension of terms file */
-const TERMS_EXTENSION = "tim"
-const TERMS_CODEC_NAME = "BLOCK_TREE_TERMS_DICT"
-
 const (
+	/* Suggested degault value for the minItemsInBlock parameter. */
+	DEFAULT_MIN_BLOCK_SIZE = 25
+
+	/* Suggested default value for the maxItemsInBlock parameter. */
+	DEFAULT_MAX_BLOCK_SIZE = 48
+
+	/* Extension of terms file */
+	TERMS_EXTENSION  = "tim"
+	TERMS_CODEC_NAME = "BLOCK_TREE_TERMS_DICT"
+
+	TERMS_VERSION_START = 0
 	/* Append-only */
 	TERMS_VERSION_APPEND_ONLY   = 1
 	TERMS_VERSION_META_ARRAY    = 2
 	TERMS_VERSION_CHECKSUM      = 3
 	TERMS_VERSION_MIN_MAX_TERMS = 4
+	/* Current terms format. */
+	TERMS_VERSION_CURRENT = TERMS_VERSION_MIN_MAX_TERMS
+
+	/* Extension of terms index file */
+	TERMS_INDEX_EXTENSION  = "tip"
+	TERMS_INDEX_CODEC_NAME = "BLOCK_TREE_TERMS_INDEX"
 )
-
-/* Current terms format. */
-const TERMS_VERSION_CURRENT = TERMS_VERSION_MIN_MAX_TERMS
-
-/* Extension of terms index file */
-const TERMS_INDEX_EXTENSION = "tip"
-const TERMS_INDEX_CODEC_NAME = "BLOCK_TREE_TERMS_INDEX"
 
 type BlockTreeTermsWriterSPI interface {
 	WriteHeader(store.IndexOutput) error

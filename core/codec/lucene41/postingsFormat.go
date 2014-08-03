@@ -77,7 +77,7 @@ func (f *Lucene41PostingsFormat) FieldsProducer(state SegmentReadState) (FieldsP
 	success := false
 	defer func() {
 		if !success {
-			fmt.Printf("Failed to load FieldsProducer for %v.", f.Name())
+			fmt.Printf("Failed to load FieldsProducer for %v.\n", f.Name())
 			util.CloseWhileSuppressingError(postingsReader)
 		}
 	}()

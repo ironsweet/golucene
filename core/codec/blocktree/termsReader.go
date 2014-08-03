@@ -18,17 +18,11 @@ const (
 	BTT_OUTPUT_FLAG_IS_FLOOR  = 1
 	BTT_OUTPUT_FLAG_HAS_TERMS = 2
 
-	BTT_EXTENSION           = "tim"
-	BTT_CODEC_NAME          = "BLOCK_TREE_TERMS_DICT"
-	BTT_VERSION_START       = 0
-	BTT_VERSION_APPEND_ONLY = 1
-	BTT_VERSION_CURRENT     = BTT_VERSION_APPEND_ONLY
-
-	BTT_INDEX_EXTENSION           = "tip"
-	BTT_INDEX_CODEC_NAME          = "BLOCK_TREE_TERMS_INDEX"
-	BTT_INDEX_VERSION_START       = 0
-	BTT_INDEX_VERSION_APPEND_ONLY = 1
-	BTT_INDEX_VERSION_CURRENT     = BTT_INDEX_VERSION_APPEND_ONLY
+	// BTT_INDEX_EXTENSION           = "tip"
+	// BTT_INDEX_CODEC_NAME          = "BLOCK_TREE_TERMS_INDEX"
+	// BTT_INDEX_VERSION_START       = 0
+	// BTT_INDEX_VERSION_APPEND_ONLY = 1
+	// BTT_INDEX_VERSION_CURRENT     = BTT_INDEX_VERSION_APPEND_ONLY
 )
 
 /* A block-based terms index and dictionary that assigns
@@ -81,7 +75,7 @@ func NewBlockTreeTermsReader(dir store.Directory,
 		fields:         make(map[string]FieldReader),
 		segment:        info.Name,
 	}
-	fp.in, err = dir.OpenInput(util.SegmentFileName(info.Name, segmentSuffix, BTT_EXTENSION), ctx)
+	fp.in, err = dir.OpenInput(util.SegmentFileName(info.Name, segmentSuffix, TERMS_EXTENSION), ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -90,9 +84,9 @@ func NewBlockTreeTermsReader(dir store.Directory,
 	var indexIn store.IndexInput
 	defer func() {
 		if !success {
-			log.Print("Failed to initialize BlockTreeTermsReader.")
+			fmt.Println("Failed to initialize BlockTreeTermsReader.")
 			if err != nil {
-				log.Print("DEBUG ", err)
+				fmt.Println("DEBUG ", err)
 			}
 			// this.close() will close in:
 			util.CloseWhileSuppressingError(indexIn, fp)
@@ -106,7 +100,7 @@ func NewBlockTreeTermsReader(dir store.Directory,
 	log.Printf("Version: %v", fp.version)
 
 	if indexDivisor != -1 {
-		indexIn, err = dir.OpenInput(util.SegmentFileName(info.Name, segmentSuffix, BTT_INDEX_EXTENSION), ctx)
+		indexIn, err = dir.OpenInput(util.SegmentFileName(info.Name, segmentSuffix, TERMS_EXTENSION), ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -262,11 +256,13 @@ func readBytesRef(in store.IndexInput) ([]byte, error) {
 }
 
 func (r *BlockTreeTermsReader) readHeader(input store.IndexInput) (version int, err error) {
-	version, err = asInt(codec.CheckHeader(input, BTT_CODEC_NAME, BTT_VERSION_START, BTT_VERSION_CURRENT))
+	fmt.Println("DEBUG1")
+	version, err = asInt(codec.CheckHeader(input, TERMS_CODEC_NAME, TERMS_VERSION_START, TERMS_VERSION_CURRENT))
 	if err != nil {
 		return int(version), err
 	}
-	if version < BTT_VERSION_APPEND_ONLY {
+	fmt.Println("DEBUG2")
+	if version < TERMS_VERSION_APPEND_ONLY {
 		r.dirOffset, err = input.ReadLong()
 		if err != nil {
 			return int(version), err
@@ -276,11 +272,11 @@ func (r *BlockTreeTermsReader) readHeader(input store.IndexInput) (version int, 
 }
 
 func (r *BlockTreeTermsReader) readIndexHeader(input store.IndexInput) (version int, err error) {
-	version, err = asInt(codec.CheckHeader(input, BTT_INDEX_CODEC_NAME, BTT_INDEX_VERSION_START, BTT_INDEX_VERSION_CURRENT))
+	version, err = asInt(codec.CheckHeader(input, TERMS_CODEC_NAME, TERMS_VERSION_START, TERMS_VERSION_CURRENT))
 	if err != nil {
 		return version, err
 	}
-	if version < BTT_INDEX_VERSION_APPEND_ONLY {
+	if version < TERMS_VERSION_APPEND_ONLY {
 		r.indexDirOffset, err = input.ReadLong()
 		if err != nil {
 			return version, err
@@ -293,7 +289,7 @@ func (r *BlockTreeTermsReader) seekDir(input store.IndexInput, dirOffset int64) 
 	log.Printf("Seeking to: %v", dirOffset)
 	if r.version >= TERMS_VERSION_CHECKSUM {
 		panic("not implemented yet")
-	} else if r.version >= BTT_INDEX_VERSION_APPEND_ONLY {
+	} else if r.version >= TERMS_VERSION_APPEND_ONLY {
 		input.Seek(input.Length() - 8)
 		if dirOffset, err = input.ReadLong(); err != nil {
 			return err
