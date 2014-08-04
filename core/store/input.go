@@ -84,14 +84,14 @@ type ByteArrayDataInput struct {
 
 func NewByteArrayDataInput(bytes []byte) *ByteArrayDataInput {
 	ans := &ByteArrayDataInput{}
-	ans.DataInputImpl = &util.DataInputImpl{ans}
+	ans.DataInputImpl = util.NewDataInput(ans)
 	ans.Reset(bytes)
 	return ans
 }
 
 func NewEmptyByteArrayDataInput() *ByteArrayDataInput {
 	ans := &ByteArrayDataInput{}
-	ans.DataInputImpl = &util.DataInputImpl{ans}
+	ans.DataInputImpl = util.NewDataInput(ans)
 	ans.Reset(make([]byte, 0))
 	return ans
 }

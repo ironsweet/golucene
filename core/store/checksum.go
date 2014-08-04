@@ -17,16 +17,22 @@ type ChecksumIndexInput interface {
 	Checksum() int64
 }
 
-type ChecksumIndexInputImpl struct {
-	*IndexInputImpl
+type ChecksumIndexInputImplSPI interface {
+	util.DataReader
+	FilePointer() int64
 }
 
-func NewChecksumIndexInput(desc string, spi util.DataReader) *ChecksumIndexInputImpl {
-	return &ChecksumIndexInputImpl{
-		NewIndexInputImpl(desc, spi),
-	}
+type ChecksumIndexInputImpl struct {
+	*IndexInputImpl
+	spi ChecksumIndexInputImplSPI
+}
+
+func NewChecksumIndexInput(desc string, spi ChecksumIndexInputImplSPI) *ChecksumIndexInputImpl {
+	return &ChecksumIndexInputImpl{NewIndexInputImpl(desc, spi), spi}
 }
 
 func (in *ChecksumIndexInputImpl) Seek(pos int64) error {
-	panic("not implemented yet")
+	skip := pos - in.spi.FilePointer()
+	assert2(skip >= 0, "ChecksumIndexInput cannot seek backwards")
+	return in.SkipBytes(skip)
 }

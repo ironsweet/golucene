@@ -25,7 +25,7 @@ type ByteSliceReader struct {
 
 func newByteSliceReader() *ByteSliceReader {
 	ans := new(ByteSliceReader)
-	ans.DataInputImpl = &util.DataInputImpl{ans}
+	ans.DataInputImpl = util.NewDataInput(ans)
 	return ans
 }
 

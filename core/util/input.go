@@ -43,8 +43,24 @@ type DataReader interface {
 	// ReadBytesBuffered(buf []byte, useBuffer bool) error
 }
 
+const SKIP_BUFFER_SIZE = 1024
+
 type DataInputImpl struct {
 	Reader DataReader
+	// This buffer is used to skip over bytes with the default
+	// implementation of skipBytes. The reason why we need to use an
+	// instance member instead of sharing a single instance across
+	// routines is that some delegating implementations of DataInput
+	// might want to reuse the provided buffer in order to e.g. update
+	// the checksum. If we shared the same buffer across routines, then
+	// another routine might update the buffer while the checksum is
+	// being computed, making it invalid. See LUCENE-5583 for more
+	// information.
+	skipBuffer []byte
+}
+
+func NewDataInput(spi DataReader) *DataInputImpl {
+	return &DataInputImpl{Reader: spi}
 }
 
 func (in *DataInputImpl) ReadBytesBuffered(buf []byte, useBuffer bool) error {
@@ -224,4 +240,30 @@ func (in *DataInputImpl) ReadStringSet() (s map[string]bool, err error) {
 		s[key] = true
 	}
 	return s, nil
+}
+
+/*
+Skip over numBytes bytes. The contract on this method is that it
+should have the same behavior as reading the same number of bytes
+into a buffer and discarding its content. Negative values of numBytes
+are not supported.
+*/
+func (in *DataInputImpl) SkipBytes(numBytes int64) (err error) {
+	assert2(numBytes >= 0, "numBytes must be >= 0, got %v", numBytes)
+	if in.skipBuffer == nil {
+		in.skipBuffer = make([]byte, SKIP_BUFFER_SIZE)
+	}
+	assert(len(in.skipBuffer) == SKIP_BUFFER_SIZE)
+	var step int
+	for skipped := int64(0); skipped < numBytes; {
+		step = int(numBytes - skipped)
+		if SKIP_BUFFER_SIZE < step {
+			step = SKIP_BUFFER_SIZE
+		}
+		if err = in.ReadBytesBuffered(in.skipBuffer[:step], false); err != nil {
+			return
+		}
+		skipped += int64(step)
+	}
+	return nil
 }

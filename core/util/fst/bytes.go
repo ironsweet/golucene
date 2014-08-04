@@ -190,7 +190,7 @@ func (bs *BytesStore) forwardReader() BytesReader {
 		return newForwardBytesReader(bs.blocks[0])
 	}
 	ans := &BytesStoreForwardReader{owner: bs, nextRead: bs.blockSize}
-	ans.DataInputImpl = &util.DataInputImpl{ans}
+	ans.DataInputImpl = util.NewDataInput(ans)
 	return ans
 }
 
@@ -260,7 +260,7 @@ func (bs *BytesStore) reverseReaderAllowSingle(allowSingle bool) BytesReader {
 		current = bs.blocks[0]
 	}
 	ans := &BytesStoreReverseReader{current: current, nextBuffer: -1, nextRead: 0}
-	ans.DataInputImpl = &util.DataInputImpl{ans}
+	ans.DataInputImpl = util.NewDataInput(ans)
 	return ans
 }
 
@@ -299,7 +299,7 @@ func (r *ForwardBytesReader) reversed() bool {
 
 func newForwardBytesReader(bytes []byte) BytesReader {
 	ans := &ForwardBytesReader{bytes: bytes}
-	ans.DataInputImpl = &util.DataInputImpl{ans}
+	ans.DataInputImpl = util.NewDataInput(ans)
 	return ans
 }
 
@@ -324,7 +324,7 @@ func (r *ReverseBytesReader) ReadBytes(buf []byte) error {
 
 func newReverseBytesReader(bytes []byte) BytesReader {
 	ans := &ReverseBytesReader{bytes: bytes}
-	ans.DataInputImpl = &util.DataInputImpl{ans}
+	ans.DataInputImpl = util.NewDataInput(ans)
 	return ans
 }
 
