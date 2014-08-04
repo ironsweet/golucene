@@ -117,7 +117,7 @@ func NewBlockTreeTermsReader(dir store.Directory,
 
 	// verify
 	if indexIn != nil && fp.version >= TERMS_VERSION_CURRENT {
-		if _, err = codec.ChecksumEntireFile(indexIn); err != nil {
+		if _, err = store.ChecksumEntireFile(indexIn); err != nil {
 			return nil, err
 		}
 	}
