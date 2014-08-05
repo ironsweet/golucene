@@ -288,15 +288,19 @@ func (r *BlockTreeTermsReader) readIndexHeader(input store.IndexInput) (version 
 func (r *BlockTreeTermsReader) seekDir(input store.IndexInput, dirOffset int64) (err error) {
 	log.Printf("Seeking to: %v", dirOffset)
 	if r.version >= TERMS_VERSION_CHECKSUM {
-		panic("not implemented yet")
+		if err = input.Seek(input.Length() - codec.FOOTER_LENGTH - 8); err != nil {
+			return
+		}
+		if dirOffset, err = input.ReadLong(); err != nil {
+			return
+		}
 	} else if r.version >= TERMS_VERSION_APPEND_ONLY {
 		input.Seek(input.Length() - 8)
 		if dirOffset, err = input.ReadLong(); err != nil {
-			return err
+			return
 		}
 	}
-	input.Seek(dirOffset)
-	return nil
+	return input.Seek(dirOffset)
 }
 
 func (r *BlockTreeTermsReader) Terms(field string) Terms {
