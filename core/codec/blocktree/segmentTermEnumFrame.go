@@ -197,8 +197,19 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 	// TODO: we could skip this if !hasTerms; but
 	// that's rare so won't help much
 	// metadata
-	panic("not implemented yet")
-	// f.postingsReader.ReadTermsBlock(f.in, f.fieldInfo, f.state)
+	if numBytes, err = asInt(f.ste.in.ReadVInt()); err != nil {
+		return err
+	}
+	if f.bytes == nil {
+		f.bytes = make([]byte, util.Oversize(numBytes, 1))
+		f.bytesReader = store.NewEmptyByteArrayDataInput()
+	} else if len(f.bytes) < numBytes {
+		f.bytes = make([]byte, util.Oversize(numBytes, 1))
+	}
+	if err = f.ste.in.ReadBytes(f.bytes[:numBytes]); err != nil {
+		return err
+	}
+	f.bytesReader.Reset(f.bytes)
 
 	// Sub-blocks of a single floor block are always
 	// written one after another -- tail recurse:
