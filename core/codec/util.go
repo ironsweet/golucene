@@ -160,12 +160,12 @@ func CheckFooter(in ChecksumIndexInput) (cs int64, err error) {
 		var cs2 int64
 		if cs2, err = in.ReadLong(); err == nil {
 			if cs != cs2 {
-				err = errors.New(fmt.Sprintf(
+				return 0, errors.New(fmt.Sprintf(
 					"checksum failed (hardware problem?): expected=%v actual=%v (resource=%v)",
 					util.ItoHex(cs2), util.ItoHex(cs), in))
 			}
-			if err == nil && in.FilePointer() != in.Length() {
-				err = errors.New(fmt.Sprintf(
+			if in.FilePointer() != in.Length() {
+				return 0, errors.New(fmt.Sprintf(
 					"did not read all bytes from file: read %v vs size %v (resource: %v)",
 					in.FilePointer(), in.Length(), in))
 			}

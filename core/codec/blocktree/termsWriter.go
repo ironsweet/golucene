@@ -201,7 +201,7 @@ func (w *BlockTreeTermsWriter) WriteHeader(out store.IndexOutput) error {
 }
 
 func (w *BlockTreeTermsWriter) WriteIndexHeader(out store.IndexOutput) error {
-	return codec.WriteHeader(out, TERMS_CODEC_NAME, TERMS_VERSION_CURRENT)
+	return codec.WriteHeader(out, TERMS_INDEX_CODEC_NAME, TERMS_VERSION_CURRENT)
 }
 
 /* Writes the terms file trailer. */

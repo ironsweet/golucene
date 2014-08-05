@@ -201,12 +201,12 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 	// back-compat promise for FSTs (they are experimental):
 	fst.version, err = codec.CheckHeader(in, FST_FILE_FORMAT_NAME, FST_VERSION_PACKED, FST_VERSION_VINT_TARGET)
 	if err != nil {
-		return fst, err
+		return nil, err
 	}
 	if b, err := in.ReadByte(); err == nil {
 		fst.packed = (b == 1)
 	} else {
-		return fst, err
+		return nil, err
 	}
 	if b, err := in.ReadByte(); err == nil {
 		if b == 1 {
@@ -238,7 +238,7 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 		} // else emptyOutput = nil
 	}
 	if err != nil {
-		return fst, err
+		return nil, err
 	}
 
 	if t, err := in.ReadByte(); err == nil {
@@ -252,15 +252,13 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 		default:
 			panic(fmt.Sprintf("invalid input type %v", t))
 		}
-	}
-	if err != nil {
-		return fst, err
+	} else {
+		return nil, err
 	}
 
 	if fst.packed {
-		fst.nodeRefToAddress, err = packed.NewPackedReader(in)
-		if err != nil {
-			return fst, err
+		if fst.nodeRefToAddress, err = packed.NewPackedReader(in); err != nil {
+			return nil, err
 		}
 	} // else nodeRefToAddress = nil
 

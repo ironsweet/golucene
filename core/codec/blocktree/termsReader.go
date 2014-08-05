@@ -100,7 +100,8 @@ func NewBlockTreeTermsReader(dir store.Directory,
 	log.Printf("Version: %v", fp.version)
 
 	if indexDivisor != -1 {
-		indexIn, err = dir.OpenInput(util.SegmentFileName(info.Name, segmentSuffix, TERMS_EXTENSION), ctx)
+		filename := util.SegmentFileName(info.Name, segmentSuffix, TERMS_INDEX_EXTENSION)
+		indexIn, err = dir.OpenInput(filename, ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -117,9 +118,11 @@ func NewBlockTreeTermsReader(dir store.Directory,
 
 	// verify
 	if indexIn != nil && fp.version >= TERMS_VERSION_CURRENT {
-		if _, err = store.ChecksumEntireFile(indexIn); err != nil {
+		var hash int64
+		if hash, err = store.ChecksumEntireFile(indexIn); err != nil {
 			return nil, err
 		}
+		assert(hash == 3224494687)
 	}
 
 	// Have PostingsReader init itself
@@ -278,7 +281,7 @@ func (r *BlockTreeTermsReader) readHeader(input store.IndexInput) (version int, 
 }
 
 func (r *BlockTreeTermsReader) readIndexHeader(input store.IndexInput) (version int, err error) {
-	version, err = asInt(codec.CheckHeader(input, TERMS_CODEC_NAME, TERMS_VERSION_START, TERMS_VERSION_CURRENT))
+	version, err = asInt(codec.CheckHeader(input, TERMS_INDEX_CODEC_NAME, TERMS_VERSION_START, TERMS_VERSION_CURRENT))
 	if err != nil {
 		return version, err
 	}
@@ -301,7 +304,9 @@ func (r *BlockTreeTermsReader) seekDir(input store.IndexInput, dirOffset int64) 
 			return
 		}
 	} else if r.version >= TERMS_VERSION_APPEND_ONLY {
-		input.Seek(input.Length() - 8)
+		if err = input.Seek(input.Length() - 8); err != nil {
+			return
+		}
 		if dirOffset, err = input.ReadLong(); err != nil {
 			return
 		}
