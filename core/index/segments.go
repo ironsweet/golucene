@@ -411,20 +411,15 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 func (r *SegmentCoreReaders) normValues(infos FieldInfos,
 	field string) (ndv NumericDocValues, err error) {
 
-	panic("not implemented yet")
-
-	// if fi := r.fieldInfos.FieldInfoByName(field); fi.Name != "" {
-	// 	if fi.HasNorms() {
-	// 		assert(r.normsProducer != nil)
-
-	// 		if norms, ok := r.normsLocal()[field]; ok {
-	// 			ndv = norms.(NumericDocValues)
-	// 		} else if ndv, err = r.normsProducer.Numeric(fi); err == nil {
-	// 			r.normsLocal()[field] = norms
-	// 		}
-	// 	}
-	// } // else Field does not exist
-	// return
+	if norms, ok := r.normsLocal()[field]; ok {
+		ndv = norms.(NumericDocValues)
+	} else if fi := infos.FieldInfoByName(field); fi != nil && fi.HasNorms() {
+		assert(r.normsProducer != nil)
+		if ndv, err = r.normsProducer.Numeric(fi); err == nil {
+			r.normsLocal()[field] = norms
+		} // else Field does not exist
+	}
+	return
 }
 
 func (r *SegmentCoreReaders) decRef() {
