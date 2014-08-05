@@ -252,16 +252,22 @@ func asInt(n int32, err error) (n2 int, err2 error) {
 }
 
 func readBytesRef(in store.IndexInput) ([]byte, error) {
-	panic("not implemented yet")
+	length, err := asInt(in.ReadVInt())
+	if err != nil {
+		return nil, err
+	}
+	bytes := make([]byte, length)
+	if err = in.ReadBytes(bytes); err != nil {
+		return nil, err
+	}
+	return bytes, nil
 }
 
 func (r *BlockTreeTermsReader) readHeader(input store.IndexInput) (version int, err error) {
-	fmt.Println("DEBUG1")
 	version, err = asInt(codec.CheckHeader(input, TERMS_CODEC_NAME, TERMS_VERSION_START, TERMS_VERSION_CURRENT))
 	if err != nil {
 		return int(version), err
 	}
-	fmt.Println("DEBUG2")
 	if version < TERMS_VERSION_APPEND_ONLY {
 		r.dirOffset, err = input.ReadLong()
 		if err != nil {
