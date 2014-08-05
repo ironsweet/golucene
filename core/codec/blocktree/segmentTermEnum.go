@@ -12,6 +12,9 @@ import (
 
 // blocktree/SegmentTermsEnum.java
 
+var fstOutputs = fst.ByteSequenceOutputsSingleton()
+var noOutput = fstOutputs.NoOutput()
+
 // Iterates through terms in this field
 type SegmentTermsEnum struct {
 	*TermsEnumImpl
@@ -42,8 +45,6 @@ type SegmentTermsEnum struct {
 	fstReader fst.BytesReader
 
 	arcs []*fst.Arc
-
-	fstOutputs fst.Outputs
 }
 
 func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
@@ -53,7 +54,6 @@ func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 		scratchReader: store.NewEmptyByteArrayDataInput(),
 		term:          newBytesRef(),
 		arcs:          make([]*fst.Arc, 1),
-		fstOutputs:    fst.ByteSequenceOutputsSingleton(),
 	}
 	ans.TermsEnumImpl = NewTermsEnumImpl(ans)
 	log.Printf("BTTR.init seg=%v", r.parent.segment)
@@ -315,9 +315,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		arc = e.fr.index.FirstArc(e.arcs[0])
 
 		// Empty string prefix must have an output (block) in the index!
-		if !arc.IsFinal() || arc.Output == nil {
-			panic("assert fail")
-		}
+		assert(arc.IsFinal() && arc.Output != nil)
 
 		log.Println("    no seek state; push root frame")
 
@@ -326,11 +324,9 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		e.currentFrame = e.staticFrame
 
 		targetUpto = 0
-		panic("not implemented yet")
-		// e.currentFrame, err = e.pushFrame(arc, e.fstOutputs.Add(output, arc.NextFinalOutput).([]byte), 0)
-		// if err != nil {
-		// 	return false, err
-		// }
+		if e.currentFrame, err = e.pushFrame(arc, fstOutputs.Add(output, arc.NextFinalOutput).([]byte), 0); err != nil {
+			return false, err
+		}
 	}
 
 	log.Printf("  start index loop targetUpto=%v output=%v currentFrame.ord=%v targetBeforeCurrentLength=%v",
