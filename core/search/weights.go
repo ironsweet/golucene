@@ -125,6 +125,10 @@ func (s *DefaultBulkScorer) scoreRange(collector Collector,
 	panic("not implemented yet")
 }
 
-func (s *DefaultBulkScorer) scoreAll(collector Collector, scorer Scorer) error {
-	panic("not implemented yet")
+func (s *DefaultBulkScorer) scoreAll(collector Collector, scorer Scorer) (err error) {
+	var doc int
+	for doc, err = scorer.NextDoc(); doc != NO_MORE_DOCS && err == nil; doc, err = scorer.NextDoc() {
+		err = collector.Collect(doc)
+	}
+	return
 }
