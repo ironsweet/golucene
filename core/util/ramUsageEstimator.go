@@ -43,6 +43,8 @@ func SizeOf(arr interface{}) int64 {
 	switch arr.(type) {
 	case []int64:
 		return AlignObjectSize(NUM_BYTES_ARRAY_HEADER + NUM_BYTES_LONG*int64(len(arr.([]int64))))
+	case []byte:
+		return AlignObjectSize(NUM_BYTES_ARRAY_HEADER + int64(len(arr.([]byte))))
 	}
 	panic("not supported yet")
 }
