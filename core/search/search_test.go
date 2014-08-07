@@ -1,6 +1,7 @@
 package search
 
 import (
+	_ "github.com/balzaczyy/golucene/core/codec/lucene42"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/store"
 	"testing"

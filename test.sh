@@ -12,6 +12,7 @@ go test github.com/balzaczyy/golucene/core/index/model
 go test github.com/balzaczyy/golucene/core/search/model
 go test github.com/balzaczyy/golucene/core/codec
 go test github.com/balzaczyy/golucene/core/codec/spi
+go test github.com/balzaczyy/golucene/core/codec/blocktree
 go test github.com/balzaczyy/golucene/core/codec/lucene42
 go test github.com/balzaczyy/golucene/core/index
 go test github.com/balzaczyy/golucene/core/search
