@@ -292,7 +292,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 
 	assert2(termsIndexDivisor != 0,
 		"indexDivisor must be < 0 (don't load terms index) or greater than 0 (got 0)")
-	log.Printf("Initializing SegmentCoreReaders from directory: %v", dir)
+	fmt.Println("Initializing SegmentCoreReaders from directory:", dir)
 
 	self = &SegmentCoreReaders{
 		refCount: 1,
@@ -304,7 +304,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 		return self.fieldsReaderOrig.Clone()
 	}
 
-	log.Print("Initializing listeners...")
+	fmt.Println("Initializing listeners...")
 	self.addListener = make(chan CoreClosedListener)
 	self.removeListener = make(chan CoreClosedListener)
 	self.notifyListener = make(chan bool)
@@ -314,7 +314,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 		isRunning := true
 		var listener CoreClosedListener
 		for isRunning {
-			log.Print("Listening for events...")
+			fmt.Println("Listening for events...")
 			select {
 			case listener = <-self.addListener:
 				coreClosedListeners = append(coreClosedListeners, listener)
@@ -330,52 +330,53 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 					}
 				}
 			case <-self.notifyListener:
-				log.Print("Shutting down SegmentCoreReaders...")
+				fmt.Println("Shutting down SegmentCoreReaders...")
 				isRunning = false
 				for _, v := range coreClosedListeners {
 					v.onClose(self)
 				}
 			}
 		}
-		log.Print("Listeners are done.")
+		fmt.Println("Listeners are done.")
 	}()
 
-	success := false
+	var success = false
+	ans := self
 	defer func() {
 		if !success {
-			log.Print("Failed to initialize SegmentCoreReaders.")
-			self.decRef()
+			fmt.Println("Failed to initialize SegmentCoreReaders.")
+			ans.decRef()
 		}
 	}()
 
 	codec := si.Info.Codec().(Codec)
-	log.Print("Obtaining CFS Directory...")
+	fmt.Println("Obtaining CFS Directory...")
 	var cfsDir store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
 	if si.Info.IsCompoundFile() {
-		log.Print("Detected CompoundFile.")
+		fmt.Println("Detected CompoundFile.")
 		name := util.SegmentFileName(si.Info.Name, "", store.COMPOUND_FILE_EXTENSION)
 		if self.cfsReader, err = store.NewCompoundFileDirectory(dir, name, context, false); err != nil {
-			return self, err
+			return nil, err
 		}
-		log.Printf("CompoundFileDirectory: %v", self.cfsReader)
+		fmt.Println("CompoundFileDirectory: ", self.cfsReader)
 		cfsDir = self.cfsReader
 	} else {
 		cfsDir = dir
 	}
-	log.Printf("CFS Directory: %v", cfsDir)
+	fmt.Println("CFS Directory:", cfsDir)
 
-	log.Print("Reading FieldInfos...")
+	fmt.Println("Reading FieldInfos...")
 	fieldInfos := owner.fieldInfos
 
 	self.termsIndexDivisor = termsIndexDivisor
 	format := codec.PostingsFormat()
 
-	log.Print("Obtaining SegmentReadState...")
+	fmt.Println("Obtaining SegmentReadState...")
 	segmentReadState := NewSegmentReadState(cfsDir, si.Info, fieldInfos, context, termsIndexDivisor)
 	// Ask codec for its Fields
-	log.Print("Obtaining FieldsProducer...")
+	fmt.Println("Obtaining FieldsProducer...")
 	if self.fields, err = format.FieldsProducer(segmentReadState); err != nil {
-		return self, err
+		return nil, err
 	}
 	assert(self.fields != nil)
 	// ask codec for its Norms:
@@ -383,26 +384,26 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 	// kinda jaky to assume the codec handles the case of no norms file at all gracefully?!
 
 	if fieldInfos.HasNorms {
-		log.Print("Obtaining NormsDocValuesProducer...")
+		fmt.Println("Obtaining NormsDocValuesProducer...")
 		if self.normsProducer, err = codec.NormsFormat().NormsProducer(segmentReadState); err != nil {
-			return self, err
+			return nil, err
 		}
 		assert(self.normsProducer != nil)
 	}
 
-	log.Print("Obtaining StoredFieldsReader...")
+	fmt.Println("Obtaining StoredFieldsReader...")
 	if self.fieldsReaderOrig, err = si.Info.Codec().(Codec).StoredFieldsFormat().FieldsReader(cfsDir, si.Info, fieldInfos, context); err != nil {
-		return self, err
+		return nil, err
 	}
 
 	if fieldInfos.HasVectors { // open term vector files only as needed
-		log.Print("Obtaining TermVectorsReader...")
+		fmt.Println("Obtaining TermVectorsReader...")
 		if self.termVectorsReaderOrig, err = si.Info.Codec().(Codec).TermVectorsFormat().VectorsReader(cfsDir, si.Info, fieldInfos, context); err != nil {
-			return self, err
+			return nil, err
 		}
 	}
 
-	log.Print("Success")
+	fmt.Println("Success")
 	success = true
 
 	return self, nil

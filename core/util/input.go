@@ -113,7 +113,8 @@ func (in *DataInputImpl) ReadVInt() (n int32, err error) {
 					if b, err = in.Reader.ReadByte(); err == nil {
 						// Warning: the next ands use 0x0F / 0xF0 - beware copy/paste errors:
 						n |= (int32(b) & 0x0F) << 28
-						if int32(b)&0x0F == 0 {
+
+						if int32(b)&0xF0 == 0 {
 							return n, nil
 						}
 						return 0, errors.New("Invalid vInt detected (too many bits)")

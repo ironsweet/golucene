@@ -50,11 +50,15 @@ type Lucene42DocValuesProducer struct {
 
 func newLucene42DocValuesProducer(state SegmentReadState,
 	dataCodec, dataExtension, metaCodec, metaExtension string) (dvp *Lucene42DocValuesProducer, err error) {
+
+	fmt.Println("Initializing Lucene42DocValuesProducer...")
 	dvp = &Lucene42DocValuesProducer{
 		numericInstances: make(map[int]NumericDocValues),
 	}
 	dvp.maxDoc = state.SegmentInfo.DocCount()
+
 	metaName := util.SegmentFileName(state.SegmentInfo.Name, state.SegmentSuffix, metaExtension)
+	fmt.Println("Reading", metaName)
 	// read in the entries from the metadata file.
 	var in store.ChecksumIndexInput
 	if in, err = state.Dir.OpenChecksumInput(metaName, state.Context); err != nil {
@@ -103,6 +107,7 @@ func newLucene42DocValuesProducer(state SegmentReadState,
 	}()
 
 	dataName := util.SegmentFileName(state.SegmentInfo.Name, state.SegmentSuffix, dataExtension)
+	fmt.Println("Reading", dataName)
 	if dvp.data, err = state.Dir.OpenInput(dataName, state.Context); err != nil {
 		return nil, err
 	}
@@ -142,18 +147,18 @@ func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput,
 
 		fieldType, err = meta.ReadByte()
 		if err != nil {
-			break
+			return
 		}
 		switch fieldType {
 		case LUCENE42_DV_NUMBER:
 			entry := NumericEntry{}
 			entry.offset, err = meta.ReadLong()
 			if err != nil {
-				return err
+				return
 			}
 			entry.format, err = meta.ReadByte()
 			if err != nil {
-				return err
+				return
 			}
 			switch entry.format {
 			case LUCENE42_DV_DELTA_COMPRESSED:
@@ -166,9 +171,11 @@ func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput,
 			if entry.format != LUCENE42_DV_UNCOMPRESSED {
 				entry.packedIntsVersion, err = asInt(meta.ReadVInt())
 				if err != nil {
-					return err
+					return
 				}
 			}
+			fmt.Printf("Found entry [offset=%v, format=%v, packedIntsVersion=%v\n",
+				entry.offset, entry.format, entry.packedIntsVersion)
 			dvp.numerics[fieldNumber] = entry
 		case LUCENE42_DV_BYTES:
 			panic("not implemented yet")
