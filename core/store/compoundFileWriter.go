@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/util"
+	"sort"
 	"sync"
 )
 
@@ -209,12 +210,17 @@ func (w *CompoundFileWriter) copyFileEntry(dataOut IndexOutput, fileEntry *FileE
 }
 
 func (w *CompoundFileWriter) writeEntryTable(entries map[string]*FileEntry,
-	entryOut IndexOutput) error {
-	err := codec.WriteHeader(entryOut, CFD_ENTRY_CODEC, CFD_VERSION_CURRENT)
-	if err == nil {
-		err = entryOut.WriteVInt(int32(len(entries)))
-		if err == nil {
-			for _, fe := range entries {
+	entryOut IndexOutput) (err error) {
+	if err = codec.WriteHeader(entryOut, CFD_ENTRY_CODEC, CFD_VERSION_CURRENT); err == nil {
+		if err = entryOut.WriteVInt(int32(len(entries))); err == nil {
+			var names []string
+			for name, _ := range entries {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			for _, name := range names {
+				// for _, fe := range entries {
+				fe := entries[name]
 				if err = Stream(entryOut).
 					WriteString(util.StripSegmentName(fe.file)).
 					WriteLong(fe.offset).
