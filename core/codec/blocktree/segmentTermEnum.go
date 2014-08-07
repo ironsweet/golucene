@@ -384,11 +384,11 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 			if arc.IsFinal() {
 				fmt.Println("    arc is final!")
-				panic("not implemented yet")
-				// e.currentFrame, err = e.pushFrame(arc, e.fstOutputs.Add(output, arc.NextFinalOutput).([]byte), targetUpto)
-				// if err != nil {
-				// 	return false, err
-				// }
+				if e.currentFrame, err = e.pushFrame(arc,
+					fstOutputs.Add(output, arc.NextFinalOutput).([]byte),
+					targetUpto); err != nil {
+					return false, err
+				}
 				fmt.Printf("    curFrame.ord=%v hasTerms=%v\n", e.currentFrame.ord, e.currentFrame.hasTerms)
 			}
 		}
