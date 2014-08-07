@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -1765,17 +1766,19 @@ func createCompoundFile(infoStream util.InfoStream,
 		}()
 
 		var length int64
+		var sortedFiles []string
 		for file, _ := range files {
-			err = directory.Copy(cfsDir, file, file, context)
-			if err != nil {
+			sortedFiles = append(sortedFiles, file)
+		}
+		sort.Strings(sortedFiles) // maintain order
+		for _, file := range sortedFiles {
+			if err = directory.Copy(cfsDir, file, file, context); err != nil {
 				return
 			}
-			length, err = directory.FileLength(file)
-			if err != nil {
+			if length, err = directory.FileLength(file); err != nil {
 				return
 			}
-			err = checkAbort.work(float64(length))
-			if err != nil {
+			if err = checkAbort.work(float64(length)); err != nil {
 				return
 			}
 		}
