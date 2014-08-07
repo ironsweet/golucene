@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -55,10 +56,17 @@ func ShallowSizeOf(obj interface{}) int64 {
 	if obj == nil {
 		return 0
 	}
-	if reflect.TypeOf(obj).Kind() == reflect.Slice {
+	clz := reflect.TypeOf(obj)
+	if clz.Kind() == reflect.Slice {
 		return shallowSizeOfArray(obj)
 	}
-	panic("not supported yet")
+	return ShallowSizeOfInstance(clz)
+}
+
+func ShallowSizeOfInstance(clazz reflect.Type) int64 {
+	// TODO later
+	fmt.Printf("[TODO] ShallowSizeOfInstance(%v)\n", clazz)
+	return 0
 }
 
 /* Return shallow size of any array */

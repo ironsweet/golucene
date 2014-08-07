@@ -3,11 +3,12 @@ package lucene42
 import (
 	"errors"
 	"fmt"
-	// "github.com/balzaczyy/golucene/core/codec"
+	"github.com/balzaczyy/golucene/core/codec"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"reflect"
 	"sync"
 	"sync/atomic"
 )
@@ -49,54 +50,75 @@ type Lucene42DocValuesProducer struct {
 
 func newLucene42DocValuesProducer(state SegmentReadState,
 	dataCodec, dataExtension, metaCodec, metaExtension string) (dvp *Lucene42DocValuesProducer, err error) {
-	panic("not implemented yet")
-	// dvp = &Lucene42DocValuesProducer{
-	// 	numericInstances: make(map[int]NumericDocValues),
-	// }
-	// dvp.maxDoc = state.segmentInfo.DocCount()
-	// metaName := util.SegmentFileName(state.segmentInfo.Name, state.segmentSuffix, metaExtension)
-	// // read in the entries from the metadata file.
-	// in, err := state.dir.OpenInput(metaName, state.context)
-	// if err != nil {
-	// 	return dvp, err
-	// }
-	// success := false
-	// defer func() {
-	// 	if success {
-	// 		err = util.Close(in)
-	// 	} else {
-	// 		util.CloseWhileSuppressingError(in)
-	// 	}
-	// }()
+	dvp = &Lucene42DocValuesProducer{
+		numericInstances: make(map[int]NumericDocValues),
+	}
+	dvp.maxDoc = state.SegmentInfo.DocCount()
+	metaName := util.SegmentFileName(state.SegmentInfo.Name, state.SegmentSuffix, metaExtension)
+	// read in the entries from the metadata file.
+	var in store.ChecksumIndexInput
+	if in, err = state.Dir.OpenChecksumInput(metaName, state.Context); err != nil {
+		return nil, err
+	}
+	dvp.ramBytesUsed = util.ShallowSizeOfInstance(reflect.TypeOf(dvp))
 
-	// version, err := codec.CheckHeader(in, metaCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_CURRENT)
-	// if err != nil {
-	// 	return dvp, err
-	// }
-	// dvp.numerics = make(map[int]NumericEntry)
-	// dvp.binaries = make(map[int]BinaryEntry)
-	// dvp.fsts = make(map[int]FSTEntry)
-	// err = dvp.readFields(in)
-	// if err != nil {
-	// 	return dvp, err
-	// }
-	// success = true
+	var version int32
+	func() {
+		var success = false
+		defer func() {
+			if success {
+				err = util.Close(in)
+			} else {
+				util.CloseWhileSuppressingError(in)
+			}
+		}()
 
-	// success = false
-	// dataName := util.SegmentFileName(state.segmentInfo.Name, state.segmentSuffix, dataExtension)
-	// dvp.data, err = state.dir.OpenInput(dataName, state.context)
-	// if err != nil {
-	// 	return dvp, err
-	// }
-	// version2, err := codec.CheckHeader(dvp.data, dataCodec, LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_CURRENT)
-	// if err != nil {
-	// 	return dvp, err
-	// }
+		if version, err = codec.CheckHeader(in, metaCodec,
+			LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_CURRENT); err != nil {
+			return
+		}
 
-	// if version != version2 {
-	// 	return dvp, errors.New("Format versions mismatch")
-	// }
-	// return dvp, nil
+		dvp.numerics = make(map[int]NumericEntry)
+		dvp.binaries = make(map[int]BinaryEntry)
+		dvp.fsts = make(map[int]FSTEntry)
+		if err = dvp.readFields(in, state.FieldInfos); err != nil {
+			return
+		}
+
+		if version >= LUCENE42_DV_VERSION_CHECKSUM {
+			_, err = codec.CheckFooter(in)
+		} else {
+			err = codec.CheckEOF(in)
+		}
+	}()
+	if err != nil {
+		return nil, err
+	}
+
+	var success = false
+	defer func() {
+		if !success {
+			util.CloseWhileSuppressingError(dvp.data)
+		}
+	}()
+
+	dataName := util.SegmentFileName(state.SegmentInfo.Name, state.SegmentSuffix, dataExtension)
+	if dvp.data, err = state.Dir.OpenInput(dataName, state.Context); err != nil {
+		return nil, err
+	}
+	var version2 int32
+	if version2, err = codec.CheckHeader(dvp.data, dataCodec,
+		LUCENE42_DV_VERSION_START, LUCENE42_DV_VERSION_CURRENT); err != nil {
+		return nil, err
+	}
+
+	if version != version2 {
+		return nil, errors.New("Format versions mismatch")
+	}
+
+	success = true
+
+	return dvp, nil
 }
 
 /*
@@ -220,6 +242,9 @@ func (dvp *Lucene42DocValuesProducer) SortedSet(field *FieldInfo) (v SortedSetDo
 }
 
 func (dvp *Lucene42DocValuesProducer) Close() error {
+	if dvp == nil {
+		return nil
+	}
 	return dvp.data.Close()
 }
 
