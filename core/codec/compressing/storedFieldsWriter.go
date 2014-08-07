@@ -396,10 +396,12 @@ func newGrowableByteArrayDataOutput(cp int) *GrowableByteArrayDataOutput {
 
 func (out *GrowableByteArrayDataOutput) WriteByte(b byte) error {
 	out.bytes = append(out.bytes, b)
+	out.length++
 	return nil
 }
 
 func (out *GrowableByteArrayDataOutput) WriteBytes(b []byte) error {
 	out.bytes = append(out.bytes, b...)
+	out.length += len(b)
 	return nil
 }
