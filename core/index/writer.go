@@ -1791,7 +1791,7 @@ func createCompoundFile(infoStream util.InfoStream,
 	// Replace all previous files with the CFS/CFE files:
 	siFiles := make(map[string]bool)
 	siFiles[filename] = true
-	siFiles[util.SegmentFileName(info.Name, "", store.COMPOUND_FILE_EXTENSION)] = true
+	siFiles[util.SegmentFileName(info.Name, "", store.COMPOUND_FILE_ENTRIES_EXTENSION)] = true
 	info.SetFiles(siFiles)
 
 	for file, _ := range files {
