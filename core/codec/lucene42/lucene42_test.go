@@ -16,7 +16,7 @@ func TestReadFieldInfos(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	fis, err := Lucene42FieldInfosReader(cd, "_0", store.IO_CONTEXT_READONCE)
+	fis, err := Lucene42FieldInfosReader(cd, "_0", "", store.IO_CONTEXT_READONCE)
 	if err != nil {
 		t.Error(err)
 	}
