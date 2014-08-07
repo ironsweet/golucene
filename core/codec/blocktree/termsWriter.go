@@ -11,6 +11,7 @@ import (
 	"github.com/balzaczyy/golucene/core/util/packed"
 	"io"
 	"math"
+	"strconv"
 )
 
 // codec/PostingsWriterBase.java
@@ -477,6 +478,21 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 		return nil, err
 	}
 
+	fmt.Printf("  writeBlock %vseg=%v len(pending)=%v prefixLength=%v "+
+		"indexPrefix=%v entCount= %v startFP=%v futureTermCount=%v%v "+
+		"isLastInFloor=%v\n",
+		map[bool]string{true: "(floor) "}[isFloor],
+		w.owner.segment,
+		len(w.pending),
+		prefixLength,
+		utf8ToString(prefix),
+		length,
+		startFP,
+		futureTermCount,
+		map[bool]string{true: fmt.Sprintf(" floorLeadByte=%v", strconv.FormatInt(int64(floorLeadByte&0xff), 16))}[isFloor],
+		isLastInFloor,
+	)
+
 	// 1st pass: pack term suffix bytes into []byte blob
 	// TODO: cutover to bulk int codec... simple64?
 
@@ -526,13 +542,13 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 			}
 
 			// write term stats, to separate []byte blob:
-			if err := w.suffixWriter.WriteVInt(int32(state.DocFreq)); err != nil {
+			if err := w.statsWriter.WriteVInt(int32(state.DocFreq)); err != nil {
 				return nil, err
 			}
 			if w.fieldInfo.IndexOptions() != model.INDEX_OPT_DOCS_ONLY {
 				assert2(state.TotalTermFreq >= int64(state.DocFreq),
 					"%v vs %v", state.TotalTermFreq, state.DocFreq)
-				if err := w.suffixWriter.WriteVLong(state.TotalTermFreq - int64(state.DocFreq)); err != nil {
+				if err := w.statsWriter.WriteVLong(state.TotalTermFreq - int64(state.DocFreq)); err != nil {
 					return nil, err
 				}
 			}
