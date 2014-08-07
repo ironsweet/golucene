@@ -8,6 +8,7 @@ import (
 	"github.com/balzaczyy/golucene/core/util/fst"
 	"log"
 	"sort"
+	"strconv"
 )
 
 // blocktree/SegmentTermsEnum.java
@@ -372,24 +373,23 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			// Follow this arc
 			arc = nextArc
 			e.term.bytes[targetUpto] = byte(targetLabel)
+			// aggregate output as we go:
 			assert(arc.Output != nil)
-			// noOutputs := e.fstOutputs.NoOutput()
-			panic("not implemented yet")
-			// if !fst.CompareFSTValue(arc.Output, noOutputs) {
-			// 	output = e.fstOutputs.Add(output, arc.Output).([]byte)
-			// }
-			log.Printf("    index: follow label=%x arc.output=%v arc.nfo=%v",
-				target[targetUpto], arc.Output, arc.NextFinalOutput)
+			if !fst.CompareFSTValue(arc.Output, noOutput) {
+				output = fstOutputs.Add(output, arc.Output).([]byte)
+			}
+			fmt.Printf("    index: follow label=%x arc.output=%v arc.nfo=%v\n",
+				strconv.FormatInt(int64(target[targetUpto]), 16), arc.Output, arc.NextFinalOutput)
 			targetUpto++
 
 			if arc.IsFinal() {
-				log.Println("    arc is final!")
+				fmt.Println("    arc is final!")
 				panic("not implemented yet")
 				// e.currentFrame, err = e.pushFrame(arc, e.fstOutputs.Add(output, arc.NextFinalOutput).([]byte), targetUpto)
 				// if err != nil {
 				// 	return false, err
 				// }
-				log.Printf("    curFrame.ord=%v hasTerms=%v", e.currentFrame.ord, e.currentFrame.hasTerms)
+				fmt.Printf("    curFrame.ord=%v hasTerms=%v\n", e.currentFrame.ord, e.currentFrame.hasTerms)
 			}
 		}
 	}
