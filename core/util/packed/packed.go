@@ -167,7 +167,7 @@ func FastestFormatAndBits(valueCount, bitsPerValue int,
 	if acceptableOverheadRatio < PackedInts.COMPACT {
 		acceptableOverheadRatio = PackedInts.COMPACT
 	}
-	if acceptableOverheadRatio < PackedInts.FASTEST {
+	if acceptableOverheadRatio > PackedInts.FASTEST {
 		acceptableOverheadRatio = PackedInts.FASTEST
 	}
 
