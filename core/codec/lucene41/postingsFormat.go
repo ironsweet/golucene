@@ -9,7 +9,6 @@ import (
 )
 
 func init() {
-	fmt.Println("Registering PostingsFormat: Lucene 4.1")
 	RegisterPostingsFormat(NewLucene41PostingsFormat())
 }
 

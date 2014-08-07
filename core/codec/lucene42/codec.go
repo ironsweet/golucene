@@ -18,7 +18,7 @@ postings and docvalues formats.
 If you want to reuse functionality of this codec, in another codec,
 extend FilterCodec.
 */
-var Lucene42Codec = NewCodec("Lucene42Codec",
+var Lucene42Codec = NewCodec("Lucene42",
 	lucene41.NewLucene41StoredFieldsFormat(),
 	NewLucene42TermVectorsFormat(),
 	NewLucene42FieldInfosFormat(),

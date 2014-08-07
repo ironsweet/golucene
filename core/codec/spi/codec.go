@@ -1,6 +1,7 @@
 package spi
 
 import (
+	"fmt"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
@@ -114,6 +115,7 @@ var allCodecs = make(map[string]Codec)
 // workaround Lucene Java's SPI mechanism
 func RegisterCodec(codecs ...Codec) {
 	for _, codec := range codecs {
+		fmt.Printf("Found codec: %v\n", codec.Name())
 		allCodecs[codec.Name()] = codec
 	}
 }
