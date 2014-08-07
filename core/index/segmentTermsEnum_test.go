@@ -1,16 +1,10 @@
 package index
 
 import (
+	_ "github.com/balzaczyy/golucene/core/codec/lucene42"
 	"github.com/balzaczyy/golucene/core/store"
 	"testing"
 )
-
-func TestBrToString(t *testing.T) {
-	s := brToString(make([]byte, 0, 3))
-	if len(s) != 3 {
-		t.Error("Reserved space should be hidden.")
-	}
-}
 
 func TestInitTerm(t *testing.T) {
 	path := "../search/testdata/win8/belfrysample"
