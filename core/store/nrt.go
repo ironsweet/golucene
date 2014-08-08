@@ -29,7 +29,7 @@ Here's a simple example usage:
 
 	fsDir, _ := OpenFSDirectory("/path/to/index")
 	cachedFSDir := NewNRTCachingDirectory(fsDir, 5.0, 60.0)
-	conf := NewIndexWriterConfig(VERSION_4_9, analyzer)
+	conf := NewIndexWriterConfig(VERSION_49, analyzer)
 	writer := NewIndexWriter(cachedFSDir, conf)
 
 This will cache all newly flushed segments, all merged whose expected

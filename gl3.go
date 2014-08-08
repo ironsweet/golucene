@@ -30,8 +30,8 @@ func main() {
 	fmt.Println("Directory", directory)
 	defer directory.Close()
 
-	analyzer := std.NewStandardAnalyzer(util.VERSION_45)
-	conf := index.NewIndexWriterConfig(util.VERSION_45, analyzer)
+	analyzer := std.NewStandardAnalyzer(util.VERSION_49)
+	conf := index.NewIndexWriterConfig(util.VERSION_49, analyzer)
 
 	writer, err := index.NewIndexWriter(directory, conf)
 	assert2(err == nil, "%v", err)
