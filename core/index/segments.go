@@ -119,7 +119,9 @@ func ReadFieldInfos(info *SegmentCommitInfo) (fis FieldInfos, err error) {
 		}
 		closeDir = true
 	} else {
-		panic("not implemented yet")
+		// gen'd FIS are read outside CFS, or the segment doesn't use a compound file
+		dir = info.Info.Dir
+		closeDir = false
 	}
 
 	defer func() {
