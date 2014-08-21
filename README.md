@@ -9,6 +9,7 @@ Milestones
 - 2013/11/11  First test case (gl.go) that search for specific keyword has passed with number of hits.
 - 2013/12/3   Second test case (gl.go) that fetch string field has passed.
 - 2014/6/29		Third test case (gl3.go) that index string field has passed.
+- 2014/8/8    Migrated to Lucene 4.9 code base.
 
 Progress
 --------
