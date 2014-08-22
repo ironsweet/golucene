@@ -250,7 +250,16 @@ func (h *BytesRefHash) findHash(bytes []byte) int {
 	// final position
 	hashPos := code & h.hashMask
 	if e := h.ids[hashPos]; e != -1 && !h.equals(e, bytes) {
-		panic("not implemented yet")
+		// conflict; use linear probe to find an open slot
+		// (see LUCENE-5604):
+		for {
+			code++
+			hashPos = code & h.hashMask
+			e = h.ids[hashPos]
+			if e == -1 || h.equals(e, bytes) {
+				break
+			}
+		}
 	}
 	return hashPos
 }
