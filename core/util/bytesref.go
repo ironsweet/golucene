@@ -28,6 +28,23 @@ func NewBytesRef(bytes []byte) *BytesRef {
 }
 
 /*
+Expert: compares the byte against another BytesRef, returning true if
+the bytes are equal.
+*/
+func (br *BytesRef) bytesEquals(other []byte) bool {
+	assert(other != nil)
+	if len(br.Value) == len(other) {
+		for i, v := range br.Value {
+			if v != other[i] {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+/*
 Creates a new BytesRef that points to a copy of the bytes from
 other.
 

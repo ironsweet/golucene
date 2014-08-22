@@ -20,6 +20,7 @@ type BytesRefHash struct {
 	pool       *ByteBlockPool
 	bytesStart []int
 
+	scratch1        *BytesRef
 	hashSize        int
 	hashHalfSize    int
 	hashMask        int
@@ -42,6 +43,7 @@ func NewBytesRefHash(pool *ByteBlockPool, capacity int,
 	}
 	counter.AddAndGet(int64(capacity) * NUM_BYTES_INT)
 	return &BytesRefHash{
+		scratch1:        NewEmptyBytesRef(),
 		hashSize:        capacity,
 		hashHalfSize:    capacity >> 1,
 		hashMask:        capacity - 1,
@@ -137,7 +139,8 @@ func (h *BytesRefHash) Sort(comp func(a, b []byte) bool) []int {
 }
 
 func (h *BytesRefHash) equals(id int, b []byte) bool {
-	panic("not implemented yet")
+	h.pool.SetBytesRef(h.scratch1, h.bytesStart[id])
+	return h.scratch1.bytesEquals(b)
 }
 
 func (h *BytesRefHash) shrink(targetSize int) bool {
