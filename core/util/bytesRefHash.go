@@ -252,9 +252,59 @@ func (h *BytesRefHash) findHash(bytes []byte) int {
 	return hashPos
 }
 
-/* Claled when has is too small (> 50% occupied) or too large (< 20% occupied). */
+/* Called when has is too small (> 50% occupied) or too large (< 20% occupied). */
 func (h *BytesRefHash) rehash(newSize int, hashOnData bool) {
-	panic("not implemented yet")
+	newMask := newSize - 1
+	h.bytesUsed.AddAndGet(NUM_BYTES_INT * int64(newSize))
+	newHash := make([]int, newSize)
+	for i, _ := range newHash {
+		newHash[i] = -1
+	}
+	for i := 0; i < h.hashSize; i++ {
+		if e0 := h.ids[i]; e0 != -1 {
+			var code int
+			if hashOnData {
+				off := h.bytesStart[e0]
+				start := off & BYTE_BLOCK_MASK
+				bytes := h.pool.Buffers[off>>BYTE_BLOCK_SHIFT]
+				var length int
+				var pos int
+				if bytes[start]&0x80 == 0 {
+					// length is 1 byte
+					length = int(bytes[start])
+					pos = start + 1
+				} else {
+					length = int(bytes[start]&0x7f) + (int(bytes[start+1]&0xff) << 7)
+					pos = start + 2
+				}
+				code = h.doHash(bytes[pos : pos+length])
+			} else {
+				code = h.bytesStart[e0]
+			}
+
+			hashPos := code & newMask
+			assert(hashPos >= 0)
+			if newHash[hashPos] != -1 {
+				// conflict; use linear probe to find an open slot
+				// (see LUCENE-5604)
+				for {
+					code++
+					hashPos = code & newMask
+					if newHash[hashPos] == -1 {
+						break
+					}
+				}
+			}
+			assert(newHash[hashPos] == -1)
+			newHash[hashPos] = e0
+		}
+	}
+
+	h.hashMask = newMask
+	h.bytesUsed.AddAndGet(NUM_BYTES_INT * int64(-len(h.ids)))
+	h.ids = newHash
+	h.hashSize = newSize
+	h.hashHalfSize = newSize / 2
 }
 
 func (h *BytesRefHash) doHash(p []byte) int {
