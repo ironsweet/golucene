@@ -363,9 +363,8 @@ func (arr *FreqProxPostingsArray) newInstance(size int) PostingsArray {
 }
 
 func (arr *FreqProxPostingsArray) copyTo(toArray PostingsArray, numToCopy int) {
-	_, ok := toArray.(*FreqProxPostingsArray)
+	to, ok := toArray.(*ParallelPostingsArray).PostingsArray.(*FreqProxPostingsArray)
 	assert(ok)
-	to := toArray.(*FreqProxPostingsArray)
 
 	arr.ParallelPostingsArray.copyTo(toArray, numToCopy)
 

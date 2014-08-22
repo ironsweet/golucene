@@ -350,9 +350,24 @@ func newParallelPostingsArray(spi PostingsArray, size int) *ParallelPostingsArra
 	}
 }
 
+func (arr *ParallelPostingsArray) bytesPerPosting() int {
+	return BYTES_PER_POSTING
+}
+
+func (arr *ParallelPostingsArray) newInstance(size int) PostingsArray { // *ParallelPostingsArray
+	panic("not implemented yet")
+}
+
 func (arr *ParallelPostingsArray) grow() *ParallelPostingsArray {
 	newSize := util.Oversize(arr.size+1, arr.bytesPerPosting())
 	newArray := arr.newInstance(newSize)
 	arr.copyTo(newArray, arr.size)
 	return newArray.(*ParallelPostingsArray)
+}
+
+func (arr *ParallelPostingsArray) _copyTo(toArray PostingsArray, numToCopy int) {
+	to := toArray.(*ParallelPostingsArray)
+	copy(to.textStarts, arr.textStarts[:numToCopy])
+	copy(to.intStarts, arr.intStarts[:numToCopy])
+	copy(to.byteStarts, arr.byteStarts[:numToCopy])
 }
