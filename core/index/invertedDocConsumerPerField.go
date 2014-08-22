@@ -351,5 +351,8 @@ func newParallelPostingsArray(spi PostingsArray, size int) *ParallelPostingsArra
 }
 
 func (arr *ParallelPostingsArray) grow() *ParallelPostingsArray {
-	panic("not implemented yet")
+	newSize := util.Oversize(arr.size+1, arr.bytesPerPosting())
+	newArray := arr.newInstance(newSize)
+	arr.copyTo(newArray, arr.size)
+	return newArray.(*ParallelPostingsArray)
 }
