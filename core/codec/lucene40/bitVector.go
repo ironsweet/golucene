@@ -81,7 +81,7 @@ func (bv *BitVector) Count() int {
 		}
 		bv.count = c
 	}
-	assert2(bv.count < bv.size, "count=%v size=%v", bv.count, bv.size)
+	assert2(bv.count <= bv.size, "count=%v size=%v", bv.count, bv.size)
 	return bv.count
 }
 

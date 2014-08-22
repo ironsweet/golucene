@@ -28,8 +28,18 @@ type Field struct {
 	_tokenStream analysis.TokenStream
 }
 
+/* Create field with Reader value. */
+func NewFieldFromReader(name string, reader io.Reader, ft *FieldType) *Field {
+	assert2(name != "", "name cannot be empty")
+	assert2(ft != nil, "type can not be nil")
+	assert2(reader != nil, "reader cannot be nil")
+	assert2(!ft.Stored(), "fields with a Reader value cannot be stored")
+	assert2(!ft.Indexed() || ft.Tokenized(), "non-tokenized fields must use String values")
+	return &Field{ft, name, reader, 1.0, nil}
+}
+
 // Create field with String value
-func NewStringField(name, value string, ft *FieldType) *Field {
+func newFieldFromString(name, value string, ft *FieldType) *Field {
 	assert2(name != "", "name cannot be empty")
 	assert2(value != "", "value cannot be empty")
 	assert2(ft.stored || ft.indexed,
@@ -178,38 +188,83 @@ const STORE_YES = Store(1)
 /* Do not store the field's value in the index. */
 const STORE_NO = Store(2)
 
+// document/StringField.java
+
+/* Indexed, not tokenized, omits norms, indexes DOCS_ONLY, not stored. */
+var STRING_FIELD_TYPE_NOT_STORED = func() *FieldType {
+	ft := newFieldType()
+	ft.indexed = true
+	ft._omitNorms = true
+	ft._indexOptions = model.INDEX_OPT_DOCS_ONLY
+	ft._tokenized = false
+	ft.frozen = true
+	return ft
+}()
+
+/* Indexed, not tokenized, omits norms, indexes DOCS_ONLY, stored */
+var STRING_FIELD_TYPE_STORED = func() *FieldType {
+	ft := newFieldType()
+	ft.indexed = true
+	ft._omitNorms = true
+	ft._indexOptions = model.INDEX_OPT_DOCS_ONLY
+	ft.stored = true
+	ft._tokenized = false
+	ft.frozen = true
+	return ft
+}()
+
+/*
+Creates a new field that is indexed but not tokenized: the entire
+String value is indexed as a single token. For example, this might be
+used for a 'country' field or an 'id' field, or any field that you
+intend to use for sorting or access through the field cache.
+*/
+func newStringField(name, value string, stored Store) *Field {
+	return newFieldFromString(name, value, map[Store]*FieldType{
+		STORE_YES: STRING_FIELD_TYPE_STORED,
+		STORE_NO:  STRING_FIELD_TYPE_NOT_STORED,
+	}[stored])
+}
+
 // document/TextField.java
 
-var (
-	// Indexed, tokenized, not stored
-	TEXT_FIELD_TYPE_NOT_STORED = func() *FieldType {
-		ft := newFieldType()
-		ft.indexed = true
-		ft._omitNorms = true
-		ft._indexOptions = model.INDEX_OPT_DOCS_ONLY
-		ft._tokenized = false
-		ft.frozen = true
-		return ft
-	}()
-	// Indexed, tokenized, stored
-	TEXT_FIELD_TYPE_STORED = func() *FieldType {
-		ft := newFieldType()
-		ft.indexed = true
-		ft._omitNorms = true
-		ft._indexOptions = model.INDEX_OPT_DOCS_ONLY
-		ft.stored = true
-		ft._tokenized = false
-		ft.frozen = true
-		return ft
-	}()
-)
+/* indexed, tokenized, not stored. */
+var TEXT_FIELD_TYPE_NOT_STORED = func() *FieldType {
+	ft := newFieldType()
+	ft.indexed = true
+	ft._tokenized = true
+	ft.frozen = true
+	return ft
+}()
 
+/* indexed, tokenized, stored. */
+var TEXT_FIELD_TYPE_STORED = func() *FieldType {
+	ft := newFieldType()
+	ft.indexed = true
+	ft._tokenized = true
+	ft.stored = true
+	ft.frozen = true
+	return ft
+}()
+
+/*
+A field that is indexed and tokenized, without term vectors. For
+example, this would be used on a 'body' field, that contains the bulk
+of a document's text.
+*/
 type TextField struct {
 	*Field
 }
 
-func NewTextField(name, value string, store Store) *TextField {
-	return &TextField{NewStringField(name, value, map[Store]*FieldType{
+/* Creates a new un-stored TextField with Reader value */
+func NewTextFieldFromReader(name string, reader io.Reader) *TextField {
+	return &TextField{
+		NewFieldFromReader(name, reader, TEXT_FIELD_TYPE_NOT_STORED),
+	}
+}
+
+func NewTextFieldFromString(name, value string, store Store) *TextField {
+	return &TextField{newFieldFromString(name, value, map[Store]*FieldType{
 		STORE_YES: TEXT_FIELD_TYPE_STORED,
 		STORE_NO:  TEXT_FIELD_TYPE_NOT_STORED,
 	}[store])}

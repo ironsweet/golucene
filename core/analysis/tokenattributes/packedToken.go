@@ -60,6 +60,10 @@ func (a *PackedTokenAttributeImpl) SetOffset(startOffset, endOffset int) {
 	a.endOffset = endOffset
 }
 
+func (a *PackedTokenAttributeImpl) SetType(typ string) {
+	a.typ = typ
+}
+
 func (a *PackedTokenAttributeImpl) Clear() {
 	a.CharTermAttributeImpl.Clear()
 	a.positionIncrement, a.positionLength = 1, 1

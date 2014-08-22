@@ -97,7 +97,7 @@ func (visitor *DocumentStoredFieldVisitor) StringField(fi *FieldInfo, value stri
 	ft.indexed = fi.IsIndexed()
 	ft._omitNorms = fi.OmitsNorms()
 	ft._indexOptions = fi.IndexOptions()
-	visitor.doc.Add(NewStringField(fi.Name, value, ft))
+	visitor.doc.Add(newFieldFromString(fi.Name, value, ft))
 	return nil
 }
 
