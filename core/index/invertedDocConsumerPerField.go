@@ -300,7 +300,13 @@ func (ss *PostingsBytesStartArray) Init() []int {
 }
 
 func (ss *PostingsBytesStartArray) Grow() []int {
-	panic("not implemented yet")
+	postingsArray := ss.perField.postingsArray
+	oldSize := postingsArray.size
+	postingsArray = postingsArray.grow()
+	ss.perField.postingsArray = postingsArray
+	ss.perField.spi.newPostingsArray()
+	ss.bytesUsed.AddAndGet(int64(postingsArray.bytesPerPosting() * (postingsArray.size - oldSize)))
+	return postingsArray.textStarts
 }
 
 func (ss *PostingsBytesStartArray) Clear() []int {
