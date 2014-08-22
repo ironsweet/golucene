@@ -363,7 +363,26 @@ func (arr *FreqProxPostingsArray) newInstance(size int) PostingsArray {
 }
 
 func (arr *FreqProxPostingsArray) copyTo(toArray PostingsArray, numToCopy int) {
-	panic("not implemented yet")
+	_, ok := toArray.(*FreqProxPostingsArray)
+	assert(ok)
+	to := toArray.(*FreqProxPostingsArray)
+
+	arr.ParallelPostingsArray.copyTo(toArray, numToCopy)
+
+	copy(to.lastDocIDs[:numToCopy], arr.lastDocIDs[:numToCopy])
+	copy(to.lastDocCodes[:numToCopy], arr.lastDocCodes[:numToCopy])
+	if arr.lastPositions != nil {
+		assert(to.lastPositions != nil)
+		copy(to.lastPositions[:numToCopy], arr.lastPositions[:numToCopy])
+	}
+	if arr.lastOffsets != nil {
+		assert(to.lastOffsets != nil)
+		copy(to.lastOffsets[:numToCopy], arr.lastOffsets[:numToCopy])
+	}
+	if arr.termFreqs != nil {
+		assert(to.termFreqs != nil)
+		copy(to.termFreqs[:numToCopy], arr.termFreqs[:numToCopy])
+	}
 }
 
 func (arr *FreqProxPostingsArray) bytesPerPosting() int {
