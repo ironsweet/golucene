@@ -262,21 +262,19 @@ func (w *FreqProxTermsWriterPerField) start(f IndexableField, first bool) bool {
 }
 
 func (w *FreqProxTermsWriterPerField) writeProx(termId, proxCode int) {
-	panic("not implemented yet")
-	// assert(w.hasProx)
-	// var payload []byte
-	// if w.payloadAttribute != nil {
-	// 	payload = w.payloadAttribute.Payload()
-	// }
+	if w.payloadAttribute == nil {
+		w.writeVInt(1, proxCode<<1)
+	} else {
+		payload := w.payloadAttribute.Payload()
+		if len(payload) > 0 {
+			panic("not implemented yet")
+		} else {
+			w.writeVInt(1, proxCode<<1)
+		}
+	}
 
-	// if len(payload) > 0 {
-	// 	panic("not implemented yet")
-	// } else {
-	// 	w.termsHashPerField.writeVInt(1, proxCode<<1)
-	// }
-
-	// postings := w.termsHashPerField.postingsArray.PostingsArray.(*FreqProxPostingsArray)
-	// postings.lastPositions[termId] = w.fieldState.position
+	assert(w.postingsArray.PostingsArray == w.freqProxPostingsArray)
+	w.freqProxPostingsArray.lastPositions[termId] = w.fieldState.position
 }
 
 func (w *FreqProxTermsWriterPerField) writeOffsets(termId, offsetAccum int) {
