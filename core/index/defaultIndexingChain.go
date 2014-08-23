@@ -494,7 +494,10 @@ func (f *PerField) setInvertState() {
 
 func (f *PerField) finish() error {
 	if !f.fieldInfo.OmitsNorms() {
-		panic("not implemented yet")
+		if f.norms == nil {
+			f.fieldInfo.SetNormValueType(DOC_VALUES_TYPE_NUMERIC)
+			f.norms = newNumericDocValuesWriter(f.fieldInfo, f.docState.docWriter._bytesUsed, false)
+		}
 	}
 	return f.termsHashPerField.finish()
 }
