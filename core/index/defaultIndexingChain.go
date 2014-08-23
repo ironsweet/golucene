@@ -350,7 +350,6 @@ func (c *DefaultIndexingChain) processField(field IndexableField,
 		}
 
 		if first {
-			fmt.Println("DEBUG1", c.fields, fieldCount)
 			c.fields[fieldCount] = fp
 			fieldCount++
 			fp.fieldGen = fieldGen
@@ -382,8 +381,6 @@ func (c *DefaultIndexingChain) processField(field IndexableField,
 				return 0, err
 			}
 		}
-	} else {
-		panic("not implemented yet")
 	}
 
 	if dvType := fieldType.DocValueType(); int(dvType) != 0 {
