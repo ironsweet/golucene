@@ -60,7 +60,10 @@ its tokenStream method) will use this to re-use a previously created
 tokenizer.
 */
 func (t *Tokenizer) SetReader(input io.ReadCloser) error {
-	panic("not implemented yet")
+	assert2(input != nil, "input must not be nil")
+	assert2(input != ILLEGAL_STATE_READER, "TokenStream contract violation: close() call missing")
+	t.inputPending = input
+	return nil
 }
 
 var ILLEGAL_STATE_READER = new(illegalStateReader)

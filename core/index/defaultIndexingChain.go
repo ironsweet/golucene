@@ -350,6 +350,7 @@ func (c *DefaultIndexingChain) processField(field IndexableField,
 		}
 
 		if first {
+			fmt.Println("DEBUG1", c.fields, fieldCount)
 			c.fields[fieldCount] = fp
 			fieldCount++
 			fp.fieldGen = fieldGen
@@ -433,7 +434,7 @@ func (c *DefaultIndexingChain) getOrAddField(name string,
 			c.rehash()
 		}
 
-		if c.totalFieldCount > len(c.fieldHash) {
+		if c.totalFieldCount > len(c.fields) {
 			newFields := make([]*PerField, util.Oversize(c.totalFieldCount, util.NUM_BYTES_OBJECT_REF))
 			copy(newFields, c.fields)
 			c.fields = newFields
