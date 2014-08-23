@@ -355,19 +355,21 @@ func (arr *ParallelPostingsArray) bytesPerPosting() int {
 }
 
 func (arr *ParallelPostingsArray) newInstance(size int) PostingsArray { // *ParallelPostingsArray
-	panic("not implemented yet")
+	ans := newParallelPostingsArray(nil, size)
+	ans.PostingsArray = ans
+	return ans
 }
 
 func (arr *ParallelPostingsArray) grow() *ParallelPostingsArray {
-	newSize := util.Oversize(arr.size+1, arr.bytesPerPosting())
-	newArray := arr.newInstance(newSize)
-	arr.copyTo(newArray, arr.size)
+	newSize := util.Oversize(arr.size+1, arr.PostingsArray.bytesPerPosting())
+	newArray := arr.PostingsArray.newInstance(newSize)
+	arr.PostingsArray.copyTo(newArray, arr.size)
 	return newArray.(*ParallelPostingsArray)
 }
 
-func (arr *ParallelPostingsArray) _copyTo(toArray PostingsArray, numToCopy int) {
+func (arr *ParallelPostingsArray) copyTo(toArray PostingsArray, numToCopy int) {
 	to := toArray.(*ParallelPostingsArray)
-	copy(to.textStarts, arr.textStarts[:numToCopy])
-	copy(to.intStarts, arr.intStarts[:numToCopy])
-	copy(to.byteStarts, arr.byteStarts[:numToCopy])
+	copy(to.textStarts[:numToCopy], arr.textStarts[:numToCopy])
+	copy(to.intStarts[:numToCopy], arr.intStarts[:numToCopy])
+	copy(to.byteStarts[:numToCopy], arr.byteStarts[:numToCopy])
 }

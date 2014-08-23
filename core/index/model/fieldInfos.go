@@ -138,9 +138,11 @@ func (fn *FieldNumbers) addOrGet(name string, preferredNumber int, dv DocValuesT
 			number = preferredNumber
 		} else {
 			// find a new FieldNumber
+			fn.lowestUnassignedFieldNumber++
 			for _, ok = fn.numberToName[fn.lowestUnassignedFieldNumber]; ok; {
 				// might not be up to date - lets do the work once needed
 				fn.lowestUnassignedFieldNumber++
+				_, ok = fn.numberToName[fn.lowestUnassignedFieldNumber]
 			}
 			number = fn.lowestUnassignedFieldNumber
 		}
@@ -194,6 +196,7 @@ func (b *FieldInfosBuilder) addOrUpdateInternal(name string,
 	preferredFieldNumber int, isIndexed bool, storeTermVector bool,
 	omitNorms bool, storePayloads bool, indexOptions IndexOptions,
 	docValues DocValuesType, normType DocValuesType) *FieldInfo {
+
 	if fi, ok := b.byName[name]; ok {
 		panic("not implemented yet")
 		return fi

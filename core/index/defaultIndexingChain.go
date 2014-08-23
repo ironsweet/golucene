@@ -414,7 +414,7 @@ func (c *DefaultIndexingChain) getOrAddField(name string,
 	// Make sure we have a PerField allocated
 	hashPos := util.Hashstr(name) & c.hashMask
 	fp := c.fieldHash[hashPos]
-	for fp != nil && fp.fieldInfo.Name != name {
+	for fp != nil && fp.fieldInfo.Name != name && fp != fp.next {
 		fp = fp.next
 	}
 
