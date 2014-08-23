@@ -307,6 +307,7 @@ type Mutable interface {
 	BitsPerValue() int
 	// Set the value at the given index in the array.
 	Set(index int, value int64)
+	Clear()
 	// Save this mutable into out. Instantiating a reader from the
 	// generated data will return a reader with the same number of bits
 	// per value.
@@ -327,6 +328,7 @@ func (p PackedIntsReaderImpl) Size() int32 {
 
 type MutableImplSPI interface {
 	Get(int) int64
+	Set(int, int64)
 }
 
 type MutableImpl struct {
@@ -341,8 +343,22 @@ func newMutableImpl(valueCount, bitsPerValue int, spi MutableImplSPI) *MutableIm
 	return &MutableImpl{newPackedIntsReaderImpl(valueCount), spi, PACKED, bitsPerValue}
 }
 
-func (p *MutableImpl) BitsPerValue() int {
-	return p.bitsPerValue
+func (m *MutableImpl) BitsPerValue() int {
+	return m.bitsPerValue
+}
+
+/* Fill the mutable [from,to) with val. */
+func (m *MutableImpl) fill(from, to int, val int64) {
+	assert(val < MaxValue(m.BitsPerValue()))
+	assert(from <= to)
+	for i := from; i < to; i++ {
+		m.spi.Set(i, val)
+	}
+}
+
+/* Sets all values to 0 */
+func (m *MutableImpl) Clear() {
+	m.fill(0, int(m.Size()), 0)
 }
 
 func (m *MutableImpl) Save(out util.DataOutput) error {
@@ -1007,6 +1023,10 @@ func (w *GrowableWriter) ensureCapacity(value int64) {
 func (w *GrowableWriter) Set(index int, value int64) {
 	w.ensureCapacity(value)
 	w.current.Set(index, value)
+}
+
+func (w *GrowableWriter) Clear() {
+	w.current.Clear()
 }
 
 func (w *GrowableWriter) RamBytesUsed() int64 {

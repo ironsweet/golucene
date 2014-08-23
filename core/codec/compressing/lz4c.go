@@ -6,6 +6,10 @@ import (
 
 // codecs/compressing/LZ4.java#compress
 
+const (
+	MEMORY_USAGE = 14
+)
+
 type DataOutput interface {
 	WriteByte(b byte) error
 	WriteBytes(buf []byte) error
@@ -107,8 +111,31 @@ type LZ4HashTable struct {
 	hashTable packed.Mutable
 }
 
-func (h *LZ4HashTable) reset(len int) {
-	panic("not implemented yet")
+func (h *LZ4HashTable) reset(length int) {
+	bitsPerOffset := packed.BitsRequired(int64(length - LAST_LITERALS))
+	bitsPerOffsetLog := ceilLog2(bitsPerOffset)
+	assert(bitsPerOffsetLog == 3)
+	h.hashLog = MEMORY_USAGE + 3 - bitsPerOffsetLog
+	assert(h.hashLog > 0)
+	if h.hashTable == nil || h.hashTable.Size() < (1<<uint(h.hashLog)) || h.hashTable.BitsPerValue() < bitsPerOffset {
+		panic("not implemented yet")
+	} else {
+		h.hashTable.Clear()
+	}
+}
+
+// 32 - leadingZero(n-1)
+func ceilLog2(n int) int {
+	assert(n >= 1)
+	if n == 1 {
+		return 0
+	}
+	ans := 0
+	for n > 0 {
+		n >>= 1
+		ans++
+	}
+	return ans
 }
 
 /*

@@ -1,7 +1,5 @@
 package util
 
-import ()
-
 /*
 Abstract base class for performing write operations of Lucene's
 low-level data types.
