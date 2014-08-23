@@ -65,8 +65,8 @@ func assert2(ok bool, msg string) {
 	}
 }
 
-func (f *Field) ReaderValue() io.Reader {
-	if v, ok := f._data.(io.Reader); ok {
+func (f *Field) ReaderValue() io.ReadCloser {
+	if v, ok := f._data.(io.ReadCloser); ok {
 		return v
 	}
 	return nil
@@ -131,7 +131,7 @@ func (f *Field) TokenStream(analyzer analysis.Analyzer, reuse analysis.TokenStre
 	if f._tokenStream != nil {
 		return f._tokenStream, nil
 	} else if f.ReaderValue() != nil {
-		panic("not implemented yet")
+		return analyzer.TokenStreamForReader(f._name, f.ReaderValue())
 	} else if f.StringValue() != "" {
 		return analyzer.TokenStreamForString(f._name, f.StringValue())
 	}

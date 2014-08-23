@@ -20,6 +20,7 @@ Also note that one should Clone() Analyzer for each Go routine if
 default ReuseStrategy is used.
 */
 type Analyzer interface {
+	TokenStreamForReader(string, io.ReadCloser) (TokenStream, error)
 	// Returns a TokenStream suitable for fieldName, tokenizing the
 	// contents of text.
 	//
@@ -80,6 +81,19 @@ func NewAnalyzerWithStrategy(reuseStrategy ReuseStrategy) *AnalyzerImpl {
 
 func (a *AnalyzerImpl) CreateComponents(fieldName string, reader io.ReadCloser) *TokenStreamComponents {
 	panic("must be inherited and implemented")
+}
+
+func (a *AnalyzerImpl) TokenStreamForReader(fieldName string, reader io.ReadCloser) (TokenStream, error) {
+	components := a.reuseStrategy.ReusableComponents(a, fieldName)
+	r := a.InitReader(fieldName, reader)
+	if components == nil {
+		panic("not implemented yet")
+	} else {
+		if err := components.SetReader(r); err != nil {
+			return nil, err
+		}
+	}
+	return components.TokenStream(), nil
 }
 
 func (a *AnalyzerImpl) TokenStreamForString(fieldName, text string) (TokenStream, error) {

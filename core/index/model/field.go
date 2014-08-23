@@ -49,7 +49,7 @@ type IndexableField interface {
 	StringValue() string
 
 	/** Non-null if this field has a Reader value */
-	ReaderValue() io.Reader
+	ReaderValue() io.ReadCloser
 
 	/** Non-null if this field has a numeric value */
 	NumericValue() interface{}
