@@ -74,7 +74,48 @@ func (sorter *Sorter) binarySort(from, to, i int) {
 }
 
 func (s *Sorter) heapSort(from, to int) {
-	panic("not implemented yet")
+	if to-from <= 1 {
+		return
+	}
+	s.heapify(from, to)
+	for end := to - 1; end > from; end-- {
+		s.Swap(from, to)
+		s.siftDown(from, from, end)
+	}
+}
+
+func (s *Sorter) heapify(from, to int) {
+	for i := s.heapParent(from, to-1); i >= from; i-- {
+		s.siftDown(i, from, to)
+	}
+}
+
+func (s *Sorter) siftDown(i, from, to int) {
+	for leftChild := s.heapChild(from, i); leftChild < to; leftChild = s.heapChild(from, i) {
+		rightChild := leftChild + 1
+		if s.Less(i, leftChild) {
+			if rightChild < to && s.Less(leftChild, rightChild) {
+				s.Swap(i, rightChild)
+				i = rightChild
+			} else {
+				s.Swap(i, leftChild)
+				i = leftChild
+			}
+		} else if rightChild < to && s.Less(i, rightChild) {
+			s.Swap(i, rightChild)
+			i = rightChild
+		} else {
+			break
+		}
+	}
+}
+
+func (s *Sorter) heapParent(from, i int) int {
+	return int(uint(i-1-from)>>1) + from
+}
+
+func (s *Sorter) heapChild(from, i int) int {
+	return ((i - from) << 1) + 1 + from
 }
 
 // util/TimSorter.java
