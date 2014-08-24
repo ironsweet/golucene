@@ -98,7 +98,14 @@ type bytesRefIntroSorter struct {
 
 func newBytesRefIntroSorter(owner *BytesRefHash, v []int,
 	comp func([]byte, []byte) bool) *bytesRefIntroSorter {
-	ans := &bytesRefIntroSorter{owner: owner, compact: v, comp: comp}
+	ans := &bytesRefIntroSorter{
+		owner:    owner,
+		compact:  v,
+		comp:     comp,
+		pivot:    NewEmptyBytesRef(),
+		scratch1: NewEmptyBytesRef(),
+		scratch2: NewEmptyBytesRef(),
+	}
 	ans.IntroSorter = NewIntroSorter(ans, ans)
 	return ans
 }

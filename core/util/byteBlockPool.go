@@ -150,6 +150,7 @@ func (p *ByteBlockPool) AllocSlice(slice []byte, upto int) int {
 
 /* Fill in a BytesRef from term's length & bytes encoded in byte block */
 func (p *ByteBlockPool) SetBytesRef(term *BytesRef, textStart int) {
+	assert(term != nil)
 	bytes := p.Buffers[textStart>>BYTE_BLOCK_SHIFT]
 	pos := textStart & BYTE_BLOCK_MASK
 	if (bytes[pos] & 0x80) == 0 {
