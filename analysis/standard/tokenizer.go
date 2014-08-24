@@ -65,7 +65,6 @@ StandardTokenizer:
 */
 type StandardTokenizer struct {
 	*Tokenizer
-	input io.ReadCloser
 
 	// A private instance of the JFlex-constructed scanner
 	scanner StandardTokenizerInterface
@@ -89,7 +88,6 @@ to the newly created JFlex scanner.
 func newStandardTokenizer(matchVersion util.Version, input io.ReadCloser) *StandardTokenizer {
 	ans := &StandardTokenizer{
 		Tokenizer:      NewTokenizer(input),
-		input:          input,
 		maxTokenLength: DEFAULT_MAX_TOKEN_LENGTH,
 	}
 	ans.termAtt = ans.Attributes().Add("CharTermAttribute").(CharTermAttribute)
@@ -148,8 +146,19 @@ func (t *StandardTokenizer) End() error {
 	return nil
 }
 
+func (t *StandardTokenizer) Close() error {
+	if err := t.Tokenizer.Close(); err != nil {
+		return err
+	}
+	t.scanner.yyreset(t.Input)
+	return nil
+}
+
 func (t *StandardTokenizer) Reset() error {
-	t.scanner.yyreset(t.input)
+	if err := t.Tokenizer.Reset(); err != nil {
+		return err
+	}
+	t.scanner.yyreset(t.Input)
 	t.skippedPositions = 0
 	return nil
 }

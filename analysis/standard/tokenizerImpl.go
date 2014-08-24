@@ -1,6 +1,7 @@
 package standard
 
 import (
+	"fmt"
 	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"io"
 )
@@ -751,7 +752,7 @@ yet. So it's a line-by-line port.
 */
 type StandardTokenizerImpl struct {
 	// the input device
-	zzReader io.ReadCloser
+	zzReader io.RuneReader
 
 	// the current state of the DFA
 	zzState int
@@ -913,6 +914,7 @@ end of input is encountered or an I/O-Error occurs.
 */
 func (t *StandardTokenizerImpl) nextToken() (int, error) {
 	var zzInput, zzAction int
+
 	// cached fields:
 	var zzCurrentPosL, zzMarkedPosL int
 	zzEndReadL := t.zzEndRead

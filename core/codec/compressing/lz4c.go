@@ -118,7 +118,7 @@ func (h *LZ4HashTable) reset(length int) {
 	h.hashLog = MEMORY_USAGE + 3 - bitsPerOffsetLog
 	assert(h.hashLog > 0)
 	if h.hashTable == nil || h.hashTable.Size() < (1<<uint(h.hashLog)) || h.hashTable.BitsPerValue() < bitsPerOffset {
-		panic("not implemented yet")
+		h.hashTable = packed.MutableFor(1<<uint(h.hashLog), bitsPerOffset, packed.PackedInts.DEFAULT)
 	} else {
 		h.hashTable.Clear()
 	}

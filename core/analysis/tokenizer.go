@@ -17,7 +17,7 @@ Attributes().ClearAttributes() before setting attributes.
 type Tokenizer struct {
 	*TokenStreamImpl
 	// The text source for this Tokenizer
-	input io.ReadCloser
+	Input io.ReadCloser
 	// Pending reader: not actually assigned to input until reset()
 	inputPending io.ReadCloser
 }
@@ -28,17 +28,17 @@ func NewTokenizer(input io.ReadCloser) *Tokenizer {
 	return &Tokenizer{
 		TokenStreamImpl: NewTokenStream(),
 		inputPending:    input,
-		input:           ILLEGAL_STATE_READER,
+		Input:           ILLEGAL_STATE_READER,
 	}
 }
 
 func (t *Tokenizer) Close() error {
-	err := t.input.Close()
+	err := t.Input.Close()
 	if err != nil {
 		return err
 	}
 	t.inputPending = ILLEGAL_STATE_READER
-	t.input = ILLEGAL_STATE_READER
+	t.Input = ILLEGAL_STATE_READER
 	return nil
 }
 
@@ -47,8 +47,8 @@ Return the corrected offset. If input is a CharFilter subclass, this
 method calls CharFilter.correctOffset(), else returns currentOff.
 */
 func (t *Tokenizer) CorrectOffset(currentOff int) int {
-	assert2(t.input != nil, "this tokenizer is closed")
-	if v, ok := t.input.(CharFilterService); ok {
+	assert2(t.Input != nil, "this tokenizer is closed")
+	if v, ok := t.Input.(CharFilterService); ok {
 		return v.CorrectOffset(currentOff)
 	}
 	return currentOff
@@ -61,8 +61,14 @@ tokenizer.
 */
 func (t *Tokenizer) SetReader(input io.ReadCloser) error {
 	assert2(input != nil, "input must not be nil")
-	assert2(input != ILLEGAL_STATE_READER, "TokenStream contract violation: close() call missing")
+	assert2(t.Input == ILLEGAL_STATE_READER, "TokenStream contract violation: close() call missing")
 	t.inputPending = input
+	return nil
+}
+
+func (t *Tokenizer) Reset() error {
+	t.Input = t.inputPending
+	t.inputPending = ILLEGAL_STATE_READER
 	return nil
 }
 
@@ -76,4 +82,5 @@ func (r *illegalStateReader) Read(p []byte) (int, error) {
 		"Please see Javadocs of TokenStream class for more information about the correct consuming workflow.")
 }
 
-func (r *illegalStateReader) Close() error { return nil }
+func (r *illegalStateReader) Close() error   { return nil }
+func (r *illegalStateReader) String() string { return "ILLEGAL_STATE_READRE" }
