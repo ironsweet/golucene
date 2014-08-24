@@ -200,7 +200,7 @@ func (h *TermsHashPerFieldImpl) add() (err error) {
 	}
 
 	fmt.Printf("add term=%v doc=%v termId=%v\n",
-		utf8ToString(h.termBytesRef.Value), h.docState.docID, termId)
+		string(h.termBytesRef.Value), h.docState.docID, termId)
 
 	if termId >= 0 { // new posting
 		h.bytesHash.ByteStart(termId)

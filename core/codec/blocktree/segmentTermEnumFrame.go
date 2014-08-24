@@ -558,11 +558,13 @@ func brToString(b []byte) string {
 
 // Simpler version of Lucene's own method
 func utf8ToString(iso8859_1_buf []byte) string {
-	buf := make([]rune, len(iso8859_1_buf))
-	for i, b := range iso8859_1_buf {
-		buf[i] = rune(b)
-	}
-	return string(buf)
+	// buf := make([]rune, len(iso8859_1_buf))
+	// for i, b := range iso8859_1_buf {
+	// 	buf[i] = rune(b)
+	// }
+	// return string(buf)
+	// TODO remove this method
+	return string(iso8859_1_buf)
 }
 
 // Lucene's BytesRef is basically Slice in Go, except here
