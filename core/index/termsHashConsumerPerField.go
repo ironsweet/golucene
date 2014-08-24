@@ -124,7 +124,11 @@ func (c *TermVectorsConsumerPerField) finishDocument() error {
 // 	return nil
 // }
 
-func (c *TermVectorsConsumerPerField) newTerm(termId int) error {
+func (c *TermVectorsConsumerPerField) newTerm(termId int) {
+	panic("not implemented yet")
+}
+
+func (c *TermVectorsConsumerPerField) addTerm(termid int) {
 	panic("not implemented yet")
 }
 
@@ -281,7 +285,7 @@ func (w *FreqProxTermsWriterPerField) writeOffsets(termId, offsetAccum int) {
 	panic("not implemented yet")
 }
 
-func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
+func (w *FreqProxTermsWriterPerField) newTerm(termId int) {
 	// First time we're seeing this term since the last flush
 	w.docState.testPoint("FreqProxTermsWriterPerField.newTerm start")
 
@@ -308,7 +312,31 @@ func (w *FreqProxTermsWriterPerField) newTerm(termId int) error {
 		w.fieldState.maxTermFrequency = 1
 	}
 	w.fieldState.uniqueTermCount++
-	return nil
+}
+
+func (w *FreqProxTermsWriterPerField) addTerm(termId int) {
+	w.docState.testPoint("FreqProxTermsWriterPerField.addTerm start")
+
+	postings := w.freqProxPostingsArray
+
+	assert(!w.hasFreq || postings.termFreqs[termId] > 0)
+
+	if !w.hasFreq {
+		panic("not implemented yet")
+	} else if w.docState.docID != postings.lastDocIDs[termId] {
+		panic("not implemented yet")
+	} else {
+		postings.termFreqs[termId]++
+		if n := postings.termFreqs[termId]; n > w.fieldState.maxTermFrequency {
+			w.fieldState.maxTermFrequency = n
+		}
+		if w.hasProx {
+			w.writeProx(termId, w.fieldState.position-postings.lastPositions[termId])
+			if w.hasOffsets {
+				w.writeOffsets(termId, w.fieldState.offset)
+			}
+		}
+	}
 }
 
 func (w *FreqProxTermsWriterPerField) newPostingsArray() {

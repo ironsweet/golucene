@@ -38,7 +38,9 @@ type TermsHashPerField interface {
 
 type TermsHashPerFieldSPI interface {
 	// Called when a term is seen for the first time.
-	newTerm(int) error
+	newTerm(int)
+	// Called when a previously seen term is seen again.
+	addTerm(int)
 	// Called when postings array is initialized or resized.
 	newPostingsArray()
 	// Creates a new postings array of the specified size.
@@ -223,11 +225,14 @@ func (h *TermsHashPerFieldImpl) add() (err error) {
 		}
 		h.postingsArray.byteStarts[termId] = h.intUptos[h.intUptoStart]
 
-		if err = h.spi.newTerm(termId); err != nil {
-			return
-		}
+		h.spi.newTerm(termId)
+
 	} else {
-		panic("not implemented yet")
+		termId = (-termId) - 1
+		intStart := h.postingsArray.intStarts[termId]
+		h.intUptos = h.intPool.Buffers[intStart>>util.INT_BLOCK_SHIFT]
+		h.intUptoStart = intStart & util.INT_BLOCK_MASK
+		h.spi.addTerm(termId)
 	}
 
 	if h.doNextCall {
