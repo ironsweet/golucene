@@ -159,8 +159,8 @@ func LZ4Compress(bytes []byte, out DataOutput, ht *LZ4HashTable) error {
 		for offset <= limit {
 			// find a match
 			var ref int
-			var hasMore bool
-			for hasMore = offset < matchLimit; hasMore; offset++ {
+			var hasMore = offset < matchLimit
+			for hasMore {
 				v := readInt(bytes, offset)
 				h := hash(v, hashLog)
 				ref = base + int(hashTable.Get(h))
@@ -169,6 +169,8 @@ func LZ4Compress(bytes []byte, out DataOutput, ht *LZ4HashTable) error {
 				if offset-ref < MAX_DISTANCE && readInt(bytes, ref) == v {
 					break
 				}
+				offset++
+				hasMore = offset < matchLimit
 			}
 			if !hasMore {
 				break
