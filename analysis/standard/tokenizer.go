@@ -85,7 +85,7 @@ type StandardTokenizer struct {
 Creates a new instance of the StandardTokenizer. Attaches the input
 to the newly created JFlex scanner.
 */
-func newStandardTokenizer(matchVersion util.Version, input io.ReadCloser) *StandardTokenizer {
+func newStandardTokenizer(matchVersion util.Version, input io.RuneReader) *StandardTokenizer {
 	ans := &StandardTokenizer{
 		Tokenizer:      NewTokenizer(input),
 		maxTokenLength: DEFAULT_MAX_TOKEN_LENGTH,
@@ -180,7 +180,7 @@ type StandardTokenizerInterface interface {
 	// All internal variables are reset, the old input stream cannot be
 	// reused (internal buffer) is discarded and lost). Lexical state
 	// is set to ZZ_INITIAL.
-	yyreset(io.ReadCloser)
+	yyreset(io.RuneReader)
 	// Returns the length of the matched text region.
 	yylength() int
 	// Resumes scanning until the next regular expression is matched,

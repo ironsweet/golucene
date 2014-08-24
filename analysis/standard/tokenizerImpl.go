@@ -1,7 +1,6 @@
 package standard
 
 import (
-	"fmt"
 	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"io"
 )
@@ -795,7 +794,7 @@ type StandardTokenizerImpl struct {
 	zzEOFDone bool
 }
 
-func newStandardTokenizerImpl(in io.ReadCloser) *StandardTokenizerImpl {
+func newStandardTokenizerImpl(in io.RuneReader) *StandardTokenizerImpl {
 	return &StandardTokenizerImpl{
 		zzReader:       in,
 		zzLexicalState: YYINITIAL,
@@ -867,7 +866,7 @@ Lexical state is set to ZZ_INITIAL.
 
 Internal scan buffer is resized down to its initial length, if it has grown.
 */
-func (t *StandardTokenizerImpl) yyreset(reader io.ReadCloser) {
+func (t *StandardTokenizerImpl) yyreset(reader io.RuneReader) {
 	t.zzReader = reader
 	t.zzAtBOL = true
 	t.zzAtEOF = false

@@ -20,7 +20,7 @@ Also note that one should Clone() Analyzer for each Go routine if
 default ReuseStrategy is used.
 */
 type Analyzer interface {
-	TokenStreamForReader(string, io.ReadCloser) (TokenStream, error)
+	TokenStreamForReader(string, io.RuneReader) (TokenStream, error)
 	// Returns a TokenStream suitable for fieldName, tokenizing the
 	// contents of text.
 	//
@@ -41,11 +41,11 @@ type Analyzer interface {
 
 type AnalyzerSPI interface {
 	// Creates a new TokenStreamComponents instance for this analyzer.
-	CreateComponents(fieldName string, reader io.ReadCloser) *TokenStreamComponents
+	CreateComponents(fieldName string, reader io.RuneReader) *TokenStreamComponents
 	// Override this if you want to add a CharFilter chain.
 	//
 	// The default implementation returns reader unchanged.
-	InitReader(fieldName string, reader io.ReadCloser) io.ReadCloser
+	InitReader(fieldName string, reader io.RuneReader) io.RuneReader
 }
 
 type container struct {
@@ -79,11 +79,11 @@ func NewAnalyzerWithStrategy(reuseStrategy ReuseStrategy) *AnalyzerImpl {
 	return ans
 }
 
-func (a *AnalyzerImpl) CreateComponents(fieldName string, reader io.ReadCloser) *TokenStreamComponents {
+func (a *AnalyzerImpl) CreateComponents(fieldName string, reader io.RuneReader) *TokenStreamComponents {
 	panic("must be inherited and implemented")
 }
 
-func (a *AnalyzerImpl) TokenStreamForReader(fieldName string, reader io.ReadCloser) (TokenStream, error) {
+func (a *AnalyzerImpl) TokenStreamForReader(fieldName string, reader io.RuneReader) (TokenStream, error) {
 	components := a.reuseStrategy.ReusableComponents(a, fieldName)
 	r := a.InitReader(fieldName, reader)
 	if components == nil {
@@ -119,7 +119,7 @@ func (a *AnalyzerImpl) TokenStreamForString(fieldName, text string) (TokenStream
 	return components.TokenStream(), nil
 }
 
-func (a *AnalyzerImpl) InitReader(fieldName string, reader io.ReadCloser) io.ReadCloser {
+func (a *AnalyzerImpl) InitReader(fieldName string, reader io.RuneReader) io.RuneReader {
 	return reader
 }
 
@@ -132,7 +132,7 @@ func (a *AnalyzerImpl) OffsetGap(fieldName string) int {
 }
 
 type myTokenizer interface {
-	SetReader(io.ReadCloser) error
+	SetReader(io.RuneReader) error
 }
 
 /*
@@ -151,12 +151,12 @@ type TokenStreamComponents struct {
 	reusableStringReader *ReusableStringReader
 	// Resets the encapculated components with the given reader. If the
 	// components canno be reset, an error should be returned.
-	SetReader func(io.ReadCloser) error
+	SetReader func(io.RuneReader) error
 }
 
 func NewTokenStreamComponents(source myTokenizer, result TokenStream) *TokenStreamComponents {
 	ans := &TokenStreamComponents{source: source, sink: result}
-	ans.SetReader = func(reader io.ReadCloser) error {
+	ans.SetReader = func(reader io.RuneReader) error {
 		return ans.source.SetReader(reader)
 	}
 	return ans

@@ -65,8 +65,8 @@ func assert2(ok bool, msg string) {
 	}
 }
 
-func (f *Field) ReaderValue() io.ReadCloser {
-	if v, ok := f._data.(io.ReadCloser); ok {
+func (f *Field) ReaderValue() io.RuneReader {
+	if v, ok := f._data.(io.RuneReader); ok {
 		return v
 	}
 	return nil

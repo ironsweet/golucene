@@ -49,7 +49,7 @@ func NewStandardAnalyzer(matchVersion util.Version) *StandardAnalyzer {
 	return NewStandardAnalyzerWithStopWords(matchVersion, STOP_WORDS_SET)
 }
 
-func (a *StandardAnalyzer) CreateComponents(fieldName string, reader io.ReadCloser) *TokenStreamComponents {
+func (a *StandardAnalyzer) CreateComponents(fieldName string, reader io.RuneReader) *TokenStreamComponents {
 	src := newStandardTokenizer(a.matchVersion, reader)
 	src.maxTokenLength = a.maxTokenLength
 	var tok TokenStream = newStandardFilter(a.matchVersion, src)
@@ -57,7 +57,7 @@ func (a *StandardAnalyzer) CreateComponents(fieldName string, reader io.ReadClos
 	tok = NewStopFilter(a.matchVersion, tok, a.stopWordSet)
 	ans := NewTokenStreamComponents(src, tok)
 	super := ans.SetReader
-	ans.SetReader = func(reader io.ReadCloser) error {
+	ans.SetReader = func(reader io.RuneReader) error {
 		src.maxTokenLength = a.maxTokenLength
 		return super(reader)
 	}
