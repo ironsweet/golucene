@@ -29,7 +29,7 @@ type Field struct {
 }
 
 /* Create field with Reader value. */
-func NewFieldFromReader(name string, reader io.Reader, ft *FieldType) *Field {
+func NewFieldFromReader(name string, reader io.RuneReader, ft *FieldType) *Field {
 	assert2(name != "", "name cannot be empty")
 	assert2(ft != nil, "type can not be nil")
 	assert2(reader != nil, "reader cannot be nil")
@@ -257,7 +257,7 @@ type TextField struct {
 }
 
 /* Creates a new un-stored TextField with Reader value */
-func NewTextFieldFromReader(name string, reader io.Reader) *TextField {
+func NewTextFieldFromReader(name string, reader io.RuneReader) *TextField {
 	return &TextField{
 		NewFieldFromReader(name, reader, TEXT_FIELD_TYPE_NOT_STORED),
 	}
