@@ -20,7 +20,7 @@ type DataOutput interface {
 
 func hash(i, hashBits int) int {
 	assert(hashBits >= 0 && hashBits <= 32)
-	return int(uint(i*-1640531535) >> uint(32-hashBits))
+	return int(uint32(int32(i)*-1640531535) >> uint(32-hashBits))
 }
 
 func readInt(buf []byte, i int) int {

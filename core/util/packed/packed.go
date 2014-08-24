@@ -170,8 +170,9 @@ func FastestFormatAndBits(valueCount, bitsPerValue int,
 	if acceptableOverheadRatio > PackedInts.FASTEST {
 		acceptableOverheadRatio = PackedInts.FASTEST
 	}
+	acceptableOverheadRatioValue := acceptableOverheadRatio * float32(bitsPerValue) // in bits
 
-	maxBitsPerValue := bitsPerValue + int(acceptableOverheadRatio)
+	maxBitsPerValue := bitsPerValue + int(acceptableOverheadRatioValue)
 
 	actualBitsPerValue := -1
 	format := PACKED
@@ -192,7 +193,7 @@ func FastestFormatAndBits(valueCount, bitsPerValue int,
 		for bpv := bitsPerValue; bpv <= maxBitsPerValue; bpv++ {
 			if PackedFormat(PACKED_SINGLE_BLOCK).IsSupported(uint32(bpv)) {
 				overhead := PackedFormat(PACKED_SINGLE_BLOCK).OverheadPerValue(bpv)
-				acceptableOverhead := acceptableOverheadRatio + float32(bitsPerValue-bpv)
+				acceptableOverhead := acceptableOverheadRatioValue + float32(bitsPerValue-bpv)
 				if overhead <= acceptableOverhead {
 					actualBitsPerValue = bpv
 					format = PACKED_SINGLE_BLOCK
