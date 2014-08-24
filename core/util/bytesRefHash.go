@@ -206,7 +206,7 @@ func (h *BytesRefHash) Add(bytes []byte) (int, error) {
 			}
 			h.pool.NextBuffer()
 		}
-		buffer := h.pool.buffer
+		buffer := h.pool.Buffer
 		bufferUpto := h.pool.ByteUpto
 		if h.count >= len(h.bytesStart) {
 			h.bytesStart = h.bytesStartArray.Grow()

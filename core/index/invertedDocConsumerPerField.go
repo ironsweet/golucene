@@ -248,7 +248,9 @@ func (h *TermsHashPerFieldImpl) writeByte(stream int, b byte) {
 	offset := upto & util.BYTE_BLOCK_MASK
 	if bytes[offset] != 0 {
 		// end of slice; allocate a new one
-		panic("not implemented yet")
+		offset = h.bytePool.AllocSlice(bytes, offset)
+		bytes = h.bytePool.Buffer
+		h.intUptos[h.intUptoStart+stream] = offset + h.bytePool.ByteOffset
 	}
 	bytes[offset] = b
 	h.intUptos[h.intUptoStart+stream]++
@@ -258,6 +260,7 @@ func (h *TermsHashPerFieldImpl) writeVInt(stream, i int) {
 	assert(stream < h.streamCount)
 	for (i & ^0x7F) != 0 {
 		h.writeByte(stream, byte((i&0x7F)|0x80))
+		i = int(uint(i) >> 7)
 	}
 	h.writeByte(stream, byte(i))
 }

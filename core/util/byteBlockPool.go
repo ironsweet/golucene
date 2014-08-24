@@ -6,6 +6,12 @@ import (
 
 // util/ByteBlockPool.java
 
+/*
+An array holding the offset into the LEVEL_SIZE_ARRAY to quickly
+navigate to the next slice level.
+*/
+var NEXT_LEVEL_ARRAY = []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 9}
+
 /* An array holding the level sizes for byte slices. */
 var LEVEL_SIZE_ARRAY = []int{5, 14, 20, 30, 40, 40, 80, 80, 120, 200}
 
@@ -30,7 +36,7 @@ type ByteBlockPool struct {
 	Buffers    [][]byte
 	bufferUpto int
 	ByteUpto   int
-	buffer     []byte
+	Buffer     []byte
 	ByteOffset int
 	allocator  ByteAllocator
 }
@@ -70,7 +76,7 @@ func (pool *ByteBlockPool) Reset(zeroFillBuffers, reuseFirst bool) {
 			pool.bufferUpto = -1
 			pool.ByteUpto = BYTE_BLOCK_SIZE
 			pool.ByteOffset = -BYTE_BLOCK_SIZE
-			pool.buffer = nil
+			pool.Buffer = nil
 		}
 	}
 }
@@ -87,8 +93,8 @@ func (pool *ByteBlockPool) NextBuffer() {
 		copy(newBuffers, pool.Buffers)
 		pool.Buffers = newBuffers
 	}
-	pool.buffer = pool.allocator.allocate()
-	pool.Buffers[1+pool.bufferUpto] = pool.buffer
+	pool.Buffer = pool.allocator.allocate()
+	pool.Buffers[1+pool.bufferUpto] = pool.Buffer
 	pool.bufferUpto++
 
 	pool.ByteUpto = 0
@@ -102,8 +108,44 @@ func (pool *ByteBlockPool) NewSlice(size int) int {
 	}
 	upto := pool.ByteUpto
 	pool.ByteUpto += size
-	pool.buffer[pool.ByteUpto-1] = 16
+	pool.Buffer[pool.ByteUpto-1] = 16
 	return upto
+}
+
+/*
+Creates a new byte slice with the given starting size and returns the
+slices offset in the pool.
+*/
+func (p *ByteBlockPool) AllocSlice(slice []byte, upto int) int {
+	level := slice[upto] & 15
+	newLevel := NEXT_LEVEL_ARRAY[level]
+	newSize := LEVEL_SIZE_ARRAY[newLevel]
+
+	// maybe allocate another block
+	if p.ByteUpto > BYTE_BLOCK_SIZE-newSize {
+		p.NextBuffer()
+	}
+
+	newUpto := p.ByteUpto
+	offset := newUpto + p.ByteOffset
+	p.ByteUpto += newSize
+
+	// copy forward the post 3 bytes (which we are about to overwrite
+	// with the forwarding address):
+	p.Buffer[newUpto] = slice[upto-3]
+	p.Buffer[newUpto+1] = slice[upto-2]
+	p.Buffer[newUpto+2] = slice[upto-1]
+
+	// write forwarding address at end of last slice:
+	slice[upto-3] = byte(uint(offset) >> 24)
+	slice[upto-2] = byte(uint(offset) >> 16)
+	slice[upto-1] = byte(uint(offset) >> 8)
+	slice[upto] = byte(offset)
+
+	// write new level:
+	p.Buffer[p.ByteUpto-1] = byte(16 | newLevel)
+
+	return newUpto + 3
 }
 
 /* Fill in a BytesRef from term's length & bytes encoded in byte block */
@@ -139,6 +181,7 @@ func newByteAllocator(blockSize int) *ByteAllocatorImpl {
 }
 
 func (a *ByteAllocatorImpl) allocate() []byte {
+	assert(a.blockSize <= 1000000) // should not allocate more than 1MB?
 	return make([]byte, a.blockSize)
 }
 
