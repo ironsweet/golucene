@@ -382,7 +382,7 @@ func newFreqProxPostingsArray(size int, writeFreqs, writeProx, writeOffsets bool
 		assert(!writeOffsets)
 	}
 	// fmt.Printf("PA init freqs=%v pos=%v offs=%v\n", writeFreqs, writeProx, writeOffsets)
-	return newParallelPostingsArray(ans, size)
+	return ans.ParallelPostingsArray
 }
 
 func (arr *FreqProxPostingsArray) newInstance(size int) PostingsArray {

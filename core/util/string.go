@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -26,7 +27,7 @@ catch any places that somehow rely on hash function/order across VM
 instances:
 */
 var GOOD_FAST_HASH_SEED = func() uint32 {
-	if prop := os.Getenv("tests.seed"); prop != "" {
+	if prop := os.Getenv("tests_seed"); prop != "" {
 		// so if there is a test failure that relied on hash order, we
 		// remain reproducible based on the test seed:
 		if len(prop) > 8 {
@@ -36,6 +37,7 @@ var GOOD_FAST_HASH_SEED = func() uint32 {
 		if err != nil {
 			panic(err)
 		}
+		fmt.Printf("tests_seed=%v\n", uint32(n))
 		return uint32(n)
 	} else {
 		return uint32(time.Now().Nanosecond())
