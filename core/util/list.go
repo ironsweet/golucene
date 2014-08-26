@@ -27,6 +27,6 @@ func (s *ListIntroSorter) SetPivot(i int) {
 	panic("not implemented yet")
 }
 
-func (s *ListIntroSorter) ComparePivot(j int) bool {
+func (s *ListIntroSorter) PivotLess(j int) bool {
 	panic("not implemented yet")
 }

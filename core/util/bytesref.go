@@ -73,12 +73,14 @@ func (a *BytesRef) copyBytes(other *BytesRef) {
 func UTF8SortedAsUnicodeLess(aBytes, bBytes []byte) bool {
 	aLen, bLen := len(aBytes), len(bBytes)
 
-	for i, _ := range aBytes {
+	for i, v := range aBytes {
 		if i >= bLen {
 			break
 		}
-		if diff := aBytes[i] - bBytes[i]; diff != 0 {
-			return diff < 0
+		if v < bBytes[i] {
+			return true
+		} else if v > bBytes[i] {
+			return false
 		}
 	}
 

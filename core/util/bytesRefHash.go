@@ -126,7 +126,7 @@ func (a *bytesRefIntroSorter) SetPivot(i int) {
 	a.owner.pool.SetBytesRef(a.pivot, a.owner.bytesStart[id])
 }
 
-func (a *bytesRefIntroSorter) ComparePivot(j int) bool {
+func (a *bytesRefIntroSorter) PivotLess(j int) bool {
 	id := a.compact[j]
 	assert(len(a.owner.bytesStart) > id)
 	a.owner.pool.SetBytesRef(a.scratch2, a.owner.bytesStart[id])

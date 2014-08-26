@@ -278,7 +278,7 @@ type IntroSorterSPI interface {
 	// Save the value at slot i so that it can later be used as a pivot.
 	SetPivot(int)
 	// Compare the pivot with the slot at j, similarly to Less(int,int).
-	ComparePivot(int) bool
+	PivotLess(int) bool
 }
 
 /*
@@ -344,11 +344,11 @@ func (s *IntroSorter) quicksort(from, to, maxDepth int) {
 
 	s.spi.SetPivot(mid)
 	for {
-		for s.spi.ComparePivot(right) {
+		for s.spi.PivotLess(right) {
 			right--
 		}
 
-		for left < right && !s.spi.ComparePivot(left) {
+		for left < right && !s.spi.PivotLess(left) {
 			left++
 		}
 

@@ -164,6 +164,24 @@ ByteSequenceOutputs or IntSequenceOutputs) then you cannot reuse
 across calls.
 */
 func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
+	// { // debug
+	// 	bytes := make([]byte, input.Length)
+	// 	for i, _ := range bytes {
+	// 		bytes[i] = byte(input.Ints[i])
+	// 	}
+	// 	if output == NO_OUTPUT {
+	// 		fmt.Printf("\nFST ADD: input=%v %v\n", string(bytes), bytes)
+	// 	} else {
+	// 		panic("not implemented yet")
+	// 		// fmt.Printf("\nFST ADD: input=%v %v output=%v", string(bytes), bytes, b.fst.outputs.outputToString(output)));
+	// 	}
+	// }
+
+	// de-dup NO_OUTPUT since it must be a singleton:
+	if output == NO_OUTPUT {
+		output = NO_OUTPUT
+	}
+
 	assert2(b.lastInput.Length == 0 || !input.Less(b.lastInput),
 		"inputs are added out of order, lastInput=%v vs input=%v",
 		b.lastInput, input)
