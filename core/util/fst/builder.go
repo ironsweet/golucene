@@ -393,7 +393,9 @@ func (n *UnCompiledNode) Clear() {
 }
 
 func (n *UnCompiledNode) lastOutput(labelToMatch int) interface{} {
-	panic("not implementd yet")
+	assert(n.NumArcs > 0)
+	assert(n.Arcs[n.NumArcs-1].label == labelToMatch)
+	return n.Arcs[n.NumArcs-1].output
 }
 
 func (n *UnCompiledNode) addArc(label int, target Node) {
