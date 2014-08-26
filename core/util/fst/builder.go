@@ -254,7 +254,7 @@ func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
 		if lastOutput != b.NO_OUTPUT {
 			panic("not implemented yet")
 		} else {
-			panic("not implemented yet")
+			commonOutputPrefix = NO_OUTPUT
 		}
 
 		output = b.fst.outputs.Subtract(output, commonOutputPrefix)
