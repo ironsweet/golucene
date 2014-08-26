@@ -70,7 +70,30 @@ func (r *ByteSliceReader) ReadByte() (byte, error) {
 }
 
 func (r *ByteSliceReader) nextSlice() {
-	panic("not implemented yet")
+	// skip to our next slice
+	nextIndex := (int(r.buffer[r.limit]) << 24) +
+		(int(r.buffer[r.limit+1]) << 16) +
+		(int(r.buffer[r.limit+2]) << 8) +
+		int(r.buffer[r.limit+3])
+
+	r.level = util.NEXT_LEVEL_ARRAY[r.level]
+	newSize := util.LEVEL_SIZE_ARRAY[r.level]
+
+	r.bufferUpto = nextIndex / util.BYTE_BLOCK_SIZE
+	r.bufferOffset = r.bufferUpto * util.BYTE_BLOCK_SIZE
+
+	r.buffer = r.pool.Buffers[r.bufferUpto]
+	r.upto = nextIndex & util.BYTE_BLOCK_MASK
+
+	if nextIndex+newSize >= r.endIndex {
+		// we are advancing to the final slice
+		assert(r.endIndex-nextIndex > 0)
+		r.limit = r.endIndex - r.bufferOffset
+	} else {
+		// this is not the final slice (subtract 4 for the forwarding
+		// address at the end of this new slice)
+		r.limit = r.upto + newSize - 4
+	}
 }
 
 func (r *ByteSliceReader) ReadBytes(buf []byte) error {
