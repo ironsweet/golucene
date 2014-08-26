@@ -168,7 +168,30 @@ func (b *Builder) freezeTail(prefixLenPlus1 int) error {
 			node.Clear()
 			parent.deleteLast(b.lastInput.At(idx-1), node)
 		} else {
-			panic("not implemented yet")
+
+			if b.minSuffixCount2 != 0 {
+				b.compileAllTargets(node, b.lastInput.Length-idx)
+			}
+			nextFinalOutput := node.output
+
+			// we "fake" the node as being final if it has no outgoing arcs;
+			// in theory we could leave it as non-final (the FST can
+			// represent this), but FSTEnum, Util, etc., have trouble w/
+			// non-final dead-end states:
+			isFinal := node.IsFinal || node.NumArcs == 0
+
+			if doCompile {
+				// this node makes it and we now compile it. first, compile
+				// any targets that were previously undecided:
+				node, err := b.compileNode(node, 1+b.lastInput.Length-idx)
+				if err != nil {
+					return err
+				}
+				parent.replaceLast(b.lastInput.Ints[b.lastInput.Offset+idx-1],
+					node, nextFinalOutput, isFinal)
+			} else {
+				panic("not implemented yet")
+			}
 		}
 	}
 	return nil
@@ -439,6 +462,15 @@ func (n *UnCompiledNode) addArc(label int, target Node) {
 	arc.output = n.owner.NO_OUTPUT
 	arc.nextFinalOutput = n.owner.NO_OUTPUT
 	arc.isFinal = false
+}
+
+func (n *UnCompiledNode) replaceLast(labelToMatch int, target Node, nextFinalOutput interface{}, isFinal bool) {
+	assert(n.NumArcs > 0)
+	arc := n.Arcs[n.NumArcs-1]
+	assert2(arc.label == labelToMatch, "arc.label=%v vs %v", arc.label, labelToMatch)
+	arc.Target = target
+	arc.nextFinalOutput = nextFinalOutput
+	arc.isFinal = isFinal
 }
 
 func (n *UnCompiledNode) deleteLast(label int, target Node) {
