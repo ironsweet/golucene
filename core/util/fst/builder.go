@@ -388,6 +388,9 @@ func (n *UnCompiledNode) addArc(label int, target Node) {
 	if n.NumArcs == len(n.Arcs) {
 		newArcs := make([]*builderArc, util.Oversize(n.NumArcs+1, util.NUM_BYTES_OBJECT_REF))
 		copy(newArcs, n.Arcs)
+		for arcIdx := n.NumArcs; arcIdx < len(newArcs); arcIdx++ {
+			newArcs[arcIdx] = new(builderArc)
+		}
 		n.Arcs = newArcs
 	}
 	arc := n.Arcs[n.NumArcs]

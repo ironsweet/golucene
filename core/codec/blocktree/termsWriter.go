@@ -637,7 +637,7 @@ func (w *TermsWriter) StartTerm(text []byte) (codec.PostingsConsumer, error) {
 
 func (w *TermsWriter) FinishTerm(text []byte, stats *codec.TermStats) (err error) {
 	assert(stats.DocFreq > 0)
-	fmt.Printf("BTTW.finishTerm term=%v:%v seg=%v df=%v",
+	fmt.Printf("BTTW.finishTerm term=%v:%v seg=%v df=%v\n",
 		w.fieldInfo.Name, utf8ToString(text), w.owner.segment, stats.DocFreq)
 
 	if err = w.blockBuilder.Add(fst.ToIntsRef(text, w.scratchIntsRef), w.noOutputs.NoOutput()); err != nil {
