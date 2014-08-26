@@ -40,6 +40,7 @@ type Outputs interface {
 	 *  ensure that all methods return the single object if
 	 *  it's really no output */
 	NoOutput() interface{}
+	outputToString(interface{}) string
 	merge(first, second interface{}) interface{}
 }
 
@@ -115,6 +116,10 @@ func (o *NoOutputs) Read(in util.DataInput) (interface{}, error) {
 
 func (o *NoOutputs) NoOutput() interface{} {
 	return NO_OUTPUT
+}
+
+func (o *NoOutputs) outputToString(output interface{}) string {
+	return ""
 }
 
 // fst/ByteSequenceOutputs.java
@@ -193,6 +198,10 @@ func (out *ByteSequenceOutputs) Read(in util.DataInput) (e interface{}, err erro
 
 func (out *ByteSequenceOutputs) NoOutput() interface{} {
 	return noOutputs
+}
+
+func (out *ByteSequenceOutputs) outputToString(output interface{}) string {
+	return string(output.(*util.BytesRef).Value)
 }
 
 func (out *ByteSequenceOutputs) String() string {

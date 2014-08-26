@@ -12,7 +12,7 @@ type abstractPagedMutableSPI interface {
 type abstractPagedMutable struct {
 	spi          abstractPagedMutableSPI
 	size         int64
-	pageShift    int
+	pageShift    uint
 	pageMask     int
 	subMutables  []Mutable
 	bitsPerValue int
@@ -25,7 +25,7 @@ func newAbstractPagedMutable(spi abstractPagedMutableSPI,
 		spi:          spi,
 		bitsPerValue: bitsPerValue,
 		size:         size,
-		pageShift:    checkBlockSize(pageSize, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE),
+		pageShift:    uint(checkBlockSize(pageSize, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)),
 		pageMask:     pageSize - 1,
 		subMutables:  make([]Mutable, numPages),
 	}
@@ -56,8 +56,31 @@ func (m *abstractPagedMutable) pageSize() int {
 	return m.pageMask + 1
 }
 
+func (m *abstractPagedMutable) Size() int64 {
+	return m.size
+}
+
+func (m *abstractPagedMutable) pageIndex(index int64) int {
+	return int(uint64(index) >> m.pageShift)
+}
+
 func (m *abstractPagedMutable) indexInPage(index int64) int {
 	return int(index & int64(m.pageMask))
+}
+
+func (m *abstractPagedMutable) Get(index int64) int64 {
+	assert(index >= 0 && index < m.size)
+	pageIndex := m.pageIndex(index)
+	indexInPage := m.indexInPage(index)
+	return m.subMutables[pageIndex].Get(indexInPage)
+}
+
+/* set value at index. */
+func (m *abstractPagedMutable) Set(index, value int64) {
+	assert(index >= 0 && index < m.size)
+	pageIndex := m.pageIndex(index)
+	indexInPage := m.indexInPage(index)
+	m.subMutables[pageIndex].Set(indexInPage, value)
 }
 
 // packed/PagedGrowableWriter.java
