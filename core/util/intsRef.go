@@ -34,8 +34,37 @@ func (a *IntsRef) Value() []int {
 }
 
 /* Signed int order comparison */
-func (a *IntsRef) CompareTo(other *IntsRef) bool {
-	panic("not implemented yet")
+func (a *IntsRef) Less(other *IntsRef) bool {
+	if a == other {
+		return false
+	}
+
+	aInts := a.Ints
+	aUpto := a.Offset
+	bInts := other.Ints
+	bUpto := other.Offset
+
+	var aStop int
+	if a.Length < other.Length {
+		aStop = aUpto + a.Length
+	} else {
+		aStop = aUpto + other.Length
+	}
+
+	for aUpto < aStop {
+		aInt := aInts[aUpto]
+		aUpto++
+		bInt := bInts[bUpto]
+		bUpto++
+		if aInt > bInt {
+			return false
+		} else if aInt < bInt {
+			return true
+		}
+	}
+
+	// one is a prefix of the other, or, they are equal:
+	return a.Length < other.Length
 }
 
 func (a *IntsRef) CopyInts(other *IntsRef) {

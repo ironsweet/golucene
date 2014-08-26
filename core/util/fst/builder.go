@@ -164,7 +164,7 @@ ByteSequenceOutputs or IntSequenceOutputs) then you cannot reuse
 across calls.
 */
 func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
-	assert2(b.lastInput.Length == 0 || !input.CompareTo(b.lastInput),
+	assert2(b.lastInput.Length == 0 || !input.Less(b.lastInput),
 		"inputs are added out of order, lastInput=%v vs input=%v",
 		b.lastInput, input)
 
