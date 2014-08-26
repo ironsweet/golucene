@@ -141,7 +141,14 @@ order to reuse this BytesRefHash instance.
 */
 func (h *BytesRefHash) Sort(comp func(a, b []byte) bool) []int {
 	compact := h.compact()
-	newBytesRefIntroSorter(h, compact, comp).Sort(0, h.count)
+	s := newBytesRefIntroSorter(h, compact, comp)
+	s.Sort(0, h.count)
+	// for i, _ := range compact {
+	// 	if compact[i+1] == -1 {
+	// 		break
+	// 	}
+	// 	assert(!s.Less(i+1, i))
+	// }
 	return compact
 }
 

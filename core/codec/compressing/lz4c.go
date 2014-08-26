@@ -130,6 +130,7 @@ func ceilLog2(n int) int {
 	if n == 1 {
 		return 0
 	}
+	n--
 	ans := 0
 	for n > 0 {
 		n >>= 1

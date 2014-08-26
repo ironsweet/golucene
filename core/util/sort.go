@@ -38,7 +38,7 @@ func (sorter *Sorter) insertionSort(from, to int) {
 	for i := from + 1; i < to; i++ {
 		for j := i; j > from; j-- {
 			if sorter.Less(j, j-1) {
-				sorter.Swap(j-1, i)
+				sorter.Swap(j-1, j)
 			} else {
 				break
 			}
@@ -303,6 +303,7 @@ func ceilLog2(n int) int {
 	if n == 1 {
 		return 0
 	}
+	n--
 	ans := 0
 	for n > 0 {
 		n >>= 1
@@ -319,10 +320,16 @@ func (s *IntroSorter) Sort(from, to int) {
 func (s *IntroSorter) quicksort(from, to, maxDepth int) {
 	if to-from < SORTER_THRESHOLD {
 		s.insertionSort(from, to)
+		// for i := from; i < to-1; i++ {
+		// 	assert(!s.Less(i+1, i))
+		// }
 		return
 	}
 	if maxDepth--; maxDepth < 0 {
 		s.heapSort(from, to)
+		// for i := from; i < to-1; i++ {
+		// 	assert(!s.Less(i+1, i))
+		// }
 		return
 	}
 
@@ -362,4 +369,7 @@ func (s *IntroSorter) quicksort(from, to, maxDepth int) {
 
 	s.quicksort(from, left+1, maxDepth)
 	s.quicksort(left+1, to, maxDepth)
+	// for i := from; i < to-1; i++ {
+	// 	assert(!s.Less(i+1, i))
+	// }
 }
