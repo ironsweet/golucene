@@ -305,7 +305,7 @@ func (b *PendingBlock) compileIndex(floorBlocks []*PendingBlock,
 	if err != nil {
 		return err
 	}
-	err = indexBuilder.Add(fst.ToIntsRef(b.prefix, b.sctrachIntsRef), util.NewBytesRef(bytes))
+	err = indexBuilder.Add(fst.ToIntsRef(b.prefix, b.sctrachIntsRef), bytes)
 	if err != nil {
 		return err
 	}
@@ -479,13 +479,13 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 	}
 
 	fmt.Printf("  writeBlock %vseg=%v len(pending)=%v prefixLength=%v "+
-		"indexPrefix=%v entCount= %v startFP=%v futureTermCount=%v%v "+
+		"indexPrefix=%v entCount=%v startFP=%v futureTermCount=%v%v "+
 		"isLastInFloor=%v\n",
 		map[bool]string{true: "(floor) "}[isFloor],
 		w.owner.segment,
 		len(w.pending),
 		prefixLength,
-		utf8ToString(prefix),
+		prefix,
 		length,
 		startFP,
 		futureTermCount,
@@ -689,7 +689,7 @@ func (w *TermsWriter) Finish(sumTotalTermFreq, sumDocFreq int64, docCount int) e
 
 		w.owner.fields = append(w.owner.fields, newFieldMetaData(
 			w.fieldInfo,
-			w.pending[0].(*PendingBlock).index.EmptyOutput().(*util.BytesRef).Value,
+			w.pending[0].(*PendingBlock).index.EmptyOutput().([]byte),
 			w.numTerms,
 			w.indexStartFP,
 			sumTotalTermFreq,

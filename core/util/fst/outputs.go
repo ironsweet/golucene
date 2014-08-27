@@ -20,6 +20,8 @@ type Outputs interface {
 	Subtract(output1, output2 interface{}) interface{}
 	/** Eg add("foo", "bar") -> "foobar" */
 	Add(prefix interface{}, output interface{}) interface{}
+	// Encode an output value into a DataOutput.
+	Write(interface{}, util.DataOutput) error
 	// Encode an final node output value into a DataOutput. By default
 	// this just calls write()
 	writeFinalOutput(interface{}, util.DataOutput) error
@@ -132,7 +134,6 @@ type ByteSequenceOutputs struct {
 	*abstractOutputs
 }
 
-var noOutputs = make([]byte, 0)
 var oneByteSequenceOutputs *ByteSequenceOutputs
 
 func ByteSequenceOutputsSingleton() *ByteSequenceOutputs {
@@ -148,20 +149,16 @@ func (out *ByteSequenceOutputs) Subtract(output1, output2 interface{}) interface
 }
 
 func (out *ByteSequenceOutputs) Add(_prefix interface{}, _output interface{}) interface{} {
-	if _prefix == nil || _output == nil {
-		panic("assert fail")
-	}
-	prefix, output := _prefix.([]byte), _output.([]byte)
-	// if prefix == noOutputs {
-	if len(prefix) == 0 {
-		return output
-		// } else if output == noOutputs {
-	} else if len(output) == 0 {
-		return prefix
+	assert(_prefix != nil)
+	assert(_output != nil)
+	if _prefix == NO_OUTPUT {
+		return _output
+	} else if _output == NO_OUTPUT {
+		return _prefix
 	} else {
-		// if len(prefix) == 0 || len(output) == 0 {
-		// 	panic("assert fail")
-		// }
+		prefix, output := _prefix.([]byte), _output.([]byte)
+		assert(len(prefix) > 0)
+		assert(len(output) > 0)
 		result := make([]byte, len(prefix)+len(output))
 		copy(result, prefix)
 		copy(result[len(prefix):], output)
@@ -171,11 +168,11 @@ func (out *ByteSequenceOutputs) Add(_prefix interface{}, _output interface{}) in
 
 func (o *ByteSequenceOutputs) Write(obj interface{}, out util.DataOutput) error {
 	assert(obj != nil)
-	prefix, ok := obj.(*util.BytesRef)
+	prefix, ok := obj.([]byte)
 	assert(ok)
-	err := out.WriteVInt(int32(len(prefix.Value)))
+	err := out.WriteVInt(int32(len(prefix)))
 	if err == nil {
-		err = out.WriteBytes(prefix.Value)
+		err = out.WriteBytes(prefix)
 	}
 	return err
 }
@@ -197,11 +194,11 @@ func (out *ByteSequenceOutputs) Read(in util.DataInput) (e interface{}, err erro
 }
 
 func (out *ByteSequenceOutputs) NoOutput() interface{} {
-	return noOutputs
+	return NO_OUTPUT
 }
 
 func (out *ByteSequenceOutputs) outputToString(output interface{}) string {
-	return string(output.(*util.BytesRef).Value)
+	return fmt.Sprintf("%v", output.([]byte))
 }
 
 func (out *ByteSequenceOutputs) String() string {

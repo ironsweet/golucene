@@ -8,6 +8,7 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
 	"log"
+	"math"
 )
 
 type InputType int
@@ -27,6 +28,10 @@ const (
 	FST_BIT_ARC_HAS_FINAL_OUTPUT = byte(1 << 5)
 	FST_BIT_TARGET_DELTA         = byte(1 << 6)
 	FST_ARCS_AS_FIXED_ARRAY      = FST_BIT_ARC_HAS_FINAL_OUTPUT
+
+	FIXED_ARRAY_SHALLOW_DISTANCE = 3 // 0 => only root node
+	FIXED_ARRAY_NUM_ARCS_SHALLOW = 5
+	FIXED_ARRAY_NUM_ARCS_DEEP    = 10
 
 	FST_FILE_FORMAT_NAME    = "FST"
 	FST_VERSION_PACKED      = 3
@@ -119,7 +124,8 @@ func hasFlag(flags, bit byte) bool {
 }
 
 type FST struct {
-	inputType InputType
+	inputType   InputType
+	bytesPerArc []int
 	// if non-null, this FST accepts the empty string and
 	// produces this output
 	emptyOutput interface{}
@@ -129,6 +135,8 @@ type FST struct {
 	startNode int64
 
 	outputs Outputs
+
+	lastFrozenNode int64
 
 	NO_OUTPUT interface{}
 
@@ -523,6 +531,18 @@ func (t *FST) Save(out util.DataOutput) error {
 	return err
 }
 
+func (t *FST) writeLabel(out util.DataOutput, v int) error {
+	assert2(v >= 0, "v=%v", v)
+	if t.inputType == INPUT_TYPE_BYTE1 {
+		assert2(v <= 255, "v=%v", v)
+		return out.WriteByte(byte(v))
+	} else if t.inputType == INPUT_TYPE_BYTE2 {
+		panic("not implemented yet")
+	} else {
+		panic("not implemented yet")
+	}
+}
+
 func (t *FST) readLabel(in util.DataInput) (v int, err error) {
 	switch t.inputType {
 	case INPUT_TYPE_BYTE1: // Unsigned byte
@@ -553,7 +573,124 @@ func (t *FST) addNode(nodeIn *UnCompiledNode) (int64, error) {
 		return FST_NON_FINAL_END_NODE, nil
 	}
 
-	panic("not implemented yet")
+	startAddress := t.bytes.position()
+	fmt.Printf("  startAddr=%v\n", startAddress)
+
+	doFixedArray := t.shouldExpand(nodeIn)
+	if doFixedArray {
+		fmt.Println("  fixedArray")
+		if len(t.bytesPerArc) < nodeIn.NumArcs {
+			t.bytesPerArc = make([]int, util.Oversize(nodeIn.NumArcs, 1))
+		}
+	}
+
+	t.arcCount += int64(nodeIn.NumArcs)
+
+	lastArc := nodeIn.NumArcs - 1
+
+	// lastArcStart := t.bytes.position()
+	// maxBytesPerArc := 0
+	for arcIdx := 0; arcIdx < nodeIn.NumArcs; arcIdx++ {
+		arc := nodeIn.Arcs[arcIdx]
+		target := arc.Target.(*CompiledNode)
+		flags := byte(0)
+		fmt.Printf("  arc %v label=%v -> target=%v\n", arcIdx, arc.label, target.node)
+
+		if arcIdx == lastArc {
+			flags += FST_BIT_LAST_ARC
+		}
+
+		if t.lastFrozenNode == target.node && !doFixedArray {
+			flags += FST_BIT_TARGET_NEXT
+		}
+
+		if arc.isFinal {
+			flags += FST_BIT_FINAL_ARC
+			if arc.nextFinalOutput != NO_OUTPUT {
+				flags += FST_BIT_ARC_HAS_FINAL_OUTPUT
+			}
+		} else {
+			assert(arc.nextFinalOutput == NO_OUTPUT)
+		}
+
+		targetHasArcs := target.node > 0
+
+		if !targetHasArcs {
+			flags += FST_BIT_STOP_NODE
+		} else if t.inCounts != nil {
+			panic("not implemented yet")
+		}
+
+		if arc.output != NO_OUTPUT {
+			flags += FST_BIT_ARC_HAS_OUTPUT
+		}
+
+		t.bytes.WriteByte(flags)
+		var err error
+		if err = t.writeLabel(t.bytes, arc.label); err != nil {
+			return 0, err
+		}
+
+		fmt.Printf(
+			"  write arc: label=%c flags=%v target=%v pos=%v output=%v\n",
+			rune(arc.label), flags, target.node, t.bytes.position(),
+			t.outputs.outputToString(arc.output))
+
+		if arc.output != NO_OUTPUT {
+			if err = t.outputs.Write(arc.output, t.bytes); err != nil {
+				return 0, err
+			}
+			fmt.Println("    write output")
+			t.arcWithOutputCount++
+		}
+
+		if arc.nextFinalOutput != NO_OUTPUT {
+			fmt.Println("    write final output")
+			if err = t.outputs.writeFinalOutput(arc.nextFinalOutput, t.bytes); err != nil {
+				return 0, err
+			}
+		}
+
+		if targetHasArcs && (flags&FST_BIT_TARGET_NEXT) == 0 {
+			assert(target.node > 0)
+			fmt.Println("    write target")
+			if err = t.bytes.WriteVLong(target.node); err != nil {
+				return 0, err
+			}
+		}
+
+		// just write the arcs "like normal" on first pass, but record
+		// how many bytes each one took, and max byte size:
+		if doFixedArray {
+			panic("not implemented yet")
+		}
+	}
+
+	if doFixedArray {
+		panic("not implemented yet")
+	}
+
+	thisNodeAddress := t.bytes.position() - 1
+
+	t.bytes.reverse(startAddress, thisNodeAddress)
+
+	// PackedInts uses int as the index, so we cannot handle > 2.1B
+	// nodes when packing:
+	assert2(t.nodeAddress == nil || t.nodeCount < math.MaxInt32,
+		"cannot create a packed FST with more than 2.1 billion nodes")
+
+	t.nodeCount++
+	var node int64
+	if t.nodeAddress != nil {
+		panic("not implemented yet")
+	} else {
+		node = thisNodeAddress
+	}
+	t.lastFrozenNode = node
+
+	fmt.Printf("  ret node=%v address=%v nodeAddress=%v",
+		node, thisNodeAddress, t.nodeAddress)
+	return node, nil
 }
 
 func (t *FST) FirstArc(arc *Arc) *Arc {
@@ -872,6 +1009,12 @@ func (t *FST) seekToNextNode(in BytesReader) error {
 
 func (t *FST) NodeCount() int64 {
 	return t.nodeCount + 1
+}
+
+func (t *FST) shouldExpand(node *UnCompiledNode) bool {
+	return t.allowArrayArcs &&
+		(node.depth <= FIXED_ARRAY_SHALLOW_DISTANCE && node.NumArcs >= FIXED_ARRAY_NUM_ARCS_SHALLOW ||
+			node.NumArcs >= FIXED_ARRAY_NUM_ARCS_DEEP)
 }
 
 func (t *FST) BytesReader() BytesReader {

@@ -155,7 +155,7 @@ func (b *Builder) freezeTail(prefixLenPlus1 int) error {
 			doCompile = b.minSuffixCount2 == 0
 		}
 
-		fmt.Printf("    label=%c idx=%v inputCount=%v doCompile=%v doPrune=%v",
+		fmt.Printf("    label=%c idx=%v inputCount=%v doCompile=%v doPrune=%v\n",
 			b.lastInput.At(idx-1), idx, b.frontier[idx].InputCount, doCompile, doPrune)
 		if node.InputCount < int64(b.minSuffixCount2) ||
 			(b.minSuffixCount2 == 1 && node.InputCount == 1 && idx > 1) {

@@ -95,6 +95,42 @@ func (bs *BytesStore) WriteBytes(buf []byte) error {
 	return nil
 }
 
+/* Reverse from srcPos, inclusive, to destPos, inclusive. */
+func (s *BytesStore) reverse(srcPos, destPos int64) {
+	assert(srcPos < destPos)
+	assert(destPos < s.position())
+	fmt.Printf("reverse src=%v dest=%v\n", srcPos, destPos)
+
+	srcBlockIndex := int(srcPos >> s.blockBits)
+	src := int(srcPos & int64(s.blockMask))
+	srcBlock := s.blocks[srcBlockIndex]
+
+	destBlockIndex := int(destPos >> s.blockBits)
+	dest := int(destPos & int64(s.blockMask))
+	destBlock := s.blocks[destBlockIndex]
+
+	fmt.Printf("  srcBlock=%v destBlock=%v\n", srcBlockIndex, destBlockIndex)
+
+	limit := int((destPos - srcPos + 1) / 2)
+	for i := 0; i < limit; i++ {
+		fmt.Printf("  cycle src=%v dest=%v\n", src, dest)
+		srcBlock[src], destBlock[dest] = destBlock[dest], srcBlock[src]
+		if src++; src == int(s.blockSize) {
+			srcBlockIndex++
+			srcBlock = s.blocks[srcBlockIndex]
+			fmt.Printf("  set destBlock=%v srcBlock=%v\n", destBlock, srcBlock)
+			src = 0
+		}
+
+		if dest--; dest == -1 {
+			destBlockIndex--
+			destBlock = s.blocks[destBlockIndex]
+			fmt.Printf("  set destBlock=%v srcBlock=%v\n", destBlock, srcBlock)
+			dest = int(s.blockSize - 1)
+		}
+	}
+}
+
 func (s *BytesStore) position() int64 {
 	return int64(len(s.blocks)-1)*int64(s.blockSize) + int64(s.nextWrite)
 }
@@ -206,6 +242,12 @@ type BytesStoreReverseReader struct {
 	nextRead   int32
 }
 
+func newBytesStoreReverseReader(owner *BytesStore, current []byte) *BytesStoreReverseReader {
+	ans := &BytesStoreReverseReader{owner: owner, current: current, nextBuffer: -1}
+	ans.DataInputImpl = util.NewDataInput(ans)
+	return ans
+}
+
 func (r *BytesStoreReverseReader) ReadByte() (b byte, err error) {
 	if r.nextRead == -1 {
 		r.current = r.owner.blocks[r.nextBuffer]
@@ -259,9 +301,7 @@ func (bs *BytesStore) reverseReaderAllowSingle(allowSingle bool) BytesReader {
 	if len(bs.blocks) > 0 {
 		current = bs.blocks[0]
 	}
-	ans := &BytesStoreReverseReader{current: current, nextBuffer: -1, nextRead: 0}
-	ans.DataInputImpl = util.NewDataInput(ans)
-	return ans
+	return newBytesStoreReverseReader(bs, current)
 }
 
 type ForwardBytesReader struct {

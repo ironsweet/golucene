@@ -3,7 +3,6 @@ package fst
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util/packed"
-	"reflect"
 )
 
 /* Used to dedup states (lookup already-frozen states) */
@@ -61,7 +60,7 @@ func (nh *NodeHash) hash(node *UnCompiledNode) int64 {
 	h := int64(0)
 	for arcIdx := 0; arcIdx < node.NumArcs; arcIdx++ {
 		arc := node.Arcs[arcIdx]
-		fmt.Printf("  label=%v target=%v h=%v output=%v isFinal?=%v",
+		fmt.Printf("  label=%v target=%v h=%v output=%v isFinal?=%v\n",
 			arc.label, arc.Target.(*CompiledNode).node, h,
 			nh.fst.outputs.outputToString(arc.output), arc.isFinal)
 		h = PRIME*h + int64(arc.label)
@@ -70,10 +69,10 @@ func (nh *NodeHash) hash(node *UnCompiledNode) int64 {
 		h = PRIME*h + hashPtr(arc.output)
 		h = PRIME*h + hashPtr(arc.nextFinalOutput)
 		if arc.isFinal {
-			h = 17
+			h += 17
 		}
 	}
-	fmt.Printf("  ret %v", int32(h))
+	fmt.Printf("  ret %v\n", int32(h))
 	return h
 }
 
@@ -108,8 +107,13 @@ func (nh *NodeHash) hashFrozen(node int64) (int64, error) {
 	return h, nil
 }
 
-func hashPtr(obj interface{}) int64 {
-	return int64(reflect.ValueOf(obj).Pointer())
+func hashPtr(obj interface{}) (h int64) {
+	if obj != nil && obj != NO_OUTPUT {
+		for _, b := range obj.([]byte) {
+			h = PRIME*h + int64(b)
+		}
+	}
+	return
 }
 
 func (nh *NodeHash) add(nodeIn *UnCompiledNode) (int64, error) {
