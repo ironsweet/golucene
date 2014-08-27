@@ -350,6 +350,12 @@ type TermsWriter struct {
 	// Index into pending of most recently written block
 	lastBlockIndex int
 
+	// Re-used when segmenting a too-large block into floor blocks:
+	subBytes         []int
+	subTermCounts    []int
+	subTermCountSums []int
+	subSubCounts     []int
+
 	minTerm []byte
 	maxTerm []byte
 
@@ -365,15 +371,19 @@ func newTermsWriter(owner *BlockTreeTermsWriter,
 	fieldInfo *model.FieldInfo) *TermsWriter {
 	owner.postingsWriter.SetField(fieldInfo)
 	ans := &TermsWriter{
-		owner:          owner,
-		fieldInfo:      fieldInfo,
-		noOutputs:      fst.NO_OUTPUT,
-		lastBlockIndex: -1,
-		scratchIntsRef: util.NewEmptyIntsRef(),
-		suffixWriter:   store.NewRAMOutputStreamBuffer(),
-		statsWriter:    store.NewRAMOutputStreamBuffer(),
-		metaWriter:     store.NewRAMOutputStreamBuffer(),
-		bytesWriter:    store.NewRAMOutputStreamBuffer(),
+		owner:            owner,
+		fieldInfo:        fieldInfo,
+		noOutputs:        fst.NO_OUTPUT,
+		lastBlockIndex:   -1,
+		subBytes:         make([]int, 10),
+		subTermCounts:    make([]int, 10),
+		subTermCountSums: make([]int, 10),
+		subSubCounts:     make([]int, 10),
+		scratchIntsRef:   util.NewEmptyIntsRef(),
+		suffixWriter:     store.NewRAMOutputStreamBuffer(),
+		statsWriter:      store.NewRAMOutputStreamBuffer(),
+		metaWriter:       store.NewRAMOutputStreamBuffer(),
+		bytesWriter:      store.NewRAMOutputStreamBuffer(),
 	}
 	// This builder is just used transiently to fragment terms into
 	// "good" blocks; we don't save the resulting FST:
@@ -428,24 +438,130 @@ blocks. If the entry count is <= maxItemsPerBlock we just write a
 single blocks; else we break into primary (initial) block and then
 one or more following floor blocks:
 */
-func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count int) error {
+func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count int) (err error) {
 	fmt.Printf("writeBlocks count=%v\n", count)
 	if count <= w.owner.maxItemsInBlock {
 		// Easy case: not floor block. Eg, prefix is "foo", and we found
 		// 30 terms/sub-blocks starting w/ that prefix, and
 		// minItemsInBlock <= 30 <= maxItemsInBlock.
-		nonFloorBlock, err := w.writeBlock(prevTerm, prefixLength, prefixLength, count, count, 0, false, -1, true)
-		if err != nil {
-			return err
+		var nonFloorBlock *PendingBlock
+		if nonFloorBlock, err = w.writeBlock(prevTerm, prefixLength,
+			prefixLength, count, count, 0, false, -1, true); err != nil {
+			return
 		}
-		err = nonFloorBlock.compileIndex(nil, w.owner.scratchBytes)
-		if err != nil {
-			return err
+		if err = nonFloorBlock.compileIndex(nil, w.owner.scratchBytes); err != nil {
+			return
 		}
 		w.pending = append(w.pending, nonFloorBlock)
 		fmt.Println("  1 block")
+
 	} else {
-		panic("not implemented yet")
+		// Floor block case. E.g., prefix is "foo" but we have 100
+		// terms/sub-blocks starting w/ that prefix. We segment the
+		// entries into a primary block and following floor blocks using
+		// the first label in the suffix to assign to floor blocks.
+
+		fmt.Printf("\nwbs count=%v", count)
+
+		savLabel := prevTerm.Ints[prevTerm.Offset+prefixLength]
+
+		// count up how many items fall under each unique label after the prefix.
+
+		lastSuffixLeadLabel := -1
+		termCount := 0
+		subCount := 0
+		numSubs := 0
+
+		for _, ent := range w.pending[len(w.pending)-count:] {
+			// first byte in the suffix of this term
+			var suffixLeadLabel int
+			if ent.isTerm() {
+				term := ent.(*PendingTerm)
+				if len(term.term) == prefixLength {
+					panic("not implemented yet")
+				} else {
+					suffixLeadLabel = int(term.term[prefixLength])
+				}
+			} else {
+				panic("not implemented yet")
+			}
+
+			if suffixLeadLabel != lastSuffixLeadLabel && termCount+subCount != 0 {
+				if len(w.subBytes) == numSubs {
+					w.subBytes = append(w.subBytes, lastSuffixLeadLabel)
+					w.subTermCounts = append(w.subBytes, termCount)
+					w.subSubCounts = append(w.subSubCounts, subCount)
+				} else {
+					w.subBytes[numSubs] = lastSuffixLeadLabel
+					w.subTermCounts[numSubs] = termCount
+					w.subSubCounts[numSubs] = subCount
+				}
+				lastSuffixLeadLabel = suffixLeadLabel
+				termCount, subCount = 0, 0
+				numSubs++
+			}
+
+			if ent.isTerm() {
+				termCount++
+			} else {
+				subCount++
+			}
+		}
+
+		if len(w.subBytes) == numSubs {
+			w.subBytes = append(w.subBytes, lastSuffixLeadLabel)
+			w.subTermCounts = append(w.subBytes, termCount)
+			w.subSubCounts = append(w.subSubCounts, subCount)
+		} else {
+			w.subBytes[numSubs] = lastSuffixLeadLabel
+			w.subTermCounts[numSubs] = termCount
+			w.subSubCounts[numSubs] = subCount
+		}
+		numSubs++
+
+		if len(w.subTermCountSums) < numSubs {
+			panic("not implemented yet")
+		}
+
+		// Roll up (backwards) the termCounts; postings impl needs this
+		// to know where to pull the term slice from its pending term
+		// stack:
+		sum := 0
+		for idx := numSubs - 1; idx >= 0; idx-- {
+			sum += w.subTermCounts[idx]
+			w.subTermCountSums[idx] = sum
+		}
+
+		// Naive greedy segmentation; this is not always best (it can
+		// produce a too-small block as the last block):
+		pendingCount := 0
+		// startLabel := w.subBytes[0]
+		// curStart := count
+		subCount = 0
+
+		var floorBlocks []*PendingBlock
+		var firstBlock *PendingBlock
+
+		for sub := 0; sub < numSubs; sub++ {
+			pendingCount += w.subTermCounts[sub] + w.subSubCounts[sub]
+			fmt.Printf("  %v\n", w.subTermCounts[sub]+w.subSubCounts[sub])
+			subCount++
+
+			// Greedily make a floor block as soon as we've crossed the min count
+			if pendingCount >= w.owner.minItemsInBlock {
+				panic("not implemented yet")
+			}
+		}
+
+		prevTerm.Ints[prevTerm.Offset+prefixLength] = savLabel
+
+		assert(firstBlock != nil)
+		if err = firstBlock.compileIndex(floorBlocks, w.owner.scratchBytes); err != nil {
+			return err
+		}
+
+		w.pending = append(w.pending, firstBlock)
+		fmt.Printf("  done pending.size()=%v", len(w.pending))
 	}
 	w.lastBlockIndex = len(w.pending) - 1
 	return nil
