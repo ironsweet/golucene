@@ -461,7 +461,7 @@ func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count in
 		// entries into a primary block and following floor blocks using
 		// the first label in the suffix to assign to floor blocks.
 
-		fmt.Printf("\nwbs count=%v", count)
+		fmt.Printf("\nwbs count=%v\n", count)
 
 		savLabel := prevTerm.Ints[prevTerm.Offset+prefixLength]
 
@@ -489,7 +489,7 @@ func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count in
 			if suffixLeadLabel != lastSuffixLeadLabel && termCount+subCount != 0 {
 				if len(w.subBytes) == numSubs {
 					w.subBytes = append(w.subBytes, lastSuffixLeadLabel)
-					w.subTermCounts = append(w.subBytes, termCount)
+					w.subTermCounts = append(w.subTermCounts, termCount)
 					w.subSubCounts = append(w.subSubCounts, subCount)
 				} else {
 					w.subBytes[numSubs] = lastSuffixLeadLabel
@@ -510,7 +510,7 @@ func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count in
 
 		if len(w.subBytes) == numSubs {
 			w.subBytes = append(w.subBytes, lastSuffixLeadLabel)
-			w.subTermCounts = append(w.subBytes, termCount)
+			w.subTermCounts = append(w.subTermCounts, termCount)
 			w.subSubCounts = append(w.subSubCounts, subCount)
 		} else {
 			w.subBytes[numSubs] = lastSuffixLeadLabel
@@ -519,8 +519,8 @@ func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count in
 		}
 		numSubs++
 
-		if len(w.subTermCountSums) < numSubs {
-			panic("not implemented yet")
+		for len(w.subTermCountSums) < numSubs {
+			w.subTermCountSums = append(w.subTermCountSums, 0)
 		}
 
 		// Roll up (backwards) the termCounts; postings impl needs this
@@ -535,8 +535,8 @@ func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count in
 		// Naive greedy segmentation; this is not always best (it can
 		// produce a too-small block as the last block):
 		pendingCount := 0
-		// startLabel := w.subBytes[0]
-		// curStart := count
+		startLabel := w.subBytes[0]
+		curStart := count
 		subCount = 0
 
 		var floorBlocks []*PendingBlock
@@ -549,7 +549,45 @@ func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count in
 
 			// Greedily make a floor block as soon as we've crossed the min count
 			if pendingCount >= w.owner.minItemsInBlock {
-				panic("not implemented yet")
+				var curPrefixLength int
+				if startLabel == -1 {
+					curPrefixLength = prefixLength
+				} else {
+					curPrefixLength = prefixLength + 1
+					// floor term:
+					prevTerm.Ints[prevTerm.Offset+prefixLength] = startLabel
+				}
+				fmt.Printf("  %v subs\n", subCount)
+				var floorBlock *PendingBlock
+				if floorBlock, err = w.writeBlock(prevTerm, prefixLength,
+					curPrefixLength, curStart, pendingCount,
+					w.subTermCountSums[sub+1], true, startLabel,
+					curStart == pendingCount); err != nil {
+					return err
+				}
+				if firstBlock == nil {
+					firstBlock = floorBlock
+				} else {
+					floorBlocks = append(floorBlocks, floorBlock)
+				}
+				curStart -= pendingCount
+				fmt.Printf("  floor=%v\n", pendingCount)
+				pendingCount = 0
+
+				assert2(w.owner.minItemsInBlock == 1 || subCount > 1,
+					"minItemsInBlock=%v subCount=%v sub=%v of %v subTermCount=%v subSubCount=%v depth=%v",
+					w.owner.minItemsInBlock, subCount, sub, numSubs,
+					w.subTermCountSums[sub], w.subSubCounts[sub], prefixLength)
+				subCount = 0
+				startLabel = w.subBytes[sub+1]
+
+				if curStart == 0 {
+					break
+				}
+
+				if curStart <= w.owner.maxItemsInBlock {
+					panic("not implemented yet")
+				}
 			}
 		}
 
@@ -576,7 +614,8 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 
 	start := len(w.pending) - startBackwards
 
-	assert2(start >= 0, "len(pending)=%v startBackward=%v length=%v",
+	assert2(start >= 0 && start+length <= len(w.pending),
+		"len(pending)=%v startBackward=%v length=%v",
 		len(w.pending), startBackwards, length)
 
 	slice := w.pending[start : start+length]
@@ -753,8 +792,8 @@ func (w *TermsWriter) StartTerm(text []byte) (codec.PostingsConsumer, error) {
 
 func (w *TermsWriter) FinishTerm(text []byte, stats *codec.TermStats) (err error) {
 	assert(stats.DocFreq > 0)
-	fmt.Printf("BTTW.finishTerm term=%v:%v seg=%v df=%v\n",
-		w.fieldInfo.Name, utf8ToString(text), w.owner.segment, stats.DocFreq)
+	// fmt.Printf("BTTW.finishTerm term=%v:%v seg=%v df=%v\n",
+	// w.fieldInfo.Name, utf8ToString(text), w.owner.segment, stats.DocFreq)
 
 	if err = w.blockBuilder.Add(fst.ToIntsRef(text, w.scratchIntsRef), w.noOutputs.NoOutput()); err != nil {
 		return

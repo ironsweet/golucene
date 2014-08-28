@@ -488,7 +488,7 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 	protoTerm := NewEmptyTerm(fieldName)
 	for i := 0; i < numTerms; i++ {
 		termId := termIDs[i]
-		fmt.Printf("term=%v\n", termId)
+		// fmt.Printf("term=%v\n", termId)
 		// Get BytesRef
 		textStart := postings.textStarts[termId]
 		w.bytePool.SetBytesRef(text, textStart)
@@ -523,7 +523,7 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 		docId := 0
 
 		for {
-			fmt.Println("  cycle")
+			// fmt.Println("  cycle")
 			var termFreq int
 			if freq.eof() {
 				if postings.lastDocCodes[termId] != -1 {
