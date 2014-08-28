@@ -518,7 +518,9 @@ func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count in
 					suffixLeadLabel = int(term.term[prefixLength])
 				}
 			} else {
-				panic("not implemented yet")
+				block := ent.(*PendingBlock)
+				assert(len(block.prefix) > prefixLength)
+				suffixLeadLabel = int(block.prefix[prefixLength])
 			}
 
 			if suffixLeadLabel != lastSuffixLeadLabel && termCount+subCount != 0 {
