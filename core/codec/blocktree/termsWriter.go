@@ -586,7 +586,20 @@ func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count in
 				}
 
 				if curStart <= w.owner.maxItemsInBlock {
-					panic("not implemented yet")
+					// remainder is small enough to fit into a block. NOTE that
+					// this may be too small (< minItemsInBlock); need a true
+					// segmenter here
+					assert(startLabel != -1)
+					assert(firstBlock != nil)
+					prevTerm.Ints[prevTerm.Offset+prefixLength] = startLabel
+					fmt.Printf("  final %v subs\n", numSubs-sub-1)
+					var b *PendingBlock
+					if b, err = w.writeBlock(prevTerm, prefixLength, prefixLength+1,
+						curStart, curStart, 0, true, startLabel, true); err != nil {
+						return err
+					}
+					floorBlocks = append(floorBlocks, b)
+					break
 				}
 			}
 		}
