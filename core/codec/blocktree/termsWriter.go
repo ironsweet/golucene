@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
-	"github.com/balzaczyy/golucene/core/index/model"
+	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/fst"
@@ -38,9 +38,9 @@ type PostingsWriterBase interface {
 	// Finishes the current term. The provided TermStats contains the
 	// term's summary statistics.
 	FinishTerm(*BlockTermState) error
-	EncodeTerm([]int64, util.DataOutput, *model.FieldInfo, *BlockTermState, bool) error
+	EncodeTerm([]int64, util.DataOutput, *FieldInfo, *BlockTermState, bool) error
 	// Called when the writing switches to another field.
-	SetField(fieldInfo *model.FieldInfo) int
+	SetField(fieldInfo *FieldInfo) int
 }
 
 // codec/BlockTreeTermsWriter.java
@@ -75,7 +75,7 @@ type BlockTreeTermsWriterSPI interface {
 }
 
 type FieldMetaData struct {
-	fieldInfo        *model.FieldInfo
+	fieldInfo        *FieldInfo
 	rootCode         []byte
 	numTerms         int64
 	indexStartFP     int64
@@ -87,7 +87,7 @@ type FieldMetaData struct {
 	maxTerm          []byte
 }
 
-func newFieldMetaData(fieldInfo *model.FieldInfo,
+func newFieldMetaData(fieldInfo *FieldInfo,
 	rootCode []byte, numTerms, indexStartFP, sumTotalTermFreq, sumDocFreq int64,
 	docCount, longsSize int, minTerm, maxTerm []byte) *FieldMetaData {
 	assert(numTerms > 0)
@@ -116,8 +116,8 @@ type BlockTreeTermsWriter struct {
 	maxItemsInBlock int
 
 	postingsWriter PostingsWriterBase
-	fieldInfos     model.FieldInfos
-	currentField   *model.FieldInfo
+	fieldInfos     FieldInfos
+	currentField   *FieldInfo
 
 	fields  []*FieldMetaData
 	segment string
@@ -133,7 +133,7 @@ Create a new writer. The number of items (terms or sub-blocks) per
 block will aim tobe between minItermsPerBlock and maxItemsPerBlock,
 though in some cases, the blocks may be smaller than the min.
 */
-func NewBlockTreeTermsWriter(state *model.SegmentWriteState,
+func NewBlockTreeTermsWriter(state *SegmentWriteState,
 	postingsWriter PostingsWriterBase,
 	minItemsInBlock, maxItemsInBlock int) (*BlockTreeTermsWriter, error) {
 	assert2(minItemsInBlock >= 2, "minItemsInBlock must be >= 2; got %v", minItemsInBlock)
@@ -215,7 +215,7 @@ func (w *BlockTreeTermsWriter) writeIndexTrailer(indexOut store.IndexOutput, dir
 	return indexOut.WriteLong(dirStart)
 }
 
-func (w *BlockTreeTermsWriter) AddField(field *model.FieldInfo) (TermsConsumer, error) {
+func (w *BlockTreeTermsWriter) AddField(field *FieldInfo) (TermsConsumer, error) {
 	assert(w.currentField == nil || w.currentField.Name < field.Name)
 	w.currentField = field
 	return newTermsWriter(w, field), nil
@@ -365,7 +365,7 @@ func (b *PendingBlock) append(builder *fst.Builder, subIndex *fst.FST) error {
 
 type TermsWriter struct {
 	owner            *BlockTreeTermsWriter
-	fieldInfo        *model.FieldInfo
+	fieldInfo        *FieldInfo
 	longsSize        int
 	numTerms         int64
 	docsSeen         *util.FixedBitSet
@@ -403,7 +403,7 @@ type TermsWriter struct {
 }
 
 func newTermsWriter(owner *BlockTreeTermsWriter,
-	fieldInfo *model.FieldInfo) *TermsWriter {
+	fieldInfo *FieldInfo) *TermsWriter {
 	owner.postingsWriter.SetField(fieldInfo)
 	ans := &TermsWriter{
 		owner:            owner,
@@ -750,7 +750,7 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 			if err := w.statsWriter.WriteVInt(int32(state.DocFreq)); err != nil {
 				return nil, err
 			}
-			if w.fieldInfo.IndexOptions() != model.INDEX_OPT_DOCS_ONLY {
+			if w.fieldInfo.IndexOptions() != INDEX_OPT_DOCS_ONLY {
 				assert2(state.TotalTermFreq >= int64(state.DocFreq),
 					"%v vs %v", state.TotalTermFreq, state.DocFreq)
 				if err := w.statsWriter.WriteVLong(state.TotalTermFreq - int64(state.DocFreq)); err != nil {
@@ -775,8 +775,59 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 			absolute = false
 		}
 		termCount = length
+
 	} else {
-		panic("not implemented yet")
+		subIndices = nil
+		termCount = 0
+		for _, ent := range slice {
+			if ent.isTerm() {
+				term := ent.(*PendingTerm)
+				state := term.state
+				suffix := len(term.term) - prefixLength
+				// for non-leaf block we borrow 1 bit to record
+				// if entr is term or sub-block
+				if err = w.suffixWriter.WriteVInt(int32(suffix << 1)); err != nil {
+					return nil, err
+				}
+				if err = w.suffixWriter.WriteBytes(term.term[prefixLength : prefixLength+suffix]); err != nil {
+					return nil, err
+				}
+
+				// write term stats, to separate []byte block:
+				if err = w.statsWriter.WriteVInt(int32(state.DocFreq)); err != nil {
+					return nil, err
+				}
+				if w.fieldInfo.IndexOptions() != INDEX_OPT_DOCS_ONLY {
+					assert(state.TotalTermFreq >= int64(state.DocFreq))
+					if err = w.statsWriter.WriteVLong(state.TotalTermFreq - int64(state.DocFreq)); err != nil {
+						return nil, err
+					}
+				}
+
+				// write term meta data
+				if err = w.owner.postingsWriter.EncodeTerm(longs, w.bytesWriter, w.fieldInfo, state, absolute); err != nil {
+					return nil, err
+				}
+				for pos := 0; pos < w.longsSize; pos++ {
+					assert(longs[pos] >= 0)
+					if err = w.metaWriter.WriteVLong(longs[pos]); err != nil {
+						return nil, err
+					}
+				}
+				if err = w.bytesWriter.WriteTo(w.metaWriter); err != nil {
+					return nil, err
+				}
+				w.bytesWriter.Reset()
+				absolute = false
+
+				termCount++
+
+			} else {
+				panic("not implemented yet")
+			}
+		}
+
+		assert(len(subIndices) != 0)
 	}
 
 	// TODO: we could block-write the term suffix pointer
@@ -903,7 +954,7 @@ func (w *TermsWriter) Finish(sumTotalTermFreq, sumDocFreq int64, docCount int) e
 			w.longsSize,
 			w.minTerm, w.maxTerm))
 	} else {
-		assert(sumTotalTermFreq == 0 || w.fieldInfo.IndexOptions() == model.INDEX_OPT_DOCS_ONLY && sumTotalTermFreq == -1)
+		assert(sumTotalTermFreq == 0 || w.fieldInfo.IndexOptions() == INDEX_OPT_DOCS_ONLY && sumTotalTermFreq == -1)
 		assert(sumDocFreq == 0)
 		assert(docCount == 0)
 	}
@@ -934,7 +985,7 @@ func (w *BlockTreeTermsWriter) Close() (err error) {
 			if err = w.out.WriteVLong(field.numTerms); err == nil {
 				if err = w.out.WriteVInt(int32(len(field.rootCode))); err == nil {
 					err = w.out.WriteBytes(field.rootCode)
-					if err == nil && field.fieldInfo.IndexOptions() != model.INDEX_OPT_DOCS_ONLY {
+					if err == nil && field.fieldInfo.IndexOptions() != INDEX_OPT_DOCS_ONLY {
 						err = w.out.WriteVLong(field.sumTotalTermFreq)
 					}
 					if err == nil {
