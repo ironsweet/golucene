@@ -15,7 +15,7 @@ It also applies to GoLucene. But some benefits can still be expected:
 - quick start speed;
 - able to be embedded in Go app;
 - goroutine which I think can be faster in certain case;
-- ready-to-use byte, array utilities whichcan reduce the code size, and lead to easy maintenance.
+- ready-to-use byte, array utilities which can reduce the code size, and lead to easy maintenance.
 
 Though it started as a pet project, I've been pretty serious about this.
 
