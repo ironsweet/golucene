@@ -276,7 +276,7 @@ func (b *PendingBlock) String() string {
 }
 
 func (b *PendingBlock) compileIndex(floorBlocks []*PendingBlock,
-	scratchBytes *store.RAMOutputStream) error {
+	scratchBytes *store.RAMOutputStream) (err error) {
 	assert2(b.isFloor && len(floorBlocks) > 0 || (!b.isFloor && len(floorBlocks) == 0),
 		"isFloor=%v floorBlocks=%v", b.isFloor, floorBlocks)
 
@@ -285,12 +285,25 @@ func (b *PendingBlock) compileIndex(floorBlocks []*PendingBlock,
 	// TODO: try writing the leading vLong in MSB order
 	// (opposite of what Lucene does today), for better
 	// outputs sharing in the FST
-	err := scratchBytes.WriteVLong(encodeOutput(b.fp, b.hasTerms, b.isFloor))
-	if err != nil {
-		return err
+	if err = scratchBytes.WriteVLong(encodeOutput(b.fp, b.hasTerms, b.isFloor)); err != nil {
+		return
 	}
 	if b.isFloor {
-		panic("not implemented yet")
+		if err = scratchBytes.WriteVInt(int32(len(floorBlocks))); err != nil {
+			return
+		}
+		for _, sub := range floorBlocks {
+			assert(sub.floorLeadByte != -1)
+			fmt.Printf("    write floorLeadByte=%v\n", util.ItoHex(int64(sub.floorLeadByte)))
+			if err = scratchBytes.WriteByte(byte(sub.floorLeadByte)); err != nil {
+				return
+			}
+			assert(sub.fp > b.fp)
+			if err = scratchBytes.WriteVLong((sub.fp-b.fp)<<1 |
+				int64(map[bool]int{true: 1, false: 0}[sub.hasTerms])); err != nil {
+				return
+			}
+		}
 	}
 
 	outputs := fst.ByteSequenceOutputsSingleton()
