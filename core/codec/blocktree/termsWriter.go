@@ -330,7 +330,16 @@ func (b *PendingBlock) compileIndex(floorBlocks []*PendingBlock,
 	}
 
 	if floorBlocks != nil {
-		panic("not implemented yet")
+		for _, sub := range floorBlocks {
+			if sub.subIndeces != nil {
+				for _, subIndex := range sub.subIndeces {
+					if err = b.append(indexBuilder, subIndex); err != nil {
+						return err
+					}
+				}
+			}
+			sub.subIndeces = nil
+		}
 	}
 
 	b.index, err = indexBuilder.Finish()
@@ -339,6 +348,19 @@ func (b *PendingBlock) compileIndex(floorBlocks []*PendingBlock,
 	}
 	b.subIndeces = nil
 	return nil
+}
+
+func (b *PendingBlock) append(builder *fst.Builder, subIndex *fst.FST) error {
+	subIndexEnum := fst.NewBytesRefFSTEnum(subIndex)
+	indexEnt, err := subIndexEnum.Next()
+	for err != nil && indexEnt != nil {
+		fmt.Printf("      add sub=%v output=%v\n", indexEnt.Input, indexEnt.Output)
+		err = builder.Add(fst.ToIntsRef(indexEnt.Input, b.sctrachIntsRef), indexEnt.Output)
+		if err == nil {
+			indexEnt, err = subIndexEnum.Next()
+		}
+	}
+	return err
 }
 
 type TermsWriter struct {

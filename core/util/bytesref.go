@@ -44,6 +44,10 @@ func (br *BytesRef) bytesEquals(other []byte) bool {
 	return false
 }
 
+func (br *BytesRef) String() string {
+	panic("not implemented yet")
+}
+
 /*
 Creates a new BytesRef that points to a copy of the bytes from
 other.

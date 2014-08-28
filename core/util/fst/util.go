@@ -10,8 +10,9 @@ import (
 func ToIntsRef(input []byte, scratch *util.IntsRef) *util.IntsRef {
 	scratch.Grow(len(input))
 	for i, v := range input {
-		scratch.Ints[i+scratch.Offset] = int(v)
+		scratch.Ints[i] = int(v)
 	}
+	scratch.Offset = 0
 	scratch.Length = len(input)
 	return scratch
 }
