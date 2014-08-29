@@ -823,7 +823,25 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 				termCount++
 
 			} else {
-				panic("not implemented yet")
+				block := ent.(*PendingBlock)
+				suffix := len(block.prefix) - prefixLength
+
+				assert(suffix > 0)
+
+				// for non-leaf block we borrow 1 bit to record if entry is
+				// term or sub-block
+				if err = w.suffixWriter.WriteVInt(int32((suffix << 1) | 1)); err != nil {
+					return nil, err
+				}
+				if err = w.suffixWriter.WriteBytes(block.prefix[prefixLength : prefixLength+suffix]); err != nil {
+					return nil, err
+				}
+				assert(block.fp < startFP)
+
+				if err = w.suffixWriter.WriteVLong(startFP - block.fp); err != nil {
+					return nil, err
+				}
+				subIndices = append(subIndices, block.index)
 			}
 		}
 
