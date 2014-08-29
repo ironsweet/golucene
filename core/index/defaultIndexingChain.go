@@ -496,6 +496,7 @@ func (f *PerField) finish() error {
 			f.fieldInfo.SetNormValueType(DOC_VALUES_TYPE_NUMERIC)
 			f.norms = newNumericDocValuesWriter(f.fieldInfo, f.docState.docWriter._bytesUsed, false)
 		}
+		f.norms.addValue(f.docState.docID, f.similarity.ComputeNorm(f.invertState))
 	}
 	return f.termsHashPerField.finish()
 }
