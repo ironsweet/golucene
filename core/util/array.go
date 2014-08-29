@@ -87,6 +87,20 @@ func GrowIntSlice(arr []int, minSize int) []int {
 	return arr
 }
 
+// L343
+func GrowByteSlice(arr []byte, minSize int) []byte {
+	assert2(minSize >= 0, "size must be positive (got %v): likely integer overflow?", minSize)
+	if cap(arr) < minSize {
+		newArr := make([]byte, Oversize(minSize, 1))
+		copy(newArr, arr)
+		return newArr[:minSize]
+	}
+	for len(arr) < minSize {
+		arr = append(arr, 0)
+	}
+	return arr
+}
+
 // L699
 /*
 Sorts the given array slice in its own order. This method uses the

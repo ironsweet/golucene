@@ -727,6 +727,14 @@ func AsInt64(n int32, err error) (n2 int64, err2 error) {
 	return int64(n), err
 }
 
+func (t *FST) readFirstTargetArc(follow, arc *Arc, in BytesReader) (*Arc, error) {
+	if follow.IsFinal() {
+		panic("not implemented yet")
+	} else {
+		return t.readFirstRealTargetArc(follow.target, arc, in)
+	}
+}
+
 func (t *FST) readFirstRealTargetArc(node int64, arc *Arc, in BytesReader) (ans *Arc, err error) {
 	address := t.getNodeAddress(node)
 	in.setPosition(address)
@@ -760,6 +768,16 @@ func (t *FST) readFirstRealTargetArc(node int64, arc *Arc, in BytesReader) (ans 
 	}
 
 	return t.readNextRealArc(arc, in)
+}
+
+func (t *FST) readNextArc(arc *Arc, in BytesReader) (*Arc, error) {
+	if arc.Label == FST_END_LABEL {
+		// this was a fake inserted "final" arc
+		assert2(arc.nextArc > 0, "cannot readNextArc when arc.isLast()=true")
+		return t.readFirstRealTargetArc(arc.nextArc, arc, in)
+	} else {
+		return t.readNextRealArc(arc, in)
+	}
 }
 
 /** Never returns null, but you should never call this if

@@ -18,11 +18,12 @@ type BytesRefFSTEnumIO struct {
 }
 
 func NewBytesRefFSTEnum(fst *FST) *BytesRefFSTEnum {
-	return &BytesRefFSTEnum{
-		FSTEnum: newFSTEnum(fst),
+	ans := &BytesRefFSTEnum{
 		current: util.NewBytesRef(make([]byte, 10)),
 		result:  new(BytesRefFSTEnumIO),
 	}
+	ans.FSTEnum = newFSTEnum(ans, fst)
+	return ans
 }
 
 func (e *BytesRefFSTEnum) Next() (*BytesRefFSTEnumIO, error) {
@@ -30,6 +31,14 @@ func (e *BytesRefFSTEnum) Next() (*BytesRefFSTEnumIO, error) {
 		return nil, err
 	}
 	return e.setResult(), nil
+}
+
+func (e *BytesRefFSTEnum) setCurrentLabel(label int) {
+	e.current.Value[e.upto] = byte(label)
+}
+
+func (e *BytesRefFSTEnum) grow() {
+	e.current.Value = util.GrowByteSlice(e.current.Value, e.upto+1)
 }
 
 func (e *BytesRefFSTEnum) setResult() *BytesRefFSTEnumIO {
