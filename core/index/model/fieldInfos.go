@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"sync"
 )
@@ -101,10 +100,11 @@ type FieldNumbers struct {
 
 func NewFieldNumbers() *FieldNumbers {
 	return &FieldNumbers{
-		Locker:        &sync.Mutex{},
-		nameToNumber:  make(map[string]int),
-		numberToName:  make(map[int]string),
-		docValuesType: make(map[string]DocValuesType),
+		Locker:                      &sync.Mutex{},
+		nameToNumber:                make(map[string]int),
+		numberToName:                make(map[int]string),
+		docValuesType:               make(map[string]DocValuesType),
+		lowestUnassignedFieldNumber: -1,
 	}
 }
 
@@ -126,8 +126,10 @@ func (fn *FieldNumbers) addOrGet(name string, preferredNumber int, dv DocValuesT
 		currentDv, ok := fn.docValuesType[name]
 		if !ok || currentDv == 0 {
 			fn.docValuesType[name] = dv
-		} else if currentDv != dv {
-			log.Panicf("cannot change DocValues type from %v to %v for field '%v'", currentDv, dv, name)
+		} else {
+			assert2(currentDv == dv,
+				"cannot change DocValues type from %v to %v for field '%v'",
+				currentDv, dv, name)
 		}
 	}
 	number, ok := fn.nameToNumber[name]

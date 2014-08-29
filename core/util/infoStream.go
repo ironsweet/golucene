@@ -89,7 +89,7 @@ func (is *PrintStreamInfoStream) Message(component,
 }
 
 func (is *PrintStreamInfoStream) IsEnabled(component string) bool {
-	return true
+	return "TP" != component
 }
 
 func (is *PrintStreamInfoStream) Close() error {
