@@ -111,7 +111,10 @@ func (w *PerFieldPostingsWriter) AddField(field *FieldInfo) (TermsConsumer, erro
 		consumer.suffix = suffix
 		w.formats[format] = consumer
 	} else {
-		panic("not implemented yet")
+		// we've already seen this format, so just grab its suffix
+		_, ok := w.suffixes[formatName]
+		assert(ok)
+		suffix = consumer.suffix
 	}
 
 	previousValue = field.PutAttribute(PER_FIELD_SUFFIX_KEY, fmt.Sprintf("%v", suffix))

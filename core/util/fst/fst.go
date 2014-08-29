@@ -729,10 +729,21 @@ func AsInt64(n int32, err error) (n2 int64, err2 error) {
 
 func (t *FST) readFirstTargetArc(follow, arc *Arc, in BytesReader) (*Arc, error) {
 	if follow.IsFinal() {
-		panic("not implemented yet")
-	} else {
-		return t.readFirstRealTargetArc(follow.target, arc, in)
+		// insert "fake" final first arc:
+		arc.Label = FST_END_LABEL
+		arc.Output = follow.NextFinalOutput
+		arc.flags = FST_BIT_FINAL_ARC
+		if follow.target <= 0 {
+			arc.flags |= FST_BIT_LAST_ARC
+		} else {
+			arc.node = follow.target
+			// NOTE: nextArc is a node (not an address!) in this case:
+			arc.nextArc = follow.target
+		}
+		arc.target = FST_FINAL_END_NODE
+		return arc, nil
 	}
+	return t.readFirstRealTargetArc(follow.target, arc, in)
 }
 
 func (t *FST) readFirstRealTargetArc(node int64, arc *Arc, in BytesReader) (ans *Arc, err error) {
