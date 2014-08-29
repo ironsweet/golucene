@@ -325,8 +325,13 @@ func (b *PendingBlock) compileIndex(floorBlocks []*PendingBlock,
 	scratchBytes.Reset()
 
 	// copy over index for all sub-blocks
+
 	if b.subIndeces != nil {
-		panic("not implemented yet")
+		for _, subIndex := range b.subIndeces {
+			if err = b.append(indexBuilder, subIndex); err != nil {
+				return err
+			}
+		}
 	}
 
 	if floorBlocks != nil {

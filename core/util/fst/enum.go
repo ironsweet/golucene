@@ -15,6 +15,7 @@ type FSTEnum struct {
 
 func newFSTEnum(fst *FST) *FSTEnum {
 	arcs := make([]*Arc, 10)
+	arcs[0] = new(Arc)
 	fst.FirstArc(arcs[0])
 	outputs := make([]interface{}, 10)
 	outputs[0] = fst.outputs.NoOutput()
