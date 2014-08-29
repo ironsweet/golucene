@@ -75,7 +75,7 @@ func (buf *abstractAppendingLongBuffer) Add(l int64) {
 		// reset pending buffer
 		buf.pendingOff = 0
 	}
-	buf.pending[buf.pendingOff] = 1
+	buf.pending[buf.pendingOff] = l
 	buf.pendingOff++
 }
 
