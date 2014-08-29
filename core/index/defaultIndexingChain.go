@@ -613,7 +613,7 @@ func (f *PerField) invert(field IndexableField, first bool) error {
 					startOffset, endOffset, lastStartOffset, field.Name)
 			}
 
-			fmt.Printf("  term=%v\n", f.invertState.termAttribute)
+			// fmt.Printf("  term=%v\n", f.invertState.termAttribute)
 
 			// if we hit an error in here, we abort all buffered documents
 			// since the last flush, on the likelihood that the internal

@@ -1,7 +1,6 @@
 package index
 
 import (
-	"fmt"
 	ta "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
@@ -199,8 +198,8 @@ func (h *TermsHashPerFieldImpl) add() (err error) {
 		return
 	}
 
-	fmt.Printf("add term=%v doc=%v termId=%v\n",
-		string(h.termBytesRef.Value), h.docState.docID, termId)
+	// fmt.Printf("add term=%v doc=%v termId=%v\n",
+	// 	string(h.termBytesRef.Value), h.docState.docID, termId)
 
 	if termId >= 0 { // new posting
 		h.bytesHash.ByteStart(termId)

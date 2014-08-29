@@ -1,5 +1,9 @@
 package util
 
+import (
+	"sort"
+)
+
 /*
 Abstract base class for performing write operations of Lucene's
 low-level data types.
@@ -185,7 +189,15 @@ func (out *DataOutputImpl) WriteStringStringMap(m map[string]string) error {
 	if err != nil {
 		return err
 	}
-	for k, v := range m {
+	// enforce key order during serialization
+	var keys []string
+	for k, _ := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := m[k]
+		// for k, v := range m {
 		err = out.WriteString(k)
 		if err == nil {
 			err = out.WriteString(v)
