@@ -26,7 +26,7 @@ Milestones
 - 2013/12/3   Second test case (gl.go) that fetch string field has passed.
 - 2014/6/29		Third test case (gl3.go) that index string field has passed.
 - 2014/8/8    Migrated to Lucene 4.9.0 code base.
-- 2014/8/27   Got 20 stars today. Wow~
+- 2014/8/27   Exposed on HackNews.
 
 Progress
 --------
@@ -34,7 +34,7 @@ V1.0 ETA: 2014/12/1
 
 TODOs
 -----
-- Used in a real blog to index posts. Working on analyzer now.
+- QueryParser.
 - Finish fourth test case (gl2.go) with Lucene's test framework.
 - Support basic explain function.
 
