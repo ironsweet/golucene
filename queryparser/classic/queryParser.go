@@ -45,8 +45,18 @@ func (qp *QueryParser) conjunction() (int, error) {
 	panic("not implemented yet")
 }
 
-func (qp *QueryParser) modifiers() (int, error) {
-	panic("not implemented yet")
+func (qp *QueryParser) modifiers() (ret int, err error) {
+	ret = MOD_NONE
+	if qp.jj_ntk == -1 {
+		qp.get_jj_ntk()
+	}
+	switch qp.jj_ntk {
+	case NOT, PLUS, MINUS:
+		panic("not implemented yet")
+	default:
+		qp.jj_la1[3] = qp.jj_gen
+	}
+	return
 }
 
 func (qp *QueryParser) TopLevelQuery(field string) (q search.Query, err error) {
