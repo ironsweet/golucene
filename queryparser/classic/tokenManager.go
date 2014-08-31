@@ -24,6 +24,72 @@ func newTokenManager(stream CharStream) *TokenManager {
 	}
 }
 
+// L41
+
+func (tm *TokenManager) jjMoveStringLiteralDfa0_2() int {
+	switch tm.curChar {
+	case 40:
+		panic("not implemented yet")
+	case 41:
+		panic("not implemented yet")
+	case 42:
+		panic("not implemented yet")
+	case 43:
+		panic("not implemented yet")
+	case 45:
+		panic("not implemented yet")
+	case 58:
+		panic("not implemented yet")
+	case 91:
+		panic("not implemented yet")
+	case 94:
+		panic("not implemented yet")
+	case 123:
+		panic("not implemented yet")
+	default:
+		return tm.jjMoveNfa_2(0, 0)
+	}
+}
+
+// L87
+
+func (tm *TokenManager) jjMoveNfa_2(startState, curPos int) int {
+	startsAt := 0
+	tm.jjnewStateCnt = 49
+	i := 1
+	tm.jjstateSet[0] = startState
+	kind := 0x7fffffff
+	for {
+		if tm.jjround++; tm.jjround == 0x7fffffff {
+			tm.reInitRounds()
+		}
+		if tm.curChar < 64 {
+			panic("not implemented yet")
+		} else if tm.curChar < 128 {
+			panic("not implemented yet")
+		} else {
+			panic("not implemented yet")
+		}
+		if kind != 0x7fffffff {
+			tm.jjmatchedKind = kind
+			tm.jjmatchedPos = curPos
+			kind = 0x7fffffff
+		}
+		curPos++
+		i = tm.jjnewStateCnt
+		tm.jjnewStateCnt = startsAt
+		startsAt = 49 - tm.jjnewStateCnt
+		if i == startsAt {
+			return curPos
+		}
+		var err error
+		if tm.curChar, err = tm.input_stream.readChar(); err != nil {
+			return curPos
+		}
+	}
+	panic("should not be here")
+}
+
 func (tm *TokenManager) ReInit(stream CharStream) {
 	tm.jjmatchedPos = 0
 	tm.jjnewStateCnt = 0
@@ -61,7 +127,9 @@ func (tm *TokenManager) nextToken() (matchedToken *Token) {
 		case 1:
 			panic("not implemented yet")
 		case 2:
-			panic("not implemented yet")
+			tm.jjmatchedKind = 0x7fffffff
+			tm.jjmatchedPos = 0
+			curPos = tm.jjMoveStringLiteralDfa0_2()
 		}
 
 		if tm.jjmatchedKind != 0x7fffffff {
