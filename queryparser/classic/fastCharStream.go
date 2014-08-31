@@ -86,3 +86,11 @@ func (cs *FastCharStream) endColumn() int {
 func (cs *FastCharStream) endLine() int {
 	panic("not implemented yet")
 }
+
+func (cs *FastCharStream) beginColumn() int {
+	return cs.bufferStart + cs.tokenStart
+}
+
+func (cs *FastCharStream) beginLine() int {
+	return 1
+}

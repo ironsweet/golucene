@@ -6,6 +6,12 @@ var jjnextStates = []int{
 	1, 2, 4, 5,
 }
 
+var jjstrLiteralImages = map[int]string{
+	0: "", 11: "\u0053", 12: "\055",
+	14: "\050", 15: "\051", 16: "\072", 17: "\052", 18: "\136",
+	25: "\133", 26: "\173", 28: "\124\117", 29: "\135", 30: "\175",
+}
+
 type TokenManager struct {
 	curLexState     int
 	defaultLexState int
@@ -220,7 +226,23 @@ func (tm *TokenManager) reInitRounds() {
 // L1027
 
 func (tm *TokenManager) jjFillToken() *Token {
-	panic("not implemented yet")
+	var curTokenImage string
+	if im, ok := jjstrLiteralImages[tm.jjmatchedKind]; ok {
+		curTokenImage = im
+	} else {
+		curTokenImage = tm.input_stream.image()
+	}
+	beginLine := tm.input_stream.beginLine()
+	beginColumn := tm.input_stream.beginColumn()
+	endLine := tm.input_stream.endLine()
+	endColumn := tm.input_stream.endColumn()
+	t := newToken(tm.jjmatchedKind, curTokenImage)
+
+	t.beginLine = beginLine
+	t.endLine = endLine
+	t.beginColumn = beginColumn
+	t.endColumn = endColumn
+	return t
 }
 
 func (tm *TokenManager) nextToken() (matchedToken *Token) {
