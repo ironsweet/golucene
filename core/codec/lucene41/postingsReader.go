@@ -8,7 +8,6 @@ import (
 	. "github.com/balzaczyy/golucene/core/search/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
 )
 
 // Lucene41PostingsReader.java
@@ -47,15 +46,12 @@ func NewLucene41PostingsReader(dir store.Directory,
 	fis FieldInfos, si *SegmentInfo,
 	ctx store.IOContext, segmentSuffix string) (r PostingsReaderBase, err error) {
 
-	log.Print("Initializing Lucene41PostingsReader...")
+	fmt.Println("Initializing Lucene41PostingsReader...")
 	success := false
 	var docIn, posIn, payIn store.IndexInput = nil, nil, nil
 	defer func() {
 		if !success {
-			log.Print("Failed to initialize Lucene41PostingsReader.")
-			if err != nil {
-				log.Print("DEBUG ", err)
-			}
+			fmt.Println("Failed to initialize Lucene41PostingsReader.")
 			util.CloseWhileSuppressingError(docIn, posIn, payIn)
 		}
 	}()
@@ -101,7 +97,7 @@ func NewLucene41PostingsReader(dir store.Directory,
 }
 
 func (r *Lucene41PostingsReader) Init(termsIn store.IndexInput) error {
-	log.Printf("Initializing from: %v", termsIn)
+	fmt.Println("Initializing from:", termsIn)
 	// Make sure we are talking to the matching postings writer
 	_, err := codec.CheckHeader(termsIn, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_START, LUCENE41_VERSION_CURRENT)
 	if err != nil {
@@ -111,7 +107,7 @@ func (r *Lucene41PostingsReader) Init(termsIn store.IndexInput) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Index block size: %v", indexBlockSize)
+	fmt.Println("Index block size:", indexBlockSize)
 	if indexBlockSize != LUCENE41_BLOCK_SIZE {
 		panic(fmt.Sprintf("index-time BLOCK_SIZE (%v) != read-time BLOCK_SIZE (%v)", indexBlockSize, LUCENE41_BLOCK_SIZE))
 	}
@@ -340,7 +336,7 @@ func (de *blockDocsEnum) canReuse(docIn store.IndexInput, fieldInfo *FieldInfo) 
 
 func (de *blockDocsEnum) reset(liveDocs util.Bits, termState *intBlockTermState, flags int) (ret DocsEnum, err error) {
 	de.liveDocs = liveDocs
-	log.Printf("  FPR.reset: termState=%v", termState)
+	fmt.Println("  FPR.reset: termState=", termState)
 	de.docFreq = termState.DocFreq
 	if de.indexHasFreq {
 		de.totalTermFreq = termState.TotalTermFreq
@@ -389,14 +385,14 @@ func (de *blockDocsEnum) refillDocs() (err error) {
 	assert(left > 0)
 
 	if left >= LUCENE41_BLOCK_SIZE {
-		log.Printf("    fill doc block from fp=%v", de.docIn.FilePointer())
+		fmt.Println("    fill doc block from fp=", de.docIn.FilePointer())
 		panic("not implemented yet")
 	} else if de.docFreq == 1 {
 		de.docDeltaBuffer[0] = de.singletonDocID
 		de.freqBuffer[0] = int(de.totalTermFreq)
 	} else {
 		// Read vInts:
-		log.Printf("    fill last vInt block from fp=%v", de.docIn.FilePointer())
+		fmt.Println("    fill last vInt block from fp=", de.docIn.FilePointer())
 		err = readVIntBlock(de.docIn, de.docDeltaBuffer, de.freqBuffer, left, de.indexHasFreq)
 	}
 	de.docBufferUpto = 0
@@ -404,12 +400,12 @@ func (de *blockDocsEnum) refillDocs() (err error) {
 }
 
 func (de *blockDocsEnum) NextDoc() (n int, err error) {
-	log.Println("FPR.nextDoc")
+	fmt.Println("FPR.nextDoc")
 	for {
-		log.Printf("  docUpto=%v (of df=%v) docBufferUpto=%v", de.docUpto, de.docFreq, de.docBufferUpto)
+		fmt.Printf("  docUpto=%v (of df=%v) docBufferUpto=%v\n", de.docUpto, de.docFreq, de.docBufferUpto)
 
 		if de.docUpto == de.docFreq {
-			log.Println("  return doc=END")
+			fmt.Println("  return doc=END")
 			de.doc = NO_MORE_DOCS
 			return de.doc, nil
 		}
@@ -421,7 +417,7 @@ func (de *blockDocsEnum) NextDoc() (n int, err error) {
 			}
 		}
 
-		log.Printf("    accum=%v docDeltaBuffer[%v]=%v", de.accum, de.docBufferUpto, de.docDeltaBuffer[de.docBufferUpto])
+		fmt.Printf("    accum=%v docDeltaBuffer[%v]=%v\n", de.accum, de.docBufferUpto, de.docDeltaBuffer[de.docBufferUpto])
 		de.accum += de.docDeltaBuffer[de.docBufferUpto]
 		de.docUpto++
 
@@ -429,10 +425,10 @@ func (de *blockDocsEnum) NextDoc() (n int, err error) {
 			de.doc = de.accum
 			de.freq = de.freqBuffer[de.docBufferUpto]
 			de.docBufferUpto++
-			log.Printf("  return doc=%v freq=%v", de.doc, de.freq)
+			fmt.Printf("  return doc=%v freq=%v\n", de.doc, de.freq)
 			return de.doc, nil
 		}
-		log.Printf("  doc=%v is deleted; try next doc", de.accum)
+		fmt.Printf("  doc=%v is deleted; try next doc\n", de.accum)
 		de.docBufferUpto++
 	}
 }

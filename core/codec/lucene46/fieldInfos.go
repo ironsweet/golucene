@@ -114,7 +114,7 @@ var Lucene46FieldInfosReader = func(dir store.Directory,
 		case (bits & FI_STORE_OFFSETS_IN_POSTINGS) != 0:
 			indexOptions = INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
 		default:
-			indexOptions = FI_OMIT_TERM_FREQ_AND_POSITIONS
+			indexOptions = INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
 		}
 
 		// DV types are packed in one byte

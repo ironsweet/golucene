@@ -37,7 +37,7 @@ func main() {
 	assert2(err == nil, "%v", err)
 
 	d := docu.NewDocument()
-	d.Add(docu.NewTextField("foo", "bar", docu.STORE_YES))
+	d.Add(docu.NewTextFieldFromString("foo", "bar", docu.STORE_YES))
 	err = writer.AddDocument(d.Fields())
 	assert(err == nil)
 	err = writer.Close() // ensure index is written

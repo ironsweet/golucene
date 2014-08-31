@@ -31,6 +31,9 @@ func NewFieldInfo(name string, indexed bool, number int32,
 	indexOptions IndexOptions, docValues, normsType DocValuesType,
 	dvGen int64, attributes map[string]string) *FieldInfo {
 
+	assert(indexOptions > 0)
+	assert(indexOptions <= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS)
+
 	fi := &FieldInfo{Name: name, indexed: indexed, Number: number, docValueType: docValues}
 	fi.AttributesMixin = &AttributesMixin{attributes}
 	if indexed {
