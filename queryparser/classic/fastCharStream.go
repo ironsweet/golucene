@@ -37,7 +37,10 @@ func (cs *FastCharStream) refill() (err error) {
 		if cs.buffer == nil { // first time: alloc buffer
 			cs.buffer = make([]rune, 2048)
 		} else if cs.bufferLength == len(cs.buffer) { // grow buffer
-			panic("not implemented yet")
+			assert(cs.bufferLength < 1000000) // should not be that large
+			newBuffer := make([]rune, len(cs.buffer)*2)
+			copy(newBuffer, cs.buffer)
+			cs.buffer = newBuffer
 		}
 	} else { // shift token to front
 		copy(cs.buffer, cs.buffer[cs.tokenStart:cs.tokenStart+newPosition])
@@ -52,7 +55,9 @@ func (cs *FastCharStream) refill() (err error) {
 	limit := len(cs.buffer) - newPosition
 	for charsRead < limit && err == nil {
 		cs.buffer[newPosition+charsRead], _, err = cs.input.ReadRune()
-		charsRead++
+		if err == nil {
+			charsRead++
+		}
 	}
 	if err != nil && err != io.EOF || charsRead == 0 {
 		return err
