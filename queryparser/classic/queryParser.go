@@ -41,10 +41,20 @@ func NewQueryParser(matchVersion util.Version, f string, a analysis.Analyzer) *Q
 	return qp
 }
 
-func (qp *QueryParser) TopLevelQuery(field string) (search.Query, error) {
+// L168
+func (qp *QueryParser) TopLevelQuery(field string) (q search.Query, err error) {
+	if q, err = qp.Query(field); err != nil {
+		return nil, err
+	}
+	_, err = qp.jj_consume_token(0)
+	return q, err
+}
+
+func (qp *QueryParser) Query(fiel string) (q search.Query, err error) {
 	panic("not implemented yet")
 }
 
+// L540
 func (qp *QueryParser) ReInit(stream CharStream) {
 	qp.token_source.ReInit(stream)
 	qp.token = new(Token)
@@ -56,7 +66,10 @@ func (qp *QueryParser) ReInit(stream CharStream) {
 	for i, _ := range qp.jj_2_rtns {
 		qp.jj_2_rtns[i] = new(JJCalls)
 	}
+}
 
+func (qp *QueryParser) jj_consume_token(kind int) (*Token, error) {
+	panic("not implemented yet")
 }
 
 type JJCalls struct {
