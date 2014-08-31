@@ -1,5 +1,11 @@
 package classic
 
+var jjnextStates = []int{
+	37, 39, 40, 17, 18, 20, 42, 45, 31, 46, 43, 22, 23, 25, 26, 24,
+	25, 26, 45, 31, 46, 44, 47, 35, 22, 28, 29, 27, 27, 30, 30, 0,
+	1, 2, 4, 5,
+}
+
 type TokenManager struct {
 	curLexState     int
 	defaultLexState int
@@ -86,7 +92,10 @@ func (tm *TokenManager) jjMoveNfa_2(startState, curPos int) int {
 						panic("not implemented yet")
 					}
 					if (0x7bff50f8ffffd9ff & l) != 0 {
-						panic("not implemented yet")
+						if kind > 20 {
+							kind = 20
+						}
+						tm.jjCheckNAddStates(6, 10)
 					} else if tm.curChar == 42 {
 						panic("not implemented yet")
 					} else if tm.curChar == 33 {
@@ -267,4 +276,23 @@ func (tm *TokenManager) jjCheckNAdd(state int) {
 func (tm *TokenManager) jjCheckNAddTwoStates(state1, state2 int) {
 	tm.jjCheckNAdd(state1)
 	tm.jjCheckNAdd(state2)
+}
+
+func (tm *TokenManager) jjCheckNAddStates(start, end int) {
+	assert(start < end)
+	assert(start >= 0)
+	assert(end <= len(jjnextStates))
+	for {
+		tm.jjCheckNAdd(jjnextStates[start])
+		start++
+		if start >= end {
+			break
+		}
+	}
+}
+
+func assert(ok bool) {
+	if !ok {
+		panic("assert fail")
+	}
 }
