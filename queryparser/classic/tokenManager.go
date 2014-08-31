@@ -75,7 +75,12 @@ func (tm *TokenManager) jjMoveNfa_2(startState, curPos int) int {
 				i--
 				switch tm.jjstateSet[i] {
 				case 49, 33:
-					panic("not implemented yet")
+					if (0xfbff7cf8ffffd9ff & uint64(l)) != 0 {
+						if kind > 23 {
+							kind = 23
+						}
+						tm.jjCheckNAddTwoStates(33, 34)
+					}
 				case 0:
 					if (0xfbff54f8ffffd9ff & uint64(l)) != 0 {
 						if kind > 23 {
@@ -138,7 +143,9 @@ func (tm *TokenManager) jjMoveNfa_2(startState, curPos int) int {
 				case 30:
 					panic("not implemented yet")
 				case 31:
-					panic("not implemented yet")
+					if tm.curChar == 42 && kind > 22 {
+						kind = 22
+					}
 				case 32:
 					panic("not implemented yet")
 				case 35:
@@ -152,11 +159,18 @@ func (tm *TokenManager) jjMoveNfa_2(startState, curPos int) int {
 				case 41:
 					panic("not implemented yet")
 				case 42:
-					panic("not implemented yet")
+					if (0x7bff78f8ffffd9ff & l) != 0 {
+						if kind > 20 {
+							kind = 20
+						}
+						tm.jjCheckNAddTwoStates(42, 43)
+					}
 				case 44:
 					panic("not implemented yet")
 				case 45:
-					panic("not implemented yet")
+					if (0x7bff78f8ffffd9ff & l) != 0 {
+						tm.jjCheckNAddStates(18, 20)
+					}
 				case 47:
 					panic("not implemented yet")
 				}
