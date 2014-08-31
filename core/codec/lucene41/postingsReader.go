@@ -164,8 +164,8 @@ func (r *Lucene41PostingsReader) DecodeTerm(longs []int64,
 
 	termState := _termState.Self.(*intBlockTermState)
 	fieldHasPositions := fieldInfo.IndexOptions() >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS
-	// fieldHasOffsets := fieldInfo.IndexOptions() >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
-	// fieldHasPaylods := fieldInfo.HasPayloads()
+	fieldHasOffsets := fieldInfo.IndexOptions() >= INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
+	fieldHasPayloads := fieldInfo.HasPayloads()
 
 	if absolute {
 		termState.docStartFP = 0
@@ -177,7 +177,10 @@ func (r *Lucene41PostingsReader) DecodeTerm(longs []int64,
 	}
 	termState.docStartFP += longs[0]
 	if fieldHasPositions {
-		panic("not implemented yet")
+		termState.posStartFP += longs[1]
+		if fieldHasOffsets || fieldHasPayloads {
+			termState.payStartFP += longs[2]
+		}
 	}
 	if termState.DocFreq == 1 {
 		if termState.singletonDocID, err = asInt(in.ReadVInt()); err != nil {
@@ -187,7 +190,13 @@ func (r *Lucene41PostingsReader) DecodeTerm(longs []int64,
 		termState.singletonDocID = -1
 	}
 	if fieldHasPositions {
-		panic("not implemented yet")
+		if termState.TotalTermFreq > LUCENE41_BLOCK_SIZE {
+			if termState.lastPosBlockOffset, err = in.ReadVLong(); err != nil {
+				return err
+			}
+		} else {
+			termState.lastPosBlockOffset = -1
+		}
 	}
 	if termState.DocFreq > LUCENE41_BLOCK_SIZE {
 		if termState.skipOffset, err = in.ReadVLong(); err != nil {
