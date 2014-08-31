@@ -1,6 +1,7 @@
 package index
 
 import (
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index"
 	tu "github.com/balzaczyy/golucene/test_framework/util"
 	"math"
@@ -13,23 +14,25 @@ import (
 // MergePolicy that makes random decisions for testing.
 type MockRandomMergePolicy struct {
 	*MergePolicyImpl
-	random *rand.Rand
+	random          *rand.Rand
+	doNonBulkMerges bool
 }
 
 func NewMockRandomMergePolicy(r *rand.Rand) *MockRandomMergePolicy {
 	// fork a private random, since we are called unpredicatably from threads:
 	res := &MockRandomMergePolicy{
-		random: rand.New(rand.NewSource(r.Int63())),
+		random:          rand.New(rand.NewSource(r.Int63())),
+		doNonBulkMerges: true,
 	}
 	res.MergePolicyImpl = NewDefaultMergePolicyImpl(res)
 	return res
 }
 
 func (p *MockRandomMergePolicy) FindMerges(mergeTrigger MergeTrigger,
-	segmentInfos *SegmentInfos) (MergeSpecification, error) {
+	segmentInfos *SegmentInfos, writer *IndexWriter) (MergeSpecification, error) {
 
 	var segments []*SegmentCommitInfo
-	merging := p.Writer.Get().(*IndexWriter).MergingSegments()
+	merging := writer.MergingSegments()
 
 	for _, sipc := range segmentInfos.Segments {
 		if _, ok := merging[sipc]; !ok {
@@ -47,19 +50,25 @@ func (p *MockRandomMergePolicy) FindMerges(mergeTrigger MergeTrigger,
 
 		// TODO: sometimes make more than 1 merge?
 		segsToMerge := tu.NextInt(p.random, 1, n)
-		merges = append(merges, NewOneMerge(segments[:segsToMerge]))
+		if p.doNonBulkMerges {
+			panic("not implemented yet")
+		} else {
+			merges = append(merges, NewOneMerge(segments[:segsToMerge]))
+		}
 	}
 	return MergeSpecification(merges), nil
 }
 
 func (p *MockRandomMergePolicy) FindForcedMerges(segmentsInfos *SegmentInfos,
-	maxSegmentCount int, segmentsToMerge map[*SegmentCommitInfo]bool) (MergeSpecification, error) {
+	maxSegmentCount int, segmentsToMerge map[*SegmentCommitInfo]bool,
+	writer *IndexWriter) (MergeSpecification, error) {
 	panic("not implemented yet")
 }
 
 func (p *MockRandomMergePolicy) Close() error { return nil }
 
-func (p *MockRandomMergePolicy) UseCompoundFile(infos *SegmentInfos, mergedInfo *SegmentCommitInfo) (bool, error) {
+func (p *MockRandomMergePolicy) UseCompoundFile(infos *SegmentInfos,
+	mergedInfo *SegmentCommitInfo, writer *IndexWriter) (bool, error) {
 	// 80% of the time we create CFS:
 	return p.random.Intn(5) != 1, nil
 }
@@ -88,7 +97,9 @@ func NewAlcoholicMergePolicy( /*tz TimeZone, */ r *rand.Rand) *AlcoholicMergePol
 	return mp
 }
 
-func (p *AlcoholicMergePolicy) Size(info *SegmentCommitInfo) (int64, error) {
+func (p *AlcoholicMergePolicy) Size(info *SegmentCommitInfo,
+	writer *IndexWriter) (int64, error) {
+
 	n, err := info.SizeInBytes()
 	now := time.Now()
 	if hour := now.Hour(); err == nil && (hour < 6 || hour > 20 ||

@@ -15,7 +15,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"sort"
-	"strings"
+	// "strings"
 	"sync"
 )
 
@@ -214,10 +214,10 @@ func (w *MockDirectoryWrapper) sizeInBytes() (int64, error) {
 	w.Lock()
 	defer w.Unlock()
 
-	v, ok := w.Directory.(*store.RAMDirectory)
-	if ok {
-		return v.SizeInBytes(), nil
-	}
+	// v, ok := w.Directory.(*store.RAMDirectory)
+	// if ok {
+	// 	return v.RamBytesUsed(), nil
+	// }
 	// hack
 	panic("not implemented yet")
 }
@@ -230,115 +230,116 @@ func (w *MockDirectoryWrapper) Crash() error {
 }
 
 func (w *MockDirectoryWrapper) _crash() error {
-	w.crashed = true
-	w.openFiles = make(map[string]int)
-	w.openFilesForWrite = make(map[string]bool)
-	w.openFilesDeleted = make(map[string]bool)
-	files := w.unSyncedFiles
-	w.unSyncedFiles = make(map[string]bool)
-	// first force-close all files, so we can corrupt on windows etc.
-	// clone the file map, as these guys want to remove themselves on close.
-	m := make(map[io.Closer]error)
-	for k, v := range w.openFileHandles {
-		m[k] = v
-	}
-	for f, _ := range m {
-		f.Close() // ignore error
-	}
+	panic("not implemented yet")
+	// w.crashed = true
+	// w.openFiles = make(map[string]int)
+	// w.openFilesForWrite = make(map[string]bool)
+	// w.openFilesDeleted = make(map[string]bool)
+	// files := w.unSyncedFiles
+	// w.unSyncedFiles = make(map[string]bool)
+	// // first force-close all files, so we can corrupt on windows etc.
+	// // clone the file map, as these guys want to remove themselves on close.
+	// m := make(map[io.Closer]error)
+	// for k, v := range w.openFileHandles {
+	// 	m[k] = v
+	// }
+	// for f, _ := range m {
+	// 	f.Close() // ignore error
+	// }
 
-	for name, _ := range files {
-		var action string
-		var err error
-		switch w.randomState.Intn(5) {
-		case 0:
-			action = "deleted"
-			err = w.deleteFile(name, true)
-		case 1:
-			action = "zeroes"
-			// Zero out file entirely
-			var length int64
-			length, err = w._fileLength(name)
-			if err == nil {
-				zeroes := make([]byte, 256)
-				var upto int64 = 0
-				var out store.IndexOutput
-				out, err = w.BaseDirectoryWrapperImpl.CreateOutput(name, NewDefaultIOContext(w.randomState))
-				if err == nil {
-					for upto < length && err == nil {
-						limit := length - upto
-						if int64(len(zeroes)) < limit {
-							limit = int64(len(zeroes))
-						}
-						err = out.WriteBytes(zeroes[:limit])
-						upto += limit
-					}
-					if err == nil {
-						err = out.Close()
-					}
-				}
-			}
-		case 2:
-			action = "partially truncated"
-			// Partially Truncate the file:
+	// for name, _ := range files {
+	// 	var action string
+	// 	var err error
+	// 	switch w.randomState.Intn(5) {
+	// 	case 0:
+	// 		action = "deleted"
+	// 		err = w.deleteFile(name, true)
+	// 	case 1:
+	// 		action = "zeroes"
+	// 		// Zero out file entirely
+	// 		var length int64
+	// 		length, err = w._fileLength(name)
+	// 		if err == nil {
+	// 			zeroes := make([]byte, 256)
+	// 			var upto int64 = 0
+	// 			var out store.IndexOutput
+	// 			out, err = w.BaseDirectoryWrapperImpl.CreateOutput(name, NewDefaultIOContext(w.randomState))
+	// 			if err == nil {
+	// 				for upto < length && err == nil {
+	// 					limit := length - upto
+	// 					if int64(len(zeroes)) < limit {
+	// 						limit = int64(len(zeroes))
+	// 					}
+	// 					err = out.WriteBytes(zeroes[:limit])
+	// 					upto += limit
+	// 				}
+	// 				if err == nil {
+	// 					err = out.Close()
+	// 				}
+	// 			}
+	// 		}
+	// 	case 2:
+	// 		action = "partially truncated"
+	// 		// Partially Truncate the file:
 
-			// First, make temp file and copy only half this file over:
-			var tempFilename string
-			for {
-				tempFilename = fmt.Sprintf("%v", w.randomState.Int())
-				if !w.BaseDirectoryWrapperImpl.FileExists(tempFilename) {
-					break
-				}
-			}
-			var tempOut store.IndexOutput
-			if tempOut, err = w.BaseDirectoryWrapperImpl.CreateOutput(tempFilename, NewDefaultIOContext(w.randomState)); err == nil {
-				var ii store.IndexInput
-				if ii, err = w.BaseDirectoryWrapperImpl.OpenInput(name, NewDefaultIOContext(w.randomState)); err == nil {
-					if err = tempOut.CopyBytes(ii, ii.Length()/2); err == nil {
-						if err = tempOut.Close(); err == nil {
-							if err = ii.Close(); err == nil {
-								// Delete original and copy bytes back:
-								if err = w.deleteFile(name, true); err == nil {
-									var out store.IndexOutput
-									if out, err = w.BaseDirectoryWrapperImpl.CreateOutput(name, NewDefaultIOContext(w.randomState)); err == nil {
-										if ii, err = w.BaseDirectoryWrapperImpl.OpenInput(tempFilename, NewDefaultIOContext(w.randomState)); err == nil {
-											if err = out.CopyBytes(ii, ii.Length()); err == nil {
-												if err = out.Close(); err == nil {
-													if err = ii.Close(); err == nil {
-														err = w.deleteFile(tempFilename, true)
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		case 3:
-			// the file survived intact:
-			action = "didn't change"
-		default:
-			action = "fully truncated"
-			// totally truncate the file to zero bytes
-			if err = w.deleteFile(name, true); err == nil {
-				var out store.IndexOutput
-				if out, err = w.BaseDirectoryWrapperImpl.CreateOutput(name, NewDefaultIOContext(w.randomState)); err == nil {
-					if err = out.SetLength(0); err == nil {
-						err = out.Close()
-					}
-				}
-			}
-		}
-		if err != nil {
-			return err
-		}
-		if VERBOSE {
-			log.Printf("MockDirectoryWrapper: %v unsynced file: %v", action, name)
-		}
-	}
-	return nil
+	// 		// First, make temp file and copy only half this file over:
+	// 		var tempFilename string
+	// 		for {
+	// 			tempFilename = fmt.Sprintf("%v", w.randomState.Int())
+	// 			if !w.BaseDirectoryWrapperImpl.FileExists(tempFilename) {
+	// 				break
+	// 			}
+	// 		}
+	// 		var tempOut store.IndexOutput
+	// 		if tempOut, err = w.BaseDirectoryWrapperImpl.CreateOutput(tempFilename, NewDefaultIOContext(w.randomState)); err == nil {
+	// 			var ii store.IndexInput
+	// 			if ii, err = w.BaseDirectoryWrapperImpl.OpenInput(name, NewDefaultIOContext(w.randomState)); err == nil {
+	// 				if err = tempOut.CopyBytes(ii, ii.Length()/2); err == nil {
+	// 					if err = tempOut.Close(); err == nil {
+	// 						if err = ii.Close(); err == nil {
+	// 							// Delete original and copy bytes back:
+	// 							if err = w.deleteFile(name, true); err == nil {
+	// 								var out store.IndexOutput
+	// 								if out, err = w.BaseDirectoryWrapperImpl.CreateOutput(name, NewDefaultIOContext(w.randomState)); err == nil {
+	// 									if ii, err = w.BaseDirectoryWrapperImpl.OpenInput(tempFilename, NewDefaultIOContext(w.randomState)); err == nil {
+	// 										if err = out.CopyBytes(ii, ii.Length()); err == nil {
+	// 											if err = out.Close(); err == nil {
+	// 												if err = ii.Close(); err == nil {
+	// 													err = w.deleteFile(tempFilename, true)
+	// 												}
+	// 											}
+	// 										}
+	// 									}
+	// 								}
+	// 							}
+	// 						}
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+	// 	case 3:
+	// 		// the file survived intact:
+	// 		action = "didn't change"
+	// 	default:
+	// 		action = "fully truncated"
+	// 		// totally truncate the file to zero bytes
+	// 		if err = w.deleteFile(name, true); err == nil {
+	// 			var out store.IndexOutput
+	// 			if out, err = w.BaseDirectoryWrapperImpl.CreateOutput(name, NewDefaultIOContext(w.randomState)); err == nil {
+	// 				if err = out.SetLength(0); err == nil {
+	// 					err = out.Close()
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	if VERBOSE {
+	// 		log.Printf("MockDirectoryWrapper: %v unsynced file: %v", action, name)
+	// 	}
+	// }
+	// return nil
 }
 
 func (w *MockDirectoryWrapper) maybeThrowIOException(message string) error {
@@ -448,82 +449,83 @@ func (w *MockDirectoryWrapper) deleteFile(name string, forced bool) error {
 }
 
 func (w *MockDirectoryWrapper) CreateOutput(name string, context store.IOContext) (store.IndexOutput, error) {
-	if !w.isLocked {
-		w.Lock() // synchronized
-		defer w.Unlock()
-	}
+	panic("not implemented yet")
+	// if !w.isLocked {
+	// 	w.Lock() // synchronized
+	// 	defer w.Unlock()
+	// }
 
-	err := w.maybeThrowDeterministicException()
-	if err != nil {
-		return nil, err
-	}
-	err = w.maybeThrowIOExceptionOnOpen(name)
-	if err != nil {
-		return nil, err
-	}
-	w.maybeYield()
-	if w.failOnCreateOutput {
-		if err = w.maybeThrowDeterministicException(); err != nil {
-			return nil, err
-		}
-	}
-	if w.crashed {
-		return nil, errors.New("cannot createOutput after crash")
-	}
-	w.init()
-	if _, ok := w.createdFiles[name]; w.preventDoubleWrite && ok && name != "segments.gen" {
-		return nil, errors.New(fmt.Sprintf("file %v was already written to", name))
-	}
-	if _, ok := w.openFiles[name]; w.noDeleteOpenFile && ok {
-		return nil, errors.New(fmt.Sprintf("MockDirectoryWraper: file %v is still open: cannot overwrite", name))
-	}
+	// err := w.maybeThrowDeterministicException()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// err = w.maybeThrowIOExceptionOnOpen(name)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// w.maybeYield()
+	// if w.failOnCreateOutput {
+	// 	if err = w.maybeThrowDeterministicException(); err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+	// if w.crashed {
+	// 	return nil, errors.New("cannot createOutput after crash")
+	// }
+	// w.init()
+	// if _, ok := w.createdFiles[name]; w.preventDoubleWrite && ok && name != "segments.gen" {
+	// 	return nil, errors.New(fmt.Sprintf("file %v was already written to", name))
+	// }
+	// if _, ok := w.openFiles[name]; w.noDeleteOpenFile && ok {
+	// 	return nil, errors.New(fmt.Sprintf("MockDirectoryWraper: file %v is still open: cannot overwrite", name))
+	// }
 
-	if w.crashed {
-		return nil, errors.New("cannot createOutput after crash")
-	}
-	w.unSyncedFiles[name] = true
-	w.createdFiles[name] = true
+	// if w.crashed {
+	// 	return nil, errors.New("cannot createOutput after crash")
+	// }
+	// w.unSyncedFiles[name] = true
+	// w.createdFiles[name] = true
 
-	if ramdir, ok := w.Directory.(*store.RAMDirectory); ok {
-		file := store.NewRAMFile(ramdir)
-		existing := ramdir.GetRAMFile(name)
+	// if ramdir, ok := w.Directory.(*store.RAMDirectory); ok {
+	// 	file := store.NewRAMFile(ramdir)
+	// 	existing := ramdir.GetRAMFile(name)
 
-		// Enforce write once:
-		if existing != nil && name != "segments.gen" && w.preventDoubleWrite {
-			return nil, errors.New(fmt.Sprintf("file %v already exists", name))
-		} else {
-			if existing != nil {
-				ramdir.ChangeSize(-existing.SizeInBytes())
-				// existing.directory = nil
-			}
-			ramdir.PutRAMFile(name, file)
-		}
-	}
-	log.Printf("MDW: create %v", name)
-	delegateOutput, err := w.Directory.CreateOutput(name, NewIOContext(w.randomState, context))
-	if err != nil {
-		return nil, err
-	}
-	assert(delegateOutput != nil)
-	if w.randomState.Intn(10) == 0 {
-		// once ina while wrap the IO in a buffered IO with random buffer sizes
-		delegateOutput = newBufferedIndexOutputWrapper(
-			1+w.randomState.Intn(store.DEFAULT_BUFFER_SIZE), delegateOutput)
-		assert(delegateOutput != nil)
-	}
-	io := newMockIndexOutputWrapper(w, name, delegateOutput)
-	w._addFileHandle(io, name, HANDLE_OUTPUT)
-	w.openFilesForWrite[name] = true
+	// 	// Enforce write once:
+	// 	if existing != nil && name != "segments.gen" && w.preventDoubleWrite {
+	// 		return nil, errors.New(fmt.Sprintf("file %v already exists", name))
+	// 	} else {
+	// 		if existing != nil {
+	// 			ramdir.ChangeSize(-existing.SizeInBytes())
+	// 			// existing.directory = nil
+	// 		}
+	// 		ramdir.PutRAMFile(name, file)
+	// 	}
+	// }
+	// log.Printf("MDW: create %v", name)
+	// delegateOutput, err := w.Directory.CreateOutput(name, NewIOContext(w.randomState, context))
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// assert(delegateOutput != nil)
+	// if w.randomState.Intn(10) == 0 {
+	// 	// once ina while wrap the IO in a buffered IO with random buffer sizes
+	// 	delegateOutput = newBufferedIndexOutputWrapper(
+	// 		1+w.randomState.Intn(store.DEFAULT_BUFFER_SIZE), delegateOutput)
+	// 	assert(delegateOutput != nil)
+	// }
+	// io := newMockIndexOutputWrapper(w, name, delegateOutput)
+	// w._addFileHandle(io, name, HANDLE_OUTPUT)
+	// w.openFilesForWrite[name] = true
 
-	// throttling REALLY slows down tests, so don't do it very often for SOMETIMES
-	if _, ok := w.Directory.(*store.RateLimitedDirectoryWrapper); w.throttling == THROTTLING_ALWAYS ||
-		(w.throttling == THROTTLING_SOMETIMES && w.randomState.Intn(50) == 0) && !ok {
-		if VERBOSE {
-			log.Println(fmt.Sprintf("MockDirectoryWrapper: throttling indexOutpu (%v)", name))
-		}
-		return w.throttledOutput.NewFromDelegate(io), nil
-	}
-	return io, nil
+	// // throttling REALLY slows down tests, so don't do it very often for SOMETIMES
+	// if _, ok := w.Directory.(*store.RateLimitedDirectoryWrapper); w.throttling == THROTTLING_ALWAYS ||
+	// 	(w.throttling == THROTTLING_SOMETIMES && w.randomState.Intn(50) == 0) && !ok {
+	// 	if VERBOSE {
+	// 		log.Println(fmt.Sprintf("MockDirectoryWrapper: throttling indexOutpu (%v)", name))
+	// 	}
+	// 	return w.throttledOutput.NewFromDelegate(io), nil
+	// }
+	// return io, nil
 }
 
 type Handle int
@@ -564,57 +566,58 @@ func (w *MockDirectoryWrapper) _addFileHandle(c io.Closer, name string, handle H
 }
 
 func (w *MockDirectoryWrapper) OpenInput(name string, context store.IOContext) (ii store.IndexInput, err error) {
-	if !w.isLocked {
-		w.Lock() // synchronized
-		defer w.Unlock()
-	}
+	panic("not implemented yet")
+	// if !w.isLocked {
+	// 	w.Lock() // synchronized
+	// 	defer w.Unlock()
+	// }
 
-	if err = w.maybeThrowDeterministicException(); err != nil {
-		return
-	}
-	if err = w.maybeThrowIOExceptionOnOpen(name); err != nil {
-		return
-	}
-	w.maybeYield()
-	if w.failOnOpenInput {
-		if err = w.maybeThrowDeterministicException(); err != nil {
-			return
-		}
-	}
-	if !w.Directory.FileExists(name) {
-		return nil, errors.New(fmt.Sprintf("%v in dir=%v", name, w.Directory))
-	}
+	// if err = w.maybeThrowDeterministicException(); err != nil {
+	// 	return
+	// }
+	// if err = w.maybeThrowIOExceptionOnOpen(name); err != nil {
+	// 	return
+	// }
+	// w.maybeYield()
+	// if w.failOnOpenInput {
+	// 	if err = w.maybeThrowDeterministicException(); err != nil {
+	// 		return
+	// 	}
+	// }
+	// if !w.Directory.FileExists(name) {
+	// 	return nil, errors.New(fmt.Sprintf("%v in dir=%v", name, w.Directory))
+	// }
 
-	// cannot open a file for input if it's still open for output,
-	// except for segments.gen and segments_N
-	if _, ok := w.openFilesForWrite[name]; ok && strings.HasPrefix(name, "segments") {
-		err = w.fillOpenTrace(errors.New(fmt.Sprintf(
-			"MockDirectoryWrapper: file '%v' is still open for writing", name)), name, false)
-		return
-	}
+	// // cannot open a file for input if it's still open for output,
+	// // except for segments.gen and segments_N
+	// if _, ok := w.openFilesForWrite[name]; ok && strings.HasPrefix(name, "segments") {
+	// 	err = w.fillOpenTrace(errors.New(fmt.Sprintf(
+	// 		"MockDirectoryWrapper: file '%v' is still open for writing", name)), name, false)
+	// 	return
+	// }
 
-	var delegateInput store.IndexInput
-	delegateInput, err = w.Directory.OpenInput(name, NewIOContext(w.randomState, context))
-	if err != nil {
-		return
-	}
+	// var delegateInput store.IndexInput
+	// delegateInput, err = w.Directory.OpenInput(name, NewIOContext(w.randomState, context))
+	// if err != nil {
+	// 	return
+	// }
 
-	randomInt := w.randomState.Intn(500)
-	if randomInt == 0 {
-		if VERBOSE {
-			log.Printf("MockDirectoryWrapper: using SlowClosingMockIndexInputWrapper for file %v", name)
-		}
-		panic("not implemented yet")
-	} else if randomInt == 1 {
-		if VERBOSE {
-			log.Printf("MockDirectoryWrapper: using SlowOpeningMockIndexInputWrapper for file %v", name)
-		}
-		panic("not implemented yet")
-	} else {
-		ii = newMockIndexInputWrapper(w, name, delegateInput)
-	}
-	w._addFileHandle(ii, name, HANDLE_INPUT)
-	return ii, nil
+	// randomInt := w.randomState.Intn(500)
+	// if randomInt == 0 {
+	// 	if VERBOSE {
+	// 		log.Printf("MockDirectoryWrapper: using SlowClosingMockIndexInputWrapper for file %v", name)
+	// 	}
+	// 	panic("not implemented yet")
+	// } else if randomInt == 1 {
+	// 	if VERBOSE {
+	// 		log.Printf("MockDirectoryWrapper: using SlowOpeningMockIndexInputWrapper for file %v", name)
+	// 	}
+	// 	panic("not implemented yet")
+	// } else {
+	// 	ii = newMockIndexInputWrapper(w, name, delegateInput)
+	// }
+	// w._addFileHandle(ii, name, HANDLE_INPUT)
+	// return ii, nil
 }
 
 // L594
@@ -991,98 +994,98 @@ func (w *MockDirectoryWrapper) Copy(to store.Directory, src string, dest string,
 	return w.Directory.Copy(to, src, dest, context)
 }
 
-func (w *MockDirectoryWrapper) CreateSlicer(name string,
-	context store.IOContext) (store.IndexInputSlicer, error) {
+// func (w *MockDirectoryWrapper) CreateSlicer(name string,
+// 	context store.IOContext) (store.IndexInputSlicer, error) {
 
-	if !w.isLocked {
-		w.Lock() // synchronized
-		defer w.Unlock()
-	}
+// 	if !w.isLocked {
+// 		w.Lock() // synchronized
+// 		defer w.Unlock()
+// 	}
 
-	w.maybeYield()
-	if !w.Directory.FileExists(name) {
-		return nil, errors.New(fmt.Sprintf("File not found: %v", name))
-	}
-	// cannot open a file for input if it's still open for output,
-	// except for segments.gen and segments_N
-	if _, ok := w.openFilesForWrite[name]; ok && !strings.HasPrefix(name, "segments") {
-		return nil, w.fillOpenTrace(errors.New(fmt.Sprintf(
-			"MockDirectoryWrapper: file '%v' is still open for writing", name)), name, false)
-	}
+// 	w.maybeYield()
+// 	if !w.Directory.FileExists(name) {
+// 		return nil, errors.New(fmt.Sprintf("File not found: %v", name))
+// 	}
+// 	// cannot open a file for input if it's still open for output,
+// 	// except for segments.gen and segments_N
+// 	if _, ok := w.openFilesForWrite[name]; ok && !strings.HasPrefix(name, "segments") {
+// 		return nil, w.fillOpenTrace(errors.New(fmt.Sprintf(
+// 			"MockDirectoryWrapper: file '%v' is still open for writing", name)), name, false)
+// 	}
 
-	delegateHandle, err := w.Directory.CreateSlicer(name, context)
-	if err != nil {
-		return nil, err
-	}
-	handle := &myIndexInputSlicer{w, delegateHandle, name, false}
-	w._addFileHandle(handle, name, HANDLE_SLICE)
-	return handle, nil
-}
-
-type myIndexInputSlicer struct {
-	owner          *MockDirectoryWrapper
-	delegateHandle store.IndexInputSlicer
-	name           string
-	isClosed       bool
-}
-
-func (s *myIndexInputSlicer) Close() error {
-	if !s.isClosed {
-		err := s.delegateHandle.Close()
-		if err != nil {
-			return err
-		}
-		s.owner.removeOpenFile(s, s.name)
-		s.isClosed = true
-	}
-	return nil
-}
-
-func (s *myIndexInputSlicer) OpenSlice(desc string, offset, length int64) store.IndexInput {
-	s.owner.maybeYield()
-	slice := s.delegateHandle.OpenSlice(desc, offset, length)
-	ii := newMockIndexInputWrapper(s.owner, s.name, slice)
-	s.owner.addFileHandle(ii, s.name, HANDLE_INPUT)
-	return ii
-}
-
-func (s *myIndexInputSlicer) OpenFullSlice() store.IndexInput {
-	s.owner.maybeYield()
-	slice := s.delegateHandle.OpenFullSlice()
-	ii := newMockIndexInputWrapper(s.owner, s.name, slice)
-	s.owner.addFileHandle(ii, s.name, HANDLE_INPUT)
-	return ii
-}
-
-type BufferedIndexOutputWrapper struct {
-	*store.BufferedIndexOutput
-	io store.IndexOutput
-}
-
-func newBufferedIndexOutputWrapper(bufferSize int, io store.IndexOutput) *BufferedIndexOutputWrapper {
-	ans := &BufferedIndexOutputWrapper{}
-	ans.BufferedIndexOutput = store.NewBufferedIndexOutput(bufferSize, ans)
-	ans.io = io
-	return ans
-}
-
-func (w *BufferedIndexOutputWrapper) Length() (int64, error) {
-	return w.io.Length()
-}
-
-func (w *BufferedIndexOutputWrapper) FlushBuffer(buf []byte) error {
-	return w.io.WriteBytes(buf)
-}
-
-// func (w *BufferedIndexOutputWrapper) Flush() error {
-// 	defer w.io.Flush()
-// 	return w.BufferedIndexOutput.Flush()
+// 	delegateHandle, err := w.Directory.CreateSlicer(name, context)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	handle := &myIndexInputSlicer{w, delegateHandle, name, false}
+// 	w._addFileHandle(handle, name, HANDLE_SLICE)
+// 	return handle, nil
 // }
 
-func (w *BufferedIndexOutputWrapper) Close() error {
-	defer w.io.Close()
-	return w.BufferedIndexOutput.Close()
-}
+// type myIndexInputSlicer struct {
+// 	owner          *MockDirectoryWrapper
+// 	delegateHandle store.IndexInputSlicer
+// 	name           string
+// 	isClosed       bool
+// }
+
+// func (s *myIndexInputSlicer) Close() error {
+// 	if !s.isClosed {
+// 		err := s.delegateHandle.Close()
+// 		if err != nil {
+// 			return err
+// 		}
+// 		s.owner.removeOpenFile(s, s.name)
+// 		s.isClosed = true
+// 	}
+// 	return nil
+// }
+
+// func (s *myIndexInputSlicer) OpenSlice(desc string, offset, length int64) store.IndexInput {
+// 	s.owner.maybeYield()
+// 	slice := s.delegateHandle.OpenSlice(desc, offset, length)
+// 	ii := newMockIndexInputWrapper(s.owner, s.name, slice)
+// 	s.owner.addFileHandle(ii, s.name, HANDLE_INPUT)
+// 	return ii
+// }
+
+// func (s *myIndexInputSlicer) OpenFullSlice() store.IndexInput {
+// 	s.owner.maybeYield()
+// 	slice := s.delegateHandle.OpenFullSlice()
+// 	ii := newMockIndexInputWrapper(s.owner, s.name, slice)
+// 	s.owner.addFileHandle(ii, s.name, HANDLE_INPUT)
+// 	return ii
+// }
+
+// type BufferedIndexOutputWrapper struct {
+// 	*store.BufferedIndexOutput
+// 	io store.IndexOutput
+// }
+
+// func newBufferedIndexOutputWrapper(bufferSize int, io store.IndexOutput) *BufferedIndexOutputWrapper {
+// 	ans := &BufferedIndexOutputWrapper{}
+// 	ans.BufferedIndexOutput = store.NewBufferedIndexOutput(bufferSize, ans)
+// 	ans.io = io
+// 	return ans
+// }
+
+// func (w *BufferedIndexOutputWrapper) Length() (int64, error) {
+// 	return w.io.Length()
+// }
+
+// func (w *BufferedIndexOutputWrapper) FlushBuffer(buf []byte) error {
+// 	return w.io.WriteBytes(buf)
+// }
+
+// // func (w *BufferedIndexOutputWrapper) Flush() error {
+// // 	defer w.io.Flush()
+// // 	return w.BufferedIndexOutput.Flush()
+// // }
+
+// func (w *BufferedIndexOutputWrapper) Close() error {
+// 	defer w.io.Close()
+// 	return w.BufferedIndexOutput.Close()
+// }
 
 // store/MockLockFactoryWrapper.java
 
@@ -1098,7 +1101,8 @@ func newMockLockFactoryWrapper(dir *MockDirectoryWrapper, delegate store.LockFac
 }
 
 func (w *MockLockFactoryWrapper) Make(lockName string) store.Lock {
-	return newMockLock(w.dir, w.LockFactory.Make(lockName), lockName)
+	panic("not implemented yet")
+	// return newMockLock(w.dir, w.LockFactory.Make(lockName), lockName)
 }
 
 func (w *MockLockFactoryWrapper) Clear(lockName string) error {
@@ -1124,14 +1128,15 @@ type MockLock struct {
 }
 
 func newMockLock(dir *MockDirectoryWrapper, delegate store.Lock, name string) *MockLock {
-	assert(name != "")
-	ans := &MockLock{
-		delegate: delegate,
-		name:     name,
-		dir:      dir,
-	}
-	ans.LockImpl = store.NewLockImpl(ans)
-	return ans
+	panic("not implemented yet")
+	// assert(name != "")
+	// ans := &MockLock{
+	// 	delegate: delegate,
+	// 	name:     name,
+	// 	dir:      dir,
+	// }
+	// ans.LockImpl = store.NewLockImpl(ans)
+	// return ans
 }
 
 func (lock *MockLock) Obtain() (ok bool, err error) {
@@ -1148,13 +1153,14 @@ func (lock *MockLock) Obtain() (ok bool, err error) {
 }
 
 func (lock *MockLock) Release() error {
-	if err := lock.delegate.Release(); err != nil {
-		return err
-	}
-	lock.dir.openLocksLock.Lock()
-	defer lock.dir.openLocksLock.Unlock()
-	delete(lock.dir.openLocks, lock.name)
-	return nil
+	panic("not implemented yet")
+	// if err := lock.delegate.Release(); err != nil {
+	// 	return err
+	// }
+	// lock.dir.openLocksLock.Lock()
+	// defer lock.dir.openLocksLock.Unlock()
+	// delete(lock.dir.openLocks, lock.name)
+	// return nil
 }
 
 func (lock *MockLock) IsLocked() bool {
@@ -1186,22 +1192,23 @@ func newMockIndexInputWrapper(dir *MockDirectoryWrapper,
 }
 
 func (w *MockIndexInputWrapper) Close() (err error) {
-	defer func() {
-		w.closed = true
-		err2 := w.delegate.Close()
-		err = mergeError(err, err2)
-		if err2 == nil {
-			// Pending resolution on LUCENE-686 we may want to remove the
-			// conditional check so we also track that all clones get closed:
-			if !w.isClone {
-				w.dir.removeIndexInput(w, w.name)
-			}
-		}
-	}()
-	// turn on the following to look for leaks closing inputs, after
-	// fixing TestTransactions
-	// return w.dir.maybeThrowDeterministicException()
-	return nil
+	panic("not implemented yet")
+	// defer func() {
+	// 	w.closed = true
+	// 	err2 := w.delegate.Close()
+	// 	err = mergeError(err, err2)
+	// 	if err2 == nil {
+	// 		// Pending resolution on LUCENE-686 we may want to remove the
+	// 		// conditional check so we also track that all clones get closed:
+	// 		if !w.isClone {
+	// 			w.dir.removeIndexInput(w, w.name)
+	// 		}
+	// 	}
+	// }()
+	// // turn on the following to look for leaks closing inputs, after
+	// // fixing TestTransactions
+	// // return w.dir.maybeThrowDeterministicException()
+	// return nil
 }
 
 func (w *MockIndexInputWrapper) ensureOpen() {
@@ -1314,89 +1321,92 @@ func (w *MockIndexOutputWrapper) checkCrashed() error {
 }
 
 func (w *MockIndexOutputWrapper) checkDiskFull(buf []byte, in util.DataInput) (err error) {
-	var freeSpace int64 = 0
-	if w.dir.maxSize > 0 {
-		sizeInBytes, err := w.dir.sizeInBytes()
-		if err != nil {
-			return err
-		}
-		freeSpace = w.dir.maxSize - sizeInBytes
-	}
-	var realUsage int64 = 0
+	panic("not implemented yet")
+	// var freeSpace int64 = 0
+	// if w.dir.maxSize > 0 {
+	// 	sizeInBytes, err := w.dir.sizeInBytes()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	freeSpace = w.dir.maxSize - sizeInBytes
+	// }
+	// var realUsage int64 = 0
 
-	// Enforce disk full:
-	if w.dir.maxSize > 0 && freeSpace <= int64(len(buf)) {
-		// Compute the real disk free. This will greatly slow down our
-		// test but makes it more accurate:
-		realUsage, err = w.dir.recomputeActualSizeInBytes()
-		if err != nil {
-			return err
-		}
-		freeSpace = w.dir.maxSize - realUsage
-	}
+	// // Enforce disk full:
+	// if w.dir.maxSize > 0 && freeSpace <= int64(len(buf)) {
+	// 	// Compute the real disk free. This will greatly slow down our
+	// 	// test but makes it more accurate:
+	// 	realUsage, err = w.dir.recomputeActualSizeInBytes()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	freeSpace = w.dir.maxSize - realUsage
+	// }
 
-	if w.dir.maxSize > 0 && freeSpace <= int64(len(buf)) {
-		if freeSpace > 0 {
-			realUsage += freeSpace
-			if buf != nil {
-				w.delegate.WriteBytes(buf[:freeSpace])
-			} else {
-				w.CopyBytes(in, int64(len(buf)))
-			}
-		}
-		if realUsage > w.dir.maxUsedSize {
-			w.dir.maxUsedSize = realUsage
-		}
-		n, err := w.dir.recomputeActualSizeInBytes()
-		if err != nil {
-			return err
-		}
-		fLen, err := w.delegate.Length()
-		if err != nil {
-			return err
-		}
-		message := fmt.Sprintf("fake disk full at %v bytes when writing %v (file length=%v",
-			n, w.name, fLen)
-		if freeSpace > 0 {
-			message += fmt.Sprintf("; wrote %v of %v bytes", freeSpace, len(buf))
-		}
-		message += ")"
-		if VERBOSE {
-			log.Println("MDW: now throw fake disk full")
-			debug.PrintStack()
-		}
-		return errors.New(message)
-	}
-	return nil
+	// if w.dir.maxSize > 0 && freeSpace <= int64(len(buf)) {
+	// 	if freeSpace > 0 {
+	// 		realUsage += freeSpace
+	// 		if buf != nil {
+	// 			w.delegate.WriteBytes(buf[:freeSpace])
+	// 		} else {
+	// 			w.CopyBytes(in, int64(len(buf)))
+	// 		}
+	// 	}
+	// 	if realUsage > w.dir.maxUsedSize {
+	// 		w.dir.maxUsedSize = realUsage
+	// 	}
+	// 	n, err := w.dir.recomputeActualSizeInBytes()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	fLen, err := w.delegate.Length()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	message := fmt.Sprintf("fake disk full at %v bytes when writing %v (file length=%v",
+	// 		n, w.name, fLen)
+	// 	if freeSpace > 0 {
+	// 		message += fmt.Sprintf("; wrote %v of %v bytes", freeSpace, len(buf))
+	// 	}
+	// 	message += ")"
+	// 	if VERBOSE {
+	// 		log.Println("MDW: now throw fake disk full")
+	// 		debug.PrintStack()
+	// 	}
+	// 	return errors.New(message)
+	// }
+	// return nil
 }
 
 func (w *MockIndexOutputWrapper) Close() (err error) {
-	defer func() {
-		err2 := w.delegate.Close()
-		if err2 != nil {
-			err = mergeError(err, err2)
-			return
-		}
-		if w.dir.trackDiskUsage {
-			// Now compute actual disk usage & track the maxUsedSize
-			// in the MDW:
-			size, err2 := w.dir.recomputeActualSizeInBytes()
-			if err2 != nil {
-				err = mergeError(err, err2)
-				return
-			}
-			if size > w.dir.maxUsedSize {
-				w.dir.maxUsedSize = size
-			}
-		}
-		w.dir.removeIndexOutput(w, w.name)
-	}()
-	return w.dir.maybeThrowDeterministicException()
+	panic("not implemented yet")
+	// defer func() {
+	// 	err2 := w.delegate.Close()
+	// 	if err2 != nil {
+	// 		err = mergeError(err, err2)
+	// 		return
+	// 	}
+	// 	if w.dir.trackDiskUsage {
+	// 		// Now compute actual disk usage & track the maxUsedSize
+	// 		// in the MDW:
+	// 		size, err2 := w.dir.recomputeActualSizeInBytes()
+	// 		if err2 != nil {
+	// 			err = mergeError(err, err2)
+	// 			return
+	// 		}
+	// 		if size > w.dir.maxUsedSize {
+	// 			w.dir.maxUsedSize = size
+	// 		}
+	// 	}
+	// 	w.dir.removeIndexOutput(w, w.name)
+	// }()
+	// return w.dir.maybeThrowDeterministicException()
 }
 
 func (w *MockIndexOutputWrapper) Flush() error {
-	defer w.delegate.Flush()
-	return w.dir.maybeThrowDeterministicException()
+	panic("not implemented yet")
+	// defer w.delegate.Flush()
+	// return w.dir.maybeThrowDeterministicException()
 }
 
 func (w *MockIndexOutputWrapper) WriteByte(b byte) error {
@@ -1449,7 +1459,8 @@ func (w *MockIndexOutputWrapper) FilePointer() int64 {
 }
 
 func (w *MockIndexOutputWrapper) Length() (int64, error) {
-	return w.delegate.Length()
+	panic("not implemented yet")
+	// return w.delegate.Length()
 }
 
 func (w *MockIndexOutputWrapper) CopyBytes(input util.DataInput, numBytes int64) error {

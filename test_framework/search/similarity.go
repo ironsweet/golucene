@@ -3,6 +3,7 @@ package search
 import (
 	"fmt"
 	. "github.com/balzaczyy/golucene/core/search"
+	"github.com/balzaczyy/golucene/core/util"
 	"math"
 	"math/rand"
 	"sync"
@@ -82,7 +83,7 @@ func (p *RandomSimilarityProvider) Get(name string) Similarity {
 	defer p.Unlock()
 	sim, ok := p.previousMappings[name]
 	if !ok {
-		hash := int(math.Abs(math.Pow(float64(p.perFieldSeed), float64(hashstr(name)))))
+		hash := int(math.Abs(math.Pow(float64(p.perFieldSeed), float64(util.Hashstr(name)))))
 		sim = p.knownSims[hash%len(p.knownSims)]
 		p.previousMappings[name] = sim
 	}

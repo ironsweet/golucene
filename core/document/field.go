@@ -39,7 +39,7 @@ func NewFieldFromReader(name string, reader io.RuneReader, ft *FieldType) *Field
 }
 
 // Create field with String value
-func newFieldFromString(name, value string, ft *FieldType) *Field {
+func NewFieldFromString(name, value string, ft *FieldType) *Field {
 	assert2(name != "", "name cannot be empty")
 	assert2(value != "", "value cannot be empty")
 	assert2(ft.stored || ft.indexed,
@@ -220,7 +220,7 @@ used for a 'country' field or an 'id' field, or any field that you
 intend to use for sorting or access through the field cache.
 */
 func newStringField(name, value string, stored Store) *Field {
-	return newFieldFromString(name, value, map[Store]*FieldType{
+	return NewFieldFromString(name, value, map[Store]*FieldType{
 		STORE_YES: STRING_FIELD_TYPE_STORED,
 		STORE_NO:  STRING_FIELD_TYPE_NOT_STORED,
 	}[stored])
@@ -264,7 +264,7 @@ func NewTextFieldFromReader(name string, reader io.RuneReader) *TextField {
 }
 
 func NewTextFieldFromString(name, value string, store Store) *TextField {
-	return &TextField{newFieldFromString(name, value, map[Store]*FieldType{
+	return &TextField{NewFieldFromString(name, value, map[Store]*FieldType{
 		STORE_YES: TEXT_FIELD_TYPE_STORED,
 		STORE_NO:  TEXT_FIELD_TYPE_NOT_STORED,
 	}[store])}

@@ -16,4 +16,4 @@ go test github.com/balzaczyy/golucene/core/codec/blocktree
 go test github.com/balzaczyy/golucene/core/codec/lucene42
 go test github.com/balzaczyy/golucene/core/index
 go test github.com/balzaczyy/golucene/core/search
-go test github.com/balzaczyy/golucene/core_test
+# go test github.com/balzaczyy/golucene/core_test

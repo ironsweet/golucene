@@ -3,6 +3,7 @@ package test_framework
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
+	. "github.com/balzaczyy/golucene/core/codec/spi"
 	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
@@ -17,7 +18,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"reflect"
+	// "reflect"
 )
 
 // --------------------------------------------------------------------
@@ -269,31 +270,32 @@ func NewTextField(name, value string, stored bool) *docu.Field {
 }
 
 func NewField(r *rand.Rand, name, value string, typ *docu.FieldType) *docu.Field {
-	if Usually(r) || !typ.Indexed() {
-		// most of the time, don't modify the params
-		return docu.NewStringField(name, value, typ)
-	}
+	panic("not implemented yet")
+	// if Usually(r) || !typ.Indexed() {
+	// 	// most of the time, don't modify the params
+	// 	return docu.NewStringField(name, value, typ)
+	// }
 
-	newType := docu.NewFieldTypeFrom(typ)
-	if !newType.Stored() && r.Intn(2) == 0 {
-		newType.SetStored(true) // randonly store it
-	}
+	// newType := docu.NewFieldTypeFrom(typ)
+	// if !newType.Stored() && r.Intn(2) == 0 {
+	// 	newType.SetStored(true) // randonly store it
+	// }
 
-	if !newType.StoreTermVectors() && r.Intn(2) == 0 {
-		newType.SetStoreTermVectors(true)
-		if !newType.StoreTermVectorOffsets() {
-			newType.SetStoreTermVectorOffsets(r.Intn(2) == 0)
-		}
-		if !newType.StoreTermVectorPositions() {
-			newType.SetStoreTermVectorPositions(r.Intn(2) == 0)
+	// if !newType.StoreTermVectors() && r.Intn(2) == 0 {
+	// 	newType.SetStoreTermVectors(true)
+	// 	if !newType.StoreTermVectorOffsets() {
+	// 		newType.SetStoreTermVectorOffsets(r.Intn(2) == 0)
+	// 	}
+	// 	if !newType.StoreTermVectorPositions() {
+	// 		newType.SetStoreTermVectorPositions(r.Intn(2) == 0)
 
-			if newType.StoreTermVectorPositions() && !newType.StoreTermVectorPayloads() && !PREFLEX_IMPERSONATION_IS_ACTIVE {
-				newType.SetStoreTermVectorPayloads(r.Intn(2) == 2)
-			}
-		}
-	}
+	// 		if newType.StoreTermVectorPositions() && !newType.StoreTermVectorPayloads() && !PREFLEX_IMPERSONATION_IS_ACTIVE {
+	// 			newType.SetStoreTermVectorPayloads(r.Intn(2) == 2)
+	// 		}
+	// 	}
+	// }
 
-	return docu.NewStringField(name, value, newType)
+	// return docu.NewStringField(name, value, newType)
 }
 
 // Ian: Different from Lucene's default random class initializer, I have to
@@ -441,154 +443,155 @@ Setup and restore suite-level environment (fine grained junk that
 doesn't fit anywhere else)
 */
 type TestRuleSetupAndRestoreClassEnv struct {
-	savedCodec      index.Codec
+	savedCodec      Codec
 	savedInfoStream util.InfoStream
 
 	similarity search.Similarity
-	codec      index.Codec
+	codec      Codec
 
 	avoidCodecs map[string]bool
 }
 
 func (rule *TestRuleSetupAndRestoreClassEnv) Before() error {
-	// if verbose: print some debugging stuff about which codecs are loaded.
-	if VERBOSE {
-		for _, codec := range index.AvailableCodecs() {
-			log.Printf("Loaded codec: '%v': %v", codec,
-				reflect.TypeOf(index.LoadCodec(codec)))
-		}
+	panic("not implemented yet")
+	// // if verbose: print some debugging stuff about which codecs are loaded.
+	// if VERBOSE {
+	// 	for _, codec := range index.AvailableCodecs() {
+	// 		log.Printf("Loaded codec: '%v': %v", codec,
+	// 			reflect.TypeOf(index.LoadCodec(codec)))
+	// 	}
 
-		for _, postingFormat := range index.AvailablePostingsFormats() {
-			log.Printf("Loaded postingsFormat: '%v': %v", postingFormat,
-				reflect.TypeOf(index.LoadPostingsFormat(postingFormat)))
-		}
-	}
-
-	rule.savedInfoStream = util.DefaultInfoStream()
-	random := Random()
-	if INFOSTREAM {
-		util.SetDefaultInfoStream(newThreadNameFixingPrintStreamInfoStream(os.Stdout))
-	} else if random.Intn(2) == 0 {
-		util.SetDefaultInfoStream(NewNullInfoStream())
-	}
-
-	rule.avoidCodecs = make(map[string]bool)
-	if suppressedCodecs != "" {
-		rule.avoidCodecs[suppressedCodecs] = true
-	}
-
-	PREFLEX_IMPERSONATION_IS_ACTIVE = false
-	rule.savedCodec = index.DefaultCodec()
-	randomVal := random.Intn(10)
-	if "Lucene3x" == TEST_CODEC ||
-		"random" == TEST_CODEC &&
-			"random" == TEST_POSTINGSFORMAT &&
-			"random" == TEST_DOCVALUESFORMAT &&
-			randomVal == 3 &&
-			!rule.shouldAvoidCodec("Lucene3x") { // preflex-only setup
-		panic("not supported yet")
-	} else if "Lucene40" == TEST_CODEC ||
-		"random" == TEST_CODEC &&
-			"random" == TEST_POSTINGSFORMAT &&
-			randomVal == 0 &&
-			!rule.shouldAvoidCodec("Lucene40") { // 4.0 setup
-		panic("not supported yet")
-	} else if "Lucene41" == TEST_CODEC ||
-		"random" == TEST_CODEC &&
-			"random" == TEST_POSTINGSFORMAT &&
-			"random" == TEST_DOCVALUESFORMAT &&
-			randomVal == 1 &&
-			!rule.shouldAvoidCodec("Lucene41") {
-		panic("not supported yet")
-	} else if "Lucene42" == TEST_CODEC ||
-		"random" == TEST_CODEC &&
-			"random" == TEST_POSTINGSFORMAT &&
-			"random" == TEST_DOCVALUESFORMAT &&
-			randomVal == 2 &&
-			!rule.shouldAvoidCodec("Lucene42") {
-		panic("not supported yet")
-	} else if "random" != TEST_POSTINGSFORMAT ||
-		"random" != TEST_DOCVALUESFORMAT {
-		// the user wired postings or DV: this is messy
-		// refactor into RandomCodec...
-
-		panic("not supported yet")
-	} else if "SimpleText" == TEST_CODEC ||
-		"random" == TEST_CODEC &&
-			randomVal == 9 &&
-			Rarely(random) &&
-			!rule.shouldAvoidCodec("SimpleText") {
-		panic("not supported yet")
-	} else if "Appending" == TEST_CODEC ||
-		"random" == TEST_CODEC &&
-			randomVal == 8 &&
-			!rule.shouldAvoidCodec("Appending") {
-		panic("not supported yet")
-	} else if "CheapBastard" == TEST_CODEC ||
-		"random" == TEST_CODEC &&
-			randomVal == 8 &&
-			!rule.shouldAvoidCodec("CheapBastard") &&
-			!rule.shouldAvoidCodec("Lucene41") {
-		panic("not supported yet")
-	} else if "Asserting" == TEST_CODEC ||
-		"random" == TEST_CODEC &&
-			randomVal == 6 &&
-			!rule.shouldAvoidCodec("Asserting") {
-		panic("not implemented yet")
-	} else if "Compressing" == TEST_CODEC ||
-		"random" == TEST_CODEC &&
-			randomVal == 5 &&
-			!rule.shouldAvoidCodec("Compressing") {
-		panic("not supported yet")
-	} else if "random" != TEST_CODEC {
-		rule.codec = index.LoadCodec(TEST_CODEC)
-	} else if "random" == TEST_POSTINGSFORMAT {
-		panic("not supported yet")
-	} else {
-		assert(false)
-	}
-	log.Printf("Use codec: %v", rule.codec)
-	index.DefaultCodec = func() index.Codec { return rule.codec }
-
-	// Initialize locale/ timezone
-	// testLocale := or(os.Getenv("tests.locale"), "random")
-	// testTimeZon := or(os.Getenv("tests.timezone"), "random")
-
-	// Always pick a random one for consistency (whether tests.locale
-	// was specified or not)
-	// Ian: it's not supported yet
-	// rule.savedLocale := DefaultLocale()
-	// if "random" == testLocale {
-	// 	rule.locale = randomLocale(random)
-	// } else {
-	// 	rule.locale = localeForName(testLocale)
+	// 	for _, postingFormat := range index.AvailablePostingsFormats() {
+	// 		log.Printf("Loaded postingsFormat: '%v': %v", postingFormat,
+	// 			reflect.TypeOf(index.LoadPostingsFormat(postingFormat)))
+	// 	}
 	// }
-	// SetDefaultLocale(rule.locale)
 
-	// SetDefaultTimeZone() will set user.timezone to the default
-	// timezone of the user's locale. So store the original property
-	// value and restore it at end.
-	// rule.restoreProperties["user.timezone"] = os.Getenv("user.timezone")
-	// rule.savedTimeZone = DefaultTimeZone()
-	// if "random" == testTimeZone {
-	// 	rule.timeZone = randomTimeZone(random)
-	// } else {
-	// 	rule.timeZone = TimeZone(testTimeZone)
+	// rule.savedInfoStream = util.DefaultInfoStream()
+	// random := Random()
+	// if INFOSTREAM {
+	// 	util.SetDefaultInfoStream(newThreadNameFixingPrintStreamInfoStream(os.Stdout))
+	// } else if random.Intn(2) == 0 {
+	// 	util.SetDefaultInfoStream(NewNullInfoStream())
 	// }
-	// SetDefaultTImeZone(rule.timeZone)
 
-	if random.Intn(2) == 0 {
-		rule.similarity = search.NewDefaultSimilarity()
-	} else {
-		rule.similarity = ts.NewRandomSimilarityProvider(random)
-	}
+	// rule.avoidCodecs = make(map[string]bool)
+	// if suppressedCodecs != "" {
+	// 	rule.avoidCodecs[suppressedCodecs] = true
+	// }
 
-	// Check codec restrictions once at class level.
-	err := rule.checkCodecRestrictions(rule.codec)
-	if err != nil {
-		log.Printf("NOTE: %v Suppressed codecs: %v", err, rule.avoidCodecs)
-	}
-	return err
+	// PREFLEX_IMPERSONATION_IS_ACTIVE = false
+	// rule.savedCodec = index.DefaultCodec()
+	// randomVal := random.Intn(10)
+	// if "Lucene3x" == TEST_CODEC ||
+	// 	"random" == TEST_CODEC &&
+	// 		"random" == TEST_POSTINGSFORMAT &&
+	// 		"random" == TEST_DOCVALUESFORMAT &&
+	// 		randomVal == 3 &&
+	// 		!rule.shouldAvoidCodec("Lucene3x") { // preflex-only setup
+	// 	panic("not supported yet")
+	// } else if "Lucene40" == TEST_CODEC ||
+	// 	"random" == TEST_CODEC &&
+	// 		"random" == TEST_POSTINGSFORMAT &&
+	// 		randomVal == 0 &&
+	// 		!rule.shouldAvoidCodec("Lucene40") { // 4.0 setup
+	// 	panic("not supported yet")
+	// } else if "Lucene41" == TEST_CODEC ||
+	// 	"random" == TEST_CODEC &&
+	// 		"random" == TEST_POSTINGSFORMAT &&
+	// 		"random" == TEST_DOCVALUESFORMAT &&
+	// 		randomVal == 1 &&
+	// 		!rule.shouldAvoidCodec("Lucene41") {
+	// 	panic("not supported yet")
+	// } else if "Lucene42" == TEST_CODEC ||
+	// 	"random" == TEST_CODEC &&
+	// 		"random" == TEST_POSTINGSFORMAT &&
+	// 		"random" == TEST_DOCVALUESFORMAT &&
+	// 		randomVal == 2 &&
+	// 		!rule.shouldAvoidCodec("Lucene42") {
+	// 	panic("not supported yet")
+	// } else if "random" != TEST_POSTINGSFORMAT ||
+	// 	"random" != TEST_DOCVALUESFORMAT {
+	// 	// the user wired postings or DV: this is messy
+	// 	// refactor into RandomCodec...
+
+	// 	panic("not supported yet")
+	// } else if "SimpleText" == TEST_CODEC ||
+	// 	"random" == TEST_CODEC &&
+	// 		randomVal == 9 &&
+	// 		Rarely(random) &&
+	// 		!rule.shouldAvoidCodec("SimpleText") {
+	// 	panic("not supported yet")
+	// } else if "Appending" == TEST_CODEC ||
+	// 	"random" == TEST_CODEC &&
+	// 		randomVal == 8 &&
+	// 		!rule.shouldAvoidCodec("Appending") {
+	// 	panic("not supported yet")
+	// } else if "CheapBastard" == TEST_CODEC ||
+	// 	"random" == TEST_CODEC &&
+	// 		randomVal == 8 &&
+	// 		!rule.shouldAvoidCodec("CheapBastard") &&
+	// 		!rule.shouldAvoidCodec("Lucene41") {
+	// 	panic("not supported yet")
+	// } else if "Asserting" == TEST_CODEC ||
+	// 	"random" == TEST_CODEC &&
+	// 		randomVal == 6 &&
+	// 		!rule.shouldAvoidCodec("Asserting") {
+	// 	panic("not implemented yet")
+	// } else if "Compressing" == TEST_CODEC ||
+	// 	"random" == TEST_CODEC &&
+	// 		randomVal == 5 &&
+	// 		!rule.shouldAvoidCodec("Compressing") {
+	// 	panic("not supported yet")
+	// } else if "random" != TEST_CODEC {
+	// 	rule.codec = index.LoadCodec(TEST_CODEC)
+	// } else if "random" == TEST_POSTINGSFORMAT {
+	// 	panic("not supported yet")
+	// } else {
+	// 	assert(false)
+	// }
+	// log.Printf("Use codec: %v", rule.codec)
+	// index.DefaultCodec = func() Codec { return rule.codec }
+
+	// // Initialize locale/ timezone
+	// // testLocale := or(os.Getenv("tests.locale"), "random")
+	// // testTimeZon := or(os.Getenv("tests.timezone"), "random")
+
+	// // Always pick a random one for consistency (whether tests.locale
+	// // was specified or not)
+	// // Ian: it's not supported yet
+	// // rule.savedLocale := DefaultLocale()
+	// // if "random" == testLocale {
+	// // 	rule.locale = randomLocale(random)
+	// // } else {
+	// // 	rule.locale = localeForName(testLocale)
+	// // }
+	// // SetDefaultLocale(rule.locale)
+
+	// // SetDefaultTimeZone() will set user.timezone to the default
+	// // timezone of the user's locale. So store the original property
+	// // value and restore it at end.
+	// // rule.restoreProperties["user.timezone"] = os.Getenv("user.timezone")
+	// // rule.savedTimeZone = DefaultTimeZone()
+	// // if "random" == testTimeZone {
+	// // 	rule.timeZone = randomTimeZone(random)
+	// // } else {
+	// // 	rule.timeZone = TimeZone(testTimeZone)
+	// // }
+	// // SetDefaultTImeZone(rule.timeZone)
+
+	// if random.Intn(2) == 0 {
+	// 	rule.similarity = search.NewDefaultSimilarity()
+	// } else {
+	// 	rule.similarity = ts.NewRandomSimilarityProvider(random)
+	// }
+
+	// // Check codec restrictions once at class level.
+	// err := rule.checkCodecRestrictions(rule.codec)
+	// if err != nil {
+	// 	log.Printf("NOTE: %v Suppressed codecs: %v", err, rule.avoidCodecs)
+	// }
+	// return err
 }
 
 func or(a, b string) string {
@@ -599,7 +602,7 @@ func or(a, b string) string {
 }
 
 // Check codec restrictions.
-func (rule *TestRuleSetupAndRestoreClassEnv) checkCodecRestrictions(codec index.Codec) error {
+func (rule *TestRuleSetupAndRestoreClassEnv) checkCodecRestrictions(codec Codec) error {
 	AssumeTrue(fmt.Sprintf("Class not allowed to use codec: %v.", codec.Name),
 		rule.shouldAvoidCodec(codec.Name()))
 
@@ -618,16 +621,17 @@ func (rule *TestRuleSetupAndRestoreClassEnv) checkCodecRestrictions(codec index.
 }
 
 func (rule *TestRuleSetupAndRestoreClassEnv) After() error {
-	savedCodec := rule.savedCodec
-	index.DefaultCodec = func() index.Codec { return savedCodec }
-	util.SetDefaultInfoStream(rule.savedInfoStream)
-	// if rule.savedLocale != nil {
-	// 	SetDefaultLocale(rule.savedLocale)
-	// }
-	// if rule.savedTimeZone != nil {
-	// 	SetDefaultTimeZone(rule.savedTimeZone)
-	// }
-	return nil
+	panic("not implemented yet")
+	// savedCodec := rule.savedCodec
+	// index.DefaultCodec = func() Codec { return savedCodec }
+	// util.SetDefaultInfoStream(rule.savedInfoStream)
+	// // if rule.savedLocale != nil {
+	// // 	SetDefaultLocale(rule.savedLocale)
+	// // }
+	// // if rule.savedTimeZone != nil {
+	// // 	SetDefaultTimeZone(rule.savedTimeZone)
+	// // }
+	// return nil
 }
 
 // Should a given codec be avoided for the currently executing suite?
