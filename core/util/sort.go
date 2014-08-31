@@ -79,13 +79,13 @@ func (s *Sorter) heapSort(from, to int) {
 	}
 	s.heapify(from, to)
 	for end := to - 1; end > from; end-- {
-		s.Swap(from, to)
+		s.Swap(from, end)
 		s.siftDown(from, from, end)
 	}
 	// TODO remove this
-	for i := from; i < to-1; i++ {
-		assert(!s.Less(i+1, i))
-	}
+	// for i := from; i < to-1; i++ {
+	// 	assert(!s.Less(i+1, i))
+	// }
 }
 
 func (s *Sorter) heapify(from, to int) {

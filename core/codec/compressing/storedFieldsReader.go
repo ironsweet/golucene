@@ -220,7 +220,14 @@ func (r *CompressingStoredFieldsReader) VisitDocument(docID int, visitor StoredF
 
 	var numStoredFields, offset, length, totalLength int
 	if chunkDocs == 1 {
-		panic("not implemented yet")
+		if numStoredFields, err = int32AsInt(r.fieldsStream.ReadVInt()); err != nil {
+			return err
+		}
+		offset = 0
+		if length, err = int32AsInt(r.fieldsStream.ReadVInt()); err != nil {
+			return err
+		}
+		totalLength = length
 	} else {
 		bitsPerStoredFields, err := int32AsInt(r.fieldsStream.ReadVInt())
 		if err != nil {

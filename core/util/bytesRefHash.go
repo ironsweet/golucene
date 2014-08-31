@@ -143,11 +143,16 @@ func (h *BytesRefHash) Sort(comp func(a, b []byte) bool) []int {
 	compact := h.compact()
 	s := newBytesRefIntroSorter(h, compact, comp)
 	s.Sort(0, h.count)
+	// TODO remove this
 	// for i, _ := range compact {
 	// 	if compact[i+1] == -1 {
 	// 		break
 	// 	}
 	// 	assert(!s.Less(i+1, i))
+	// 	if ok := !s.Less(i+1, i); !ok {
+	// 		fmt.Println("DEBUG1", compact)
+	// 		assert(ok)
+	// 	}
 	// }
 	return compact
 }
