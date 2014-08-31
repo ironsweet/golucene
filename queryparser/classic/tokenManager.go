@@ -64,7 +64,97 @@ func (tm *TokenManager) jjMoveNfa_2(startState, curPos int) int {
 			tm.reInitRounds()
 		}
 		if tm.curChar < 64 {
-			panic("not implemented yet")
+			l := int64(1 << uint(tm.curChar))
+			for {
+				i--
+				switch tm.jjstateSet[i] {
+				case 49, 33:
+					panic("not implemented yet")
+				case 0:
+					if (0xfbff54f8ffffd9ff & uint64(l)) != 0 {
+						if kind > 23 {
+							kind = 23
+						}
+						tm.jjCheckNAddTwoStates(33, 34)
+					} else if (0x100002600 & l) != 0 {
+						panic("not implemented yet")
+					} else if (0x280200000000 & l) != 0 {
+						panic("not implemented yet")
+					} else if tm.curChar == 47 {
+						panic("not implemented yet")
+					} else if tm.curChar == 34 {
+						panic("not implemented yet")
+					}
+					if (0x7bff50f8ffffd9ff & l) != 0 {
+						panic("not implemented yet")
+					} else if tm.curChar == 42 {
+						panic("not implemented yet")
+					} else if tm.curChar == 33 {
+						panic("not implemented yet")
+					}
+					if tm.curChar == 38 {
+						panic("not implemented yet")
+					}
+
+				case 4:
+					panic("not implemented yet")
+				case 5:
+					panic("not implemented yet")
+				case 13:
+					panic("not implemented yet")
+				case 14:
+					panic("not implemented yet")
+				case 15:
+					panic("not implemented yet")
+				case 16:
+					panic("not implemented yet")
+				case 17:
+					panic("not implemented yet")
+				case 19:
+					panic("not implemented yet")
+				case 20:
+					panic("not implemented yet")
+				case 22:
+					panic("not implemented yet")
+				case 23:
+					panic("not implemented yet")
+				case 24:
+					panic("not implemented yet")
+				case 25:
+					panic("not implemented yet")
+				case 27:
+					panic("not implemented yet")
+				case 28:
+					panic("not implemented yet")
+				case 30:
+					panic("not implemented yet")
+				case 31:
+					panic("not implemented yet")
+				case 32:
+					panic("not implemented yet")
+				case 35:
+					panic("not implemented yet")
+				case 36, 38:
+					panic("not implemented yet")
+				case 37:
+					panic("not implemented yet")
+				case 40:
+					panic("not implemented yet")
+				case 41:
+					panic("not implemented yet")
+				case 42:
+					panic("not implemented yet")
+				case 44:
+					panic("not implemented yet")
+				case 45:
+					panic("not implemented yet")
+				case 47:
+					panic("not implemented yet")
+				}
+				if i == startsAt {
+					break
+				}
+			}
 		} else if tm.curChar < 128 {
 			panic("not implemented yet")
 		} else {
@@ -161,4 +251,20 @@ func (tm *TokenManager) nextToken() (matchedToken *Token) {
 			error_column, error_after, tm.curChar, LEXICAL_ERROR))
 	}
 	panic("should not be here")
+}
+
+// L1137
+func (tm *TokenManager) jjCheckNAdd(state int) {
+	if tm.jjrounds[state] != tm.jjround {
+		tm.jjstateSet[tm.jjnewStateCnt] = state
+		tm.jjnewStateCnt++
+		tm.jjrounds[state] = tm.jjround
+	}
+}
+
+// L1151
+
+func (tm *TokenManager) jjCheckNAddTwoStates(state1, state2 int) {
+	tm.jjCheckNAdd(state1)
+	tm.jjCheckNAdd(state2)
 }
