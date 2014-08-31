@@ -9,6 +9,7 @@ import (
 	"github.com/balzaczyy/golucene/core/util/packed"
 	"log"
 	"math"
+	"reflect"
 )
 
 type InputType int
@@ -358,42 +359,20 @@ func (t *FST) assertRootArcs() {
 		root := t.cachedRootArcs[i]
 		asserting := v
 		if root != nil {
-			if root.arcIdx != asserting.arcIdx {
-				panic("assert fail")
-			}
-			if root.bytesPerArc != asserting.bytesPerArc {
-				panic("assert fail")
-			}
-			if root.flags != asserting.flags {
-				panic("assert fail")
-			}
-			if root.Label != asserting.Label {
-				panic("assert fail")
-			}
-			if root.nextArc != asserting.nextArc {
-				panic("assert fail")
-			}
-			if !equals(root.NextFinalOutput, asserting.NextFinalOutput) {
-				log.Printf("%v != %v", root.NextFinalOutput, asserting.NextFinalOutput)
-				panic("assert fail")
-			}
-			if root.node != asserting.node {
-				panic("assert fail")
-			}
-			if root.numArcs != asserting.numArcs {
-				panic("assert fail")
-			}
-			if !equals(root.Output, asserting.Output) {
-				panic("assert fail")
-			}
-			if root.posArcsStart != asserting.posArcsStart {
-				panic("assert fail")
-			}
-			if root.target != asserting.target {
-				panic("assert fail")
-			}
-		} else if asserting != nil {
-			panic("assert fail")
+			assert(root.arcIdx == asserting.arcIdx)
+			assert(root.bytesPerArc == asserting.bytesPerArc)
+			assert(root.flags == asserting.flags)
+			assert(root.Label == asserting.Label)
+			assert(root.nextArc == asserting.nextArc)
+			assert2(equals(root.NextFinalOutput, asserting.NextFinalOutput),
+				"%v != %v", root.NextFinalOutput, asserting.NextFinalOutput)
+			assert(root.node == asserting.node)
+			assert(root.numArcs == asserting.numArcs)
+			assert(equals(root.Output, asserting.Output))
+			assert(root.posArcsStart == asserting.posArcsStart)
+			assert(root.target == asserting.target)
+		} else {
+			assert(asserting == nil)
 		}
 	}
 }
@@ -401,9 +380,11 @@ func (t *FST) assertRootArcs() {
 // Since Go doesn't has Java's Object.equals() method,
 // I have to implement my own.
 func equals(a, b interface{}) bool {
+	sameType := reflect.TypeOf(a) == reflect.TypeOf(b)
 	if _, ok := a.([]byte); ok {
 		if _, ok := b.([]byte); !ok {
-			panic(fmt.Sprintf("incomparable type: %v vs %v", a, b))
+			// panic(fmt.Sprintf("incomparable type: %v vs %v", a, b))
+			return false
 		}
 		b1 := a.([]byte)
 		b2 := b.([]byte)
@@ -418,10 +399,13 @@ func equals(a, b interface{}) bool {
 		return true
 	} else if _, ok := a.(int64); ok {
 		if _, ok := b.(int64); !ok {
-			panic(fmt.Sprintf("incomparable type: %v vs %v", a, b))
+			// panic(fmt.Sprintf("incomparable type: %v vs %v", a, b))
+			return false
 		}
 		return a.(int64) == b.(int64)
 	} else if a == nil && b == nil {
+		return true
+	} else if sameType && a == b {
 		return true
 	}
 	return false

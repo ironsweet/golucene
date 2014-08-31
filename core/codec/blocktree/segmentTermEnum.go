@@ -196,7 +196,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 	var arc *fst.Arc
 	var targetUpto int
-	var output []byte
+	var output interface{}
 
 	e.targetBeforeCurrentLength = e.currentFrame.ord
 
@@ -215,7 +215,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		if !arc.IsFinal() {
 			panic("assert fail")
 		}
-		output = arc.Output.([]byte)
+		output = arc.Output
 		targetUpto = 0
 
 		lastFrame := e.stack[0]
@@ -320,7 +320,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 		log.Println("    no seek state; push root frame")
 
-		output = arc.Output.([]byte)
+		output = arc.Output
 
 		e.currentFrame = e.staticFrame
 
@@ -376,7 +376,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			// aggregate output as we go:
 			assert(arc.Output != nil)
 			if !fst.CompareFSTValue(arc.Output, noOutput) {
-				output = fstOutputs.Add(output, arc.Output).([]byte)
+				output = fstOutputs.Add(output, arc.Output)
 			}
 			fmt.Printf("    index: follow label=%x arc.output=%v arc.nfo=%v\n",
 				strconv.FormatInt(int64(target[targetUpto]), 16), arc.Output, arc.NextFinalOutput)
