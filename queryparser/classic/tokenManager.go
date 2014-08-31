@@ -37,3 +37,9 @@ func (tm *TokenManager) reInitRounds() {
 		tm.jjrounds[i] = 0x80000000
 	}
 }
+
+// L1059
+
+func (tm *TokenManager) nextToken() *Token {
+	panic("not implemented yet")
+}
