@@ -956,27 +956,30 @@ func (t *FST) FindTargetArc(labelToMatch int, follow *Arc, arc *Arc, in BytesRea
 		return nil, nil
 	}
 
-	panic("not implemented yet")
-
 	// Linear scan
-	// readFirstRealTargetArc(follow.target, arc, in);
 
-	// while(true) {
-	//   //System.out.println("  non-bs cycle");
-	//   // TODO: we should fix this code to not have to create
-	//   // object for the output of every arc we scan... only
-	//   // for the matching arc, if found
-	//   if (arc.label == labelToMatch) {
-	//     //System.out.println("    found!");
-	//     return arc;
-	//   } else if (arc.label > labelToMatch) {
-	//     return null;
-	//   } else if (arc.isLast()) {
-	//     return null;
-	//   } else {
-	//     readNextRealArc(arc, in);
-	//   }
-	// }
+	if _, err = t.readFirstRealTargetArc(follow.target, arc, in); err != nil {
+		return nil, err
+	}
+
+	for {
+		//System.out.println("  non-bs cycle");
+		// TODO: we should fix this code to not have to create
+		// object for the output of every arc we scan... only
+		// for the matching arc, if found
+		if arc.Label == labelToMatch {
+			//System.out.println("    found!");
+			return arc, nil
+		} else if arc.Label > labelToMatch {
+			return nil, nil
+		} else if arc.isLast() {
+			return nil, nil
+		} else {
+			if _, err = t.readNextRealArc(arc, in); err != nil {
+				return nil, err
+			}
+		}
+	}
 }
 
 func (t *FST) seekToNextNode(in BytesReader) error {
