@@ -277,6 +277,7 @@ func (b *PendingBlock) String() string {
 
 func (b *PendingBlock) compileIndex(floorBlocks []*PendingBlock,
 	scratchBytes *store.RAMOutputStream) (err error) {
+
 	assert2(b.isFloor && len(floorBlocks) > 0 || (!b.isFloor && len(floorBlocks) == 0),
 		"isFloor=%v floorBlocks=%v", b.isFloor, floorBlocks)
 
@@ -311,6 +312,8 @@ func (b *PendingBlock) compileIndex(floorBlocks []*PendingBlock,
 		0, 0, true, false, int(math.MaxInt32),
 		outputs, nil, false,
 		packed.PackedInts.COMPACT, true, 15)
+
+	fmt.Printf("  compile index for prefix=%v\n", b.prefix)
 
 	bytes := make([]byte, scratchBytes.FilePointer())
 	assert(len(bytes) > 0)
@@ -358,7 +361,7 @@ func (b *PendingBlock) compileIndex(floorBlocks []*PendingBlock,
 func (b *PendingBlock) append(builder *fst.Builder, subIndex *fst.FST) error {
 	subIndexEnum := fst.NewBytesRefFSTEnum(subIndex)
 	indexEnt, err := subIndexEnum.Next()
-	for err != nil && indexEnt != nil {
+	for err == nil && indexEnt != nil {
 		fmt.Printf("      add sub=%v output=%v\n", indexEnt.Input, indexEnt.Output)
 		err = builder.Add(fst.ToIntsRef(indexEnt.Input, b.sctrachIntsRef), indexEnt.Output)
 		if err == nil {
@@ -654,7 +657,7 @@ func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count in
 		}
 
 		w.pending = append(w.pending, firstBlock)
-		fmt.Printf("  done pending.size()=%v", len(w.pending))
+		fmt.Printf("  done pending.size()=%v\n", len(w.pending))
 	}
 	w.lastBlockIndex = len(w.pending) - 1
 	return nil
@@ -714,11 +717,11 @@ func (w *TermsWriter) writeBlock(prevTerm *util.IntsRef, prefixLength,
 	} else if !isFloor {
 		// this block definitely does contain at least one sub-block:
 		isLeafBlock = false
-		fmt.Printf("no scan false %v vs start=%v len=%v", w.lastBlockIndex, start, length)
+		fmt.Printf("no scan false %v vs start=%v len=%v\n", w.lastBlockIndex, start, length)
 	} else {
 		// must scan up-front to see if there is a sub-block
 		v := true
-		fmt.Printf("scan %v vs start=%v len=%v", w.lastBlockIndex, start, length)
+		fmt.Printf("scan %v vs start=%v len=%v\n", w.lastBlockIndex, start, length)
 		for _, ent := range slice {
 			if !ent.isTerm() {
 				v = false

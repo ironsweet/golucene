@@ -183,12 +183,12 @@ func (b *Builder) freezeTail(prefixLenPlus1 int) error {
 			if doCompile {
 				// this node makes it and we now compile it. first, compile
 				// any targets that were previously undecided:
+				label := b.lastInput.Ints[b.lastInput.Offset+idx-1]
 				node, err := b.compileNode(node, 1+b.lastInput.Length-idx)
 				if err != nil {
 					return err
 				}
-				parent.replaceLast(b.lastInput.Ints[b.lastInput.Offset+idx-1],
-					node, nextFinalOutput, isFinal)
+				parent.replaceLast(label, node, nextFinalOutput, isFinal)
 			} else {
 				panic("not implemented yet")
 			}

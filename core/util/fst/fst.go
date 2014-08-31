@@ -196,7 +196,6 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 	defer func() {
 		if err != nil {
 			log.Print("Failed to load FST.")
-			log.Printf("DEBUG ", err)
 		}
 	}()
 	fst = &FST{outputs: outputs, startNode: -1}
@@ -293,12 +292,12 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 	return fst, err
 }
 
-func (t *FST) finish(startNode int64) error {
+func (t *FST) finish(newStartNode int64) error {
 	assert2(t.startNode == -1, "already finished")
-	if startNode == FST_FINAL_END_NODE && t.emptyOutput != nil {
-		startNode = 0
+	if newStartNode == FST_FINAL_END_NODE && t.emptyOutput != nil {
+		newStartNode = 0
 	}
-	t.startNode = startNode
+	t.startNode = newStartNode
 	t.bytes.finish()
 
 	return t.cacheRootArcs()

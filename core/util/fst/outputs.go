@@ -179,7 +179,7 @@ func (o *ByteSequenceOutputs) Write(obj interface{}, out util.DataOutput) error 
 
 func (out *ByteSequenceOutputs) Read(in util.DataInput) (e interface{}, err error) {
 	if length, err := in.ReadVInt(); err == nil {
-		fmt.Printf("Length: %v\n", length)
+		// fmt.Printf("Length: %v\n", length)
 		if length == 0 {
 			e = out.NoOutput()
 		} else {
