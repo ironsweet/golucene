@@ -118,11 +118,9 @@ func NewBlockTreeTermsReader(dir store.Directory,
 
 	// verify
 	if indexIn != nil && fp.version >= TERMS_VERSION_CURRENT {
-		var hash int64
-		if hash, err = store.ChecksumEntireFile(indexIn); err != nil {
+		if _, err = store.ChecksumEntireFile(indexIn); err != nil {
 			return nil, err
 		}
-		assert(hash == 3224494687)
 	}
 
 	// Have PostingsReader init itself
