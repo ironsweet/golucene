@@ -11,7 +11,12 @@ import (
 
 // lucene49/Lucene49NormsConsumer.java
 
-const CONST_COMPRESSED = 2
+const (
+	DELTA_COMPRESSED = 0
+	TABLE_COMPRESSED = 1
+	CONST_COMPRESSED = 2
+	UNCOMPRESSED     = 3
+)
 
 type NormsConsumer struct {
 	data, meta store.IndexOutput

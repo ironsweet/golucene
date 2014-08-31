@@ -2,6 +2,7 @@ package lucene49
 
 import (
 	"errors"
+	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
@@ -36,6 +37,8 @@ func newLucene49NormsProducer(state SegmentReadState,
 
 	np = &NormsProducer{
 		Locker:       new(sync.Mutex),
+		norms:        make(map[int]*NormsEntry),
+		instances:    make(map[int]NumericDocValues),
 		maxDoc:       state.SegmentInfo.DocCount(),
 		ramBytesUsed: util.ShallowSizeOfInstance(reflect.TypeOf(np)),
 	}
@@ -94,8 +97,39 @@ func newLucene49NormsProducer(state SegmentReadState,
 	return np, nil
 }
 
-func (np *NormsProducer) readFields(meta store.IndexInput, infos FieldInfos) error {
-	panic("not implemented yet")
+func (np *NormsProducer) readFields(meta store.IndexInput, infos FieldInfos) (err error) {
+	var fieldNumber int32
+	if fieldNumber, err = meta.ReadVInt(); err != nil {
+		return err
+	}
+	for fieldNumber != -1 {
+		info := infos.FieldInfoByNumber(int(fieldNumber))
+		if info == nil {
+			return errors.New(fmt.Sprintf("Invalid field number: %v (resource=%v)", fieldNumber, meta))
+		} else if !info.HasNorms() {
+			return errors.New(fmt.Sprintf("Invalid field: %v (resource=%v)", info.Name, meta))
+		}
+		var format byte
+		if format, err = meta.ReadByte(); err != nil {
+			return err
+		}
+		var offset int64
+		if offset, err = meta.ReadLong(); err != nil {
+			return err
+		}
+		entry := &NormsEntry{
+			format: format,
+			offset: offset,
+		}
+		if format > UNCOMPRESSED {
+			return errors.New(fmt.Sprintf("Unknown format: %v, input=%v", format, meta))
+		}
+		np.norms[int(fieldNumber)] = entry
+		if fieldNumber, err = meta.ReadVInt(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (np *NormsProducer) Numeric(field *FieldInfo) (NumericDocValues, error) {
