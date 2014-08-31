@@ -136,7 +136,31 @@ func (np *NormsProducer) Numeric(field *FieldInfo) (NumericDocValues, error) {
 	np.Lock()
 	defer np.Unlock()
 
-	panic("not implemented yet")
+	instance, ok := np.instances[int(field.Number)]
+	if !ok {
+		var err error
+		if instance, err = np.loadNorms(field); err != nil {
+			return nil, err
+		}
+		np.instances[int(field.Number)] = instance
+	}
+	return instance, nil
+}
+
+func (np *NormsProducer) loadNorms(field *FieldInfo) (NumericDocValues, error) {
+	entry, ok := np.norms[int(field.Number)]
+	assert(ok)
+	switch entry.format {
+	case CONST_COMPRESSED:
+		return func(int) int64 { return entry.offset }, nil
+	case UNCOMPRESSED:
+		panic("not implemented yet")
+	case DELTA_COMPRESSED:
+		panic("not implemented yet")
+	case TABLE_COMPRESSED:
+		panic("not implemented yet")
+	}
+	panic("should not be here")
 }
 
 func (np *NormsProducer) Binary(field *FieldInfo) (BinaryDocValues, error) {
