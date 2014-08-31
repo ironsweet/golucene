@@ -21,7 +21,44 @@ func newFastCharStream(r io.RuneReader) *FastCharStream {
 }
 
 func (cs *FastCharStream) readChar() (rune, error) {
-	panic("not implemented yet")
+	if cs.bufferPosition >= cs.bufferLength {
+		if err := cs.refill(); err != nil {
+			return 0, err
+		}
+	}
+	cs.bufferPosition++
+	return cs.buffer[cs.bufferPosition-1], nil
+}
+
+func (cs *FastCharStream) refill() (err error) {
+	newPosition := cs.bufferLength - cs.tokenStart
+
+	if cs.tokenStart == 0 { // token won't fit in buffer
+		if cs.buffer == nil { // first time: alloc buffer
+			cs.buffer = make([]rune, 2048)
+		} else if cs.bufferLength == len(cs.buffer) { // grow buffer
+			panic("not implemented yet")
+		}
+	} else { // shift token to front
+		copy(cs.buffer, cs.buffer[cs.tokenStart:cs.tokenStart+newPosition])
+	}
+
+	cs.bufferLength = newPosition // update state
+	cs.bufferPosition = newPosition
+	cs.bufferStart += cs.tokenStart
+	cs.tokenStart = 0
+
+	var charsRead int // fill space in buffer
+	limit := len(cs.buffer) - newPosition
+	for charsRead < limit && err == nil {
+		cs.buffer[newPosition+charsRead], _, err = cs.input.ReadRune()
+		charsRead++
+	}
+	if err != nil && err != io.EOF || charsRead == 0 {
+		return err
+	}
+	cs.bufferLength += charsRead
+	return nil
 }
 
 func (cs *FastCharStream) beginToken() (rune, error) {
