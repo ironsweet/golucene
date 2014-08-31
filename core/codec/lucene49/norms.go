@@ -14,7 +14,7 @@ func (f *Lucene49NormsFormat) NormsConsumer(state *SegmentWriteState) (w DocValu
 }
 
 func (f *Lucene49NormsFormat) NormsProducer(state SegmentReadState) (r DocValuesProducer, err error) {
-	panic("not implemented yet")
+	return newLucene49NormsProducer(state, DATA_CODEC, DATA_EXTENSION, METADATA_CODEC, METADATA_EXTENSION)
 }
 
 const (
