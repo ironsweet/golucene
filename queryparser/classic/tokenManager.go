@@ -38,8 +38,59 @@ func (tm *TokenManager) reInitRounds() {
 	}
 }
 
-// L1059
+// L1027
 
-func (tm *TokenManager) nextToken() *Token {
+func (tm *TokenManager) jjFillToken() *Token {
 	panic("not implemented yet")
+}
+
+func (tm *TokenManager) nextToken() (matchedToken *Token) {
+	curPos := 0
+	var err error
+	var eof = false
+	for !eof {
+		if tm.curChar, err = tm.input_stream.beginToken(); err != nil {
+			tm.jjmatchedKind = 0
+			matchedToken = tm.jjFillToken()
+			return
+		}
+
+		switch tm.curLexState {
+		case 0:
+			panic("not implemented yet")
+		case 1:
+			panic("not implemented yet")
+		case 2:
+			panic("not implemented yet")
+		}
+
+		if tm.jjmatchedKind != 0x7fffffff {
+			panic("not implemented yet")
+		}
+		error_line := tm.input_stream.endLine()
+		error_column := tm.input_stream.endColumn()
+		var error_after string
+		var eofSeen = false
+		if _, err = tm.input_stream.readChar(); err == nil {
+			tm.input_stream.backup(1)
+			tm.input_stream.backup(1)
+			if curPos > 1 {
+				error_after = tm.input_stream.image()
+			}
+		} else {
+			eofSeen = true
+			if curPos > 1 {
+				error_after = tm.input_stream.image()
+			}
+			if tm.curChar == '\n' || tm.curChar == '\r' {
+				error_line++
+				error_column = 0
+			} else {
+				error_column++
+			}
+		}
+		panic(newTokenMgrError(eofSeen, tm.curLexState, error_line,
+			error_column, error_after, tm.curChar, LEXICAL_ERROR))
+	}
+	panic("should not be here")
 }
