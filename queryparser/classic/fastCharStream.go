@@ -5,6 +5,14 @@ import (
 )
 
 type FastCharStream struct {
+	buffer []rune
+
+	bufferLength   int
+	bufferPosition int
+
+	tokenStart  int
+	bufferStart int
+
 	input io.RuneReader // source of chars
 }
 
@@ -17,7 +25,8 @@ func (cs *FastCharStream) readChar() (rune, error) {
 }
 
 func (cs *FastCharStream) beginToken() (rune, error) {
-	panic("not implemented yet")
+	cs.tokenStart = cs.bufferPosition
+	return cs.readChar()
 }
 
 func (cs *FastCharStream) backup(amount int) {
