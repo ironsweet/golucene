@@ -26,7 +26,6 @@ Milestones
 - 2013/12/3   Second test case (gl.go) that fetch string field has passed.
 - 2014/6/29		Third test case (gl3.go) that index string field has passed.
 - 2014/8/8    Migrated to Lucene 4.9.0 code base.
-- 2014/8/27   Exposed on HackNews.
 
 Progress
 --------
