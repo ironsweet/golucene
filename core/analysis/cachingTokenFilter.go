@@ -18,5 +18,14 @@ func NewCachingTokenFilter(input TokenStream) *CachingTokenFilter {
 }
 
 func (f *CachingTokenFilter) Reset() {
-	panic("not implemented yet")
+	if f.cache != nil {
+		i := 0
+		f.iterator = func() (*util.AttributeState, bool) {
+			if i >= len(f.cache) {
+				return nil, false
+			}
+			i++
+			return f.cache[i-1], i == len(f.cache)
+		}
+	}
 }
