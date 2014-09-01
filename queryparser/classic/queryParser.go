@@ -113,7 +113,41 @@ func (qp *QueryParser) Query(field string) (q search.Query, err error) {
 	}
 }
 
-func (qp *QueryParser) clause(field string) (search.Query, error) {
+func (qp *QueryParser) clause(field string) (q search.Query, err error) {
+	if qp.jj_2_1(2) {
+		panic("not implemented yet")
+	}
+	if qp.jj_ntk == -1 {
+		qp.get_jj_ntk()
+	}
+	var boost *Token
+	switch qp.jj_ntk {
+	case BAREOPER, STAR, QUOTED, TERM, PREFIXTERM, WILDTERM,
+		REGEXPTERM, RANGEIN_START, RANGEEX_START, NUMBER:
+		panic("not implemented yet")
+	case LPAREN:
+		panic("not implemented yet")
+	default:
+		panic("not implemented yet")
+	}
+	return qp.handleBoost(q, boost), nil
+}
+
+// L473
+func (qp *QueryParser) jj_2_1(xla int) (ok bool) {
+	qp.jj_la = xla
+	qp.jj_lastpos = qp.token
+	qp.jj_scanpos = qp.token
+	defer func() {
+		if err := recover(); err == lookAheadSuccess {
+			ok = true
+		}
+		qp.jj_save(0, xla)
+	}()
+	return !qp.jj_3_1()
+}
+
+func (qp *QueryParser) jj_3_1() bool {
 	panic("not implemented yet")
 }
 
@@ -131,9 +165,14 @@ func (qp *QueryParser) ReInit(stream CharStream) {
 	}
 }
 
+// L569
 func (qp *QueryParser) jj_consume_token(kind int) (*Token, error) {
 	panic("not implemented yet")
 }
+
+type LookAheadSuccess bool
+
+var lookAheadSuccess = LookAheadSuccess(true)
 
 // L636
 func (qp *QueryParser) get_jj_ntk() int {
@@ -144,6 +183,12 @@ func (qp *QueryParser) get_jj_ntk() int {
 		qp.jj_ntk = qp.jj_nt.kind
 	}
 	return qp.jj_ntk
+}
+
+// L738
+
+func (qp *QueryParser) jj_save(index, xla int) {
+	panic("not implemented yet")
 }
 
 type JJCalls struct {

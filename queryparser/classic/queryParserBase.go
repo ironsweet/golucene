@@ -54,6 +54,11 @@ func (qp *QueryParserBase) Parse(query string) (res search.Query, err error) {
 }
 
 // L408
-func (qp *QueryParser) addClause(clauses []search.BooleanClause, conj, mods int, q search.Query) {
+func (qp *QueryParserBase) addClause(clauses []search.BooleanClause, conj, mods int, q search.Query) {
+	panic("not implemented yet")
+}
+
+// L876
+func (qp *QueryParserBase) handleBoost(q search.Query, boost *Token) search.Query {
 	panic("not implemented yet")
 }
