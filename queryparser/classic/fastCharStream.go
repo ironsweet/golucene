@@ -80,11 +80,11 @@ func (cs *FastCharStream) image() string {
 }
 
 func (cs *FastCharStream) endColumn() int {
-	panic("not implemented yet")
+	return cs.bufferStart + cs.bufferPosition
 }
 
 func (cs *FastCharStream) endLine() int {
-	panic("not implemented yet")
+	return 1
 }
 
 func (cs *FastCharStream) beginColumn() int {
