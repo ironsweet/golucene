@@ -5,6 +5,9 @@ import (
 )
 
 var jjbitVec0 = []int64{1, 0, 0, 0}
+var jjbitVec4 = []uint64{
+	0xfffefffffffffffe, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff,
+}
 
 var jjnextStates = []int{
 	37, 39, 40, 17, 18, 20, 42, 45, 31, 46, 43, 22, 23, 25, 26, 24,
@@ -290,7 +293,7 @@ func jjCanMove_2(hiByte, i1, i2 int, l1, l2 int64) bool {
 	case 48:
 		panic("not implemented yet")
 	}
-	return false
+	return (jjbitVec4[i1] & uint64(l1)) != 0
 }
 
 func (tm *TokenManager) ReInit(stream CharStream) {
