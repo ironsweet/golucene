@@ -126,7 +126,9 @@ func (qp *QueryParser) clause(field string) (q search.Query, err error) {
 	switch qp.jj_ntk {
 	case BAREOPER, STAR, QUOTED, TERM, PREFIXTERM, WILDTERM,
 		REGEXPTERM, RANGEIN_START, RANGEEX_START, NUMBER:
-		panic("not implemented yet")
+		if q, err = qp.term(field); err != nil {
+			return nil, err
+		}
 	case LPAREN:
 		panic("not implemented yet")
 	default:
@@ -135,6 +137,69 @@ func (qp *QueryParser) clause(field string) (q search.Query, err error) {
 			return nil, err
 		}
 		return nil, errors.New("parse error")
+	}
+	return qp.handleBoost(q, boost), nil
+}
+
+func (qp *QueryParser) term(field string) (q search.Query, err error) {
+	var term, boost, fuzzySlop /*, goop1, goop2*/ *Token
+	var prefix, wildcard, fuzzy, regexp /*, startInc, endInc*/ bool
+	if qp.jj_ntk == -1 {
+		qp.get_jj_ntk()
+	}
+	switch qp.jj_ntk {
+	case BAREOPER, STAR, TERM, PREFIXTERM, WILDTERM, REGEXPTERM, NUMBER:
+		if qp.jj_ntk == -1 {
+			qp.get_jj_ntk()
+		}
+		switch qp.jj_ntk {
+		case TERM:
+			if term, err = qp.jj_consume_token(TERM); err != nil {
+				return nil, err
+			}
+		case STAR:
+			panic("not implemented yet")
+		case PREFIXTERM:
+			panic("not implemented yet")
+		case WILDTERM:
+			panic("not implemented yet")
+		case REGEXPTERM:
+			panic("not implemented yet")
+		case NUMBER:
+			panic("not implemented yet")
+		case BAREOPER:
+			panic("not implemented yet")
+		default:
+			panic("not implemented yet")
+		}
+		if qp.jj_ntk == -1 {
+			qp.get_jj_ntk()
+		}
+		switch qp.jj_ntk {
+		case FUZZY_SLOP:
+			panic("not implemented yet")
+		default:
+			qp.jj_la1[9] = qp.jj_gen
+		}
+		if qp.jj_ntk == -1 {
+			qp.get_jj_ntk()
+		}
+		switch qp.jj_ntk {
+		case CARAT:
+			panic("not implemented yet")
+		default:
+			qp.jj_la1[11] = qp.jj_gen
+		}
+		if q, err = qp.handleBareTokenQuery(field, term, fuzzySlop, prefix, wildcard, fuzzy, regexp); err != nil {
+			return nil, err
+		}
+
+	case RANGEIN_START, RANGEEX_START:
+		panic("not implemented yet")
+	case QUOTED:
+		panic("not implemented yet")
+	default:
+		panic("not implemented yet")
 	}
 	return qp.handleBoost(q, boost), nil
 }

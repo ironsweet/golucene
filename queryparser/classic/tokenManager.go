@@ -21,6 +21,13 @@ var jjstrLiteralImages = map[int]string{
 	25: "\133", 26: "\173", 28: "\124\117", 29: "\135", 30: "\175",
 }
 
+var jjnewLexState = []int{
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1,
+	1, 1, 2, -1, 2, 2, -1, -1,
+}
+
+var jjtoToken = []int64{0x1ffffff01}
+
 type TokenManager struct {
 	curLexState     int
 	defaultLexState int
@@ -368,7 +375,18 @@ func (tm *TokenManager) nextToken() (matchedToken *Token) {
 		}
 
 		if tm.jjmatchedKind != 0x7fffffff {
-			panic("not implemented yet")
+			if tm.jjmatchedPos+1 < curPos {
+				tm.input_stream.backup(curPos - tm.jjmatchedPos - 1)
+			}
+			if (jjtoToken[tm.jjmatchedKind>>6] & int64(1<<uint64(tm.jjmatchedKind&077))) != 0 {
+				matchedToken = tm.jjFillToken()
+				if jjnewLexState[tm.jjmatchedKind] != -1 {
+					panic("not implemented yet")
+				}
+				return matchedToken
+			} else {
+				panic("not implemented yet")
+			}
 		}
 		error_line := tm.input_stream.endLine()
 		error_column := tm.input_stream.endColumn()

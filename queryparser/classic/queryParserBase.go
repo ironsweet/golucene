@@ -58,6 +58,13 @@ func (qp *QueryParserBase) addClause(clauses []search.BooleanClause, conj, mods 
 	panic("not implemented yet")
 }
 
+// L827
+func (qp *QueryParserBase) handleBareTokenQuery(qField string,
+	term, fuzzySlop *Token, prefix, wildcard, fuzzy, regexp bool) (q search.Query, err error) {
+
+	panic("not implemented yet")
+}
+
 // L876
 func (qp *QueryParserBase) handleBoost(q search.Query, boost *Token) search.Query {
 	panic("not implemented yet")

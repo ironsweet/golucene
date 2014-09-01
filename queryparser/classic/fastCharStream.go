@@ -76,7 +76,7 @@ func (cs *FastCharStream) backup(amount int) {
 }
 
 func (cs *FastCharStream) image() string {
-	panic("not implemented yet")
+	return string(cs.buffer[cs.tokenStart:cs.bufferPosition])
 }
 
 func (cs *FastCharStream) endColumn() int {
