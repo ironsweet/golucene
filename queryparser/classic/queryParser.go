@@ -238,6 +238,23 @@ func (qp *QueryParser) ReInit(stream CharStream) {
 
 // L569
 func (qp *QueryParser) jj_consume_token(kind int) (*Token, error) {
+	oldToken := qp.token
+	if qp.token.next != nil {
+		qp.token = qp.token.next
+	} else {
+		qp.token = qp.token_source.nextToken()
+		qp.token.next = qp.token
+	}
+	qp.jj_ntk = -1
+	if qp.token.kind == kind {
+		qp.jj_gen++
+		if qp.jj_gc++; qp.jj_gc > 100 {
+			qp.jj_gc = 0
+			panic("not implemented yet")
+		}
+		return qp.token, nil
+	}
+	qp.token = oldToken
 	panic("not implemented yet")
 }
 
