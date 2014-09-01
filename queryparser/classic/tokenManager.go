@@ -1,5 +1,9 @@
 package classic
 
+import (
+// "fmt"
+)
+
 var jjnextStates = []int{
 	37, 39, 40, 17, 18, 20, 42, 45, 31, 46, 43, 22, 23, 25, 26, 24,
 	25, 26, 45, 31, 46, 44, 47, 35, 22, 28, 29, 27, 27, 30, 30, 0,
@@ -213,6 +217,7 @@ func (tm *TokenManager) ReInit(stream CharStream) {
 	tm.jjmatchedPos = 0
 	tm.jjnewStateCnt = 0
 	tm.curLexState = tm.defaultLexState
+	tm.input_stream = stream
 	tm.reInitRounds()
 }
 

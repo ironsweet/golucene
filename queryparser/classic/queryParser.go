@@ -1,6 +1,8 @@
 package classic
 
 import (
+	"errors"
+	// "fmt"
 	"github.com/balzaczyy/golucene/core/analysis"
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/util"
@@ -128,7 +130,11 @@ func (qp *QueryParser) clause(field string) (q search.Query, err error) {
 	case LPAREN:
 		panic("not implemented yet")
 	default:
-		panic("not implemented yet")
+		qp.jj_la1[7] = qp.jj_gen
+		if _, err = qp.jj_consume_token(-1); err != nil {
+			return nil, err
+		}
+		return nil, errors.New("parse error")
 	}
 	return qp.handleBoost(q, boost), nil
 }
