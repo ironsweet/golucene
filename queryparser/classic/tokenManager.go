@@ -284,7 +284,13 @@ func jjCanMove_0(hiByte, i1, i2 int, l1, l2 int64) bool {
 }
 
 func jjCanMove_2(hiByte, i1, i2 int, l1, l2 int64) bool {
-	panic("not implemented yet")
+	switch hiByte {
+	case 0:
+		panic("not implemented yet")
+	case 48:
+		panic("not implemented yet")
+	}
+	return false
 }
 
 func (tm *TokenManager) ReInit(stream CharStream) {
