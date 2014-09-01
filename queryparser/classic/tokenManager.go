@@ -191,7 +191,67 @@ func (tm *TokenManager) jjMoveNfa_2(startState, curPos int) int {
 		} else if tm.curChar < 128 {
 			panic("not implemented yet")
 		} else {
-			panic("not implemented yet")
+			hiByte := int(tm.curChar >> 8)
+			i1 := hiByte >> 6
+			l1 := int64(1 << (uint64(hiByte) & 077))
+			i2 := int((tm.curChar & 0xff) >> 6)
+			l2 := int64(1 << uint64(tm.curChar&077))
+			for {
+				i--
+				switch tm.jjstateSet[i] {
+				case 49, 33:
+					panic("not implemented yet")
+				case 0:
+					if jjCanMove_0(hiByte, i1, i2, l1, l2) {
+						if kind > 7 {
+							kind = 7
+						}
+					}
+					if jjCanMove_2(hiByte, i1, i2, l1, l2) {
+						if kind > 23 {
+							kind = 23
+						}
+						tm.jjCheckNAddTwoStates(33, 34)
+					}
+					if jjCanMove_2(hiByte, i1, i2, l1, l2) {
+						if kind > 20 {
+							kind = 20
+						}
+						tm.jjCheckNAddStates(6, 10)
+					}
+				case 15:
+					panic("not implemented yet")
+				case 17, 19:
+					panic("not implemented yet")
+				case 25:
+					panic("not implemented yet")
+				case 27:
+					panic("not implemented yet")
+				case 28:
+					panic("not implemented yet")
+				case 30:
+					panic("not implemented yet")
+				case 32:
+					panic("not implemented yet")
+				case 35:
+					panic("not implemented yet")
+				case 37:
+					panic("not implemented yet")
+				case 41:
+					panic("not implemented yet")
+				case 42:
+					panic("not implemented yet")
+				case 44:
+					panic("not implemented yet")
+				case 45:
+					panic("not implemented yet")
+				case 47:
+					panic("not implemented yet")
+				}
+				if i == startsAt {
+					break
+				}
+			}
 		}
 		if kind != 0x7fffffff {
 			tm.jjmatchedKind = kind
@@ -211,6 +271,14 @@ func (tm *TokenManager) jjMoveNfa_2(startState, curPos int) int {
 		}
 	}
 	panic("should not be here")
+}
+
+func jjCanMove_0(hiByte, i1, i2 int, l1, l2 int64) bool {
+	panic("not implemented yet")
+}
+
+func jjCanMove_2(hiByte, i1, i2 int, l1, l2 int64) bool {
+	panic("not implemented yet")
 }
 
 func (tm *TokenManager) ReInit(stream CharStream) {
