@@ -4,6 +4,8 @@ import (
 // "fmt"
 )
 
+var jjbitVec0 = []int64{1, 0, 0, 0}
+
 var jjnextStates = []int{
 	37, 39, 40, 17, 18, 20, 42, 45, 31, 46, 43, 22, 23, 25, 26, 24,
 	25, 26, 45, 31, 46, 44, 47, 35, 22, 28, 29, 27, 27, 30, 30, 0,
@@ -274,7 +276,11 @@ func (tm *TokenManager) jjMoveNfa_2(startState, curPos int) int {
 }
 
 func jjCanMove_0(hiByte, i1, i2 int, l1, l2 int64) bool {
-	panic("not implemented yet")
+	switch hiByte {
+	case 48:
+		return (jjbitVec0[i2] & 12) != 0
+	}
+	return false
 }
 
 func jjCanMove_2(hiByte, i1, i2 int, l1, l2 int64) bool {
