@@ -188,7 +188,18 @@ func (qp *QueryParser) get_jj_ntk() int {
 // L738
 
 func (qp *QueryParser) jj_save(index, xla int) {
-	panic("not implemented yet")
+	p := qp.jj_2_rtns[index]
+	for p.gen > qp.jj_gen {
+		if p.next == nil {
+			p = new(JJCalls)
+			p.next = p
+			break
+		}
+		p = p.next
+	}
+	p.gen = qp.jj_gen + xla - qp.jj_la
+	p.first = qp.token
+	p.arg = xla
 }
 
 type JJCalls struct {
