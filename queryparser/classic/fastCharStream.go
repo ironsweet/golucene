@@ -72,7 +72,7 @@ func (cs *FastCharStream) beginToken() (rune, error) {
 }
 
 func (cs *FastCharStream) backup(amount int) {
-	panic("not implemented yet")
+	cs.bufferPosition -= amount
 }
 
 func (cs *FastCharStream) image() string {
