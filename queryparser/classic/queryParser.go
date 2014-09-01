@@ -19,8 +19,6 @@ var (
 type QueryParser struct {
 	*QueryParserBase
 
-	analyzer analysis.Analyzer
-
 	token_source           *TokenManager
 	token                  *Token // current token
 	jj_nt                  *Token // next token
@@ -37,7 +35,6 @@ type QueryParser struct {
 
 func NewQueryParser(matchVersion util.Version, f string, a analysis.Analyzer) *QueryParser {
 	qp := &QueryParser{
-		analyzer:     a,
 		token_source: newTokenManager(newFastCharStream(strings.NewReader(""))),
 		jj_la1:       make([]int, 21),
 		jj_2_rtns:    make([]*JJCalls, 1),
@@ -45,6 +42,7 @@ func NewQueryParser(matchVersion util.Version, f string, a analysis.Analyzer) *Q
 	qp.QueryParserBase = newQueryParserBase(qp)
 	qp.ReInit(newFastCharStream(strings.NewReader("")))
 	// base
+	qp.analyzer = a
 	qp.field = f
 	qp.autoGeneratePhraseQueries = !matchVersion.OnOrAfter(util.VERSION_31)
 	return qp
