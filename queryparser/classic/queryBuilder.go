@@ -16,6 +16,14 @@ func newQueryBuilder() *QueryBuilder {
 	}
 }
 
+// L193
+func (qp *QueryBuilder) createFieldQuery(analyzer analysis.Analyzer,
+	operator search.Occur, field, queryText string, quoted bool, phraseSlop int) search.Query {
+
+	panic("not implemented yet")
+}
+
+// L379
 func (qp *QueryBuilder) newBooleanQuery(disableCoord bool) *search.BooleanQuery {
 	panic("not implemented yet")
 }

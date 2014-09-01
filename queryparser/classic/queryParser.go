@@ -9,6 +9,13 @@ import (
 	"strings"
 )
 
+type Operator int
+
+var (
+	OP_OR  = Operator(1)
+	OP_AND = Operator(2)
+)
+
 type QueryParser struct {
 	*QueryParserBase
 

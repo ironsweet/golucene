@@ -30,7 +30,10 @@ type QueryParserBase struct {
 
 	spi QueryParserBaseSPI
 
-	field string
+	operator Operator
+
+	field      string
+	phraseSlop int
 
 	autoGeneratePhraseQueries bool
 }
@@ -39,6 +42,7 @@ func newQueryParserBase(spi QueryParserBaseSPI) *QueryParserBase {
 	return &QueryParserBase{
 		QueryBuilder: newQueryBuilder(),
 		spi:          spi,
+		operator:     OP_OR,
 	}
 }
 
@@ -60,14 +64,21 @@ func (qp *QueryParserBase) addClause(clauses []search.BooleanClause, conj, mods 
 }
 
 // L461
-func (qp *QueryParserBase) fieldQuery(field, queryText string, quoted bool) (q search.Query, err error) {
+func (qp *QueryParserBase) fieldQuery(field, queryText string, quoted bool) search.Query {
 	return qp.newFieldQuery(qp.analyzer, field, queryText, quoted)
 }
 
 func (qp *QueryParserBase) newFieldQuery(analyzer analysis.Analyzer,
-	field, queryText string, quoted bool) (q search.Query, err error) {
+	field, queryText string, quoted bool) search.Query {
 
-	panic("not implemented yet")
+	var occur search.Occur
+	if qp.operator == OP_AND {
+		occur = search.MUST
+	} else {
+		occur = search.SHOULD
+	}
+	return qp.createFieldQuery(analyzer, occur, field, queryText,
+		quoted || qp.autoGeneratePhraseQueries, qp.phraseSlop)
 }
 
 // L827
@@ -87,7 +98,7 @@ func (qp *QueryParserBase) handleBareTokenQuery(qField string,
 	} else if fuzzy {
 		panic("not implemented yet")
 	} else {
-		return qp.fieldQuery(qField, termImage, false)
+		return qp.fieldQuery(qField, termImage, false), nil
 	}
 }
 
