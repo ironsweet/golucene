@@ -1,11 +1,20 @@
 package analysis
 
+import (
+	"github.com/balzaczyy/golucene/core/util"
+)
+
 type CachingTokenFilter struct {
 	*TokenFilter
+	cache      []*util.AttributeState
+	iterator   func() (*util.AttributeState, bool)
+	finalState *util.AttributeState
 }
 
 func NewCachingTokenFilter(input TokenStream) *CachingTokenFilter {
-	panic("not implemented yet")
+	return &CachingTokenFilter{
+		TokenFilter: NewTokenFilter(input),
+	}
 }
 
 func (f *CachingTokenFilter) Reset() {
