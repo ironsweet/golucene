@@ -24,6 +24,10 @@ type Term struct {
 	Bytes []byte
 }
 
+func NewTermFromBytes(fld string, bytes []byte) *Term {
+	return &Term{fld, bytes}
+}
+
 func NewTerm(fld string, text string) *Term {
 	return &Term{fld, []byte(text)}
 }

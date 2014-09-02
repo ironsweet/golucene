@@ -3,6 +3,7 @@ package classic
 import (
 	"github.com/balzaczyy/golucene/core/analysis"
 	ta "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
+	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/util"
 )
@@ -74,21 +75,61 @@ func (qp *QueryBuilder) createFieldQuery(analyzer analysis.Analyzer,
 	// rewind the buffer stream
 	buffer.Reset()
 
-	// var bytes *util.BytesRef
-	// if termAtt != nil {
-	// 	bytes = termAtt.BytesRef()
-	// }
+	var bytes *util.BytesRef
+	if termAtt != nil {
+		bytes = termAtt.BytesRef()
+	}
 
 	if numTokens == 0 {
 		return nil
 	} else if numTokens == 1 {
 		panic("not implemented yet")
 	} else {
-		panic("not implemented yet")
+		if severalTokensAtSamePosition || !quoted {
+			if positionCount == 1 || !quoted {
+				// no phrase query:
+
+				if positionCount == 1 {
+					panic("not implemented yet")
+				} else {
+					// multiple positions
+					q := qp.newBooleanQuery(false)
+					var currentQuery search.Query
+					for i := 0; i < numTokens; i++ {
+						hasNext, err := buffer.IncrementToken()
+						if err != nil {
+							continue // safe to ignore error, because we know the number of tokens
+						}
+						assert(hasNext)
+						termAtt.FillBytesRef()
+
+						if posIncrAtt != nil && posIncrAtt.PositionIncrement() == 0 {
+							panic("not implemented yet")
+						} else {
+							if currentQuery != nil {
+								q.Add(currentQuery, operator)
+							}
+							currentQuery = qp.newTermQuery(index.NewTermFromBytes(field, util.DeepCopyOf(bytes).Value))
+						}
+					}
+					q.Add(currentQuery, operator)
+					return q
+				}
+			} else {
+				panic("not implemented yet")
+			}
+		} else {
+			panic("not implemented yet")
+		}
+		panic("should not be here")
 	}
 }
 
 // L379
 func (qp *QueryBuilder) newBooleanQuery(disableCoord bool) *search.BooleanQuery {
-	panic("not implemented yet")
+	return search.NewBooleanQueryDisableCoord(disableCoord)
+}
+
+func (qp *QueryBuilder) newTermQuery(term *index.Term) search.Query {
+	return search.NewTermQuery(term)
 }
