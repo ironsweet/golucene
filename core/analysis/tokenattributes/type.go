@@ -18,8 +18,10 @@ type TypeAttributeImpl struct {
 	typ string
 }
 
-func newTypeAttributeImpl() *util.AttributeImpl {
-	return util.NewAttributeImpl(&TypeAttributeImpl{DEFAULT_TYPE})
+func newTypeAttributeImpl() util.AttributeImpl {
+	return &TypeAttributeImpl{
+		typ: DEFAULT_TYPE,
+	}
 }
 
 func (a *TypeAttributeImpl) Interfaces() []string {
@@ -32,4 +34,10 @@ func (a *TypeAttributeImpl) SetType(typ string) {
 
 func (a *TypeAttributeImpl) Clear() {
 	a.typ = DEFAULT_TYPE
+}
+
+func (a *TypeAttributeImpl) Clone() util.AttributeImpl {
+	return &TypeAttributeImpl{
+		typ: a.typ,
+	}
 }

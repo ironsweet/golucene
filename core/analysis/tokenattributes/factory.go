@@ -7,7 +7,7 @@ import (
 
 type DefaultAttributeFactory struct{}
 
-func (fac *DefaultAttributeFactory) Create(name string) *util.AttributeImpl {
+func (fac *DefaultAttributeFactory) Create(name string) util.AttributeImpl {
 	switch name {
 	case "PositionIncrementAttribute":
 		return newPositionIncrementAttributeImpl()

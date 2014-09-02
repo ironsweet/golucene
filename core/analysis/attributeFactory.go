@@ -18,10 +18,10 @@ separate classes.
 type myAttributeFactory struct {
 	delegate util.AttributeFactory
 	clazz    map[string]bool
-	ctor     func() *util.AttributeImpl
+	ctor     func() util.AttributeImpl
 }
 
-func (f *myAttributeFactory) Create(name string) *util.AttributeImpl {
+func (f *myAttributeFactory) Create(name string) util.AttributeImpl {
 	if _, ok := f.clazz[name]; ok {
 		return f.ctor()
 	}
@@ -40,6 +40,6 @@ Please save instances created by this method in a global field,
 because on each call, this does
 */
 func assembleAttributeFactory(factory util.AttributeFactory,
-	clazz map[string]bool, ctor func() *util.AttributeImpl) util.AttributeFactory {
+	clazz map[string]bool, ctor func() util.AttributeImpl) util.AttributeFactory {
 	return &myAttributeFactory{factory, clazz, ctor}
 }

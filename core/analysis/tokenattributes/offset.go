@@ -31,8 +31,8 @@ type OffsetAttributeImpl struct {
 	startOffset, endOffset int
 }
 
-func newOffsetAttributeImpl() *util.AttributeImpl {
-	return util.NewAttributeImpl(new(OffsetAttributeImpl))
+func newOffsetAttributeImpl() util.AttributeImpl {
+	return new(OffsetAttributeImpl)
 }
 
 func (a *OffsetAttributeImpl) Interfaces() []string {
@@ -63,4 +63,11 @@ func (a *OffsetAttributeImpl) Clear() {
 	// TODO: we could use -1 as default here? Then we can assert in SetOffset...
 	a.startOffset = 0
 	a.endOffset = 0
+}
+
+func (a *OffsetAttributeImpl) Clone() util.AttributeImpl {
+	return &OffsetAttributeImpl{
+		startOffset: a.startOffset,
+		endOffset:   a.endOffset,
+	}
 }

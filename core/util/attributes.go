@@ -12,45 +12,33 @@ type Attribute interface {
 
 // util/AttributeImpl.java
 
-type AttributeImplSPI interface {
-	Interfaces() []string
-	// Clears the values in this AttributeImpl and resets it to its
-	// default value. If this implementation implements more than one
-	// Attribute interface, it clears all.
-	Clear()
-}
-
 /*
 Base class for Attributes that can be added to a AttributeSource.
 
 Attributes are used to add data in a dynamic, yet type-safe way to a
 source of usually streamed ojects, e.g. a TokenStream.
 */
-type AttributeImpl struct {
-	AttributeImplSPI
-	Value interface{}
-}
-
-func NewAttributeImpl(spi AttributeImplSPI) *AttributeImpl {
-	return &AttributeImpl{spi, spi}
-}
-
-func (v *AttributeImpl) Clone() *AttributeImpl {
-	panic("not implemented yet")
+type AttributeImpl interface {
+	Interfaces() []string
+	Clone() AttributeImpl
+	// Clears the values in this AttributeImpl and resets it to its
+	// default value. If this implementation implements more than one
+	// Attribute interface, it clears all.
+	Clear()
 }
 
 // util/AttributeFactory.java
 
 /* An AttributeFactory creates instances of AttributeImpls. */
 type AttributeFactory interface {
-	Create(string) *AttributeImpl
+	Create(string) AttributeImpl
 }
 
 // util/AttributeSource.java
 
 /* This class holds the state of an AttributeSource */
 type AttributeState struct {
-	attribute *AttributeImpl
+	attribute AttributeImpl
 	next      *AttributeState
 }
 
@@ -73,8 +61,8 @@ type is already present. If yes, it returns the instance, otherwise
 it creates a new instance and returns it.
 */
 type AttributeSource struct {
-	attributes     map[string]*AttributeImpl
-	attributeImpls map[reflect.Type]*AttributeImpl
+	attributes     map[string]AttributeImpl
+	attributeImpls map[reflect.Type]AttributeImpl
 	_currentState  []*AttributeState
 	factory        AttributeFactory
 }
@@ -101,8 +89,8 @@ func NewAttributeSourceWith(factory AttributeFactory) *AttributeSource {
 	// But it's used by Solr only and GoLucene doesn't have plan to
 	// port GoSolr. So we use plain map here.
 	return &AttributeSource{
-		attributes:     make(map[string]*AttributeImpl),
-		attributeImpls: make(map[reflect.Type]*AttributeImpl),
+		attributes:     make(map[string]AttributeImpl),
+		attributeImpls: make(map[reflect.Type]AttributeImpl),
 		_currentState:  make([]*AttributeState, 1),
 		factory:        factory,
 	}
@@ -120,7 +108,7 @@ adding with this method and cast to you class.
 The recommended way to use custom implementations is using an
 AttributeFactory.
 */
-func (as *AttributeSource) AddImpl(att *AttributeImpl) {
+func (as *AttributeSource) AddImpl(att AttributeImpl) {
 	typ := reflect.TypeOf(att)
 	if _, ok := as.attributeImpls[typ]; ok {
 		return
@@ -161,12 +149,12 @@ func (as *AttributeSource) Add(s string) Attribute {
 		attImpl = as.factory.Create(s)
 		as.AddImpl(attImpl)
 	}
-	return attImpl.Value
+	return attImpl
 }
 
 /* Returns the instance of the passe in Attribute contained in this AttributeSource */
 func (as *AttributeSource) Get(s string) Attribute {
-	return as.attributes[s].Value
+	return as.attributes[s]
 }
 
 func (as *AttributeSource) currentState() *AttributeState {

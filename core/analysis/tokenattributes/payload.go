@@ -29,11 +29,17 @@ type PayloadAttributeImpl struct {
 	payload []byte
 }
 
-func newPayloadAttributeImpl() *util.AttributeImpl {
-	return util.NewAttributeImpl(new(PayloadAttributeImpl))
+func newPayloadAttributeImpl() util.AttributeImpl {
+	return new(PayloadAttributeImpl)
 }
 
 func (a *PayloadAttributeImpl) Interfaces() []string      { return []string{"PayloadAttribute"} }
 func (a *PayloadAttributeImpl) Payload() []byte           { return a.payload }
 func (a *PayloadAttributeImpl) SetPayload(payload []byte) { a.payload = payload }
 func (a *PayloadAttributeImpl) Clear()                    { a.payload = nil }
+
+func (a *PayloadAttributeImpl) Clone() util.AttributeImpl {
+	return &PayloadAttributeImpl{
+		payload: a.payload,
+	}
+}

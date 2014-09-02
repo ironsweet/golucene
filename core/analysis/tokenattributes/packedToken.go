@@ -20,13 +20,13 @@ type PackedTokenAttributeImpl struct {
 	positionLength         int
 }
 
-func NewPackedTokenAttribute() *util.AttributeImpl {
-	return util.NewAttributeImpl(&PackedTokenAttributeImpl{
-		CharTermAttributeImpl: newCharTermAttributeImpl().Value.(*CharTermAttributeImpl),
+func NewPackedTokenAttribute() util.AttributeImpl {
+	return &PackedTokenAttributeImpl{
+		CharTermAttributeImpl: newCharTermAttributeImpl(),
 		typ:               DEFAULT_TYPE,
 		positionIncrement: 1,
 		positionLength:    1,
-	})
+	}
 }
 
 func (a *PackedTokenAttributeImpl) Interfaces() []string {
@@ -69,4 +69,15 @@ func (a *PackedTokenAttributeImpl) Clear() {
 	a.positionIncrement, a.positionLength = 1, 1
 	a.startOffset, a.endOffset = 0, 0
 	a.typ = DEFAULT_TYPE
+}
+
+func (a *PackedTokenAttributeImpl) Clone() util.AttributeImpl {
+	return &PackedTokenAttributeImpl{
+		CharTermAttributeImpl: a.CharTermAttributeImpl.Clone().(*CharTermAttributeImpl),
+		startOffset:           a.startOffset,
+		endOffset:             a.endOffset,
+		typ:                   a.typ,
+		positionIncrement:     a.positionIncrement,
+		positionLength:        a.positionLength,
+	}
 }

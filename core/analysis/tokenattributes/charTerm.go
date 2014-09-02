@@ -35,12 +35,11 @@ type CharTermAttributeImpl struct {
 	bytes      *util.BytesRef
 }
 
-func newCharTermAttributeImpl() *util.AttributeImpl {
-	ans := &CharTermAttributeImpl{
+func newCharTermAttributeImpl() *CharTermAttributeImpl {
+	return &CharTermAttributeImpl{
 		termBuffer: make([]rune, util.Oversize(MIN_BUFFER_SIZE, util.NUM_BYTES_CHAR)),
 		bytes:      util.NewBytesRef(make([]byte, 0, MIN_BUFFER_SIZE)),
 	}
-	return util.NewAttributeImpl(ans)
 }
 
 func (a *CharTermAttributeImpl) Interfaces() []string {
@@ -102,6 +101,16 @@ func (a *CharTermAttributeImpl) appendNil() CharTermAttribute {
 
 func (a *CharTermAttributeImpl) Clear() {
 	a.termLength = 0
+}
+
+func (a *CharTermAttributeImpl) Clone() util.AttributeImpl {
+	clone := new(CharTermAttributeImpl)
+	// do a deep clone
+	clone.termBuffer = make([]rune, a.termLength)
+	copy(clone.termBuffer, a.termBuffer[:a.termLength])
+	clone.termLength = a.termLength
+	clone.bytes = util.DeepCopyOf(a.bytes)
+	return clone
 }
 
 func (a *CharTermAttributeImpl) String() string {

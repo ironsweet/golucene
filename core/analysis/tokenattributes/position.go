@@ -40,9 +40,10 @@ type PositionIncrementAttributeImpl struct {
 	positionIncrement int
 }
 
-func newPositionIncrementAttributeImpl() *util.AttributeImpl {
-	ans := &PositionIncrementAttributeImpl{1}
-	return util.NewAttributeImpl(ans)
+func newPositionIncrementAttributeImpl() util.AttributeImpl {
+	return &PositionIncrementAttributeImpl{
+		positionIncrement: 1,
+	}
 }
 
 func (a *PositionIncrementAttributeImpl) Interfaces() []string {
@@ -66,4 +67,10 @@ func (a *PositionIncrementAttributeImpl) PositionIncrement() int {
 
 func (a *PositionIncrementAttributeImpl) Clear() {
 	a.positionIncrement = 1
+}
+
+func (a *PositionIncrementAttributeImpl) Clone() util.AttributeImpl {
+	return &PositionIncrementAttributeImpl{
+		positionIncrement: a.positionIncrement,
+	}
 }
