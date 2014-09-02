@@ -116,3 +116,7 @@ func (a *CharTermAttributeImpl) Clone() util.AttributeImpl {
 func (a *CharTermAttributeImpl) String() string {
 	return string(a.termBuffer[:a.termLength])
 }
+
+func (a *CharTermAttributeImpl) CopyTo(target util.AttributeImpl) {
+	target.(CharTermAttribute).CopyBuffer(a.termBuffer[:a.termLength])
+}

@@ -43,3 +43,7 @@ func (a *PayloadAttributeImpl) Clone() util.AttributeImpl {
 		payload: a.payload,
 	}
 }
+
+func (a *PayloadAttributeImpl) CopyTo(target util.AttributeImpl) {
+	target.(PayloadAttribute).SetPayload(a.payload)
+}

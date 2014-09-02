@@ -25,6 +25,7 @@ type AttributeImpl interface {
 	// default value. If this implementation implements more than one
 	// Attribute interface, it clears all.
 	Clear()
+	CopyTo(target AttributeImpl)
 }
 
 // util/AttributeFactory.java
@@ -184,7 +185,21 @@ func (as *AttributeSource) CaptureState() (state *AttributeState) {
 }
 
 func (as *AttributeSource) RestoreState(state *AttributeState) {
-	panic("not implemented yet")
+	if state == nil {
+		return
+	}
+
+	for {
+		targetImpl, ok := as.attributeImpls[reflect.TypeOf(state.attribute)]
+		assert2(ok,
+			"State contains AttributeImpl of type %v that is not in in this AttributeSource",
+			reflect.TypeOf(state.attribute).Name())
+		state.attribute.CopyTo(targetImpl)
+		state = state.next
+		if state == nil {
+			break
+		}
+	}
 }
 
 /*

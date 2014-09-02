@@ -74,3 +74,7 @@ func (a *PositionIncrementAttributeImpl) Clone() util.AttributeImpl {
 		positionIncrement: a.positionIncrement,
 	}
 }
+
+func (a *PositionIncrementAttributeImpl) CopyTo(target util.AttributeImpl) {
+	target.(PositionIncrementAttribute).SetPositionIncrement(a.positionIncrement)
+}

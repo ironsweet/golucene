@@ -71,3 +71,7 @@ func (a *OffsetAttributeImpl) Clone() util.AttributeImpl {
 		endOffset:   a.endOffset,
 	}
 }
+
+func (a *OffsetAttributeImpl) CopyTo(target util.AttributeImpl) {
+	target.(OffsetAttribute).SetOffset(a.startOffset, a.endOffset)
+}

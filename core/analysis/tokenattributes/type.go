@@ -41,3 +41,7 @@ func (a *TypeAttributeImpl) Clone() util.AttributeImpl {
 		typ: a.typ,
 	}
 }
+
+func (a *TypeAttributeImpl) CopyTo(target util.AttributeImpl) {
+	target.(TypeAttribute).SetType(a.typ)
+}

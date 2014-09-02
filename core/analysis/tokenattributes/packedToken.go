@@ -81,3 +81,20 @@ func (a *PackedTokenAttributeImpl) Clone() util.AttributeImpl {
 		positionLength:        a.positionLength,
 	}
 }
+
+func (a *PackedTokenAttributeImpl) CopyTo(target util.AttributeImpl) {
+	if to, ok := target.(*PackedTokenAttributeImpl); ok {
+		to.CopyBuffer(a.Buffer()[:a.Length()])
+		to.positionIncrement = a.positionIncrement
+		to.positionLength = a.positionLength
+		to.startOffset = a.startOffset
+		to.endOffset = a.endOffset
+		to.typ = a.typ
+	} else {
+		a.CharTermAttributeImpl.CopyTo(target)
+		target.(OffsetAttribute).SetOffset(a.startOffset, a.endOffset)
+		target.(PositionIncrementAttribute).SetPositionIncrement(a.positionIncrement)
+		target.(PositionLengthAttribute).SetPositionLength(a.positionLength)
+		target.(TypeAttribute).SetType(a.typ)
+	}
+}
