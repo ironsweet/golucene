@@ -7,6 +7,7 @@ import (
 type CachingTokenFilter struct {
 	*TokenFilter
 	cache      []*util.AttributeState
+	cacheIdx   int
 	iterator   func() (*util.AttributeState, bool)
 	finalState *util.AttributeState
 }
@@ -17,15 +18,30 @@ func NewCachingTokenFilter(input TokenStream) *CachingTokenFilter {
 	}
 }
 
+func (f *CachingTokenFilter) IncrementToken() (bool, error) {
+	if f.cache == nil { // fill cache lazily
+		if err := f.fillCache(); err != nil {
+			return false, err
+		}
+		f.Reset()
+	}
+
+	if f.cacheIdx >= len(f.cache) {
+		// the cache is exhausted, return false
+		return false, nil
+	}
+	// Since the TokenFilter can be reset, the tokens need to be preserved as immutable.
+	f.Attributes().RestoreState(f.cache[f.cacheIdx])
+	f.cacheIdx++
+	return true, nil
+}
+
 func (f *CachingTokenFilter) Reset() {
 	if f.cache != nil {
-		i := 0
-		f.iterator = func() (*util.AttributeState, bool) {
-			if i >= len(f.cache) {
-				return nil, false
-			}
-			i++
-			return f.cache[i-1], i == len(f.cache)
-		}
+		f.cacheIdx = 0
 	}
+}
+
+func (f *CachingTokenFilter) fillCache() error {
+	panic("not implemented yet")
 }

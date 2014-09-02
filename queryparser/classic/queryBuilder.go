@@ -30,6 +30,8 @@ func (qp *QueryBuilder) createFieldQuery(analyzer analysis.Analyzer,
 	var termAtt ta.TermToBytesRefAttribute
 	var posIncrAtt ta.PositionIncrementAttribute
 	var numTokens int
+	var positionCount int
+	var severalTokensAtSamePosition bool
 	if err := func() (err error) {
 		var source analysis.TokenStream
 		defer func() {
@@ -49,7 +51,20 @@ func (qp *QueryBuilder) createFieldQuery(analyzer analysis.Analyzer,
 		posIncrAtt = buffer.Attributes().Get("PositionIncrementAttribute").(ta.PositionIncrementAttribute)
 
 		if termAtt != nil {
-			panic("not implemented yet")
+			hasMoreTokens, err := buffer.IncrementToken()
+			for hasMoreTokens && err == nil {
+				numTokens++
+				positionIncrement := 1
+				if posIncrAtt != nil {
+					positionIncrement = posIncrAtt.PositionIncrement()
+				}
+				if positionIncrement != 0 {
+					positionCount += positionIncrement
+				} else {
+					severalTokensAtSamePosition = true
+				}
+				hasMoreTokens, err = buffer.IncrementToken()
+			} // ignore error
 		}
 		return nil
 	}(); err != nil {

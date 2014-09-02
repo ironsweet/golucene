@@ -188,6 +188,10 @@ func (as *AttributeSource) currentState() *AttributeState {
 	return s
 }
 
+func (as *AttributeSource) RestoreState(state *AttributeState) {
+	panic("not implemented yet")
+}
+
 /*
 Resets all Attributes in this AttributeSource by calling
 AttributeImpl.clear() on each Attribute implementation.
