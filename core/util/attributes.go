@@ -188,6 +188,13 @@ func (as *AttributeSource) currentState() *AttributeState {
 	return s
 }
 
+func (as *AttributeSource) CaptureState() (state *AttributeState) {
+	if state = as.currentState(); state != nil {
+		state = state.Clone()
+	}
+	return
+}
+
 func (as *AttributeSource) RestoreState(state *AttributeState) {
 	panic("not implemented yet")
 }

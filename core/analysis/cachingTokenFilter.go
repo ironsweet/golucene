@@ -43,5 +43,18 @@ func (f *CachingTokenFilter) Reset() {
 }
 
 func (f *CachingTokenFilter) fillCache() error {
-	panic("not implemented yet")
+	ok, err := f.input.IncrementToken()
+	for ok && err == nil {
+		f.cache = append(f.cache, f.Attributes().CaptureState())
+		ok, err = f.input.IncrementToken()
+	}
+	if err != nil {
+		return err
+	}
+	// capture final state
+	if err = f.input.End(); err != nil {
+		return err
+	}
+	f.finalState = f.Attributes().CaptureState()
+	return nil
 }
