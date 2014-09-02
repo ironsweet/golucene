@@ -1,6 +1,7 @@
 package search
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/index"
 	. "github.com/balzaczyy/golucene/core/index/model"
@@ -50,12 +51,17 @@ func (q *TermQuery) CreateWeight(ss *IndexSearcher) (w Weight, err error) {
 	return NewTermWeight(q, ss, termState), nil
 }
 
-func (q *TermQuery) String() string {
-	boost := ""
-	if q.boost != 1.0 {
-		boost = fmt.Sprintf("^%v", q.boost)
+func (q *TermQuery) ToString(field string) string {
+	var buf bytes.Buffer
+	if q.term.Field != field {
+		buf.WriteString(q.term.Field)
+		buf.WriteRune(':')
 	}
-	return fmt.Sprintf("%v:%v%v", q.term.Field, string(q.term.Bytes), boost)
+	buf.WriteString(string(q.term.Bytes))
+	if q.boost != 1.0 {
+		buf.WriteString(fmt.Sprintf("^%v", q.boost))
+	}
+	return buf.String()
 }
 
 type TermWeight struct {

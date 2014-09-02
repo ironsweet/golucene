@@ -31,3 +31,11 @@ func NewBooleanClause(query Query, occur Occur) *BooleanClause {
 		occur: occur,
 	}
 }
+
+func (c *BooleanClause) IsProhibited() bool {
+	return c.occur == MUST_NOT
+}
+
+func (c *BooleanClause) IsRequired() bool {
+	return c.occur == MUST
+}
