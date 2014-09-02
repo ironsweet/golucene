@@ -21,4 +21,13 @@ func (occur Occur) String() string {
 }
 
 type BooleanClause struct {
+	query Query
+	occur Occur
+}
+
+func NewBooleanClause(query Query, occur Occur) *BooleanClause {
+	return &BooleanClause{
+		query: query,
+		occur: occur,
+	}
 }

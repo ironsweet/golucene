@@ -75,7 +75,7 @@ func (qp *QueryParser) TopLevelQuery(field string) (q search.Query, err error) {
 }
 
 func (qp *QueryParser) Query(field string) (q search.Query, err error) {
-	var clauses []search.BooleanClause
+	var clauses []*search.BooleanClause
 	var conj, mods int
 	if mods, err = qp.modifiers(); err != nil {
 		return nil, err
@@ -83,23 +83,26 @@ func (qp *QueryParser) Query(field string) (q search.Query, err error) {
 	if q, err = qp.clause(field); err != nil {
 		return nil, err
 	}
-	qp.addClause(clauses, CONJ_NONE, mods, q)
+	clauses = qp.addClause(clauses, CONJ_NONE, mods, q)
 	var firstQuery search.Query
 	if mods == MOD_NONE {
 		firstQuery = q
 	}
-	var found = false
-	for !found {
+	for {
 		if qp.jj_ntk == -1 {
 			qp.get_jj_ntk()
 		}
+		var found = false
 		switch qp.jj_ntk {
 		case AND, OR, NOT, PLUS, MINUS, BAREOPER, LPAREN, STAR, QUOTED,
 			TERM, PREFIXTERM, WILDTERM, REGEXPTERM, RANGEIN_START,
 			RANGEEX_START, NUMBER:
 		default:
-			found = true
 			qp.jj_la1[4] = qp.jj_gen
+			found = true
+		}
+		if found {
+			break
 		}
 		if conj, err = qp.conjunction(); err != nil {
 			return nil, err
@@ -110,7 +113,7 @@ func (qp *QueryParser) Query(field string) (q search.Query, err error) {
 		if q, err = qp.clause(field); err != nil {
 			return nil, err
 		}
-		qp.addClause(clauses, conj, mods, q)
+		clauses = qp.addClause(clauses, conj, mods, q)
 	}
 	if len(clauses) == 1 && firstQuery != nil {
 		return firstQuery, nil

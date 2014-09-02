@@ -59,8 +59,44 @@ func (qp *QueryParserBase) Parse(query string) (res search.Query, err error) {
 }
 
 // L408
-func (qp *QueryParserBase) addClause(clauses []search.BooleanClause, conj, mods int, q search.Query) {
-	panic("not implemented yet")
+func (qp *QueryParserBase) addClause(clauses []*search.BooleanClause,
+	conj, mods int, q search.Query) []*search.BooleanClause {
+	var required, prohibited bool
+
+	// If this term is introduced by AND, make the preceding term required,
+	// unless it's already prohibited
+	if len(clauses) > 0 && conj == CONJ_AND {
+		panic("not implemented yet")
+	}
+
+	if len(clauses) > 0 && qp.operator == OP_AND && conj == CONJ_OR {
+		panic("not implemented yet")
+	}
+
+	// We might have been passed an empty query; the term might have been
+	// filtered away by the analyzer.
+	if q == nil {
+		return clauses
+	}
+
+	if qp.operator == OP_OR {
+		// We set REQUIRED if we're introduced by AND or +; PROHIBITED if
+		// introduced by NOT or -; make sure not to set both.
+		prohibited = (mods == MOD_NOT)
+		required = (mods == MOD_REQ)
+		if conj == CONJ_AND && !prohibited {
+			required = true
+		}
+	} else {
+		panic("not implemented yet")
+	}
+	if required {
+		panic("not implemented yet")
+	} else if !prohibited {
+		return append(clauses, qp.newBooleanClause(q, search.SHOULD))
+	} else {
+		panic("not implemented yet")
+	}
 }
 
 // L461
@@ -79,6 +115,12 @@ func (qp *QueryParserBase) newFieldQuery(analyzer analysis.Analyzer,
 	}
 	return qp.createFieldQuery(analyzer, occur, field, queryText,
 		quoted || qp.autoGeneratePhraseQueries, qp.phraseSlop)
+}
+
+// L539
+
+func (qp *QueryParserBase) newBooleanClause(q search.Query, occur search.Occur) *search.BooleanClause {
+	return search.NewBooleanClause(q, occur)
 }
 
 // L827
@@ -104,7 +146,10 @@ func (qp *QueryParserBase) handleBareTokenQuery(qField string,
 
 // L876
 func (qp *QueryParserBase) handleBoost(q search.Query, boost *Token) search.Query {
-	panic("not implemented yet")
+	if boost != nil {
+		panic("not implemented yet")
+	}
+	return q
 }
 
 // L906
