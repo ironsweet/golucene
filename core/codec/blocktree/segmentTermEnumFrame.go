@@ -76,7 +76,7 @@ type segmentTermsEnumFrame struct {
 
 	startBytePos int
 	suffix       int
-	subCode      int
+	subCode      int64
 }
 
 func newFrame(ste *SegmentTermsEnum, ord int) *segmentTermsEnumFrame {
@@ -472,8 +472,111 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 
 // Target's prefix matches this block's prefix; we
 // scan the entries check if the suffix matches.
-func (f *segmentTermsEnumFrame) scanToTermNonLeaf(target []byte, exactOnly bool) (status SeekStatus, err error) {
-	panic("not implemented yet")
+func (f *segmentTermsEnumFrame) scanToTermNonLeaf(target []byte,
+	exactOnly bool) (status SeekStatus, err error) {
+
+	fmt.Printf(
+		"    scanToTermNonLeaf: block fp=%v prefix=%v nextEnt=%v (of %v) target=%v term=%v",
+		f.fp, f.prefix, f.nextEnt, f.entCount, brToString(target), "" /*brToString(term)*/)
+
+	assert(f.nextEnt != -1)
+
+	if f.nextEnt == f.entCount {
+		panic("not implemented yet")
+	}
+
+	assert(f.prefixMatches(target))
+
+	// Loop over each entry (term or sub-block) in this block:
+	for {
+		f.nextEnt++
+
+		code, _ := f.suffixesReader.ReadVInt() // no error
+		f.suffix = int(uint32(code) >> 1)
+
+		f.ste.termExists = (code & 1) == 0
+		termLen := f.prefix + f.suffix
+		f.startBytePos = f.suffixesReader.Position()
+		f.suffixesReader.SkipBytes(int64(f.suffix))
+		if f.ste.termExists {
+			f.state.TermBlockOrd++
+			f.subCode = 0
+		} else {
+			f.subCode, _ = f.suffixesReader.ReadVLong() // no error
+			f.lastSubFP = f.fp - f.subCode
+		}
+
+		targetLimit := termLen
+		if len(target) < termLen {
+			targetLimit = len(target)
+		}
+		targetPos := f.prefix
+
+		// Loop over bytes in the suffix, comparing to the target
+		bytePos := f.startBytePos
+		var toNextTerm, stopScan bool
+		for {
+			var cmp int
+			var stop bool
+			if targetPos < targetLimit {
+				cmp = int(f.suffixBytes[bytePos]) - int(target[targetPos])
+				bytePos++
+				targetPos++
+				stop = false
+			} else {
+				assert(targetPos == targetLimit)
+				cmp = termLen - len(target)
+				stop = true
+			}
+
+			if cmp < 0 {
+				// Current entry is still before the target;
+				// keep scanning
+
+				if f.nextEnt == f.entCount {
+					if exactOnly {
+						panic("not implemented yet")
+					}
+					panic("not implemented yet")
+				} else {
+					toNextTerm = true
+					break
+				}
+			} else if cmp > 0 {
+				panic("not implemented yet")
+			} else if stop {
+				// Exact match!
+
+				// This cannot be a sub-block because we would have followed
+				// the index to this sub-block from the start:
+
+				assert(f.ste.termExists)
+				f.fillTerm()
+				fmt.Println("        found!")
+				return SEEK_STATUS_FOUND, nil
+			}
+		}
+		if toNextTerm {
+			continue
+		}
+		if stopScan {
+			break
+		}
+	}
+
+	// It is possible (and OK) that terms index pointed us at this
+	// block, but, we scanned the entire block and did not find the
+	// term to position to. This happens when the taret is after the
+	// last term in the block (but, before the next term in the index).
+	// E.g., target could be foozzz, and terms index pointed us to the
+	// foo* block, but the last term in this block was fooz (and, e.g.,
+	// first term in the next block will be fop).
+	fmt.Println("      block end")
+	if exactOnly {
+		f.fillTerm()
+	}
+
+	return SEEK_STATUS_END, nil
 }
 
 func (f *segmentTermsEnumFrame) fillTerm() {

@@ -37,10 +37,32 @@ func (q *BooleanQuery) AddClause(clause *BooleanClause) {
 }
 
 type BooleanWeight struct {
+	owner        *BooleanQuery
+	similarity   Similarity
+	weights      []Weight
+	maxCoord     int // num optional +num required
+	disableCoord bool
 }
 
-func newBooleanWeight(searcher *IndexSearcher, disableCoord bool) *BooleanWeight {
-	panic("not implemented yet")
+func newBooleanWeight(owner *BooleanQuery,
+	searcher *IndexSearcher, disableCoord bool) (w *BooleanWeight, err error) {
+
+	w = &BooleanWeight{
+		owner:        owner,
+		similarity:   searcher.similarity,
+		disableCoord: disableCoord,
+	}
+	var subWeight Weight
+	for _, c := range owner.clauses {
+		if subWeight, err = c.query.CreateWeight(searcher); err != nil {
+			return nil, err
+		}
+		w.weights = append(w.weights, subWeight)
+		if !c.IsProhibited() {
+			w.maxCoord++
+		}
+	}
+	return w, nil
 }
 
 func (w *BooleanWeight) ValueForNormalization() float32 {
@@ -65,7 +87,7 @@ func (w *BooleanWeight) IsScoresDocsOutOfOrder() bool {
 }
 
 func (q *BooleanQuery) CreateWeight(searcher *IndexSearcher) (Weight, error) {
-	return newBooleanWeight(searcher, q.disableCoord), nil
+	return newBooleanWeight(q, searcher, q.disableCoord)
 }
 
 func (q *BooleanQuery) Rewrite(reader index.IndexReader) Query {

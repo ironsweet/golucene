@@ -102,6 +102,10 @@ func (in *ByteArrayDataInput) Reset(bytes []byte) {
 	in.limit = len(bytes)
 }
 
+func (in *ByteArrayDataInput) Position() int {
+	return in.Pos
+}
+
 // NOTE: sets pos to 0, which is not right if you had
 // called reset w/ non-zero offset!!
 func (in *ByteArrayDataInput) Rewind() {
