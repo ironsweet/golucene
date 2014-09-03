@@ -2,7 +2,8 @@ package search
 
 import (
 	"bytes"
-	"fmt"
+	"github.com/balzaczyy/golucene/core/index"
+	"github.com/balzaczyy/golucene/core/util"
 )
 
 const maxClauseCount = 1024
@@ -33,6 +34,63 @@ func (q *BooleanQuery) Add(query Query, occur Occur) {
 func (q *BooleanQuery) AddClause(clause *BooleanClause) {
 	assert(len(q.clauses) < maxClauseCount)
 	q.clauses = append(q.clauses, clause)
+}
+
+type BooleanWeight struct {
+}
+
+func newBooleanWeight(searcher *IndexSearcher, disableCoord bool) *BooleanWeight {
+	panic("not implemented yet")
+}
+
+func (w *BooleanWeight) ValueForNormalization() float32 {
+	panic("not implemented yet")
+}
+
+func (w *BooleanWeight) Normalize(norm, topLevelBoost float32) {
+	panic("not implemented yet")
+}
+
+func (w *BooleanWeight) Explain(context *index.AtomicReaderContext, doc int) (Explanation, error) {
+	panic("not implemented yet")
+}
+
+func (w *BooleanWeight) BulkScorer(context *index.AtomicReaderContext,
+	scoreDocsInOrder bool, acceptDocs util.Bits) (BulkScorer, error) {
+	panic("not implemented yet")
+}
+
+func (w *BooleanWeight) IsScoresDocsOutOfOrder() bool {
+	panic("not implemented yet")
+}
+
+func (q *BooleanQuery) CreateWeight(searcher *IndexSearcher) (Weight, error) {
+	return newBooleanWeight(searcher, q.disableCoord), nil
+}
+
+func (q *BooleanQuery) Rewrite(reader index.IndexReader) Query {
+	if q.minNrShouldMatch == 0 && len(q.clauses) == 1 {
+		panic("not implemented yet")
+	}
+
+	var clone *BooleanQuery // recursively rewrite
+	for _, c := range q.clauses {
+		if query := c.query.Rewrite(reader); query != c.query {
+			// clause rewrote: must clone
+			if clone == nil {
+				// The BooleanQuery clone is lazily initialized so only
+				// initialize it if a rewritten clause differs from the
+				// original clause (and hasn't been initialized already). If
+				// nothing difers, the clone isn't needlessly created
+				panic("not implemented yet")
+			}
+			panic("not implemented yet")
+		}
+	}
+	if clone != nil {
+		return clone // some clauses rewrote
+	}
+	return q
 }
 
 func (q *BooleanQuery) ToString(field string) string {
