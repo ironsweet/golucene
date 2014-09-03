@@ -53,7 +53,7 @@ func (ss *IndexSearcher) Search(q Query, f Filter, n int) (topDocs TopDocs, err 
 	if err != nil {
 		return TopDocs{}, err
 	}
-	return ss.searchWSI(w, ScoreDoc{}, n), nil
+	return ss.searchWSI(w, nil, n), nil
 }
 
 /** Expert: Low-level search implementation.  Finds the top <code>n</code>
@@ -64,7 +64,7 @@ func (ss *IndexSearcher) Search(q Query, f Filter, n int) (topDocs TopDocs, err 
  * @throws BooleanQuery.TooManyClauses If a query would exceed
  *         {@link BooleanQuery#getMaxClauseCount()} clauses.
  */
-func (ss *IndexSearcher) searchWSI(w Weight, after ScoreDoc, nDocs int) TopDocs {
+func (ss *IndexSearcher) searchWSI(w Weight, after *ScoreDoc, nDocs int) TopDocs {
 	// TODO support concurrent search
 	return ss.searchLWSI(ss.leafContexts, w, after, nDocs)
 }
@@ -77,7 +77,8 @@ func (ss *IndexSearcher) searchWSI(w Weight, after ScoreDoc, nDocs int) TopDocs 
  * @throws BooleanQuery.TooManyClauses If a query would exceed
  *         {@link BooleanQuery#getMaxClauseCount()} clauses.
  */
-func (ss *IndexSearcher) searchLWSI(leaves []*index.AtomicReaderContext, w Weight, after ScoreDoc, nDocs int) TopDocs {
+func (ss *IndexSearcher) searchLWSI(leaves []*index.AtomicReaderContext,
+	w Weight, after *ScoreDoc, nDocs int) TopDocs {
 	// single thread
 	limit := ss.reader.MaxDoc()
 	if limit == 0 {

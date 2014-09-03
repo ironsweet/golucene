@@ -18,15 +18,15 @@ type ScoreDoc struct {
 	shardIndex int
 }
 
-func newScoreDoc(doc int, score float32) ScoreDoc {
-	return ScoreDoc{Score: score, Doc: doc}
+func newScoreDoc(doc int, score float32) *ScoreDoc {
+	return &ScoreDoc{Score: score, Doc: doc}
 }
 
-func newShardedScoreDoc(doc int, score float32, shardIndex int) ScoreDoc {
-	return ScoreDoc{score, doc, shardIndex}
+func newShardedScoreDoc(doc int, score float32, shardIndex int) *ScoreDoc {
+	return &ScoreDoc{score, doc, shardIndex}
 }
 
-func (d ScoreDoc) String() string {
+func (d *ScoreDoc) String() string {
 	return fmt.Sprintf("doc=%v score=%v shardIndex=%v", d.Doc, d.Score, d.shardIndex)
 }
 
@@ -188,7 +188,7 @@ func (c *abstractTopDocsCollector) TopDocsRange(start, howMany int) TopDocs {
 
 type TopScoreDocCollector struct {
 	*abstractTopDocsCollector
-	pqTop   ScoreDoc
+	pqTop   *ScoreDoc
 	docBase int
 	scorer  Scorer
 }
@@ -209,7 +209,7 @@ func newTocScoreDocCollector(numHits int) *TopScoreDocCollector {
 	}
 	heap.Init(pq)
 
-	pqTop := heap.Pop(pq).(ScoreDoc)
+	pqTop := heap.Pop(pq).(*ScoreDoc)
 	heap.Push(pq, pqTop)
 	c := &TopScoreDocCollector{pqTop: pqTop}
 	c.abstractTopDocsCollector = newTopDocsCollector(c, pq)
@@ -247,16 +247,22 @@ func (c *TopScoreDocCollector) SetScorer(scorer Scorer) {
 	c.scorer = scorer
 }
 
-func NewTopScoreDocCollector(numHits int, after ScoreDoc, docsScoredInOrder bool) TopDocsCollector {
+func NewTopScoreDocCollector(numHits int, after *ScoreDoc, docsScoredInOrder bool) TopDocsCollector {
 	if numHits < 0 {
 		panic("numHits must be > 0; please use TotalHitCountCollector if you just need the total hit count")
 	}
 
 	if docsScoredInOrder {
-		return NewInOrderTopScoreDocCollector(numHits)
+		if after == nil {
+			return newInOrderTopScoreDocCollector(numHits)
+		}
+		panic("not implemented yet")
 		// TODO support paging
 	} else {
-		panic("not supported yet")
+		if after == nil {
+			return newOutOfOrderTopScoreDocCollector(numHits)
+		}
+		panic("not implemented yet")
 	}
 }
 
@@ -265,7 +271,7 @@ type InOrderTopScoreDocCollector struct {
 	*TopScoreDocCollector
 }
 
-func NewInOrderTopScoreDocCollector(numHits int) *InOrderTopScoreDocCollector {
+func newInOrderTopScoreDocCollector(numHits int) *InOrderTopScoreDocCollector {
 	return &InOrderTopScoreDocCollector{newTocScoreDocCollector(numHits)}
 }
 
@@ -295,4 +301,22 @@ func (c *InOrderTopScoreDocCollector) Collect(doc int) (err error) {
 
 func (c *InOrderTopScoreDocCollector) AcceptsDocsOutOfOrder() bool {
 	return false
+}
+
+type OutOfOrderTopScoreDocCollector struct {
+	*TopScoreDocCollector
+}
+
+func newOutOfOrderTopScoreDocCollector(numHits int) *OutOfOrderTopScoreDocCollector {
+	return &OutOfOrderTopScoreDocCollector{
+		TopScoreDocCollector: newTocScoreDocCollector(numHits),
+	}
+}
+
+func (c *OutOfOrderTopScoreDocCollector) Collect(doc int) (err error) {
+	panic("not implemented yet")
+}
+
+func (c *OutOfOrderTopScoreDocCollector) AcceptsDocsOutOfOrder() bool {
+	return true
 }
