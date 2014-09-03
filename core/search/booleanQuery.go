@@ -65,12 +65,26 @@ func newBooleanWeight(owner *BooleanQuery,
 	return w, nil
 }
 
-func (w *BooleanWeight) ValueForNormalization() float32 {
-	panic("not implemented yet")
+func (w *BooleanWeight) ValueForNormalization() (sum float32) {
+	for i, subWeight := range w.weights {
+		// call sumOfSquaredWeights for all clauses in case of side effects
+		s := subWeight.ValueForNormalization() // sum sub weights
+		if !w.owner.clauses[i].IsProhibited() {
+			// only add to sum for non-prohibited clauses
+			sum += s
+		}
+	}
+
+	sum *= (w.owner.boost * w.owner.boost) // boost each sub-weight
+	return
 }
 
 func (w *BooleanWeight) Normalize(norm, topLevelBoost float32) {
-	panic("not implemented yet")
+	topLevelBoost *= w.owner.boost
+	for _, subWeight := range w.weights {
+		// normalize all clauses, (even if prohibited in case of side effects)
+		subWeight.Normalize(norm, topLevelBoost)
+	}
 }
 
 func (w *BooleanWeight) Explain(context *index.AtomicReaderContext, doc int) (Explanation, error) {
@@ -83,7 +97,26 @@ func (w *BooleanWeight) BulkScorer(context *index.AtomicReaderContext,
 }
 
 func (w *BooleanWeight) IsScoresDocsOutOfOrder() bool {
-	panic("not implemented yet")
+	if w.owner.minNrShouldMatch > 1 {
+		// BS2 (in-order) will be used by scorer()
+		return false
+	}
+	optionalCount := 0
+	for _, c := range w.owner.clauses {
+		if c.IsRequired() {
+			// BS2 (in-order) will be used by scorer()
+			return false
+		} else if !c.IsProhibited() {
+			optionalCount++
+		}
+	}
+
+	if optionalCount == w.owner.minNrShouldMatch {
+		return false // BS2 (in-order) will be used, as this means conjunction
+	}
+
+	// scorer() will return an out-of-order scorer if requested.
+	return true
 }
 
 func (q *BooleanQuery) CreateWeight(searcher *IndexSearcher) (Weight, error) {
