@@ -93,7 +93,32 @@ func (w *BooleanWeight) Explain(context *index.AtomicReaderContext, doc int) (Ex
 
 func (w *BooleanWeight) BulkScorer(context *index.AtomicReaderContext,
 	scoreDocsInOrder bool, acceptDocs util.Bits) (BulkScorer, error) {
-	panic("not implemented yet")
+
+	if scoreDocsInOrder || w.owner.minNrShouldMatch > 1 {
+		panic("not implemented yet")
+	}
+
+	var prohibited, optional []BulkScorer
+	for i, subWeight := range w.weights {
+		c := w.owner.clauses[i]
+		subScorer, err := subWeight.BulkScorer(context, false, acceptDocs)
+		if err != nil {
+			return nil, err
+		}
+		if subScorer == nil {
+			if c.IsRequired() {
+				return nil, nil
+			}
+		} else if c.IsRequired() {
+			panic("not implemented yet")
+		} else if c.IsProhibited() {
+			prohibited = append(prohibited, subScorer)
+		} else {
+			optional = append(optional, subScorer)
+		}
+	}
+
+	return newBooleanScorer(w, w.disableCoord, w.owner.minNrShouldMatch, optional, prohibited, w.maxCoord)
 }
 
 func (w *BooleanWeight) IsScoresDocsOutOfOrder() bool {

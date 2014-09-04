@@ -74,6 +74,7 @@ the Scorer returned by Weight.Scorer().
 */
 type BulkScorer interface {
 	ScoreAndCollect(Collector) error
+	BulkScorerImplSPI
 }
 
 type BulkScorerImplSPI interface {
