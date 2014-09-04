@@ -61,7 +61,15 @@ type SubScorer struct {
 
 func newSubScorer(scorer BulkScorer, required, prohibited bool,
 	collector Collector, next *SubScorer) *SubScorer {
-	panic("not implemented yet")
+
+	assert2(!required, "this scorer cannot handle required=true")
+	return &SubScorer{
+		scorer:     scorer,
+		more:       true,
+		prohibited: prohibited,
+		collector:  collector,
+		next:       next,
+	}
 }
 
 /* Any time a prohibited clause matches we set bit 0: */
@@ -88,6 +96,7 @@ func newBooleanScorer(weight *BooleanWeight,
 		minNrShouldMatch: minNrShouldMatch,
 		weight:           weight,
 	}
+	ans.BulkScorerImpl = newBulkScorer(ans)
 
 	for _, scorer := range optionalScorers {
 		ans.scorers = newSubScorer(scorer, false, false,

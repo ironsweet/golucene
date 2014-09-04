@@ -90,6 +90,8 @@ func newBulkScorer(spi BulkScorerImplSPI) *BulkScorerImpl {
 }
 
 func (bs *BulkScorerImpl) ScoreAndCollect(collector Collector) (err error) {
+	assert(bs != nil)
+	assert(bs.spi != nil)
 	_, err = bs.spi.ScoreAndCollectUpto(collector, math.MaxInt32)
 	return
 }
