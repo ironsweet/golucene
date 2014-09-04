@@ -464,6 +464,10 @@ func NewDefaultSimilarity() *DefaultSimilarity {
 	return ans
 }
 
+func (ds *DefaultSimilarity) Coord(overlap, maxOverlap int) float32 {
+	return float32(overlap) / float32(maxOverlap)
+}
+
 func (ds *DefaultSimilarity) QueryNorm(sumOfSquaredWeights float32) float32 {
 	return float32(1.0 / math.Sqrt(float64(sumOfSquaredWeights)))
 }

@@ -76,6 +76,7 @@ score. The query passes in a the document id and an explanation of
 how the frequency was computed.
 */
 type Similarity interface {
+	Coord(int, int) float32
 	// Computes the normalization value for a query given the sum of
 	// the normalized weights SimWeight.ValueForNormalization of each
 	// of the query terms. This value is passed back to the weight

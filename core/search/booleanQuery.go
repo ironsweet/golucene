@@ -79,6 +79,13 @@ func (w *BooleanWeight) ValueForNormalization() (sum float32) {
 	return
 }
 
+func (w *BooleanWeight) coord(overlap, maxOverlap int) float32 {
+	if maxOverlap == 1 {
+		return 1
+	}
+	return w.similarity.Coord(overlap, maxOverlap)
+}
+
 func (w *BooleanWeight) Normalize(norm, topLevelBoost float32) {
 	topLevelBoost *= w.owner.boost
 	for _, subWeight := range w.weights {
@@ -118,7 +125,7 @@ func (w *BooleanWeight) BulkScorer(context *index.AtomicReaderContext,
 		}
 	}
 
-	return newBooleanScorer(w, w.disableCoord, w.owner.minNrShouldMatch, optional, prohibited, w.maxCoord)
+	return newBooleanScorer(w, w.disableCoord, w.owner.minNrShouldMatch, optional, prohibited, w.maxCoord), nil
 }
 
 func (w *BooleanWeight) IsScoresDocsOutOfOrder() bool {
