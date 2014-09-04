@@ -1,5 +1,30 @@
 package search
 
+import (
+	"github.com/balzaczyy/golucene/core/index"
+)
+
+type BooleanScorerCollector struct {
+	bucketTable *BucketTable
+	mask        int
+	scorer      Scorer
+}
+
+func newBooleanScorerCollector(mask int, bucketTable *BucketTable) *BooleanScorerCollector {
+	return &BooleanScorerCollector{
+		mask:        mask,
+		bucketTable: bucketTable,
+	}
+}
+
+func (c *BooleanScorerCollector) Collect(doc int) error {
+	panic("not implemented yet")
+}
+
+func (c *BooleanScorerCollector) SetNextReader(*index.AtomicReaderContext) {}
+func (c *BooleanScorerCollector) SetScorer(Scorer)                         {}
+func (c *BooleanScorerCollector) AcceptsDocsOutOfOrder() bool              { return true }
+
 type Bucket struct {
 }
 
@@ -23,7 +48,7 @@ func newBucketTable() *BucketTable {
 }
 
 func (t *BucketTable) newCollector(mask int) Collector {
-	panic("not implemented yet")
+	return newBooleanScorerCollector(mask, t)
 }
 
 type SubScorer struct {
