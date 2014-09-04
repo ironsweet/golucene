@@ -17,15 +17,50 @@ func newBooleanScorerCollector(mask int, bucketTable *BucketTable) *BooleanScore
 	}
 }
 
-func (c *BooleanScorerCollector) Collect(doc int) error {
-	panic("not implemented yet")
+func (c *BooleanScorerCollector) Collect(doc int) (err error) {
+	table := c.bucketTable
+	i := doc & BUCKET_TABLE_MASK
+	bucket := table.buckets[i]
+
+	if bucket.doc != doc {
+		bucket.doc = doc
+		if bucket.score, err = c.scorer.Score(); err != nil {
+			return err
+		}
+		bucket.bits = c.mask
+		bucket.coord = 1
+
+		bucket.next = table.first
+		table.first = bucket
+	} else {
+		var score float64
+		if score, err = c.scorer.Score(); err != nil {
+			return err
+		}
+		bucket.score += score
+		bucket.bits |= c.mask
+		bucket.coord++
+	}
+
+	return nil
 }
 
 func (c *BooleanScorerCollector) SetNextReader(*index.AtomicReaderContext) {}
-func (c *BooleanScorerCollector) SetScorer(Scorer)                         {}
+func (c *BooleanScorerCollector) SetScorer(scorer Scorer)                  { c.scorer = scorer }
 func (c *BooleanScorerCollector) AcceptsDocsOutOfOrder() bool              { return true }
 
 type Bucket struct {
+	doc   int // tells if bucket is valid
+	score float64
+	bits  int
+	coord int
+	next  *Bucket
+}
+
+func newBucket() *Bucket {
+	return &Bucket{
+		doc: -1,
+	}
 }
 
 const BUCKET_TABLE_SIZE = 1 << 11
@@ -42,7 +77,7 @@ func newBucketTable() *BucketTable {
 	}
 	// Pre-fill to save the lazy init when collecting each sub:
 	for i, _ := range ans.buckets {
-		ans.buckets[i] = new(Bucket)
+		ans.buckets[i] = newBucket()
 	}
 	return ans
 }
@@ -129,11 +164,24 @@ func (s *BooleanScorer) ScoreAndCollectUpto(collector Collector, max int) (more 
 		s.bucketTable.first = nil
 
 		for s.current != nil { // more queued
-			panic("not implemented yet")
 			// check prohibited & required
-			// if (s.current.bits & PROHIBITED_MASK) == 0 {
+			if (s.current.bits & PROHIBITED_MASK) == 0 {
 
-			// }
+				if s.current.doc >= max {
+					panic("not implemented yet")
+				}
+
+				if s.current.coord >= s.minNrShouldMatch {
+					fs.score = float32(s.current.score * float64(s.coordFactors[s.current.coord]))
+					fs.doc = s.current.doc
+					fs.freq = s.current.coord
+					if err = collector.Collect(s.current.doc); err != nil {
+						return false, err
+					}
+				}
+			}
+
+			s.current = s.current.next // pop the queue
 		}
 
 		if s.bucketTable.first != nil {
@@ -166,7 +214,7 @@ func (s *BooleanScorer) String() string {
 
 type FakeScorer struct {
 	*abstractScorer
-	score float64
+	score float32
 	doc   int
 	freq  int
 }
@@ -184,7 +232,7 @@ func (s *FakeScorer) Advance(int) (int, error) { panic("FakeScorer doesn't suppo
 func (s *FakeScorer) DocId() int               { return s.doc }
 func (s *FakeScorer) Freq() (int, error)       { return s.freq, nil }
 func (s *FakeScorer) NextDoc() (int, error)    { panic("FakeScorer doesn't support nextDoc()") }
-func (s *FakeScorer) Score() (float64, error)  { return s.score, nil }
+func (s *FakeScorer) Score() (float64, error)  { return float64(s.score), nil }
 
 // func (s *FakeScorer) Cost() int64             { return 1 }
 // func (s *FakeScorer) Weight() Weight          { panic("not supported") }

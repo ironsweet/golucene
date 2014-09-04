@@ -122,7 +122,14 @@ func (s *DefaultBulkScorer) ScoreAndCollectUpto(collector Collector, max int) (o
 
 func (s *DefaultBulkScorer) scoreRange(collector Collector,
 	scorer Scorer, currentDoc, end int) (bool, error) {
-	panic("not implemented yet")
+
+	var err error
+	for currentDoc < end && err == nil {
+		if err = collector.Collect(currentDoc); err == nil {
+			currentDoc, err = scorer.NextDoc()
+		}
+	}
+	return currentDoc != NO_MORE_DOCS, err
 }
 
 func (s *DefaultBulkScorer) scoreAll(collector Collector, scorer Scorer) (err error) {
