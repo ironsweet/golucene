@@ -120,10 +120,72 @@ func newBooleanScorer(weight *BooleanWeight,
 	return ans
 }
 
-func (s *BooleanScorer) ScoreAndCollectUpto(collector Collector, max int) (bool, error) {
-	panic("not implemented yet")
+func (s *BooleanScorer) ScoreAndCollectUpto(collector Collector, max int) (more bool, err error) {
+	fs := newFakeScorer()
+
+	// The internal loop will set the score and doc before calling collect.
+	collector.SetScorer(fs)
+	for {
+		s.bucketTable.first = nil
+
+		for s.current != nil { // more queued
+			panic("not implemented yet")
+			// check prohibited & required
+			// if (s.current.bits & PROHIBITED_MASK) == 0 {
+
+			// }
+		}
+
+		if s.bucketTable.first != nil {
+			panic("not implemented yet")
+		}
+
+		// refill the queue
+		more = false
+		s.end += BUCKET_TABLE_SIZE
+		for sub := s.scorers; sub != nil; sub = sub.next {
+			if sub.more {
+				if sub.more, err = sub.scorer.ScoreAndCollectUpto(sub.collector, s.end); err != nil {
+					return false, err
+				}
+				more = more || sub.more
+			}
+		}
+		s.current = s.bucketTable.first
+
+		if s.current == nil && !more {
+			break
+		}
+	}
+	return false, nil
 }
 
 func (s *BooleanScorer) String() string {
 	panic("not implemented yet")
 }
+
+type FakeScorer struct {
+	*abstractScorer
+	score float64
+	doc   int
+	freq  int
+}
+
+func newFakeScorer() *FakeScorer {
+	ans := &FakeScorer{
+		doc:  -1,
+		freq: -1,
+	}
+	ans.abstractScorer = newScorer(ans, nil)
+	return ans
+}
+
+func (s *FakeScorer) Advance(int) (int, error) { panic("FakeScorer doesn't support advance(int)") }
+func (s *FakeScorer) DocId() int               { return s.doc }
+func (s *FakeScorer) Freq() (int, error)       { return s.freq, nil }
+func (s *FakeScorer) NextDoc() (int, error)    { panic("FakeScorer doesn't support nextDoc()") }
+func (s *FakeScorer) Score() (float64, error)  { return s.score, nil }
+
+// func (s *FakeScorer) Cost() int64             { return 1 }
+// func (s *FakeScorer) Weight() Weight          { panic("not supported") }
+// func (s *FakeScorer) Children() []ChildScorer { panic("not supported") }
