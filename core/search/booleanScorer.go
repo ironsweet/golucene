@@ -22,22 +22,23 @@ func (c *BooleanScorerCollector) Collect(doc int) (err error) {
 	i := doc & BUCKET_TABLE_MASK
 	bucket := table.buckets[i]
 
+	var score float32
 	if bucket.doc != doc {
 		bucket.doc = doc
-		if bucket.score, err = c.scorer.Score(); err != nil {
+		if score, err = c.scorer.Score(); err != nil {
 			return err
 		}
+		bucket.score = float64(score)
 		bucket.bits = c.mask
 		bucket.coord = 1
 
 		bucket.next = table.first
 		table.first = bucket
 	} else {
-		var score float64
 		if score, err = c.scorer.Score(); err != nil {
 			return err
 		}
-		bucket.score += score
+		bucket.score += float64(score)
 		bucket.bits |= c.mask
 		bucket.coord++
 	}
@@ -232,7 +233,7 @@ func (s *FakeScorer) Advance(int) (int, error) { panic("FakeScorer doesn't suppo
 func (s *FakeScorer) DocId() int               { return s.doc }
 func (s *FakeScorer) Freq() (int, error)       { return s.freq, nil }
 func (s *FakeScorer) NextDoc() (int, error)    { panic("FakeScorer doesn't support nextDoc()") }
-func (s *FakeScorer) Score() (float64, error)  { return float64(s.score), nil }
+func (s *FakeScorer) Score() (float32, error)  { return s.score, nil }
 
 // func (s *FakeScorer) Cost() int64             { return 1 }
 // func (s *FakeScorer) Weight() Weight          { panic("not supported") }

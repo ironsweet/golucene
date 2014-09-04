@@ -16,7 +16,7 @@ type Scorer interface {
 }
 
 type IScorer interface {
-	Score() (value float64, err error)
+	Score() (float32, error)
 }
 
 type ScorerSPI interface {

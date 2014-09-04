@@ -210,13 +210,13 @@ func (ts *TermScorer) NextDoc() (d int, err error) {
 	return ts.docsEnum.NextDoc()
 }
 
-func (ts *TermScorer) Score() (s float64, err error) {
+func (ts *TermScorer) Score() (s float32, err error) {
 	assert(ts.DocId() != NO_MORE_DOCS)
 	freq, err := ts.docsEnum.Freq()
 	if err != nil {
 		return 0, err
 	}
-	return float64(ts.docScorer.Score(ts.docsEnum.DocId(), float32(freq))), nil
+	return ts.docScorer.Score(ts.docsEnum.DocId(), float32(freq)), nil
 }
 
 /*

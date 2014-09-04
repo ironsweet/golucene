@@ -45,10 +45,14 @@ func (pq *PriorityQueue) Pop() interface{} {
 	pq.items = pq.items[0 : n-1]
 	return ans
 }
+func (pq *PriorityQueue) updateTop() interface{} {
+	heap.Fix(pq, 0)
+	return pq.items[0]
+}
 
 type TopDocs struct {
 	TotalHits int
-	ScoreDocs []ScoreDoc
+	ScoreDocs []*ScoreDoc
 	maxScore  float64
 }
 
@@ -97,14 +101,14 @@ type TopDocsCreator interface {
 	 * Populates the results array with the ScoreDoc instances. This can be
 	 * overridden in case a different ScoreDoc type should be returned.
 	 */
-	populateResults(results []ScoreDoc, howMany int)
+	populateResults(results []*ScoreDoc, howMany int)
 	/**
 	 * Returns a {@link TopDocs} instance containing the given results. If
 	 * <code>results</code> is null it means there are no results to return,
 	 * either because there were 0 calls to collect() or because the arguments to
 	 * topDocs were invalid.
 	 */
-	newTopDocs(results []ScoreDoc, start int) TopDocs
+	newTopDocs(results []*ScoreDoc, start int) TopDocs
 	/** The number of valid PQ entries */
 	topDocsSize() int
 }
@@ -128,9 +132,9 @@ func (c *abstractTopDocsCollector) AcceptsDocsOutOfOrder() bool {
 	return false
 }
 
-func (c *abstractTopDocsCollector) populateResults(results []ScoreDoc, howMany int) {
+func (c *abstractTopDocsCollector) populateResults(results []*ScoreDoc, howMany int) {
 	for i := howMany - 1; i >= 0; i-- {
-		results[i] = heap.Pop(c.pq).(ScoreDoc)
+		results[i] = heap.Pop(c.pq).(*ScoreDoc)
 	}
 }
 
@@ -169,7 +173,7 @@ func (c *abstractTopDocsCollector) TopDocsRange(start, howMany int) TopDocs {
 	if size-start < howMany {
 		howMany = size - start
 	}
-	results := make([]ScoreDoc, howMany)
+	results := make([]*ScoreDoc, howMany)
 
 	// pq's pop() returns the 'least' element in the queue, therefore need
 	// to discard the first ones, until we reach the requested range.
@@ -216,9 +220,9 @@ func newTocScoreDocCollector(numHits int) *TopScoreDocCollector {
 	return c
 }
 
-func (c *TopScoreDocCollector) newTopDocs(results []ScoreDoc, start int) TopDocs {
+func (c *TopScoreDocCollector) newTopDocs(results []*ScoreDoc, start int) TopDocs {
 	if results == nil {
-		return TopDocs{0, []ScoreDoc{}, math.NaN()}
+		return TopDocs{0, []*ScoreDoc{}, math.NaN()}
 	}
 
 	// We need to compute maxScore in order to set it in TopDocs. If start == 0,
@@ -283,10 +287,10 @@ func (c *InOrderTopScoreDocCollector) Collect(doc int) (err error) {
 
 	// This collector cannot handle these scores:
 	assert(score != -math.MaxFloat32)
-	assert(!math.IsNaN(score))
+	assert(!math.IsNaN(float64(score)))
 
 	c.TotalHits++
-	if score <= float64(c.pqTop.Score) {
+	if score <= c.pqTop.Score {
 		// Since docs are returned in-order (i.e., increasing doc Id), a document
 		// with equal score to pqTop.score cannot compete since HitQueue favors
 		// documents with lower doc Ids. Therefore reject those docs too.
@@ -314,7 +318,28 @@ func newOutOfOrderTopScoreDocCollector(numHits int) *OutOfOrderTopScoreDocCollec
 }
 
 func (c *OutOfOrderTopScoreDocCollector) Collect(doc int) (err error) {
-	panic("not implemented yet")
+	var score float32
+	if score, err = c.scorer.Score(); err != nil {
+		return err
+	}
+
+	// This collector cannot handle NaN
+	assert(!math.IsNaN(float64(score)))
+
+	c.TotalHits++
+	if score < c.pqTop.Score {
+		// Doesn't compete w/ bottom entry in queue
+		return nil
+	}
+	doc += c.docBase
+	if score == c.pqTop.Score && doc > c.pqTop.Doc {
+		// Break tie in score by doc ID:
+		return nil
+	}
+	c.pqTop.Doc = doc
+	c.pqTop.Score = score
+	c.pqTop = c.pq.updateTop().(*ScoreDoc)
+	return nil
 }
 
 func (c *OutOfOrderTopScoreDocCollector) AcceptsDocsOutOfOrder() bool {
