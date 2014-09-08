@@ -32,9 +32,9 @@ Progress
 --------
 V1.0 ETA: 2014/12/1
 
-TODOs
+Backlog
 -----
-- QueryParser.
+- Migrate to Lucene Java 4.10.
 - Finish fourth test case (gl2.go) with Lucene's test framework.
 - Support basic explain function.
 
