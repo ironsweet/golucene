@@ -22,21 +22,21 @@ Though it started as a pet project, I've been pretty serious about this.
 Installation
 ------------
 
-  go get -u github.com/balzaczyy/golucene
+	go get -u github.com/balzaczyy/golucene
 
 Usage
 -----
 
-  import (
+	import (
 	  "fmt"
-  	std "github.com/balzaczyy/golucene/analysis/standard"
-  	_ "github.com/balzaczyy/golucene/core/codec/lucene49"
-  	docu "github.com/balzaczyy/golucene/core/document"
-  	"github.com/balzaczyy/golucene/core/index"
-  	"github.com/balzaczyy/golucene/core/search"
-  	"github.com/balzaczyy/golucene/core/store"
-  	"github.com/balzaczyy/golucene/core/util"
-  )
+		std "github.com/balzaczyy/golucene/analysis/standard"
+		_ "github.com/balzaczyy/golucene/core/codec/lucene49"
+		docu "github.com/balzaczyy/golucene/core/document"
+		"github.com/balzaczyy/golucene/core/index"
+		"github.com/balzaczyy/golucene/core/search"
+		"github.com/balzaczyy/golucene/core/store"
+		"github.com/balzaczyy/golucene/core/util"
+	)
 
 	util.SetDefaultInfoStream(util.NewPrintStreamInfoStream(os.Stdout))
 	index.DefaultSimilarity = func() index.Similarity {
