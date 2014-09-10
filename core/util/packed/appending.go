@@ -33,13 +33,13 @@ type abstractAppendingLongBuffer struct {
 
 func newAbstractAppendingLongBuffer(spi abstractAppendingLongBufferSPI,
 	initialPageCount, pageSize int, acceptableOverheadRatio float32) *abstractAppendingLongBuffer {
-	ps := checkBlockSize(pageSize, MIN_PAGE_SIZE, MAX_PAGE_SIZE)
+	pageShift := checkBlockSize(pageSize, MIN_PAGE_SIZE, MAX_PAGE_SIZE)
 	return &abstractAppendingLongBuffer{
 		spi:                     spi,
 		values:                  make([]PackedIntsReader, initialPageCount),
 		pending:                 make([]int64, pageSize),
-		pageShift:               ps,
-		pageMask:                ps - 1,
+		pageShift:               pageShift,
+		pageMask:                pageSize - 1,
 		acceptableOverheadRatio: acceptableOverheadRatio,
 	}
 }
@@ -55,7 +55,7 @@ func (buf *abstractAppendingLongBuffer) Size() int64 {
 		size += int64(buf.values[buf.valuesOff-1].Size())
 	}
 	if buf.valuesOff > 1 {
-		size += int64((buf.valuesOff - 1) * buf.pageSize())
+		size += int64(buf.valuesOff-1) * int64(buf.pageSize())
 	}
 	return size
 }
