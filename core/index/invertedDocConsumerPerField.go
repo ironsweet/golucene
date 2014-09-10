@@ -209,7 +209,7 @@ func (h *TermsHashPerFieldImpl) add() (err error) {
 		}
 
 		if util.BYTE_BLOCK_SIZE-h.bytePool.ByteUpto < h.numPostingInt*util.FIRST_LEVEL_SIZE {
-			panic("not implemented yet")
+			h.bytePool.NextBuffer()
 		}
 
 		h.intUptos = h.intPool.Buffer
