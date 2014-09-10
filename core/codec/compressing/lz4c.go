@@ -114,7 +114,6 @@ type LZ4HashTable struct {
 func (h *LZ4HashTable) reset(length int) {
 	bitsPerOffset := packed.BitsRequired(int64(length - LAST_LITERALS))
 	bitsPerOffsetLog := ceilLog2(bitsPerOffset)
-	assert(bitsPerOffsetLog == 3)
 	h.hashLog = MEMORY_USAGE + 3 - bitsPerOffsetLog
 	assert(h.hashLog > 0)
 	if h.hashTable == nil || h.hashTable.Size() < (1<<uint(h.hashLog)) || h.hashTable.BitsPerValue() < bitsPerOffset {
