@@ -438,7 +438,11 @@ func (c *DefaultIndexingChain) getOrAddField(name string,
 		}
 
 	} else {
-		panic("not implemented yet")
+		fp.fieldInfo.Update(fieldType)
+
+		if invert && fp.invertState == nil {
+			fp.setInvertState()
+		}
 	}
 
 	return fp

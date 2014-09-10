@@ -69,6 +69,37 @@ func (info *FieldInfo) checkConsistency() {
 	assert(info.dvGen == -1 || int(info.docValueType) != 0)
 }
 
+func (info *FieldInfo) Update(ft IndexableFieldType) {
+	info.update(ft.Indexed(), false, ft.OmitNorms(), false, ft.IndexOptions())
+}
+
+func (info *FieldInfo) update(indexed, storeTermVector, omitNorms, storePayloads bool, indexOptions IndexOptions) {
+	info.indexed = info.indexed || indexed // once indexed, always indexed
+	if indexed {                           // if updated field data is not for indexing, leave the updates out
+		info.storeTermVector = info.storeTermVector || storeTermVector // once vector, always vector
+		info.storePayloads = info.storePayloads || storePayloads
+		if info.omitNorms != omitNorms {
+			info.omitNorms = true // if one require omitNorms at least once, it remains off for life
+			info.normType = 0
+		}
+		if info.indexOptions != indexOptions {
+			if info.indexOptions == 0 {
+				info.indexOptions = indexOptions
+			} else {
+				// downgrade
+				if info.indexOptions > indexOptions {
+					info.indexOptions = indexOptions
+				}
+			}
+			if info.indexOptions < INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS {
+				// cannot store payloads if we don't store positions:
+				info.storePayloads = false
+			}
+		}
+	}
+	info.checkConsistency()
+}
+
 func (info *FieldInfo) SetDocValueType(v DocValuesType) {
 	assert2(int(info.docValueType) != 0 && info.docValueType != v,
 		"cannot change DocValues type from %v to %v for field '%v'",
