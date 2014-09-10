@@ -172,7 +172,17 @@ func NewAppendingDeltaPackedLongBufferWithOverhead(acceptableOverheadRatio float
 }
 
 func (buf *AppendingDeltaPackedLongBuffer) get2Bulk(block, element int, arr []int64) int {
-	panic("not implemented yet")
+	if block == buf.valuesOff {
+		panic("niy")
+	} else {
+		// packed block
+		read := buf.values[block].getBulk(element, arr)
+		d := buf.minValues[block]
+		for r := 0; r < read; r++ {
+			arr[r] += d
+		}
+		return read
+	}
 }
 
 func (buf *AppendingDeltaPackedLongBuffer) packPendingValues() {
