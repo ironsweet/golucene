@@ -324,7 +324,36 @@ func (w *FreqProxTermsWriterPerField) addTerm(termId int) {
 	if !w.hasFreq {
 		panic("not implemented yet")
 	} else if w.docState.docID != postings.lastDocIDs[termId] {
-		panic("not implemented yet")
+		assert2(w.docState.docID > postings.lastDocIDs[termId],
+			"id: %v postings ID: %v termID: %v",
+			w.docState.docID, postings.lastDocIDs[termId], termId)
+		// Term not yet seen in the current doc but previously seen in
+		// other doc(s) since the last flush
+
+		// Now that we know doc freq for previous doc, write it & lastDocCode
+		if 1 == postings.termFreqs[termId] {
+			w.writeVInt(0, postings.lastDocCodes[termId]|1)
+		} else {
+			w.writeVInt(0, postings.lastDocCodes[termId])
+			w.writeVInt(0, postings.termFreqs[termId])
+		}
+
+		// Init freq for the current document
+		postings.termFreqs[termId] = 1
+		if w.fieldState.maxTermFrequency < 1 {
+			w.fieldState.maxTermFrequency = 1
+		}
+		postings.lastDocCodes[termId] = (w.docState.docID - postings.lastDocIDs[termId]) << 1
+		postings.lastDocIDs[termId] = w.docState.docID
+		if w.hasProx {
+			w.writeProx(termId, w.fieldState.position)
+			if w.hasOffsets {
+				panic("niy")
+			}
+		} else {
+			assert(!w.hasOffsets)
+		}
+		w.fieldState.uniqueTermCount++
 	} else {
 		postings.termFreqs[termId]++
 		if n := postings.termFreqs[termId]; n > w.fieldState.maxTermFrequency {
