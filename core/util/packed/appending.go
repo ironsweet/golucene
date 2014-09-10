@@ -16,7 +16,7 @@ type abstractAppendingLongBufferSPI interface {
 	packPendingValues()
 	grow(int)
 	baseRamBytesUsed() int64
-	getBulk(int, int, []int64) int
+	get2Bulk(int, int, []int64) int
 }
 
 /* Common functionality shared by AppendingDeltaPackedLongBuffer and MonotonicAppendingLongBuffer. */
@@ -97,7 +97,7 @@ func (buf *abstractAppendingLongBuffer) Iterator() func() (int64, bool) {
 		} else {
 			currentCount = int(buf.values[vOff].Size())
 			for k := 0; k < currentCount; {
-				k += buf.spi.getBulk(vOff, k, currentValues[k:currentCount])
+				k += buf.spi.get2Bulk(vOff, k, currentValues[k:currentCount])
 			}
 		}
 	}
@@ -106,7 +106,7 @@ func (buf *abstractAppendingLongBuffer) Iterator() func() (int64, bool) {
 		currentValues = buf.pending
 		currentCount = buf.pendingOff
 	} else {
-		currentValues = make([]int64, len(buf.values))
+		currentValues = make([]int64, int(buf.values[0].Size()))
 		fillValues()
 	}
 
@@ -171,7 +171,7 @@ func NewAppendingDeltaPackedLongBufferWithOverhead(acceptableOverheadRatio float
 	return NewAppendingDeltaPackedLongBuffer(16, 1024, acceptableOverheadRatio)
 }
 
-func (buf *AppendingDeltaPackedLongBuffer) getBulk(block, element int, arr []int64) int {
+func (buf *AppendingDeltaPackedLongBuffer) get2Bulk(block, element int, arr []int64) int {
 	panic("not implemented yet")
 }
 
