@@ -16,7 +16,7 @@ func newDirect64(valueCount int) *Direct64 {
 	ans := &Direct64{
 		values: make([]int64, valueCount),
 	}
-	ans.MutableImpl = newMutableImpl(valueCount, 64, ans)
+	ans.MutableImpl = newMutableImpl(ans, valueCount, 64)
   return ans
 }
 
@@ -47,3 +47,45 @@ func (d *Direct64) RamBytesUsed() int64 {
 			util.NUM_BYTES_OBJECT_REF +
 			util.SizeOf(d.values))
 }
+
+		func (d *Direct64) Clear() {
+			for i, _ := range d.values {
+				d.values[i] = 0
+			}
+		}
+
+		func (d *Direct64) getBulk(index int, arr []int64) int {
+			assert2(len(arr) > 0, "len must be > 0 (got %v)", len(arr))
+			assert(index >= 0 && index < d.valueCount)
+
+			gets := d.valueCount - index
+			if len(arr) < gets {
+				gets = len(arr)
+			}
+			for i, _ := range arr {
+				arr[i] = int64(d.values[index+i])
+			}
+			return gets
+		}
+
+		func (d *Direct64) setBulk(index int, arr []int64) int {
+			assert2(len(arr) > 0, "len must be > 0 (got %v)", len(arr))
+			assert(index >= 0 && index < d.valueCount)
+
+			sets := d.valueCount - index
+			if len(arr) < sets {
+				sets = len(arr)
+			}
+			for i, _ := range arr {
+				d.values[index+i] = (arr[i])
+			}
+			return sets
+		}
+
+		func (d *Direct64) fill(from, to int, val int64) {
+			assert(val == val)
+			for i := from; i < to; i ++ {
+				d.values[i] = (val)
+			}
+		}
+				

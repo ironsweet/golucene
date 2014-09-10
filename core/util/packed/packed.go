@@ -244,8 +244,28 @@ func GetPackedIntsDecoder(format PackedFormat, version int32, bitsPerValue uint3
 /* A read-only random access array of positive integers. */
 type PackedIntsReader interface {
 	util.Accountable
+	Get(index int) int64 // NumericDocValue
+	getBulk(int, []int64) int
+	Size() int32
+}
+
+type abstractReaderSPI interface {
 	Get(index int) int64
 	Size() int32
+}
+
+type abstractReader struct {
+	spi abstractReaderSPI
+}
+
+func newReader(spi abstractReaderSPI) *abstractReader {
+	return &abstractReader{
+		spi: spi,
+	}
+}
+
+func (r *abstractReader) getBulk(index int, arr []int64) int {
+	panic("niy")
 }
 
 // Run-once iterator interface, to decode previously saved PackedInts
@@ -308,6 +328,7 @@ type Mutable interface {
 	BitsPerValue() int
 	// Set the value at the given index in the array.
 	Set(index int, value int64)
+	setBulk(int, []int64) int
 	Clear()
 	// Save this mutable into out. Instantiating a reader from the
 	// generated data will return a reader with the same number of bits
@@ -315,66 +336,94 @@ type Mutable interface {
 	Save(out util.DataOutput) error
 }
 
-type PackedIntsReaderImpl struct {
-	valueCount int32
+type abstractMutableSPI interface {
 }
 
-func newPackedIntsReaderImpl(valueCount int) PackedIntsReaderImpl {
-	return PackedIntsReaderImpl{int32(valueCount)}
+type abstractMutable struct {
+	spi abstractMutableSPI
 }
 
-func (p PackedIntsReaderImpl) Size() int32 {
-	return p.valueCount
+func newMutable(spi abstractMutableSPI) *abstractMutable {
+	return &abstractMutable{
+		spi: spi,
+	}
 }
 
-type MutableImplSPI interface {
-	Get(int) int64
-	Set(int, int64)
+func (m *abstractMutable) setBulk(index int, arr []int64) int {
+	panic("niy")
+}
+
+/* Fill the mutable [from,to) with val. */
+func (m *abstractMutable) fill(from, to int, val int64) {
+	panic("niy")
+	// assert(val < MaxValue(m.BitsPerValue()))
+	// assert(from <= to)
+	// for i := from; i < to; i++ {
+	// 	m.spi.Set(i, val)
+	// }
+}
+
+/* Sets all values to 0 */
+func (m *abstractMutable) Clear() {
+	panic("niy")
+	// m.fill(0, int(m.Size()), 0)
+}
+
+func (m *abstractMutable) Save(out util.DataOutput) error {
+	panic("niy")
+	// writer := WriterNoHeader(out, m.format, int(m.valueCount), m.bitsPerValue, DEFAULT_BUFFER_SIZE)
+	// err := writer.writeHeader()
+	// if err != nil {
+	// 	return err
+	// }
+	// for i := 0; i < int(m.valueCount); i++ {
+	// 	err = writer.Add(m.spi.Get(i))
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+	// return writer.Finish()
+}
+
+func (m *abstractMutable) Format() PackedFormat {
+	return PackedFormat(PACKED)
+}
+
+type ReaderImpl struct {
+	valueCount int
+}
+
+func newReaderImpl(valueCount int) *ReaderImpl {
+	return &ReaderImpl{valueCount}
+}
+
+func (p *ReaderImpl) Size() int32 {
+	return int32(p.valueCount)
 }
 
 type MutableImpl struct {
-	PackedIntsReaderImpl
-	spi          MutableImplSPI
-	format       PackedFormat
+	*abstractMutable
+	valueCount   int
 	bitsPerValue int
 }
 
-func newMutableImpl(valueCount, bitsPerValue int, spi MutableImplSPI) *MutableImpl {
+func newMutableImpl(spi abstractMutableSPI,
+	valueCount, bitsPerValue int) *MutableImpl {
+
 	assert(bitsPerValue > 0 && bitsPerValue <= 64)
-	return &MutableImpl{newPackedIntsReaderImpl(valueCount), spi, PACKED, bitsPerValue}
+	return &MutableImpl{
+		abstractMutable: newMutable(spi),
+		valueCount:      valueCount,
+		bitsPerValue:    bitsPerValue,
+	}
 }
 
 func (m *MutableImpl) BitsPerValue() int {
 	return m.bitsPerValue
 }
 
-/* Fill the mutable [from,to) with val. */
-func (m *MutableImpl) fill(from, to int, val int64) {
-	assert(val < MaxValue(m.BitsPerValue()))
-	assert(from <= to)
-	for i := from; i < to; i++ {
-		m.spi.Set(i, val)
-	}
-}
-
-/* Sets all values to 0 */
-func (m *MutableImpl) Clear() {
-	m.fill(0, int(m.Size()), 0)
-}
-
-func (m *MutableImpl) Save(out util.DataOutput) error {
-	writer := WriterNoHeader(out, m.format, int(m.valueCount), m.bitsPerValue, DEFAULT_BUFFER_SIZE)
-	err := writer.writeHeader()
-	if err != nil {
-		return err
-	}
-	for i := 0; i < int(m.valueCount); i++ {
-		err = writer.Add(m.spi.Get(i))
-		if err != nil {
-			return err
-		}
-	}
-	return writer.Finish()
+func (m *MutableImpl) Size() int32 {
+	return int32(m.valueCount)
 }
 
 func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
@@ -429,7 +478,7 @@ func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCo
 				w(f, "	ans := &Direct%d{\n", bpv)
 				w(f, "		values: make([]%v, valueCount),\n", typ)
 				w(f, "	}\n")
-				w(f, "	ans.MutableImpl = newMutableImpl(valueCount, %v, ans)\n", bpv)
+				w(f, "	ans.MutableImpl = newMutableImpl(ans, valueCount, %v)\n", bpv)
 				w(f, "  return ans\n")
 				w(f, "}\n\n")
 
@@ -473,6 +522,49 @@ func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCo
 				w(f, "			util.NUM_BYTES_OBJECT_REF +\n")
 				w(f, "			util.SizeOf(d.values))\n")
 				w(f, "}\n")
+
+				w(f, `
+		func (d *Direct%v) Clear() {
+			for i, _ := range d.values {
+				d.values[i] = 0
+			}
+		}
+
+		func (d *Direct%v) getBulk(index int, arr []int64) int {
+			assert2(len(arr) > 0, "len must be > 0 (got %%v)", len(arr))
+			assert(index >= 0 && index < d.valueCount)
+
+			gets := d.valueCount - index
+			if len(arr) < gets {
+				gets = len(arr)
+			}
+			for i, _ := range arr {
+				arr[i] = int64(d.values[index+i])
+			}
+			return gets
+		}
+
+		func (d *Direct%v) setBulk(index int, arr []int64) int {
+			assert2(len(arr) > 0, "len must be > 0 (got %%v)", len(arr))
+			assert(index >= 0 && index < d.valueCount)
+
+			sets := d.valueCount - index
+			if len(arr) < sets {
+				sets = len(arr)
+			}
+			for i, _ := range arr {
+				d.values[index+i] = %varr[i])
+			}
+			return sets
+		}
+
+		func (d *Direct%v) fill(from, to int, val int64) {
+			assert(val == val%v)
+			for i := from; i < to; i ++ {
+				d.values[i] = %vval)
+			}
+		}
+				`, bpv, bpv, bpv, CASTS[bpv], bpv, MASKS[bpv], CASTS[bpv])
 
 				fmt.Printf("		case %v:\n", bpv)
 				fmt.Printf("			return newDirect%vFromInput(version, in, int(valueCount))\n", bpv)
@@ -775,111 +867,6 @@ func (it *PackedReaderIterator) ord() int {
 	return it.position
 }
 
-var PACKED8_THREE_BLOCKS_MAX_SIZE = int32(math.MaxInt32 / 3)
-
-type Packed8ThreeBlocks struct {
-	*MutableImpl
-	blocks []byte
-}
-
-func newPacked8ThreeBlocks(valueCount int32) *Packed8ThreeBlocks {
-	assert2(valueCount <= PACKED8_THREE_BLOCKS_MAX_SIZE, "MAX_SIZE exceeded")
-	ans := &Packed8ThreeBlocks{blocks: make([]byte, valueCount*3)}
-	ans.MutableImpl = newMutableImpl(int(valueCount), 24, ans)
-	return ans
-}
-
-func newPacked8ThreeBlocksFromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
-	ans := newPacked8ThreeBlocks(valueCount)
-	if err = in.ReadBytes(ans.blocks); err == nil {
-		// because packed ints have not always been byte-aligned
-		remaining := PackedFormat(PACKED).ByteCount(version, valueCount, 24) - 3*int64(valueCount)
-		for i := int64(0); i < remaining; i++ {
-			if _, err = in.ReadByte(); err != nil {
-				break
-			}
-		}
-	}
-	return ans, err
-}
-
-func (r *Packed8ThreeBlocks) Get(index int) int64 {
-	o := index * 3
-	return int64(r.blocks[o])<<16 | int64(r.blocks[o+1])<<8 | int64(r.blocks[o+2])
-}
-
-func (r *Packed8ThreeBlocks) Set(index int, value int64) {
-	panic("not implemented yet")
-}
-
-func (r *Packed8ThreeBlocks) RamBytesUsed() int64 {
-	return util.AlignObjectSize(
-		util.NUM_BYTES_OBJECT_HEADER +
-			2*util.NUM_BYTES_INT +
-			util.NUM_BYTES_OBJECT_REF +
-			util.SizeOf(r.blocks))
-}
-
-func (r *Packed8ThreeBlocks) String() string {
-	return fmt.Sprintf("Packed8ThreeBlocks(bitsPerValue=%v, size=%v, elements.length=%v)",
-		r.bitsPerValue, r.Size(), len(r.blocks))
-}
-
-var PACKED16_THREE_BLOCKS_MAX_SIZE = int32(math.MaxInt32 / 3)
-
-type Packed16ThreeBlocks struct {
-	*MutableImpl
-	blocks []int16
-}
-
-func newPacked16ThreeBlocks(valueCount int32) *Packed16ThreeBlocks {
-	assert2(valueCount <= PACKED16_THREE_BLOCKS_MAX_SIZE, "MAX_SIZE exceeded")
-	ans := &Packed16ThreeBlocks{blocks: make([]int16, valueCount*3)}
-	ans.MutableImpl = newMutableImpl(int(valueCount), 48, ans)
-	return ans
-}
-
-func newPacked16ThreeBlocksFromInput(version int32, in DataInput, valueCount int32) (r PackedIntsReader, err error) {
-	ans := newPacked16ThreeBlocks(valueCount)
-	for i, _ := range ans.blocks {
-		if ans.blocks[i], err = in.ReadShort(); err != nil {
-			break
-		}
-	}
-	if err == nil {
-		// because packed ints have not always been byte-aligned
-		remaining := PackedFormat(PACKED).ByteCount(version, valueCount, 48) - 3*int64(valueCount)*2
-		for i := int64(0); i < remaining; i++ {
-			if _, err = in.ReadByte(); err != nil {
-				break
-			}
-		}
-	}
-	return ans, err
-}
-
-func (p *Packed16ThreeBlocks) Get(index int) int64 {
-	o := index * 3
-	return int64(p.blocks[o])<<32 | int64(p.blocks[o+1])<<16 | int64(p.blocks[o])
-}
-
-func (r *Packed16ThreeBlocks) Set(index int, value int64) {
-	panic("not implemented yet")
-}
-
-func (p *Packed16ThreeBlocks) RamBytesUsed() int64 {
-	return util.AlignObjectSize(
-		util.NUM_BYTES_OBJECT_HEADER +
-			2*util.NUM_BYTES_INT +
-			util.NUM_BYTES_OBJECT_REF +
-			util.SizeOf(p.blocks))
-}
-
-func (p *Packed16ThreeBlocks) String() string {
-	return fmt.Sprintf("Packed16ThreeBlocks(bitsPerValue=%v, size=%v, elements.length=%v)",
-		p.bitsPerValue, p.Size(), len(p.blocks))
-}
-
 const (
 	PACKED64_BLOCK_SIZE = 64                      // 32 = int, 64 = long
 	PACKED64_BLOCK_BITS = 6                       // The #bits representing BLOCK_SIZE
@@ -899,7 +886,7 @@ func newPacked64(valueCount int32, bitsPerValue uint32) *Packed64 {
 		blocks:            make([]int64, longCount),
 		maskRight:         uint64(^(int64(0))<<(PACKED64_BLOCK_SIZE-bitsPerValue)) >> (PACKED64_BLOCK_SIZE - bitsPerValue),
 		bpvMinusBlockSize: int32(bitsPerValue) - PACKED64_BLOCK_SIZE}
-	ans.MutableImpl = newMutableImpl(int(valueCount), int(bitsPerValue), ans)
+	ans.MutableImpl = newMutableImpl(ans, int(valueCount), int(bitsPerValue))
 	return ans
 }
 
@@ -950,8 +937,16 @@ func (p *Packed64) Get(index int) int64 {
 		int64(p.maskRight)
 }
 
+func (p *Packed64) getBulk(index int, arr []int64) int {
+	panic("niy")
+}
+
 func (p *Packed64) Set(index int, value int64) {
 	panic("not implemented yet")
+}
+
+func (p *Packed64) setBulk(index int, arr []int64) int {
+	panic("niy")
 }
 
 func (p *Packed64) String() string {
@@ -968,77 +963,10 @@ func (p *Packed64) RamBytesUsed() int64 {
 			util.SizeOf(p.blocks))
 }
 
-type GrowableWriter struct {
-	currentMask             int64
-	current                 Mutable
-	acceptableOverheadRatio float32
+func (p *Packed64) fill(from, to int, val int64) {
+	panic("niy")
 }
 
-func NewGrowableWriter(startBitsPerValue, valueCount int,
-	acceptableOverheadRatio float32) *GrowableWriter {
-	m := MutableFor(valueCount, startBitsPerValue, acceptableOverheadRatio)
-	return &GrowableWriter{
-		acceptableOverheadRatio: acceptableOverheadRatio,
-		current:                 m,
-		currentMask:             mask(m.BitsPerValue()),
-	}
-}
-
-func mask(bitsPerValue int) int64 {
-	if bitsPerValue == 64 {
-		return ^0
-	}
-	return MaxValue(bitsPerValue)
-}
-
-func (w *GrowableWriter) Get(index int) int64 {
-	return w.current.Get(index)
-}
-
-func (w *GrowableWriter) Size() int32 {
-	return w.current.Size()
-}
-
-func (w *GrowableWriter) BitsPerValue() int {
-	return w.current.BitsPerValue()
-}
-
-func (w *GrowableWriter) ensureCapacity(value int64) {
-	if (value & w.currentMask) == value {
-		return
-	}
-	var bitsRequired int
-	if value < 0 {
-		bitsRequired = 64
-	} else {
-		bitsRequired = UnsignedBitsRequired(value)
-	}
-	assert(bitsRequired > w.current.BitsPerValue())
-	valueCount := int(w.Size())
-	next := MutableFor(valueCount, bitsRequired, w.acceptableOverheadRatio)
-	Copy(w.current, 0, next, 0, valueCount, DEFAULT_BUFFER_SIZE)
-	w.current = next
-	w.currentMask = mask(w.current.BitsPerValue())
-}
-
-func (w *GrowableWriter) Set(index int, value int64) {
-	w.ensureCapacity(value)
-	w.current.Set(index, value)
-}
-
-func (w *GrowableWriter) Clear() {
-	w.current.Clear()
-}
-
-func (w *GrowableWriter) RamBytesUsed() int64 {
-	return util.AlignObjectSize(
-		util.NUM_BYTES_OBJECT_HEADER+
-			util.NUM_BYTES_OBJECT_REF+
-			util.NUM_BYTES_LONG+
-			util.NUM_BYTES_FLOAT) +
-		w.current.RamBytesUsed()
-}
-
-func (w *GrowableWriter) Save(out util.DataOutput) error {
-	return w.current.Save(out)
+func (p *Packed64) Clear() {
+	panic("niy")
 }

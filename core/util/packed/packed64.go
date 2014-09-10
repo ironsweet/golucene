@@ -30,8 +30,14 @@ func newPacked64SingleBlock(valueCount int32, bitsPerValue uint32) *Packed64Sing
 	// assert isSupported(bitsPerValue)
 	valuesPerBlock := int32(64 / bitsPerValue)
 	ans := &Packed64SingleBlock{blocks: make([]int64, requiredCapacity(valueCount, valuesPerBlock))}
-	ans.MutableImpl = newMutableImpl(int(valueCount), int(bitsPerValue), ans)
+	ans.MutableImpl = newMutableImpl(ans, int(valueCount), int(bitsPerValue))
 	return ans
+}
+
+func (p *Packed64SingleBlock) CLear() {
+	for i, _ := range p.blocks {
+		p.blocks[i] = 0
+	}
 }
 
 func (p *Packed64SingleBlock) RamBytesUsed() int64 {
@@ -48,6 +54,22 @@ func (p *Packed64SingleBlock) Get(index int) int64 {
 
 func (p *Packed64SingleBlock) Set(index int, value int64) {
 	p.set(index, value)
+}
+
+func (p *Packed64SingleBlock) getBulk(index int, arr []int64) int {
+	panic("niy")
+}
+
+func (p *Packed64SingleBlock) setBulk(index int, arr []int64) int {
+	panic("niy")
+}
+
+func (p *Packed64SingleBlock) fill(from, to int, val int64) {
+	panic("niy")
+}
+
+func (p *Packed64SingleBlock) Format() PackedFormat {
+	return PackedFormat(PACKED_SINGLE_BLOCK)
 }
 
 func (p *Packed64SingleBlock) String() string {

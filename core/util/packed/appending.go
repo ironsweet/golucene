@@ -176,7 +176,32 @@ func (buf *AppendingDeltaPackedLongBuffer) getBulk(block, element int, arr []int
 }
 
 func (buf *AppendingDeltaPackedLongBuffer) packPendingValues() {
-	panic("not implemented yet")
+	// compute max delta
+	minValue, maxValue := buf.pending[0], buf.pending[0]
+	for _, v := range buf.pending[1:buf.pendingOff] {
+		if v < minValue {
+			minValue = v
+		} else if v > maxValue {
+			maxValue = v
+		}
+	}
+	delta := maxValue - minValue
+
+	buf.minValues[buf.valuesOff] = minValue
+	if delta == 0 {
+		panic("niy")
+	} else {
+		// build a new packed reader
+		bitsRequired := UnsignedBitsRequired(delta)
+		for i := 0; i < buf.pendingOff; i++ {
+			buf.pending[i] -= minValue
+		}
+		mutable := MutableFor(buf.pendingOff, bitsRequired, buf.acceptableOverheadRatio)
+		for i := 0; i < buf.pendingOff; i++ {
+			i += mutable.setBulk(i, buf.pending[i:buf.pendingOff])
+		}
+		buf.values[buf.valuesOff] = mutable
+	}
 }
 
 func (buf *AppendingDeltaPackedLongBuffer) grow(newBlockCount int) {
