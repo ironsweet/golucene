@@ -45,12 +45,20 @@ func newBulkOperationPacked(bitsPerValue uint32) *BulkOperationPacked {
 	return self
 }
 
+func (p *BulkOperationPacked) LongValueCount() int {
+	return p.longValueCount
+}
+
 func (p *BulkOperationPacked) ByteBlockCount() int {
 	return p.byteBlockCount
 }
 
 func (p *BulkOperationPacked) ByteValueCount() int {
 	return p.byteValueCount
+}
+
+func (p *BulkOperationPacked) decodeByteToLong(blocks []byte, values []int64, iterations int) {
+	panic("niy")
 }
 
 func (p *BulkOperationPacked) encodeLongToLong(values, blocks []int64, iterations int) {
@@ -131,11 +139,15 @@ func newBulkOperationPackedSingleBlock(bitsPerValue uint32) BulkOperation {
 	return self
 }
 
+func (p *BulkOperationPackedSingleBlock) LongValueCount() int {
+	return p.valueCount
+}
+
 func (p *BulkOperationPackedSingleBlock) ByteValueCount() int {
 	return p.valueCount
 }
 
-func (p *BulkOperationPackedSingleBlock) longToLong(values []int64) int64 {
+func (p *BulkOperationPackedSingleBlock) decodeLongs(values []int64) int64 {
 	off := 0
 	block := values[off]
 	off++
@@ -146,11 +158,16 @@ func (p *BulkOperationPackedSingleBlock) longToLong(values []int64) int64 {
 	return block
 }
 
+func (p *BulkOperationPackedSingleBlock) decodeByteToLong(blocks []byte,
+	values []int64, iterations int) {
+	panic("niy")
+}
+
 func (p *BulkOperationPackedSingleBlock) encodeLongToLong(values,
 	blocks []int64, iterations int) {
 	valuesOffset, blocksOffset := 0, 0
 	for i, limit := 0, iterations; i < limit; i++ {
-		blocks[blocksOffset] = p.longToLong(values[valuesOffset:])
+		blocks[blocksOffset] = p.decodeLongs(values[valuesOffset:])
 		blocksOffset++
 		valuesOffset += p.valueCount
 	}

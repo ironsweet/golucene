@@ -8,8 +8,16 @@ import (
 
 // Efficient sequential read/write of packed integers.
 type BulkOperation interface {
-	PackedIntsEncoder
-	PackedIntsDecoder
+	LongValueCount() int
+	ByteBlockCount() int
+	ByteValueCount() int
+
+	// PackedIntsEncoder
+	encodeLongToByte(values []int64, blocks []byte, iterations int)
+	encodeLongToLong(values, blocks []int64, iterations int)
+
+	// PackedIntsDecoder
+	decodeByteToLong(blocks []byte, values []int64, iterations int)
 	/*
 		For every number of bits per value, there is a minumum number of
 		blocks (b) / values (v) you need to write an order to reach the next block
@@ -68,20 +76,10 @@ var (
 			return "(", fmt.Sprintf(" & %x)", (1<<uint(bits))-1)
 		}
 
-		func getType(bits int) string {
-			switch bits {
-			case 8:
-				return "byte"
-			case 16:
-				return "int16"
-			case 32:
-				return "int"
-			case 64:
-				return "int64"
-			default:
-				panic("assert fail")
-			}
-		}
+		var (
+			TYPES = map[int]string{8: "byte", 16: "int16", 32: "int32", 64: "int64"}
+			NAMES = map[int]string{8: "Byte", 16: "Short", 32: "Int", 64: "Long"}
+		)
 
 		func blockValueCount(bpv, bits int) (blocks, values int) {
 			blocks = bpv
@@ -104,18 +102,18 @@ var (
 			if bpv == 64 {
 				panic("not implemented yet")
 			} else {
-				//p64Decode(bpv, f, 32)
+				p64Decode(bpv, f, 32)
 				p64Decode(bpv, f, 64)
 			}
 		}
 
 		func p64Decode(bpv int, f io.Writer, bits int) {
 			_, values := blockValueCount(bpv, 64)
-			typ := getType(bits)
+			typ := TYPES[bits]
 			castStart, castEnd := casts(typ)
 			var mask uint
 
-			fmt.Fprintf(f, "func (op *BulkOperationPacked%d) decode(blocks []int64, values []%s, iterations int) {\n", bpv, typ)
+			fmt.Fprintf(f, "func (op *BulkOperationPacked%d) decodeLongTo%s(blocks []int64, values []%s, iterations int) {\n", bpv, NAMES[bits], typ)
 			if bits < bpv {
 				fmt.Fprintln(f, "	panic(\"not supported yet\")")
 			} else {
@@ -159,7 +157,7 @@ var (
 
 			_, byteValues := blockValueCount(bpv, 8)
 
-			fmt.Fprintf(f, "func (op *BulkOperationPacked%d) decodeByteTo%s(blocks []byte, values []%s, iterations int) {\n", bpv, typ, typ)
+			fmt.Fprintf(f, "func (op *BulkOperationPacked%d) decodeByteTo%s(blocks []byte, values []%s, iterations int) {\n", bpv, NAMES[bits], typ)
 			if bits < bpv {
 				fmt.Fprintln(f, "	panic(\"not supported yet\")")
 			} else {

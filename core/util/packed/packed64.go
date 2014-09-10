@@ -84,6 +84,34 @@ func (p *Packed64) Set(index int, value int64) {
 }
 
 func (p *Packed64) setBulk(index int, arr []int64) int {
+	length := len(arr)
+	assert2(length > 0, "len must be > 0 (got %v)", length)
+	assert(index >= 0 && index < p.valueCount)
+
+	originalIndex := index
+	encoder := newBulkOperation(PackedFormat(PACKED), uint32(p.bitsPerValue))
+
+	// go to the next block where the value does not span across two blocks
+	offsetInBlocks := index % encoder.LongValueCount()
+	if offsetInBlocks != 0 {
+		panic("niy")
+	}
+
+	// bulk set
+	assert(index%encoder.LongValueCount() == 0)
+	blockIndex := int(uint64(int64(index)*int64(p.bitsPerValue)) >> PACKED64_BLOCK_BITS)
+	assert(((int64(index) * int64(p.bitsPerValue)) & PACKED64_MOD_MASK) == 0)
+	iterations := length / encoder.LongValueCount()
+	encoder.encodeLongToLong(arr, p.blocks[blockIndex:], iterations)
+	setValues := iterations * encoder.LongValueCount()
+	index += setValues
+	length -= setValues
+	assert(length >= 0)
+
+	if index > originalIndex {
+		// stay at the block boundry
+		return index - originalIndex
+	}
 	panic("niy")
 }
 
