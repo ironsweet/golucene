@@ -204,8 +204,8 @@ func newTocScoreDocCollector(numHits int) *TopScoreDocCollector {
 	}
 	pq := &PriorityQueue{items: docs}
 	pq.less = func(i, j int) bool {
-		hitA := pq.items[i].(ScoreDoc)
-		hitB := pq.items[j].(ScoreDoc)
+		hitA := pq.items[i].(*ScoreDoc)
+		hitB := pq.items[j].(*ScoreDoc)
 		if hitA.Score == hitB.Score {
 			return hitA.Doc > hitB.Doc
 		}
