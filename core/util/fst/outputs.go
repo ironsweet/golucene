@@ -150,8 +150,40 @@ func ByteSequenceOutputsSingleton() *ByteSequenceOutputs {
 	return oneByteSequenceOutputs
 }
 
-func (out *ByteSequenceOutputs) Common(output1, output2 interface{}) interface{} {
-	panic("niy")
+func (out *ByteSequenceOutputs) Common(_output1, _output2 interface{}) interface{} {
+	assert(_output1 != nil)
+	assert(_output2 != nil)
+
+	if _output1 == NO_OUTPUT || _output2 == NO_OUTPUT {
+		return NO_OUTPUT
+	}
+
+	output1, output2 := _output1.([]byte), _output2.([]byte)
+	pos1, pos2 := 0, 0
+	stopAt1 := len(output1)
+	if len(output2) < stopAt1 {
+		stopAt1 = len(output2)
+	}
+	for pos1 < stopAt1 {
+		if output1[pos1] != output2[pos2] {
+			break
+		}
+		pos1++
+		pos2++
+	}
+
+	if pos1 == 0 {
+		// no common prefix
+		return NO_OUTPUT
+	} else if pos1 == len(output1) {
+		// output1 is a prefix of output2
+		return output1
+	} else if pos2 == len(output2) {
+		// outpu2 is a prefix of output1
+		return output2
+	} else {
+		return output1[:pos1]
+	}
 }
 
 func (out *ByteSequenceOutputs) Subtract(output1, output2 interface{}) interface{} {
