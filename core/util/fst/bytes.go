@@ -96,7 +96,30 @@ func (bs *BytesStore) WriteBytes(buf []byte) error {
 }
 
 func (s *BytesStore) writeBytesAt(dest int64, b []byte) {
-	panic("niy")
+	length := len(b)
+	assert2(dest+int64(length) <= s.position(),
+		"dest=%v pos=%v len=%v", dest, s.position(), length)
+
+	end := dest + int64(length)
+	blockIndex := int(end >> s.blockBits)
+	downTo := int(end & int64(s.blockMask))
+	if downTo == 0 {
+		blockIndex--
+		downTo = int(s.blockSize)
+	}
+	block := s.blocks[blockIndex]
+
+	for length > 0 {
+		if length <= downTo {
+			copy(block[downTo-length:], b[:length])
+			break
+		}
+		length -= downTo
+		copy(block, b[length:length+downTo])
+		blockIndex--
+		block = s.blocks[blockIndex]
+		downTo = int(s.blockSize)
+	}
 }
 
 func (s *BytesStore) copyBytesInside(src, dest int64, length int) {
