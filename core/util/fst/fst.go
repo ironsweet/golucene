@@ -571,8 +571,8 @@ func (t *FST) addNode(nodeIn *UnCompiledNode) (int64, error) {
 
 	lastArc := nodeIn.NumArcs - 1
 
-	// lastArcStart := t.bytes.position()
-	// maxBytesPerArc := 0
+	lastArcStart := t.bytes.position()
+	maxBytesPerArc := 0
 	for arcIdx := 0; arcIdx < nodeIn.NumArcs; arcIdx++ {
 		arc := nodeIn.Arcs[arcIdx]
 		target := arc.Target.(*CompiledNode)
@@ -645,12 +645,49 @@ func (t *FST) addNode(nodeIn *UnCompiledNode) (int64, error) {
 		// just write the arcs "like normal" on first pass, but record
 		// how many bytes each one took, and max byte size:
 		if doFixedArray {
-			panic("not implemented yet")
+			t.bytesPerArc[arcIdx] = int(t.bytes.position() - lastArcStart)
+			lastArcStart = t.bytes.position()
+			if t.bytesPerArc[arcIdx] > maxBytesPerArc {
+				maxBytesPerArc = t.bytesPerArc[arcIdx]
+			}
 		}
 	}
 
 	if doFixedArray {
-		panic("not implemented yet")
+		MAX_HEADER_SIZE := 11 // header(byte) + numArcs(vint) + numBytes(vint)
+		assert(maxBytesPerArc > 0)
+		// 2nd pass just "expands" all arcs to take up a fixed byte size
+		// create the header
+		header := make([]byte, MAX_HEADER_SIZE)
+		bad := store.NewByteArrayDataOutput(header)
+		// write a "false" first arc:
+		bad.WriteByte(FST_ARCS_AS_FIXED_ARRAY)
+		bad.WriteVInt(int32(nodeIn.NumArcs))
+		bad.WriteVInt(int32(maxBytesPerArc))
+		headerLen := bad.Position()
+
+		fixedArrayStart := startAddress + int64(headerLen)
+
+		// expand the arcs in place, backwards
+		srcPos := t.bytes.position()
+		destPos := fixedArrayStart + int64(nodeIn.NumArcs)*int64(maxBytesPerArc)
+		assert(destPos >= srcPos)
+		if destPos > srcPos {
+			t.bytes.skipBytes(int(destPos - srcPos))
+			for arcIdx := nodeIn.NumArcs - 1; arcIdx >= 0; arcIdx-- {
+				destPos -= int64(maxBytesPerArc)
+				srcPos -= int64(t.bytesPerArc[arcIdx])
+				if srcPos != destPos {
+					assert2(destPos > srcPos,
+						"destPos=%v srcPos=%v arcIdx=%v maxBytesPerArc=%v bytesPerArc[arcIdx]=%v nodeIn.numArcs=%v",
+						destPos, srcPos, arcIdx, maxBytesPerArc, t.bytesPerArc[arcIdx], nodeIn.NumArcs)
+					t.bytes.copyBytesInside(srcPos, destPos, t.bytesPerArc[arcIdx])
+				}
+			}
+		}
+
+		// now write the header
+		t.bytes.writeBytesAt(startAddress, header[:headerLen])
 	}
 
 	thisNodeAddress := t.bytes.position() - 1

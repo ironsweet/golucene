@@ -95,6 +95,14 @@ func (bs *BytesStore) WriteBytes(buf []byte) error {
 	return nil
 }
 
+func (s *BytesStore) writeBytesAt(dest int64, b []byte) {
+	panic("niy")
+}
+
+func (s *BytesStore) copyBytesInside(src, dest int64, length int) {
+	panic("niy")
+}
+
 /* Reverse from srcPos, inclusive, to destPos, inclusive. */
 func (s *BytesStore) reverse(srcPos, destPos int64) {
 	assert(srcPos < destPos)
@@ -129,6 +137,10 @@ func (s *BytesStore) reverse(srcPos, destPos int64) {
 			dest = int(s.blockSize - 1)
 		}
 	}
+}
+
+func (s *BytesStore) skipBytes(length int) {
+	panic("niy")
 }
 
 func (s *BytesStore) position() int64 {
