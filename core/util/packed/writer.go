@@ -67,6 +67,7 @@ type PackedWriter struct {
 
 func newPackedWriter(format PackedFormat, out DataOutput,
 	valueCount, bitsPerValue, mem int) *PackedWriter {
+
 	encoder := newBulkOperation(format, uint32(bitsPerValue))
 	iterations := encoder.computeIterations(valueCount, mem)
 	return &PackedWriter{

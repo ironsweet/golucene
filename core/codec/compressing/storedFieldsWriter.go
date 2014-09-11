@@ -173,7 +173,8 @@ func (w *CompressingStoredFieldsWriter) FinishDocument() error {
 	return nil
 }
 
-func saveInts(values []int, length int, out DataOutput) error {
+func saveInts(values []int, out DataOutput) error {
+	length := len(values)
 	assert(length > 0)
 	if length == 1 {
 		return out.WriteVInt(int32(values[0]))
@@ -224,10 +225,10 @@ func (w *CompressingStoredFieldsWriter) writeHeader(docBase,
 		err = w.fieldsStream.WriteVInt(int32(numBufferedDocs)) // TODO precision loss risk
 		if err == nil {
 			// save numStoredFields
-			err = saveInts(numStoredFields, numBufferedDocs, w.fieldsStream)
+			err = saveInts(numStoredFields[:numBufferedDocs], w.fieldsStream)
 			if err == nil {
 				// save lengths
-				err = saveInts(lengths, numBufferedDocs, w.fieldsStream)
+				err = saveInts(lengths[:numBufferedDocs], w.fieldsStream)
 			}
 		}
 	}
