@@ -198,7 +198,7 @@ func (out *ByteSequenceOutputs) NoOutput() interface{} {
 }
 
 func (out *ByteSequenceOutputs) outputToString(output interface{}) string {
-	return fmt.Sprintf("%v", output.([]byte))
+	return fmt.Sprintf("%v", output)
 }
 
 func (out *ByteSequenceOutputs) String() string {
