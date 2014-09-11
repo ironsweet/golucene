@@ -186,8 +186,21 @@ func (out *ByteSequenceOutputs) Common(_output1, _output2 interface{}) interface
 	}
 }
 
-func (out *ByteSequenceOutputs) Subtract(output1, output2 interface{}) interface{} {
-	panic("not implemented yet")
+func (out *ByteSequenceOutputs) Subtract(_output, _inc interface{}) interface{} {
+	assert(_output != nil)
+	assert(_inc != nil)
+	if _output == NO_OUTPUT || _inc == NO_OUTPUT {
+		// no prefix removed
+		return _output
+	}
+	output, inc := _output.([]byte), _inc.([]byte)
+	if len(inc) == len(output) {
+		// entire output removed
+		return NO_OUTPUT
+	}
+	assert2(len(inc) < len(output), "len(inc)=%v vs len(output)=%v", len(inc), len(output))
+	assert(len(inc) > 0)
+	return output[len(inc):]
 }
 
 func (out *ByteSequenceOutputs) Add(_prefix interface{}, _output interface{}) interface{} {
