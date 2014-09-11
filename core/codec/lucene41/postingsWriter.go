@@ -356,7 +356,29 @@ func (w *Lucene41PostingsWriter) FinishTerm(_state *BlockTermState) error {
 		// pulse the singleton docId into the term dictionary, freq is implicitly totalTermFreq
 		singletonDocId = w.docDeltaBuffer[0]
 	} else {
-		panic("not implemented yet")
+		singletonDocId = -1
+		// vInt encode the remaining doc dealtas and freqs;
+		var err error
+		for i := 0; i < w.docBufferUpto; i++ {
+			docDelta := w.docDeltaBuffer[i]
+			freq := w.freqBuffer[i]
+			if !w.fieldHasFreqs {
+				if err = w.docOut.WriteVInt(int32(docDelta)); err != nil {
+					return err
+				}
+			} else if w.freqBuffer[i] == 1 {
+				if err = w.docOut.WriteVInt(int32((docDelta << 1) | 1)); err != nil {
+					return err
+				}
+			} else {
+				if err = w.docOut.WriteVInt(int32(docDelta << 1)); err != nil {
+					return err
+				}
+				if err = w.docOut.WriteVInt(int32(freq)); err != nil {
+					return err
+				}
+			}
+		}
 	}
 
 	var lastPosBlockOffset int64
