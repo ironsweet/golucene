@@ -140,7 +140,17 @@ func (s *BytesStore) reverse(srcPos, destPos int64) {
 }
 
 func (s *BytesStore) skipBytes(length int) {
-	panic("niy")
+	for length > 0 {
+		chunk := int(s.blockSize) - int(s.nextWrite)
+		if length <= chunk {
+			s.nextWrite += uint32(length)
+			break
+		}
+		length -= chunk
+		s.current = make([]byte, s.blockSize)
+		s.blocks = append(s.blocks, s.current)
+		s.nextWrite = 0
+	}
 }
 
 func (s *BytesStore) position() int64 {
