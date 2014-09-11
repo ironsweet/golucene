@@ -285,16 +285,19 @@ func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
 
 	// push conflicting outputs forward, only as far as needed
 	for idx := 1; idx < prefixLenPlus1; idx++ {
-		// node := b.frontier[idx]
+		node := b.frontier[idx]
 		parentNode := b.frontier[idx-1]
 
 		lastOutput := parentNode.lastOutput(input.Ints[input.Offset+idx-1])
 
 		var commonOutputPrefix interface{}
-		// var wordSuffix interface{}
+		var wordSuffix interface{}
 
 		if lastOutput != b.NO_OUTPUT {
-			panic("not implemented yet")
+			commonOutputPrefix = b.fst.outputs.Common(output, lastOutput)
+			wordSuffix = b.fst.outputs.Subtract(lastOutput, commonOutputPrefix)
+			parentNode.setLastOutput(input.Ints[input.Offset+idx-1], commonOutputPrefix)
+			node.prependOutput(wordSuffix)
 		} else {
 			commonOutputPrefix = NO_OUTPUT
 		}
@@ -485,4 +488,9 @@ func (n *UnCompiledNode) setLastOutput(labelToMatch int, newOutput interface{}) 
 	arc := n.Arcs[n.NumArcs-1]
 	assert(arc.label == labelToMatch)
 	arc.output = newOutput
+}
+
+/* pushes an output prefix forward onto all arcs */
+func (n *UnCompiledNode) prependOutput(outputPrefix interface{}) {
+	panic("niy")
 }

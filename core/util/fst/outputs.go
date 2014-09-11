@@ -16,6 +16,8 @@ import (
  * #getNoOutput}.</p>
  */
 type Outputs interface {
+	// Eg common("foobar", "food") -> "foo"
+	Common(output1, output2 interface{}) interface{}
 	// Eg subtract("foobar", "foo") -> "bar"
 	Subtract(output1, output2 interface{}) interface{}
 	/** Eg add("foo", "bar") -> "foobar" */
@@ -92,6 +94,10 @@ func newNoOutputs() *NoOutputs {
 	return ans
 }
 
+func (o *NoOutputs) Common(output1, output2 interface{}) interface{} {
+	panic("niy")
+}
+
 func (o *NoOutputs) Subtract(output1, output2 interface{}) interface{} {
 	assert(output1 == NO_OUTPUT)
 	assert(output2 == NO_OUTPUT)
@@ -142,6 +148,10 @@ func ByteSequenceOutputsSingleton() *ByteSequenceOutputs {
 		oneByteSequenceOutputs.abstractOutputs = &abstractOutputs{oneByteSequenceOutputs}
 	}
 	return oneByteSequenceOutputs
+}
+
+func (out *ByteSequenceOutputs) Common(output1, output2 interface{}) interface{} {
+	panic("niy")
 }
 
 func (out *ByteSequenceOutputs) Subtract(output1, output2 interface{}) interface{} {
