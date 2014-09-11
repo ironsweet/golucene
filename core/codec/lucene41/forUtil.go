@@ -63,8 +63,8 @@ type ForUtil struct {
 }
 
 /* Create a new ForUtil instance and save state into out. */
-func NewForUtilInto(accetableOverheadRatio float32, out util.DataOutput) (ForUtil, error) {
-	ans, err := ForUtil{}, out.WriteVInt(packed.VERSION_CURRENT)
+func NewForUtilInto(accetableOverheadRatio float32, out util.DataOutput) (*ForUtil, error) {
+	ans, err := &ForUtil{}, out.WriteVInt(packed.VERSION_CURRENT)
 	if err != nil {
 		return ans, err
 	}
@@ -111,8 +111,8 @@ type DataInput interface {
 }
 
 /* Restore a ForUtil from a DataInput. */
-func NewForUtilFrom(in DataInput) (fu ForUtil, err error) {
-	self := ForUtil{}
+func NewForUtilFrom(in DataInput) (fu *ForUtil, err error) {
+	self := &ForUtil{}
 	packedIntsVersion, err := in.ReadVInt()
 	if err != nil {
 		return self, err
@@ -139,6 +139,12 @@ func NewForUtilFrom(in DataInput) (fu ForUtil, err error) {
 		self.iterations[bpv] = computeIterations(self.decoders[bpv])
 	}
 	return self, nil
+}
+
+type IndexOutput interface{}
+
+func (u *ForUtil) writeBlock(data []int, encoded []byte, out IndexOutput) error {
+	panic("niy")
 }
 
 func encodedSize(format packed.PackedFormat, packedIntsVersion int32, bitsPerValue uint32) int32 {

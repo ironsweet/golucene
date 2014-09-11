@@ -38,7 +38,7 @@ type Lucene41PostingsReader struct {
 	docIn   store.IndexInput
 	posIn   store.IndexInput
 	payIn   store.IndexInput
-	forUtil ForUtil
+	forUtil *ForUtil
 	version int
 }
 

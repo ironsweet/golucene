@@ -70,7 +70,7 @@ type Lucene41PostingsWriter struct {
 
 	encoded []byte
 
-	forUtil    ForUtil
+	forUtil    *ForUtil
 	skipWriter *SkipWriter
 }
 
@@ -299,7 +299,9 @@ func (w *Lucene41PostingsWriter) StartDoc(docId, termDocFreq int) error {
 }
 
 /* Add a new opsition & payload */
-func (w *Lucene41PostingsWriter) AddPosition(position int, payload []byte, startOffset, endOffset int) error {
+func (w *Lucene41PostingsWriter) AddPosition(position int,
+	payload []byte, startOffset, endOffset int) error {
+
 	w.posDeltaBuffer[w.posBufferUpto] = position - w.lastPosition
 	if w.fieldHasPayloads {
 		if len(payload) == 0 {
@@ -317,7 +319,18 @@ func (w *Lucene41PostingsWriter) AddPosition(position int, payload []byte, start
 	w.posBufferUpto++
 	w.lastPosition = position
 	if w.posBufferUpto == LUCENE41_BLOCK_SIZE {
-		panic("not implemented yet")
+		var err error
+		if err = w.forUtil.writeBlock(w.posDeltaBuffer, w.encoded, w.posOut); err != nil {
+			return err
+		}
+
+		if w.fieldHasPayloads {
+			panic("niy")
+		}
+		if w.fieldHasOffsets {
+			panic("niy")
+		}
+		w.posBufferUpto = 0
 	}
 	return nil
 }
