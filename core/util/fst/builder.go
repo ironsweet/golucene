@@ -492,5 +492,11 @@ func (n *UnCompiledNode) setLastOutput(labelToMatch int, newOutput interface{}) 
 
 /* pushes an output prefix forward onto all arcs */
 func (n *UnCompiledNode) prependOutput(outputPrefix interface{}) {
-	panic("niy")
+	for arcIdx := 0; arcIdx < n.NumArcs; arcIdx++ {
+		n.Arcs[arcIdx].output = n.owner.fst.outputs.Add(outputPrefix, n.Arcs[arcIdx].output)
+	}
+
+	if n.IsFinal {
+		n.output = n.owner.fst.outputs.Add(outputPrefix, n.output)
+	}
 }
