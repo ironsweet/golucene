@@ -100,7 +100,29 @@ func (s *BytesStore) writeBytesAt(dest int64, b []byte) {
 }
 
 func (s *BytesStore) copyBytesInside(src, dest int64, length int) {
-	panic("niy")
+	assert(src < dest)
+
+	end := src + int64(length)
+
+	blockIndex := int(end >> s.blockBits)
+	downTo := int(end & int64(s.blockMask))
+	if downTo == 0 {
+		blockIndex--
+		downTo = int(s.blockSize)
+	}
+	block := s.blocks[blockIndex]
+
+	for length > 0 {
+		if length <= downTo {
+			s.writeBytesAt(dest, block[downTo-length:downTo])
+			break
+		}
+		length -= downTo
+		s.writeBytesAt(dest+int64(length), block[:downTo])
+		blockIndex--
+		block = s.blocks[blockIndex]
+		downTo = int(s.blockSize)
+	}
 }
 
 /* Reverse from srcPos, inclusive, to destPos, inclusive. */
