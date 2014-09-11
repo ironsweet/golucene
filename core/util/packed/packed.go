@@ -223,10 +223,9 @@ type PackedIntsDecoder interface {
 	ByteBlockCount() int
 	// The number of values that can be stored in byteBlockCount() byte blocks
 	ByteValueCount() int
-	/*
-		Read 8 * iterations * blockCount() blocks from blocks, decodethem and write
-		iterations * valueCount() values inot values.
-	*/
+	decodeLongToLong(blocks, values []int64, iterations int)
+	// Read 8 * iterations * blockCount() blocks from blocks, decodethem and write
+	// iterations * valueCount() values inot values.
 	decodeByteToLong(blocks []byte, values []int64, iterations int)
 }
 

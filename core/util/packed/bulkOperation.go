@@ -17,6 +17,7 @@ type BulkOperation interface {
 	encodeLongToLong(values, blocks []int64, iterations int)
 
 	// PackedIntsDecoder
+	decodeLongToLong(blocks, values []int64, iterations int)
 	decodeByteToLong(blocks []byte, values []int64, iterations int)
 	/*
 		For every number of bits per value, there is a minumum number of
