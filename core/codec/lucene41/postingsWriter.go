@@ -289,7 +289,17 @@ func (w *Lucene41PostingsWriter) StartDoc(docId, termDocFreq int) error {
 	w.docCount++
 
 	if w.docBufferUpto == LUCENE41_BLOCK_SIZE {
-		panic("not implemented yet")
+		if err := w.forUtil.writeBlock(w.docDeltaBuffer, w.encoded, w.docOut); err != nil {
+			return err
+		}
+		if w.fieldHasFreqs {
+			if err := w.forUtil.writeBlock(w.freqBuffer, w.encoded, w.docOut); err != nil {
+				return err
+			}
+		}
+		// NOTE: don't set docBufferUpto back to 0 here; finishDoc will
+		// do so (because it needs to see that the block was filled so it
+		// can save skip data)
 	}
 
 	w.lastDocId = docId
