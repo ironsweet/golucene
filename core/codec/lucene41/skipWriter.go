@@ -112,5 +112,39 @@ func (w *SkipWriter) BufferSkip(doc, numDocs int, posFP, payFP int64, posBufferU
 }
 
 func (w *SkipWriter) WriteSkipData(level int, skipBuffer store.IndexOutput) error {
-	panic("niy")
+	delta := w.curDoc - w.lastSkipDoc[level]
+	var err error
+	if err = skipBuffer.WriteVInt(int32(delta)); err != nil {
+		return err
+	}
+	w.lastSkipDoc[level] = w.curDoc
+
+	if err = skipBuffer.WriteVInt(int32(w.curDocPointer - w.lastSkipDocPointer[level])); err != nil {
+		return err
+	}
+	w.lastSkipDocPointer[level] = w.curDocPointer
+
+	if w.fieldHasPositions {
+		if err = skipBuffer.WriteVInt(int32(w.curPosPointer - w.lastSkipPosPointer[level])); err != nil {
+			return err
+		}
+		w.lastSkipPosPointer[level] = w.curPosPointer
+		if err = skipBuffer.WriteVInt(int32(w.curPosBufferUpto)); err != nil {
+			return err
+		}
+
+		if w.fieldHasPayloads {
+			if err = skipBuffer.WriteVInt(int32(w.curPayloadByteUpto)); err != nil {
+				return err
+			}
+		}
+
+		if w.fieldHasOffsets || w.fieldHasPayloads {
+			if err = skipBuffer.WriteVInt(int32(w.curPayPointer - w.lastSkipPayPointer[level])); err != nil {
+				return err
+			}
+			w.lastSkipPayPointer[level] = w.curPayPointer
+		}
+	}
+	return nil
 }
