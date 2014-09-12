@@ -144,11 +144,16 @@ func NewForUtilFrom(in DataInput) (fu *ForUtil, err error) {
 type IndexOutput interface {
 	WriteByte(byte) error
 	WriteBytes([]byte) error
+	WriteVInt(int32) error
 }
 
 func (u *ForUtil) writeBlock(data []int, encoded []byte, out IndexOutput) error {
 	if isAllEqual(data) {
-		panic("niy")
+		var err error
+		if err = out.WriteByte(byte(ALL_VALUES_EQUAL)); err == nil {
+			err = out.WriteVInt(int32(data[0]))
+		}
+		return err
 	}
 
 	numBits := bitsRequired(data)

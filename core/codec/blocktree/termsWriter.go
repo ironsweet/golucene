@@ -521,7 +521,11 @@ func (w *TermsWriter) writeBlocks(prevTerm *util.IntsRef, prefixLength, count in
 			if ent.isTerm() {
 				term := ent.(*PendingTerm)
 				if len(term.term) == prefixLength {
-					panic("not implemented yet")
+					// suffix is 0, ie prefix 'foo' and term is 'foo' so the
+					// term has empty string suffix in this block
+					assert(lastSuffixLeadLabel == -1)
+					assert(numSubs == 0)
+					suffixLeadLabel = -1
 				} else {
 					suffixLeadLabel = int(term.term[prefixLength])
 				}

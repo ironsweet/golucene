@@ -747,7 +747,48 @@ func MaxValue(bitsPerValue int) int64 {
 
 /* Copy src[srcPos:srcPos+len] into dest[destPos:destPos+len] using at most mem bytes. */
 func Copy(src PackedIntsReader, srcPos int, dest Mutable, destPos, length, mem int) {
-	panic("not implemented yet")
+	assert(srcPos+length <= int(src.Size()))
+	assert(destPos+length <= int(dest.Size()))
+	capacity := int(uint(mem) >> 3)
+	if capacity == 0 {
+		panic("niy")
+	} else if length > 0 {
+		// use bulk operations
+		if length < capacity {
+			capacity = length
+		}
+		buf := make([]int64, capacity)
+		copyWith(src, srcPos, dest, destPos, length, buf)
+	}
+}
+
+func copyWith(src PackedIntsReader, srcPos int, dest Mutable, destPos, length int, buf []int64) {
+	assert(len(buf) > 0)
+	remaining := 0
+	for length > 0 {
+		limit := remaining + length
+		if limit > len(buf) {
+			limit = len(buf)
+		}
+		read := src.getBulk(srcPos, buf[remaining:limit])
+		assert(read > 0)
+		srcPos += read
+		length -= read
+		remaining += read
+		written := dest.setBulk(destPos, buf[:remaining])
+		assert(written > 0)
+		destPos += written
+		if written < remaining {
+			copy(buf, buf[written:remaining])
+		}
+		remaining -= written
+	}
+	for remaining > 0 {
+		written := dest.setBulk(destPos, buf[:remaining])
+		destPos += written
+		remaining -= written
+		copy(buf, buf[written:written+remaining])
+	}
 }
 
 var TrailingZeros = func() map[int]int {
