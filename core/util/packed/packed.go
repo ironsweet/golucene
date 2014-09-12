@@ -248,12 +248,12 @@ type PackedIntsReader interface {
 	util.Accountable
 	Get(index int) int64 // NumericDocValue
 	getBulk(int, []int64) int
-	Size() int32
+	Size() int
 }
 
 type abstractReaderSPI interface {
 	Get(index int) int64
-	Size() int32
+	Size() int
 }
 
 type abstractReader struct {
@@ -339,6 +339,8 @@ type Mutable interface {
 }
 
 type abstractMutableSPI interface {
+	Set(index int, value int64)
+	Size() int
 }
 
 type abstractMutable struct {
@@ -352,7 +354,14 @@ func newMutable(spi abstractMutableSPI) *abstractMutable {
 }
 
 func (m *abstractMutable) setBulk(index int, arr []int64) int {
-	panic("niy")
+	length := len(arr)
+	assert2(length > 0, "len must be > 0 (got %v)", length)
+	assert(index >= 0 && index < m.spi.Size())
+
+	for i, v := range arr {
+		m.spi.Set(index+i, v)
+	}
+	return length
 }
 
 /* Fill the mutable [from,to) with val. */
@@ -399,8 +408,8 @@ func newReaderImpl(valueCount int) *ReaderImpl {
 	return &ReaderImpl{valueCount}
 }
 
-func (p *ReaderImpl) Size() int32 {
-	return int32(p.valueCount)
+func (p *ReaderImpl) Size() int {
+	return p.valueCount
 }
 
 type MutableImpl struct {
@@ -424,8 +433,8 @@ func (m *MutableImpl) BitsPerValue() int {
 	return m.bitsPerValue
 }
 
-func (m *MutableImpl) Size() int32 {
-	return int32(m.valueCount)
+func (m *MutableImpl) Size() int {
+	return m.valueCount
 }
 
 func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {

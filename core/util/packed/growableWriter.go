@@ -34,7 +34,7 @@ func (w *GrowableWriter) Get(index int) int64 {
 	return w.current.Get(index)
 }
 
-func (w *GrowableWriter) Size() int32 {
+func (w *GrowableWriter) Size() int {
 	return w.current.Size()
 }
 
