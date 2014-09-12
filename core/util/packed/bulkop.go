@@ -1,6 +1,8 @@
 package packed
 
-import ()
+import (
+	"fmt"
+)
 
 // util/packed/BulkOperationPacked.java
 
@@ -117,7 +119,32 @@ func (p *BulkOperationPacked) encodeLongToByte(values []int64, blocks []byte, it
 }
 
 func (p *BulkOperationPacked) EncodeIntToByte(values []int, blocks []byte, iterations int) {
-	panic("niy")
+	valuesOff, blocksOff := 0, 0
+	nextBlock, bitsLeft := 0, 8
+	for i := 0; i < p.byteValueCount*iterations; i++ {
+		v := values[valuesOff]
+		valuesOff++
+		assert(BitsRequired(int64(v)) <= p.bitsPerValue)
+		if p.bitsPerValue < bitsLeft {
+			// just buffer
+			nextBlock |= (v << uint(bitsLeft-p.bitsPerValue))
+			bitsLeft -= p.bitsPerValue
+		} else {
+			// flush as many blocks as possible
+			bits := p.bitsPerValue - bitsLeft
+			blocks[blocksOff] = byte(nextBlock | int(uint(v)>>uint(bits)))
+			blocksOff++
+			for bits >= 8 {
+				bits -= 8
+				blocks[blocksOff] = byte(nextBlock | int(uint(v)>>uint(bits)))
+				blocksOff++
+			}
+			// then buffer
+			bitsLeft = 8 - bits
+			nextBlock = (v & ((1 << uint(bits)) - 1)) << uint(bitsLeft)
+		}
+	}
+	assert(bitsLeft == 8)
 }
 
 // util/packed/BulkOperationPackedSingleBlock.java
