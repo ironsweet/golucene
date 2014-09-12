@@ -339,17 +339,20 @@ type Mutable interface {
 }
 
 type abstractMutableSPI interface {
+	Get(index int) int64
 	Set(index int, value int64)
 	Size() int
 }
 
 type abstractMutable struct {
+	*abstractReader
 	spi abstractMutableSPI
 }
 
 func newMutable(spi abstractMutableSPI) *abstractMutable {
 	return &abstractMutable{
-		spi: spi,
+		abstractReader: newReader(spi),
+		spi:            spi,
 	}
 }
 

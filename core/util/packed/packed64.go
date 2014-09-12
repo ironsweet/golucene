@@ -104,7 +104,9 @@ func (p *Packed64) getBulk(index int, arr []int64) int {
 		// stay at the block boundry
 		return index - originalIndex
 	}
-	panic("niy")
+	// no progress so far => already at a block boundry but no full block to get
+	assert(index == originalIndex)
+	return p.MutableImpl.getBulk(index, arr)
 }
 
 func (p *Packed64) Set(index int, value int64) {
