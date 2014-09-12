@@ -108,7 +108,27 @@ func (p *Packed64) getBulk(index int, arr []int64) int {
 }
 
 func (p *Packed64) Set(index int, value int64) {
-	panic("not implemented yet")
+	// The abstract index in a contiguous bit stream
+	majorBitPos := int64(index) * int64(p.bitsPerValue)
+	// The index int the backing long-array
+	elementPos := int(uint64(majorBitPos) >> PACKED64_BLOCK_BITS) // / BLOCK_SIZE
+	// The number of value-bits in the second long
+	endBits := (majorBitPos & PACKED64_MOD_MASK) + int64(p.bpvMinusBlockSize)
+
+	if endBits <= 0 { // single block
+		p.blocks[elementPos] = p.blocks[elementPos] &
+			^int64(p.maskRight<<uint64(-endBits)) |
+			(value << uint64(-endBits))
+		return
+	}
+	// two blocks
+	p.blocks[elementPos] = p.blocks[elementPos] &
+		^int64(p.maskRight>>uint64(endBits)) |
+		int64(uint64(value)>>uint64(endBits))
+	elementPos++
+	p.blocks[elementPos] = p.blocks[elementPos]&
+		int64(^uint64(0)>>uint64(endBits)) |
+		(value << uint64(PACKED64_BLOCK_SIZE-endBits))
 }
 
 func (p *Packed64) setBulk(index int, arr []int64) int {
