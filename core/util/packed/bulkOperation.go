@@ -15,6 +15,7 @@ type BulkOperation interface {
 	// PackedIntsEncoder
 	encodeLongToByte(values []int64, blocks []byte, iterations int)
 	encodeLongToLong(values, blocks []int64, iterations int)
+	EncodeIntToByte(values []int, blocks []byte, iterations int)
 
 	// PackedIntsDecoder
 	decodeLongToLong(blocks, values []int64, iterations int)

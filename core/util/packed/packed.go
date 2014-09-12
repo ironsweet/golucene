@@ -210,12 +210,15 @@ func FastestFormatAndBits(valueCount, bitsPerValue int,
 }
 
 type PackedIntsEncoder interface {
+	ByteValueCount() int
+	ByteBlockCount() int
 	// Read iterations * valueCount() values from values, encode them
 	// and write iterations * blockCount() blocks into blocks.
 	// encodeLongToLong(values, blocks []int64, iterations int)
 	// Read iterations * valueCount() values from values, encode them
 	// and write 8 * iterations * blockCount() blocks into blocks.
 	encodeLongToByte(values []int64, blocks []byte, iterations int)
+	EncodeIntToByte(values []int, blocks []byte, iterations int)
 }
 
 type PackedIntsDecoder interface {

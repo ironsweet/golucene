@@ -116,6 +116,10 @@ func (p *BulkOperationPacked) encodeLongToByte(values []int64, blocks []byte, it
 	assert(bitsLeft == 8)
 }
 
+func (p *BulkOperationPacked) EncodeIntToByte(values []int, blocks []byte, iterations int) {
+	panic("niy")
+}
+
 // util/packed/BulkOperationPackedSingleBlock.java
 
 // Non-specialized BulkOperation for PACKED_SINGLE_BLOCK format
@@ -176,4 +180,9 @@ func (p *BulkOperationPackedSingleBlock) encodeLongToLong(values,
 func (p *BulkOperationPackedSingleBlock) encodeLongToByte(values []int64,
 	blocks []byte, iterations int) {
 	panic("not implemented yet")
+}
+
+func (p *BulkOperationPackedSingleBlock) EncodeIntToByte(values []int,
+	blocks []byte, iterations int) {
+	panic("niy")
 }

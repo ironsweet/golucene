@@ -141,10 +141,30 @@ func NewForUtilFrom(in DataInput) (fu *ForUtil, err error) {
 	return self, nil
 }
 
-type IndexOutput interface{}
+type IndexOutput interface {
+	WriteByte(byte) error
+	WriteBytes([]byte) error
+}
 
 func (u *ForUtil) writeBlock(data []int, encoded []byte, out IndexOutput) error {
-	panic("niy")
+	if isAllEqual(data) {
+		panic("niy")
+	}
+
+	numBits := bitsRequired(data)
+	assert2(numBits > 0 && numBits <= 32, "%v", numBits)
+	encoder := u.encoders[numBits]
+	iters := int(u.iterations[numBits])
+	assert(iters*encoder.ByteValueCount() >= LUCENE41_BLOCK_SIZE)
+	encodedSize := int(u.encodedSizes[numBits])
+	assert(iters*encoder.ByteBlockCount() >= encodedSize)
+
+	if err := out.WriteByte(byte(numBits)); err != nil {
+		return err
+	}
+
+	encoder.EncodeIntToByte(data, encoded, iters)
+	return out.WriteBytes(encoded[:encodedSize])
 }
 
 func encodedSize(format packed.PackedFormat, packedIntsVersion int32, bitsPerValue uint32) int32 {
@@ -155,4 +175,18 @@ func encodedSize(format packed.PackedFormat, packedIntsVersion int32, bitsPerVal
 
 func computeIterations(decoder packed.PackedIntsDecoder) int32 {
 	return int32(math.Ceil(float64(LUCENE41_BLOCK_SIZE) / float64(decoder.ByteValueCount())))
+}
+
+func isAllEqual(data []int) bool {
+	first := data[0]
+	for _, v := range data[1:LUCENE41_BLOCK_SIZE] {
+		if v != first {
+			return false
+		}
+	}
+	return true
+}
+
+func bitsRequired(data []int) int {
+	panic("niy")
 }
