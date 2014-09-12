@@ -414,6 +414,15 @@ func newBulkOperationImpl(decoder PackedIntsDecoder) *BulkOperationImpl {
 	return &BulkOperationImpl{decoder}
 }
 
+func (op *BulkOperationImpl) writeLong(block int64, blocks []byte) int {
+	blocksOffset := 0
+	for j := 1; j <= 8; j++ {
+		blocks[blocksOffset] = byte(uint64(block) >> uint(64-(j<<3)))
+		blocksOffset++
+	}
+	return blocksOffset
+}
+
 func (op *BulkOperationImpl) computeIterations(valueCount, ramBudget int) int {
 	iterations := ramBudget / (op.ByteBlockCount() + 8*op.ByteValueCount())
 	if iterations == 0 {

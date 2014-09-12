@@ -155,12 +155,23 @@ func (p *BulkOperationPackedSingleBlock) ByteValueCount() int {
 	return p.valueCount
 }
 
-func (p *BulkOperationPackedSingleBlock) decodeLongs(values []int64) int64 {
+func (p *BulkOperationPackedSingleBlock) encodeLongs(values []int64) int64 {
 	off := 0
 	block := values[off]
 	off++
 	for j := 1; j < p.valueCount; j++ {
 		block |= values[off] << uint(j*p.bitsPerValue)
+		off++
+	}
+	return block
+}
+
+func (p *BulkOperationPackedSingleBlock) encodeInts(values []int) int64 {
+	off := 0
+	block := int64(values[off])
+	off++
+	for j := 1; j < p.valueCount; j++ {
+		block |= int64(values[off]) << uint(j*p.bitsPerValue)
 		off++
 	}
 	return block
@@ -175,7 +186,7 @@ func (p *BulkOperationPackedSingleBlock) encodeLongToLong(values,
 	blocks []int64, iterations int) {
 	valuesOffset, blocksOffset := 0, 0
 	for i, limit := 0, iterations; i < limit; i++ {
-		blocks[blocksOffset] = p.decodeLongs(values[valuesOffset:])
+		blocks[blocksOffset] = p.encodeLongs(values[valuesOffset:])
 		blocksOffset++
 		valuesOffset += p.valueCount
 	}
@@ -188,5 +199,11 @@ func (p *BulkOperationPackedSingleBlock) encodeLongToByte(values []int64,
 
 func (p *BulkOperationPackedSingleBlock) EncodeIntToByte(values []int,
 	blocks []byte, iterations int) {
-	panic("niy")
+
+	valuesOffset, blocksOffset := 0, 0
+	for i := 0; i < iterations; i++ {
+		block := p.encodeInts(values[valuesOffset:])
+		valuesOffset += p.valueCount
+		blocksOffset = p.writeLong(block, blocks[blocksOffset:])
+	}
 }
