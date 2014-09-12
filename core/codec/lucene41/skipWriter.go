@@ -17,9 +17,15 @@ type SkipWriter struct {
 	posOut store.IndexOutput
 	payOut store.IndexOutput
 
-	fieldHasPositions bool
-	fieldHasOffsets   bool
-	fieldHasPayloads  bool
+	curDoc             int
+	curDocPointer      int64
+	curPosPointer      int64
+	curPayPointer      int64
+	curPosBufferUpto   int
+	curPayloadByteUpto int
+	fieldHasPositions  bool
+	fieldHasOffsets    bool
+	fieldHasPayloads   bool
 
 	initialized bool
 	lastDocFP   int64
@@ -92,5 +98,12 @@ func (w *SkipWriter) initSkip() {
 
 /* Sets the values for the current skip data. */
 func (w *SkipWriter) BufferSkip(doc, numDocs int, posFP, payFP int64, posBufferUpto, payloadByteUpto int) error {
-	panic("not implemented yet")
+	w.initSkip()
+	w.curDoc = doc
+	w.curDocPointer = w.docOut.FilePointer()
+	w.curPosPointer = posFP
+	w.curPayPointer = payFP
+	w.curPosBufferUpto = posBufferUpto
+	w.curPayloadByteUpto = payloadByteUpto
+	return w.MultiLevelSkipListWriter.BufferSkip(numDocs)
 }

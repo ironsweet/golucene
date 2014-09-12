@@ -59,6 +59,14 @@ func (w *MultiLevelSkipListWriter) ResetSkip() {
 	}
 }
 
+/*
+Writes the current skip data to the buffers. The current document
+frequency determines the max level is skip ddata is to be written to.
+*/
+func (w *MultiLevelSkipListWriter) BufferSkip(df int) error {
+	panic("niy")
+}
+
 /* Writes the buffered skip lists to the given output. */
 func (w *MultiLevelSkipListWriter) WriteSkip(output IndexOutput) (int64, error) {
 	skipPointer := output.FilePointer()

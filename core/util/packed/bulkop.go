@@ -1,8 +1,6 @@
 package packed
 
-import (
-	"fmt"
-)
+import ()
 
 // util/packed/BulkOperationPacked.java
 
