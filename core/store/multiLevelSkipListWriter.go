@@ -4,6 +4,10 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 )
 
+type MultiLevelSkipListWriterSPI interface {
+	WriteSkipData(level int, skipBuffer IndexOutput) error
+}
+
 /*
 TODO: migrate original comment.
 
@@ -11,6 +15,7 @@ Note: this class was moved from package codec to store since it
 caused cyclic dependency (store<->codec).
 */
 type MultiLevelSkipListWriter struct {
+	spi MultiLevelSkipListWriterSPI
 	// number levels in this skip list
 	numberOfSkipLevels int
 	// the skip interval in ths list with level=0
@@ -22,8 +27,9 @@ type MultiLevelSkipListWriter struct {
 }
 
 /* Creates a MultiLevelSkipListWriter. */
-func NewMultiLevelSkipListWriter(skipInterval,
-	skipMultiplier, maxSkipLevels, df int) *MultiLevelSkipListWriter {
+func NewMultiLevelSkipListWriter(spi MultiLevelSkipListWriterSPI,
+	skipInterval, skipMultiplier, maxSkipLevels, df int) *MultiLevelSkipListWriter {
+
 	numberOfSkipLevels := 1
 	// calculate the maximum number of skip levels for this document frequency
 	if df > skipInterval {
@@ -34,6 +40,7 @@ func NewMultiLevelSkipListWriter(skipInterval,
 		numberOfSkipLevels = maxSkipLevels
 	}
 	return &MultiLevelSkipListWriter{
+		spi:                spi,
 		skipInterval:       skipInterval,
 		skipMultiplier:     skipMultiplier,
 		numberOfSkipLevels: numberOfSkipLevels,
@@ -64,7 +71,37 @@ Writes the current skip data to the buffers. The current document
 frequency determines the max level is skip ddata is to be written to.
 */
 func (w *MultiLevelSkipListWriter) BufferSkip(df int) error {
-	panic("niy")
+	assert(df%w.skipInterval == 0)
+	numLevels := 1
+	df /= w.skipInterval
+
+	// determine max level
+	for (df%w.skipMultiplier) == 0 && numLevels < w.numberOfSkipLevels {
+		numLevels++
+		df /= w.skipMultiplier
+	}
+
+	childPointer := int64(0)
+
+	var err error
+	for level := 0; level < numLevels; level++ {
+		if err = w.spi.WriteSkipData(level, w.skipBuffer[level]); err != nil {
+			return err
+		}
+
+		newChildPointer := w.skipBuffer[level].FilePointer()
+
+		if level != 0 {
+			// store child pointers for all levels except the lowest
+			if err = w.skipBuffer[level].WriteVLong(childPointer); err != nil {
+				return err
+			}
+		}
+
+		// remember the childPointer for the next level
+		childPointer = newChildPointer
+	}
+	return nil
 }
 
 /* Writes the buffered skip lists to the given output. */

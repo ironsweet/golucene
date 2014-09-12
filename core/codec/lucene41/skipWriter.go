@@ -36,13 +36,14 @@ type SkipWriter struct {
 func NewSkipWriter(maxSkipLevels, blockSize, docCount int,
 	docOut, posOut, payOut store.IndexOutput) *SkipWriter {
 	ans := &SkipWriter{
-		MultiLevelSkipListWriter: store.NewMultiLevelSkipListWriter(blockSize, 8, maxSkipLevels, docCount),
 		docOut:             docOut,
 		posOut:             posOut,
 		payOut:             payOut,
 		lastSkipDoc:        make([]int, maxSkipLevels),
 		lastSkipDocPointer: make([]int64, maxSkipLevels),
 	}
+	ans.MultiLevelSkipListWriter = store.NewMultiLevelSkipListWriter(ans, blockSize, 8, maxSkipLevels, docCount)
+
 	if posOut != nil {
 		ans.lastSkipPosPointer = make([]int64, maxSkipLevels)
 		if payOut != nil {
@@ -108,4 +109,8 @@ func (w *SkipWriter) BufferSkip(doc, numDocs int, posFP, payFP int64, posBufferU
 	w.curPosBufferUpto = posBufferUpto
 	w.curPayloadByteUpto = payloadByteUpto
 	return w.MultiLevelSkipListWriter.BufferSkip(numDocs)
+}
+
+func (w *SkipWriter) WriteSkipData(level int, skipBuffer store.IndexOutput) error {
+	panic("niy")
 }
