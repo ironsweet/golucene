@@ -267,7 +267,18 @@ func newReader(spi abstractReaderSPI) *abstractReader {
 }
 
 func (r *abstractReader) getBulk(index int, arr []int64) int {
-	panic("niy")
+	length := len(arr)
+	assert2(length > 0, "len must be > 0 (got %v)", length)
+	assert(index >= 0 && index < r.spi.Size())
+
+	gets := r.spi.Size() - index
+	if length < gets {
+		gets = length
+	}
+	for i, _ := range arr {
+		arr[i] = r.spi.Get(index + i)
+	}
+	return gets
 }
 
 // Run-once iterator interface, to decode previously saved PackedInts
