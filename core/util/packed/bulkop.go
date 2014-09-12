@@ -143,6 +143,10 @@ func newBulkOperationPackedSingleBlock(bitsPerValue uint32) BulkOperation {
 	return self
 }
 
+func (p *BulkOperationPackedSingleBlock) ByteBlockCount() int {
+	return BLOCK_COUNT * 8
+}
+
 func (p *BulkOperationPackedSingleBlock) LongValueCount() int {
 	return p.valueCount
 }

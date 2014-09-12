@@ -188,5 +188,10 @@ func isAllEqual(data []int) bool {
 }
 
 func bitsRequired(data []int) int {
-	panic("niy")
+	or := int64(0)
+	for _, v := range data[:LUCENE41_BLOCK_SIZE] {
+		assert(v >= 0)
+		or |= int64(v)
+	}
+	return packed.BitsRequired(or)
 }
