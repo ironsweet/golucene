@@ -250,7 +250,11 @@ func (r *CompressingStoredFieldsReader) VisitDocument(docID int, visitor StoredF
 			return err
 		}
 		if bitsPerLength == 0 {
-			panic("not implemented yet")
+			if length, err = int32AsInt(r.fieldsStream.ReadVInt()); err != nil {
+				return err
+			}
+			offset = (docID - docBase) * length
+			totalLength = chunkDocs * length
 		} else if bitsPerLength > 31 {
 			return errors.New(fmt.Sprintf("bitsPerLength=%v (resource=%v)",
 				bitsPerLength, r.fieldsStream))
