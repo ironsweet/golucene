@@ -535,15 +535,22 @@ func (f *segmentTermsEnumFrame) scanToTermNonLeaf(target []byte,
 
 				if f.nextEnt == f.entCount {
 					if exactOnly {
-						panic("not implemented yet")
+						f.fillTerm()
 					}
-					panic("not implemented yet")
+					// We are done scanning this block
+					stopScan = true
+					break
 				} else {
 					toNextTerm = true
 					break
 				}
 			} else if cmp > 0 {
-				panic("not implemented yet")
+				// Done! Current entry is after target -- return NOT_FOUND:
+				f.fillTerm()
+
+				if !exactOnly && !f.ste.termExists {
+					panic("niy")
+				}
 			} else if stop {
 				// Exact match!
 
