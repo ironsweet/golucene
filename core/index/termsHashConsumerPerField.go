@@ -488,8 +488,8 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 	readPositions := w.hasProx
 	readOffsets := w.hasOffsets
 
-	fmt.Printf("flush readTF=%v readPos=%v readOffs=%v\n",
-		readTermFreq, readPositions, readOffsets)
+	// fmt.Printf("flush readTF=%v readPos=%v readOffs=%v\n",
+	// 	readTermFreq, readPositions, readOffsets)
 
 	// Make sure FieldInfo.update is working correctly
 	assert(!writeTermFreq || readTermFreq)

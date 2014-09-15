@@ -1,7 +1,7 @@
 package fst
 
 import (
-	"fmt"
+	// "fmt"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -43,20 +43,20 @@ func newFSTEnum(spi FSTEnumSPI, fst *FST) *FSTEnum {
 }
 
 func (e *FSTEnum) doNext() (err error) {
-	fmt.Printf("FE: next upto=%v\n", e.upto)
+	// fmt.Printf("FE: next upto=%v\n", e.upto)
 	if e.upto == 0 {
-		fmt.Println("  init")
+		// fmt.Println("  init")
 		e.upto = 1
 		if _, err = e.fst.readFirstTargetArc(e.Arc(0), e.Arc(1), e.fstReader); err != nil {
 			return
 		}
 	} else {
 		// pop
-		fmt.Printf("  check pop curArc target=%v label=%v isLast?=",
-			e.arcs[e.upto].target, e.arcs[e.upto].Label, e.arcs[e.upto].isLast())
+		// fmt.Printf("  check pop curArc target=%v label=%v isLast?=",
+		// e.arcs[e.upto].target, e.arcs[e.upto].Label, e.arcs[e.upto].isLast())
 		for e.arcs[e.upto].isLast() {
 			if e.upto--; e.upto == 0 {
-				fmt.Println("  eof")
+				// fmt.Println("  eof")
 				return nil
 			}
 		}
@@ -96,8 +96,8 @@ func (e *FSTEnum) pushFirst() (err error) {
 			// final node
 			break
 		}
-		fmt.Printf("  pushFirst label=%c upto=%v output=%v\n",
-			rune(arc.Label), e.upto, e.fst.outputs.outputToString(e.output[e.upto]))
+		// fmt.Printf("  pushFirst label=%c upto=%v output=%v\n",
+		// 	rune(arc.Label), e.upto, e.fst.outputs.outputToString(e.output[e.upto]))
 		e.spi.setCurrentLabel(arc.Label)
 		e.incr()
 

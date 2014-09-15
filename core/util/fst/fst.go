@@ -548,7 +548,7 @@ func targetHasArcs(arc *Arc) bool {
 
 /* Serializes new node by appending its bytes to the end of the current []byte */
 func (t *FST) addNode(nodeIn *UnCompiledNode) (int64, error) {
-	fmt.Printf("FST.addNode pos=%v numArcs=%v\n", t.bytes.position(), nodeIn.NumArcs)
+	// fmt.Printf("FST.addNode pos=%v numArcs=%v\n", t.bytes.position(), nodeIn.NumArcs)
 	if nodeIn.NumArcs == 0 {
 		if nodeIn.IsFinal {
 			return FST_FINAL_END_NODE, nil
@@ -557,11 +557,11 @@ func (t *FST) addNode(nodeIn *UnCompiledNode) (int64, error) {
 	}
 
 	startAddress := t.bytes.position()
-	fmt.Printf("  startAddr=%v\n", startAddress)
+	// fmt.Printf("  startAddr=%v\n", startAddress)
 
 	doFixedArray := t.shouldExpand(nodeIn)
 	if doFixedArray {
-		fmt.Println("  fixedArray")
+		// fmt.Println("  fixedArray")
 		if len(t.bytesPerArc) < nodeIn.NumArcs {
 			t.bytesPerArc = make([]int, util.Oversize(nodeIn.NumArcs, 1))
 		}
@@ -577,7 +577,7 @@ func (t *FST) addNode(nodeIn *UnCompiledNode) (int64, error) {
 		arc := nodeIn.Arcs[arcIdx]
 		target := arc.Target.(*CompiledNode)
 		flags := byte(0)
-		fmt.Printf("  arc %v label=%v -> target=%v\n", arcIdx, arc.label, target.node)
+		// fmt.Printf("  arc %v label=%v -> target=%v\n", arcIdx, arc.label, target.node)
 
 		if arcIdx == lastArc {
 			flags += FST_BIT_LAST_ARC
@@ -614,21 +614,20 @@ func (t *FST) addNode(nodeIn *UnCompiledNode) (int64, error) {
 			return 0, err
 		}
 
-		fmt.Printf(
-			"  write arc: label=%c flags=%v target=%v pos=%v output=%v\n",
-			rune(arc.label), flags, target.node, t.bytes.position(),
-			t.outputs.outputToString(arc.output))
+		// fmt.Printf("  write arc: label=%c flags=%v target=%v pos=%v output=%v\n",
+		// 	rune(arc.label), flags, target.node, t.bytes.position(),
+		// 	t.outputs.outputToString(arc.output))
 
 		if arc.output != NO_OUTPUT {
 			if err = t.outputs.Write(arc.output, t.bytes); err != nil {
 				return 0, err
 			}
-			fmt.Println("    write output")
+			// fmt.Println("    write output")
 			t.arcWithOutputCount++
 		}
 
 		if arc.nextFinalOutput != NO_OUTPUT {
-			fmt.Println("    write final output")
+			// fmt.Println("    write final output")
 			if err = t.outputs.writeFinalOutput(arc.nextFinalOutput, t.bytes); err != nil {
 				return 0, err
 			}
@@ -636,7 +635,7 @@ func (t *FST) addNode(nodeIn *UnCompiledNode) (int64, error) {
 
 		if targetHasArcs && (flags&FST_BIT_TARGET_NEXT) == 0 {
 			assert(target.node > 0)
-			fmt.Println("    write target")
+			// fmt.Println("    write target")
 			if err = t.bytes.WriteVLong(target.node); err != nil {
 				return 0, err
 			}
@@ -708,8 +707,8 @@ func (t *FST) addNode(nodeIn *UnCompiledNode) (int64, error) {
 	}
 	t.lastFrozenNode = node
 
-	fmt.Printf("  ret node=%v address=%v nodeAddress=%v",
-		node, thisNodeAddress, t.nodeAddress)
+	// fmt.Printf("  ret node=%v address=%v nodeAddress=%v",
+	// 	node, thisNodeAddress, t.nodeAddress)
 	return node, nil
 }
 

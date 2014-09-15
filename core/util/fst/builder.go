@@ -114,7 +114,7 @@ func (b *Builder) freezeTail(prefixLenPlus1 int) error {
 		// Custom plugin:
 		return b._freezeTail(b.frontier, prefixLenPlus1, b.lastInput)
 	}
-	fmt.Printf("  compileTail %v\n", prefixLenPlus1)
+	// fmt.Printf("  compileTail %v\n", prefixLenPlus1)
 	downTo := prefixLenPlus1
 	if downTo < 1 {
 		downTo = 1
@@ -155,8 +155,8 @@ func (b *Builder) freezeTail(prefixLenPlus1 int) error {
 			doCompile = b.minSuffixCount2 == 0
 		}
 
-		fmt.Printf("    label=%c idx=%v inputCount=%v doCompile=%v doPrune=%v\n",
-			b.lastInput.At(idx-1), idx, b.frontier[idx].InputCount, doCompile, doPrune)
+		// fmt.Printf("    label=%c idx=%v inputCount=%v doCompile=%v doPrune=%v\n",
+		// 	b.lastInput.At(idx-1), idx, b.frontier[idx].InputCount, doCompile, doPrune)
 		if node.InputCount < int64(b.minSuffixCount2) ||
 			(b.minSuffixCount2 == 1 && node.InputCount == 1 && idx > 1) {
 			// drop all arcs

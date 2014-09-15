@@ -333,7 +333,8 @@ func (w *CompressingStoredFieldsWriter) WriteField(info *model.FieldInfo, field 
 			err = w.bufferedDocs.WriteBytes(bytes)
 		}
 	case str != "":
-		err = w.bufferedDocs.WriteString(field.StringValue())
+		fmt.Println("\n\nDEBUG1", str)
+		err = w.bufferedDocs.WriteString(str)
 	case bits == NUMERIC_INT:
 		err = w.bufferedDocs.WriteInt(number.(int32))
 	case bits == NUMERIC_LONG:

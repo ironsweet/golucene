@@ -1,7 +1,7 @@
 package fst
 
 import (
-	"fmt"
+	// "fmt"
 	"github.com/balzaczyy/golucene/core/util/packed"
 )
 
@@ -56,13 +56,13 @@ const PRIME = 31
 
 /* hash code for an unfrozen node. This must be identical to the frozen case (below) !! */
 func (nh *NodeHash) hash(node *UnCompiledNode) int64 {
-	fmt.Println("hash unfrozen")
+	// fmt.Println("hash unfrozen")
 	h := int64(0)
 	for arcIdx := 0; arcIdx < node.NumArcs; arcIdx++ {
 		arc := node.Arcs[arcIdx]
-		fmt.Printf("  label=%v target=%v h=%v output=%v isFinal?=%v\n",
-			arc.label, arc.Target.(*CompiledNode).node, h,
-			nh.fst.outputs.outputToString(arc.output), arc.isFinal)
+		// fmt.Printf("  label=%v target=%v h=%v output=%v isFinal?=%v\n",
+		// 	arc.label, arc.Target.(*CompiledNode).node, h,
+		// 	nh.fst.outputs.outputToString(arc.output), arc.isFinal)
 		h = PRIME*h + int64(arc.label)
 		n := arc.Target.(*CompiledNode).node
 		h = PRIME*h + int64(n^(n>>32))
@@ -72,23 +72,23 @@ func (nh *NodeHash) hash(node *UnCompiledNode) int64 {
 			h += 17
 		}
 	}
-	fmt.Printf("  ret %v\n", int32(h))
+	// fmt.Printf("  ret %v\n", int32(h))
 	return h
 }
 
 /* hash code for a frozen node */
 func (nh *NodeHash) hashFrozen(node int64) (int64, error) {
-	fmt.Printf("hash frozen node=%v\n", node)
+	// fmt.Printf("hash frozen node=%v\n", node)
 	h := int64(0)
 	_, err := nh.fst.readFirstRealTargetArc(node, nh.scratchArc, nh.in)
 	if err != nil {
 		return 0, err
 	}
 	for {
-		fmt.Printf("  label=%v target=%v h=%v output=%v next?=%v final?=%v pos=%v\n",
-			nh.scratchArc.Label, nh.scratchArc.target, h,
-			nh.fst.outputs.outputToString(nh.scratchArc.Output),
-			nh.scratchArc.flag(4), nh.scratchArc.IsFinal(), nh.in.getPosition())
+		// fmt.Printf("  label=%v target=%v h=%v output=%v next?=%v final?=%v pos=%v\n",
+		// 	nh.scratchArc.Label, nh.scratchArc.target, h,
+		// 	nh.fst.outputs.outputToString(nh.scratchArc.Output),
+		// 	nh.scratchArc.flag(4), nh.scratchArc.IsFinal(), nh.in.getPosition())
 		h = PRIME*h + int64(nh.scratchArc.Label)
 		h = PRIME*h + int64(nh.scratchArc.target^(nh.scratchArc.target>>32))
 		h = PRIME*h + hashPtr(nh.scratchArc.Output)
@@ -103,7 +103,7 @@ func (nh *NodeHash) hashFrozen(node int64) (int64, error) {
 			return 0, err
 		}
 	}
-	fmt.Printf("  ret %v\n", int32(h))
+	// fmt.Printf("  ret %v\n", int32(h))
 	return h, nil
 }
 
@@ -117,7 +117,7 @@ func hashPtr(obj interface{}) (h int64) {
 }
 
 func (nh *NodeHash) add(nodeIn *UnCompiledNode) (int64, error) {
-	fmt.Printf("hash: add count=%v vs %v mask=%v\n", nh.count, nh.table.Size(), nh.mask)
+	// fmt.Printf("hash: add count=%v vs %v mask=%v\n", nh.count, nh.table.Size(), nh.mask)
 	h := nh.hash(nodeIn)
 	pos := h & nh.mask
 	c := int64(0)
@@ -129,7 +129,7 @@ func (nh *NodeHash) add(nodeIn *UnCompiledNode) (int64, error) {
 			if err != nil {
 				return 0, err
 			}
-			fmt.Printf("  now freze node=%v\n", node)
+			// fmt.Printf("  now freeze node=%v\n", node)
 			h2, err := nh.hashFrozen(node)
 			if err != nil {
 				return 0, err

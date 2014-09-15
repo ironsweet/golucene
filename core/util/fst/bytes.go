@@ -152,7 +152,7 @@ func (s *BytesStore) copyBytesInside(src, dest int64, length int) {
 func (s *BytesStore) reverse(srcPos, destPos int64) {
 	assert(srcPos < destPos)
 	assert(destPos < s.position())
-	fmt.Printf("reverse src=%v dest=%v\n", srcPos, destPos)
+	// fmt.Printf("reverse src=%v dest=%v\n", srcPos, destPos)
 
 	srcBlockIndex := int(srcPos >> s.blockBits)
 	src := int(srcPos & int64(s.blockMask))
@@ -162,11 +162,11 @@ func (s *BytesStore) reverse(srcPos, destPos int64) {
 	dest := int(destPos & int64(s.blockMask))
 	destBlock := s.blocks[destBlockIndex]
 
-	fmt.Printf("  srcBlock=%v destBlock=%v\n", srcBlockIndex, destBlockIndex)
+	// fmt.Printf("  srcBlock=%v destBlock=%v\n", srcBlockIndex, destBlockIndex)
 
 	limit := int((destPos - srcPos + 1) / 2)
 	for i := 0; i < limit; i++ {
-		fmt.Printf("  cycle src=%v dest=%v\n", src, dest)
+		// fmt.Printf("  cycle src=%v dest=%v\n", src, dest)
 		srcBlock[src], destBlock[dest] = destBlock[dest], srcBlock[src]
 		if src++; src == int(s.blockSize) {
 			srcBlockIndex++

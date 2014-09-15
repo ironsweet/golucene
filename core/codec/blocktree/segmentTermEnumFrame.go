@@ -269,13 +269,13 @@ func (f *segmentTermsEnumFrame) scanToFloorFrame(target []byte) {
 	var newFP int64
 	for {
 		code, _ := f.floorDataReader.ReadVLong() // ignore error
-		newFP = f.fpOrig + int64(uint64(code) >> 1)
+		newFP = f.fpOrig + int64(uint64(code)>>1)
 		f.hasTerms = (code & 1) != 0
-		fmt.Printf("      label=%x fp=%v hasTerms?=%v numFollorFloor=%v\n", 
-			f.nextFloorLabel, newFP, f.hasTerms, f.numFollowFloorBlocks)
+		// fmt.Printf("      label=%x fp=%v hasTerms?=%v numFollorFloor=%v\n",
+		// f.nextFloorLabel, newFP, f.hasTerms, f.numFollowFloorBlocks)
 
 		f.isLastInFloor = f.numFollowFloorBlocks == 1
-		f.numFollowFloorBlocks --
+		f.numFollowFloorBlocks--
 
 		if f.isLastInFloor {
 			f.nextFloorLabel = 256
