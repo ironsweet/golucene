@@ -1,7 +1,7 @@
 package index
 
 import (
-	"fmt"
+	// "fmt"
 	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/codec"
 	. "github.com/balzaczyy/golucene/core/codec/spi"

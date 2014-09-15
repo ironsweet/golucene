@@ -333,7 +333,6 @@ func (w *CompressingStoredFieldsWriter) WriteField(info *model.FieldInfo, field 
 			err = w.bufferedDocs.WriteBytes(bytes)
 		}
 	case str != "":
-		fmt.Println("\n\nDEBUG1", str)
 		err = w.bufferedDocs.WriteString(str)
 	case bits == NUMERIC_INT:
 		err = w.bufferedDocs.WriteInt(number.(int32))
@@ -399,13 +398,27 @@ func newGrowableByteArrayDataOutput(cp int) *GrowableByteArrayDataOutput {
 }
 
 func (out *GrowableByteArrayDataOutput) WriteByte(b byte) error {
-	out.bytes = append(out.bytes, b)
+	assert(out.length <= len(out.bytes))
+	if out.length < len(out.bytes) {
+		out.bytes[out.length] = b
+	} else {
+		out.bytes = append(out.bytes, b)
+	}
 	out.length++
 	return nil
 }
 
 func (out *GrowableByteArrayDataOutput) WriteBytes(b []byte) error {
-	out.bytes = append(out.bytes, b...)
+	assert(out.length <= len(out.bytes))
+	remaining := len(out.bytes) - out.length
+	if remaining > len(b) {
+		copy(out.bytes[out.length:], b)
+	} else if remaining == 0 {
+		out.bytes = append(out.bytes, b...)
+	} else {
+		copy(out.bytes[out.length:], b[:remaining])
+		out.bytes = append(out.bytes, b[remaining:]...)
+	}
 	out.length += len(b)
 	return nil
 }

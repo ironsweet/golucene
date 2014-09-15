@@ -13,7 +13,7 @@ import (
 
 // index/DocumentsWriterPerThread.java
 
-const DWPT_VERBOSE = true
+const DWPT_VERBOSE = false
 
 // Returns the DocConsumer that the DocumentsWriter calls to
 // process the documents.
