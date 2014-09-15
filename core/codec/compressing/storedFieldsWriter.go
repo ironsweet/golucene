@@ -157,11 +157,14 @@ func (w *CompressingStoredFieldsWriter) StartDocument() error { return nil }
 func (w *CompressingStoredFieldsWriter) FinishDocument() error {
 	if w.numBufferedDocs == len(w.numStoredFields) {
 		newLength := util.Oversize(w.numBufferedDocs+1, 4)
+
 		oldArray := w.endOffsets
-		w.numStoredFields = make([]int, newLength)
 		w.endOffsets = make([]int, newLength)
-		copy(w.numStoredFields, oldArray)
 		copy(w.endOffsets, oldArray)
+
+		oldArray = w.numStoredFields
+		w.numStoredFields = make([]int, newLength)
+		copy(w.numStoredFields, oldArray)
 	}
 	w.numStoredFields[w.numBufferedDocs] = w.numStoredFieldsInDoc
 	w.numStoredFieldsInDoc = 0
@@ -182,14 +185,14 @@ func saveInts(values []int, out DataOutput) error {
 
 	var allEqual = true
 	var sentinel = values[0]
-	for _, v := range values {
+	for _, v := range values[1:] {
 		if v != sentinel {
 			allEqual = false
 			break
 		}
 	}
 	if allEqual {
-		err := out.WriteInt(0)
+		err := out.WriteVInt(0)
 		if err == nil {
 			err = out.WriteVInt(int32(values[0]))
 		}
@@ -208,8 +211,7 @@ func saveInts(values []int, out DataOutput) error {
 
 	w := packed.WriterNoHeader(out, packed.PackedFormat(packed.PACKED), length, bitsRequired, 1)
 	for _, v := range values {
-		err = w.Add(int64(v))
-		if err != nil {
+		if err = w.Add(int64(v)); err != nil {
 			return err
 		}
 	}
