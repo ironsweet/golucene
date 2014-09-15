@@ -8,7 +8,6 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/fst"
-	"log"
 )
 
 type segmentTermsEnumFrame struct {
@@ -104,7 +103,7 @@ func (f *segmentTermsEnumFrame) setFloorData(in *store.ByteArrayDataInput, sourc
 	f.numFollowFloorBlocks, _ = asInt(f.floorDataReader.ReadVInt())
 	b, _ := f.floorDataReader.ReadByte()
 	f.nextFloorLabel = int(b)
-	log.Printf("    setFloorData fpOrig=%v bytes=%v numFollowFloorBlocks=%v nextFloorLabel=%x",
+	fmt.Printf("    setFloorData fpOrig=%v bytes=%v numFollowFloorBlocks=%v nextFloorLabel=%x\n",
 		f.fpOrig, source[in.Pos:], f.numFollowFloorBlocks, f.nextFloorLabel)
 }
 
@@ -168,10 +167,10 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 	f.suffixesReader.Reset(f.suffixBytes)
 
 	if f.arc == nil {
-		log.Printf("    loadBlock (next) fp=%v entCount=%v prefixLen=%v isLastInFloor=%v leaf?=%v",
+		fmt.Printf("    loadBlock (next) fp=%v entCount=%v prefixLen=%v isLastInFloor=%v leaf?=%v\n",
 			f.fp, f.entCount, f.prefix, f.isLastInFloor, f.isLeafBlock)
 	} else {
-		log.Printf("    loadBlock (seek) fp=%v entCount=%v prefixLen=%v hasTerms?=%v isFloor?=%v isLastInFloor=%v leaf?=%v",
+		fmt.Printf("    loadBlock (seek) fp=%v entCount=%v prefixLen=%v hasTerms?=%v isFloor?=%v isLastInFloor=%v leaf?=%v\n",
 			f.fp, f.entCount, f.prefix, f.hasTerms, f.isFloor, f.isLastInFloor, f.isLeafBlock)
 	}
 
@@ -214,7 +213,7 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 	// Sub-blocks of a single floor block are always
 	// written one after another -- tail recurse:
 	f.fpEnd = f.ste.in.FilePointer()
-	log.Printf("      fpEnd=%v", f.fpEnd)
+	fmt.Printf("      fpEnd=%v\n", f.fpEnd)
 	return nil
 }
 
@@ -252,65 +251,49 @@ func (f *segmentTermsEnumFrame) nextNonLeaf() bool {
 // floor blocks we "typically" get
 func (f *segmentTermsEnumFrame) scanToFloorFrame(target []byte) {
 	if !f.isFloor || len(target) <= f.prefix {
-		log.Printf("    scanToFloorFrame skip: isFloor=%v target.length=%v vs prefix=%v",
+		fmt.Printf("    scanToFloorFrame skip: isFloor=%v target.length=%v vs prefix=%v\n",
 			f.isFloor, len(target), f.prefix)
 		return
 	}
 
 	targetLabel := int(target[f.prefix])
-	log.Printf("    scanToFloorFrame fpOrig=%v targetLabel=%x vs nextFloorLabel=%x numFollowFloorBlocks=%v",
+	fmt.Printf("    scanToFloorFrame fpOrig=%v targetLabel=%x vs nextFloorLabel=%x numFollowFloorBlocks=%v\n",
 		f.fpOrig, targetLabel, f.nextFloorLabel, f.numFollowFloorBlocks)
 	if targetLabel < f.nextFloorLabel {
-		log.Println("      already on correct block")
+		fmt.Println("      already on correct block")
 		return
 	}
 
-	if f.numFollowFloorBlocks == 0 {
-		panic("assert fail")
+	assert(f.numFollowFloorBlocks != 0)
+
+	var newFP int64
+	for {
+		code, _ := f.floorDataReader.ReadVLong() // ignore error
+		newFP = f.fpOrig + int64(uint64(code) >> 1)
+		f.hasTerms = (code & 1) != 0
+		fmt.Printf("      label=%x fp=%v hasTerms?=%v numFollorFloor=%v\n", 
+			f.nextFloorLabel, newFP, f.hasTerms, f.numFollowFloorBlocks)
+
+		f.isLastInFloor = f.numFollowFloorBlocks == 1
+		f.numFollowFloorBlocks --
+
+		if f.isLastInFloor {
+			f.nextFloorLabel = 256
+			fmt.Printf("        stop!  last block nextFloorLabel=%x\n", f.nextFloorLabel)
+			break
+		} else {
+			panic("niy")
+		}
 	}
 
-	panic("not implemented yet")
-	// long newFP;
-	//  while (true) {
-	//    final long code = floorDataReader.readVLong();
-	//    newFP = fpOrig + (code >>> 1);
-	//    hasTerms = (code & 1) != 0;
-	//    // if (DEBUG) {
-	//    //   System.out.println("      label=" + toHex(nextFloorLabel) + " fp=" + newFP + " hasTerms?=" + hasTerms + " numFollowFloor=" + numFollowFloorBlocks);
-	//    // }
-
-	//    isLastInFloor = numFollowFloorBlocks == 1;
-	//    numFollowFloorBlocks--;
-
-	//    if (isLastInFloor) {
-	//      nextFloorLabel = 256;
-	//      // if (DEBUG) {
-	//      //   System.out.println("        stop!  last block nextFloorLabel=" + toHex(nextFloorLabel));
-	//      // }
-	//      break;
-	//    } else {
-	//      nextFloorLabel = floorDataReader.readByte() & 0xff;
-	//      if (targetLabel < nextFloorLabel) {
-	//        // if (DEBUG) {
-	//        //   System.out.println("        stop!  nextFloorLabel=" + toHex(nextFloorLabel));
-	//        // }
-	//        break;
-	//      }
-	//    }
-	//  }
-
-	//  if (newFP != fp) {
-	//    // Force re-load of the block:
-	//    // if (DEBUG) {
-	//    //   System.out.println("      force switch to fp=" + newFP + " oldFP=" + fp);
-	//    // }
-	//    nextEnt = -1;
-	//    fp = newFP;
-	//  } else {
-	//    // if (DEBUG) {
-	//    //   System.out.println("      stay on same fp=" + newFP);
-	//    // }
-	//  }
+	if newFP != f.fp {
+		// Force re-load of the block:
+		fmt.Printf("      force switch to fp=%v oldFP=%v\n", newFP, f.fp)
+		f.nextEnt = -1
+		f.fp = newFP
+	} else {
+		//
+	}
 }
 
 // Used only by assert
@@ -334,7 +317,7 @@ func (f *segmentTermsEnumFrame) scanToTerm(target []byte, exactOnly bool) (statu
 // Target's prefix matches this block's prefix; we
 // scan the entries check if the suffix matches.
 func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (status SeekStatus, err error) {
-	log.Printf("    scanToTermLeaf: block fp=%v prefix=%v nextEnt=%v (of %v) target=%v term=%v",
+	fmt.Printf("    scanToTermLeaf: block fp=%v prefix=%v nextEnt=%v (of %v) target=%v term=%v\n",
 		f.fp, f.prefix, f.nextEnt, f.entCount, brToString(target), f.ste.term)
 	assert(f.nextEnt != -1)
 
@@ -361,7 +344,7 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 		}
 
 		suffixReaderPos := f.suffixesReader.Pos
-		log.Printf("      cycle: term %v (of %v) suffix=%v",
+		fmt.Printf("      cycle: term %v (of %v) suffix=%v\n",
 			f.nextEnt-1, f.entCount, brToString(f.suffixBytes[suffixReaderPos:suffixReaderPos+f.suffix]))
 
 		termLen := f.prefix + f.suffix
@@ -429,7 +412,7 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 					}
 				}
 
-				log.Println("        not found")
+				fmt.Println("        not found")
 				return SEEK_STATUS_NOT_FOUND, nil
 			} else if stop {
 				// Exact match!
@@ -440,7 +423,7 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 
 				assert(f.ste.termExists)
 				f.fillTerm()
-				log.Println("        found!")
+				fmt.Println("        found!")
 				return SEEK_STATUS_FOUND, nil
 			}
 		}
@@ -459,7 +442,7 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 	// to the foo* block, but the last term in this block
 	// was fooz (and, eg, first term in the next block will
 	// bee fop).
-	log.Println("      block end")
+	fmt.Println("      block end")
 	if exactOnly {
 		f.fillTerm()
 	}
@@ -596,7 +579,7 @@ func (f *segmentTermsEnumFrame) fillTerm() {
 }
 
 func (f *segmentTermsEnumFrame) decodeMetaData() (err error) {
-	log.Printf("BTTR.decodeMetadata seg=%v mdUpto=%v vs termBlockOrd=%v",
+	fmt.Printf("BTTR.decodeMetadata seg=%v mdUpto=%v vs termBlockOrd=%v\n",
 		f.ste.fr.parent.segment, f.metaDataUpto, f.state.TermBlockOrd)
 
 	// lazily catch up on metadata decode:
@@ -619,7 +602,7 @@ func (f *segmentTermsEnumFrame) decodeMetaData() (err error) {
 		if f.state.DocFreq, err = asInt(f.statsReader.ReadVInt()); err != nil {
 			return err
 		}
-		log.Printf("    dF=%v", f.state.DocFreq)
+		fmt.Printf("    dF=%v\n", f.state.DocFreq)
 		if f.ste.fr.fieldInfo.IndexOptions() != INDEX_OPT_DOCS_ONLY {
 			var n int64
 			if n, err = f.statsReader.ReadVLong(); err != nil {
