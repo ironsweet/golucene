@@ -115,30 +115,30 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 			bitsPerValue = 8
 		}
 
-		panic("not implemented yet")
-		// formatAndBits := packed.FastestFormatAndBits(nc.maxDoc, bitsPerValue, nc.acceptableOverheadRatio)
-		// if formatAndBits.BitsPerValue == 8 && minValue >= math.MinInt8 && maxValue <= math.MaxInt8 {
-		// 	err = nc.meta.WriteByte(UNCOMPRESSED) // uncompressed
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	for {
-		// 		nv, ok := f()
-		// 		if !ok {
-		// 			break
-		// 		}
-		// 		n := byte(0)
-		// 		if nv != nil {
-		// 			n = byte(nv.(int64))
-		// 		}
-		// 		err = nc.data.WriteByte(byte(n))
-		// 		if err != nil {
-		// 			return err
-		// 		}
-		// 	}
-		// } else {
-		// 	panic("not implemented yet")
-		// }
+		if bitsPerValue == 8 && minValue >= 0 && maxValue <= 255 {
+			// uncompressed []byte
+			if err = nc.meta.WriteByte(UNCOMPRESSED); err != nil {
+				return err
+			}
+			if err = nc.meta.WriteLong(nc.data.FilePointer()); err != nil {
+				return err
+			}
+			for {
+				nv, ok := f()
+				if !ok {
+					break
+				}
+				n := byte(0)
+				if nv != nil {
+					n = byte(nv.(int64))
+				}
+				if err = nc.data.WriteByte(byte(n)); err != nil {
+					return err
+				}
+			}
+		} else {
+			panic("not implemented yet")
+		}
 	} else {
 		panic("not implemented yet")
 	}

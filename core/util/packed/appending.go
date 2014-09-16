@@ -115,6 +115,7 @@ func (buf *abstractAppendingLongBuffer) Iterator() func() (int64, bool) {
 			return 0, false
 		}
 		result := currentValues[pOff]
+		pOff++
 		if pOff == currentCount {
 			vOff++
 			pOff = 0
