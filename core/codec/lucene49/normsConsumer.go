@@ -138,8 +138,10 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 		} else {
 			if err = store.Stream(nc.meta).WriteByte(TABLE_COMPRESSED). // table-compressed
 											WriteLong(nc.data.FilePointer()).
-											WriteVInt(packed.VERSION_CURRENT).
 											Close(); err != nil {
+				return err
+			}
+			if err = nc.data.WriteVInt(packed.VERSION_CURRENT); err != nil {
 				return err
 			}
 
