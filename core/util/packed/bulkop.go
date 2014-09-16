@@ -219,7 +219,13 @@ func (p *BulkOperationPackedSingleBlock) encodeLongToLong(values,
 
 func (p *BulkOperationPackedSingleBlock) encodeLongToByte(values []int64,
 	blocks []byte, iterations int) {
-	panic("not implemented yet")
+
+	valuesOffset, blocksOffset := 0, 0
+	for i := 0; i < iterations; i++ {
+		block := p.encodeLongs(values[valuesOffset:])
+		valuesOffset += p.valueCount
+		blocksOffset = p.writeLong(block, blocks[blocksOffset:])
+	}
 }
 
 func (p *BulkOperationPackedSingleBlock) EncodeIntToByte(values []int,
