@@ -33,6 +33,13 @@ func (ios *IndexOutputStream) WriteInt(i int32) *IndexOutputStream {
 	return ios
 }
 
+func (ios *IndexOutputStream) WriteVInt(i int32) *IndexOutputStream {
+	if ios.err == nil {
+		ios.err = ios.out.WriteVInt(i)
+	}
+	return ios
+}
+
 func (ios *IndexOutputStream) WriteLong(l int64) *IndexOutputStream {
 	if ios.err == nil {
 		ios.err = ios.out.WriteLong(l)

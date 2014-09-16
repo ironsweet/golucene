@@ -7,6 +7,7 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
 	"math"
+	"sort"
 )
 
 // lucene49/Lucene49NormsConsumer.java
@@ -107,7 +108,7 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 	} else if len(uniqueValues) > 0 {
 		// small number of unique values; this is the typical case:
 		// we only use bpv=1,2,4,8
-		// format := packed.PACKED_SINGLE_BLOCK
+		format := packed.PackedFormat(packed.PACKED_SINGLE_BLOCK)
 		bitsPerValue := packed.BitsRequired(int64(len(uniqueValues)) - 1)
 		if bitsPerValue == 3 {
 			bitsPerValue = 4
@@ -116,11 +117,9 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 		}
 
 		if bitsPerValue == 8 && minValue >= 0 && maxValue <= 255 {
-			// uncompressed []byte
-			if err = nc.meta.WriteByte(UNCOMPRESSED); err != nil {
-				return err
-			}
-			if err = nc.meta.WriteLong(nc.data.FilePointer()); err != nil {
+			if err = store.Stream(nc.meta).WriteByte(UNCOMPRESSED). // uncompressed []byte
+										WriteLong(nc.data.FilePointer()).
+										Close(); err != nil {
 				return err
 			}
 			for {
@@ -137,13 +136,69 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 				}
 			}
 		} else {
-			panic("not implemented yet")
+			if err = store.Stream(nc.meta).WriteByte(TABLE_COMPRESSED). // table-compressed
+											WriteLong(nc.data.FilePointer()).
+											WriteVInt(packed.VERSION_CURRENT).
+											Close(); err != nil {
+				return err
+			}
+
+			var decode []int64
+			for k, _ := range uniqueValues {
+				decode = append(decode, k)
+			}
+			sort.Sort(Longs(decode))
+			encode := make(map[int64]int)
+			// upgrade to power of two sized array
+			size := 1 << uint(bitsPerValue)
+			if err = nc.data.WriteVInt(int32(size)); err != nil {
+				return err
+			}
+			for i, v := range decode {
+				if err = nc.data.WriteLong(v); err != nil {
+					return err
+				}
+				encode[v] = i
+			}
+			for i := len(decode); i < size; i++ {
+				if err = nc.data.WriteLong(0); err != nil {
+					return err
+				}
+			}
+
+			if err = store.Stream(nc.data).WriteVInt(int32(format.Id())).
+				WriteVInt(int32(bitsPerValue)).
+				Close(); err != nil {
+				return err
+			}
+
+			writer := packed.WriterNoHeader(nc.data, format, nc.maxDoc, bitsPerValue, packed.DEFAULT_BUFFER_SIZE)
+			for {
+				nv, ok := f()
+				if !ok {
+					break
+				}
+				i, ok := encode[nv.(int64)]
+				assert(ok)
+				if err = writer.Add(int64(i)); err != nil {
+					return err
+				}
+			}
+			if err = writer.Finish(); err != nil {
+				return err
+			}
 		}
 	} else {
 		panic("not implemented yet")
 	}
 	return nil
 }
+
+type Longs []int64
+
+func (a Longs) Len() int           { return len(a) }
+func (a Longs) Less(i, j int) bool { return a[i] < a[j] }
+func (a Longs) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 func (nc *NormsConsumer) Close() (err error) {
 	var success = false
