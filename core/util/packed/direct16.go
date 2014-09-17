@@ -69,7 +69,7 @@ func (d *Direct16) RamBytesUsed() int64 {
 			if len(arr) < gets {
 				gets = len(arr)
 			}
-			for i, _ := range arr {
+			for i, _ := range arr[:gets] {
 				arr[i] = int64(d.values[index+i])
 			}
 			return gets

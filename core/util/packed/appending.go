@@ -1,7 +1,6 @@
 package packed
 
 import (
-	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -226,7 +225,12 @@ func (buf *AppendingDeltaPackedLongBuffer) get(block, element int) int64 {
 
 func (buf *AppendingDeltaPackedLongBuffer) get2Bulk(block, element int, arr []int64) int {
 	if block == buf.valuesOff {
-		panic("niy")
+		sysCopyToRead := len(arr)
+		if buf.pendingOff-element < sysCopyToRead {
+			sysCopyToRead = buf.pendingOff - element
+		}
+		copy(arr, buf.pending[element:element+sysCopyToRead])
+		return sysCopyToRead
 	} else {
 		// packed block
 		read := buf.values[block].getBulk(element, arr)

@@ -563,7 +563,7 @@ func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCo
 			if len(arr) < gets {
 				gets = len(arr)
 			}
-			for i, _ := range arr {
+			for i, _ := range arr[:gets] {
 				arr[i] = int64(d.values[index+i])
 			}
 			return gets
@@ -596,14 +596,14 @@ func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCo
 			}
 		}
 				gocog]]] */
+		case 8:
+			return newDirect8FromInput(version, in, int(valueCount))
 		case 16:
 			return newDirect16FromInput(version, in, int(valueCount))
 		case 32:
 			return newDirect32FromInput(version, in, int(valueCount))
 		case 64:
 			return newDirect64FromInput(version, in, int(valueCount))
-		case 8:
-			return newDirect8FromInput(version, in, int(valueCount))
 		// [[[end]]]
 		case 24:
 			if valueCount <= PACKED8_THREE_BLOCKS_MAX_SIZE {
