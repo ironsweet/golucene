@@ -34,7 +34,7 @@ func newPacked64SingleBlock(valueCount int32, bitsPerValue uint32) *Packed64Sing
 	return ans
 }
 
-func (p *Packed64SingleBlock) CLear() {
+func (p *Packed64SingleBlock) Clear() {
 	for i, _ := range p.blocks {
 		p.blocks[i] = 0
 	}
@@ -61,7 +61,50 @@ func (p *Packed64SingleBlock) getBulk(index int, arr []int64) int {
 }
 
 func (p *Packed64SingleBlock) setBulk(index int, arr []int64) int {
-	panic("niy")
+	off := 0
+	length := len(arr)
+	assert2(length > 0, "len must be > 0 (got %v)", length)
+	assert(index >= 0 && index < p.valueCount)
+	if p.valueCount-index < length {
+		length = p.valueCount - index
+	}
+
+	originalIndex := index
+
+	// go to the next block boundry
+	valuesPerBlock := 64 / p.bitsPerValue
+	offsetInBlock := index % valuesPerBlock
+	if offsetInBlock != 0 {
+		for i := offsetInBlock; i < valuesPerBlock && length > 0; i++ {
+			p.set(index, arr[off])
+			index++
+			off++
+			length--
+		}
+		if length == 0 {
+			return index - originalIndex
+		}
+	}
+
+	// bulk set
+	assert(index%valuesPerBlock == 0)
+	op := newBulkOperation(PackedFormat(PACKED_SINGLE_BLOCK), uint32(p.bitsPerValue))
+	assert(op.LongBlockCount() == 1)
+	assert(op.LongValueCount() == valuesPerBlock)
+	blockIndex := index / valuesPerBlock
+	nBlocks := (index+length)/valuesPerBlock - blockIndex
+	op.encodeLongToLong(arr[off:], p.blocks[blockIndex:], nBlocks)
+	diff := nBlocks * valuesPerBlock
+	index += diff
+	length -= diff
+
+	if index > originalIndex {
+		// stay at the block boundry
+		return index - originalIndex
+	}
+	// no progress so far => already at a block boundry but no full block to set
+	assert(index == originalIndex)
+	return p.MutableImpl.setBulk(index, arr[off:off+length])
 }
 
 func (p *Packed64SingleBlock) fill(from, to int, val int64) {

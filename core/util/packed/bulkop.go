@@ -45,6 +45,10 @@ func newBulkOperationPacked(bitsPerValue uint32) *BulkOperationPacked {
 	return self
 }
 
+func (p *BulkOperationPacked) LongBlockCount() int {
+	return p.longBlockCount
+}
+
 func (p *BulkOperationPacked) LongValueCount() int {
 	return p.longValueCount
 }
@@ -83,6 +87,7 @@ func (p *BulkOperationPacked) encodeLongToLong(values, blocks []int64, iteration
 			blocks[blocksOffset] = nextBlock
 			blocksOffset++
 			nextBlock = (values[valuesOffset] & ((1 << uint(-bitsLeft)) - 1) << uint(64+bitsLeft))
+			valuesOffset++
 			bitsLeft += 64
 		}
 	}
@@ -166,6 +171,10 @@ func newBulkOperationPackedSingleBlock(bitsPerValue uint32) BulkOperation {
 	}
 	self.BulkOperationImpl = newBulkOperationImpl(self)
 	return self
+}
+
+func (p *BulkOperationPackedSingleBlock) LongBlockCount() int {
+	return BLOCK_COUNT
 }
 
 func (p *BulkOperationPackedSingleBlock) ByteBlockCount() int {

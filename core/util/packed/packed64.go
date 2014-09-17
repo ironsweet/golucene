@@ -67,7 +67,7 @@ func (p *Packed64) Get(index int) int64 {
 	endBits := (majorBitPos & PACKED64_MOD_MASK) + int64(p.bpvMinusBlockSize)
 
 	if endBits <= 0 { // Single block
-		return int64((uint64(p.blocks[elementPos]) >> uint64(-endBits)) & p.maskRight)
+		return int64(uint64(p.blocks[elementPos])>>uint64(-endBits)) & int64(p.maskRight)
 	}
 	// Two blocks
 	return ((p.blocks[elementPos] << uint64(endBits)) |
@@ -134,9 +134,13 @@ func (p *Packed64) Set(index int, value int64) {
 }
 
 func (p *Packed64) setBulk(index int, arr []int64) int {
+	off := 0
 	length := len(arr)
 	assert2(length > 0, "len must be > 0 (got %v)", length)
 	assert(index >= 0 && index < p.valueCount)
+	if p.valueCount-index < length {
+		length = p.valueCount - index
+	}
 
 	originalIndex := index
 	encoder := newBulkOperation(PackedFormat(PACKED), uint32(p.bitsPerValue))
@@ -152,7 +156,7 @@ func (p *Packed64) setBulk(index int, arr []int64) int {
 	blockIndex := int(uint64(int64(index)*int64(p.bitsPerValue)) >> PACKED64_BLOCK_BITS)
 	assert(((int64(index) * int64(p.bitsPerValue)) & PACKED64_MOD_MASK) == 0)
 	iterations := length / encoder.LongValueCount()
-	encoder.encodeLongToLong(arr, p.blocks[blockIndex:], iterations)
+	encoder.encodeLongToLong(arr[off:], p.blocks[blockIndex:], iterations)
 	setValues := iterations * encoder.LongValueCount()
 	index += setValues
 	length -= setValues
@@ -164,7 +168,7 @@ func (p *Packed64) setBulk(index int, arr []int64) int {
 	}
 	// no progress so far => already at a block boundry but no full block to get
 	assert(index == originalIndex)
-	return p.MutableImpl.setBulk(index, arr)
+	return p.MutableImpl.setBulk(index, arr[off:off+length])
 }
 
 func (p *Packed64) String() string {

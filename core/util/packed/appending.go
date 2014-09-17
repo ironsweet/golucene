@@ -4,6 +4,16 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 )
 
+type AppendingLongBuffer interface {
+	Size() int64
+	Get(int64) int64
+	GetBulk(int64, []int64) int
+	Add(int64)
+	Iterator() func() (int64, bool)
+	freeze()
+	pageSize() int
+}
+
 // packed/AbstractAppendingLongBuffer.java
 
 const MIN_PAGE_SIZE = 64
@@ -14,9 +24,10 @@ const MAX_PAGE_SIZE = 1 << 20
 
 type abstractAppendingLongBufferSPI interface {
 	packPendingValues()
+	get(int, int) int64
+	get2Bulk(int, int, []int64) int
 	grow(int)
 	baseRamBytesUsed() int64
-	get2Bulk(int, int, []int64) int
 }
 
 /* Common functionality shared by AppendingDeltaPackedLongBuffer and MonotonicAppendingLongBuffer. */
@@ -85,6 +96,22 @@ func (buf *abstractAppendingLongBuffer) grow(newBlockCount int) {
 	buf.values = arr
 }
 
+func (buf *abstractAppendingLongBuffer) Get(index int64) int64 {
+	assert(index >= 0 && index < buf.Size())
+	block := int(index >> uint(buf.pageShift))
+	element := int(index & int64(buf.pageMask))
+	return buf.spi.get(block, element)
+}
+
+func (buf *abstractAppendingLongBuffer) GetBulk(index int64, arr []int64) int {
+	assert2(len(arr) > 0, "len must be > 0 (got %v)", len(arr))
+	assert(index >= 0 && index < buf.Size())
+
+	block := int(index >> uint(buf.pageShift))
+	element := int(index & int64(buf.pageMask))
+	return buf.spi.get2Bulk(block, element, arr)
+}
+
 func (buf *abstractAppendingLongBuffer) Iterator() func() (int64, bool) {
 	var currentValues []int64
 	vOff, pOff := 0, 0
@@ -147,6 +174,20 @@ func (buf *abstractAppendingLongBuffer) RamBytesUsed() int64 {
 		buf.valuesBytes
 }
 
+/* Pack all pending values in this buffer. Subsequent calls to add() will fail. */
+func (buf *abstractAppendingLongBuffer) freeze() {
+	if buf.pendingOff > 0 {
+		if len(buf.values) == buf.valuesOff {
+			buf.spi.grow(buf.valuesOff + 1) // don't oversize
+		}
+		buf.spi.packPendingValues()
+		buf.valuesBytes += buf.values[buf.valuesOff].RamBytesUsed()
+		buf.valuesOff++
+		buf.pendingOff = 0
+	}
+	buf.pending = nil
+}
+
 /*
 Utility class to buffer a list of signed int64 in memory. This class
 only supports appending and is optimized for the case where values
@@ -170,6 +211,16 @@ pageSize=1024
 */
 func NewAppendingDeltaPackedLongBufferWithOverhead(acceptableOverheadRatio float32) *AppendingDeltaPackedLongBuffer {
 	return NewAppendingDeltaPackedLongBuffer(16, 1024, acceptableOverheadRatio)
+}
+
+func (buf *AppendingDeltaPackedLongBuffer) get(block, element int) int64 {
+	if block == buf.valuesOff {
+		return buf.pending[element]
+	}
+	if buf.values[block] == nil {
+		return buf.minValues[block]
+	}
+	return buf.minValues[block] + buf.values[block].Get(element)
 }
 
 func (buf *AppendingDeltaPackedLongBuffer) get2Bulk(block, element int, arr []int64) int {
@@ -200,7 +251,7 @@ func (buf *AppendingDeltaPackedLongBuffer) packPendingValues() {
 
 	buf.minValues[buf.valuesOff] = minValue
 	if delta == 0 {
-		panic("niy")
+		buf.values[buf.valuesOff] = newNilReader(buf.pendingOff)
 	} else {
 		// build a new packed reader
 		bitsRequired := UnsignedBitsRequired(delta)
@@ -208,7 +259,7 @@ func (buf *AppendingDeltaPackedLongBuffer) packPendingValues() {
 			buf.pending[i] -= minValue
 		}
 		mutable := MutableFor(buf.pendingOff, bitsRequired, buf.acceptableOverheadRatio)
-		for i := 0; i < buf.pendingOff; i++ {
+		for i := 0; i < buf.pendingOff; {
 			i += mutable.setBulk(i, buf.pending[i:buf.pendingOff])
 		}
 		buf.values[buf.valuesOff] = mutable
@@ -216,7 +267,10 @@ func (buf *AppendingDeltaPackedLongBuffer) packPendingValues() {
 }
 
 func (buf *AppendingDeltaPackedLongBuffer) grow(newBlockCount int) {
-	panic("not implemented yet")
+	buf.abstractAppendingLongBuffer.grow(newBlockCount)
+	arr := make([]int64, newBlockCount)
+	copy(arr, buf.minValues)
+	buf.minValues = arr
 }
 
 func (buf *AppendingDeltaPackedLongBuffer) baseRamBytesUsed() int64 {

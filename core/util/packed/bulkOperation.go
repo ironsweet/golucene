@@ -8,6 +8,7 @@ import (
 
 // Efficient sequential read/write of packed integers.
 type BulkOperation interface {
+	LongBlockCount() int
 	LongValueCount() int
 	ByteBlockCount() int
 	ByteValueCount() int
