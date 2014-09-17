@@ -189,6 +189,10 @@ func (p *BulkOperationPackedSingleBlock) ByteValueCount() int {
 	return p.valueCount
 }
 
+func (p *BulkOperationPackedSingleBlock) decodeLongs(block int64, values []int64) int {
+	panic("niy")
+}
+
 func (p *BulkOperationPackedSingleBlock) encodeLongs(values []int64) int64 {
 	off := 0
 	block := values[off]
@@ -212,7 +216,12 @@ func (p *BulkOperationPackedSingleBlock) encodeInts(values []int) int64 {
 }
 
 func (p *BulkOperationPackedSingleBlock) decodeLongToLong(blocks, values []int64, iterations int) {
-	panic("niy")
+	blocksOffset, valuesOffset := 0, 0
+	for i := 0; i < iterations; i++ {
+		block := blocks[blocksOffset]
+		blocksOffset++
+		valuesOffset = p.decodeLongs(block, values[valuesOffset:])
+	}
 }
 
 func (p *BulkOperationPackedSingleBlock) decodeByteToLong(blocks []byte,
