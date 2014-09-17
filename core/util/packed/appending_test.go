@@ -61,7 +61,9 @@ func TestAppendingLongBuffer(t *testing.T) {
 				arr[i] = arr[i-1] + int64(inc)
 			}
 		case 64:
-			panic("niy")
+			for i := 0; i < len(arr); i++ {
+				arr[i] = rand.Int63()
+			}
 		default:
 			minValue := rand.Int63n(MaxValue(bpv))
 			for i := 0; i < len(arr); i++ {
