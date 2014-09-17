@@ -136,13 +136,13 @@ var (
 						if bitOffset == 0 {
 							// start of block
 							fmt.Fprintf(f, "		block%d := blocks[blocksOffset]; blocksOffset++\n", blockOffset)
-							fmt.Fprintf(f, "		values[valuesOffset] = %sint64(uint64(block%d >> %d%s)); valuesOffset++\n", castStart, blockOffset, 64-bpv, castEnd)
+							fmt.Fprintf(f, "		values[valuesOffset] = %sint64(uint64(block%d) >> %d%s); valuesOffset++\n", castStart, blockOffset, 64-bpv, castEnd)
 						} else if bitOffset+bpv == 64 {
 							// end of block
 							fmt.Fprintf(f, "		values[valuesOffset] = %sblock%d & %d%s; valuesOffset++\n", castStart, blockOffset, mask, castEnd)
 						} else if bitOffset+bpv < 64 {
 							// middle of block
-							fmt.Fprintf(f, "		values[valuesOffset] = %sint64(uint64(block%d >> %d)) & %d%s; valuesOffset++\n", castStart, blockOffset, 64-bitOffset-bpv, mask, castEnd)
+							fmt.Fprintf(f, "		values[valuesOffset] = %sint64(uint64(block%d) >> %d) & %d%s; valuesOffset++\n", castStart, blockOffset, 64-bitOffset-bpv, mask, castEnd)
 						} else {
 							// value spans across 2 blocks
 							mask1 := int(1<<uint(64-bitOffset)) - 1

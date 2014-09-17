@@ -1,6 +1,7 @@
 package packed
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
