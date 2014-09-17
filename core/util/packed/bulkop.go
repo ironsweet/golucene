@@ -190,7 +190,15 @@ func (p *BulkOperationPackedSingleBlock) ByteValueCount() int {
 }
 
 func (p *BulkOperationPackedSingleBlock) decodeLongs(block int64, values []int64) int {
-	panic("niy")
+	off := 0
+	values[off] = block & p.mask
+	off++
+	for j := 1; j < p.valueCount; j++ {
+		block = int64(uint64(block) >> uint(p.bitsPerValue))
+		values[off] = block & p.mask
+		off++
+	}
+	return off
 }
 
 func (p *BulkOperationPackedSingleBlock) encodeLongs(values []int64) int64 {
