@@ -65,7 +65,7 @@ func (d *Direct8) RamBytesUsed() int64 {
 				gets = len(arr)
 			}
 			for i, _ := range arr[:gets] {
-				arr[i] = int64(d.values[index+i])
+				arr[i] = int64(d.values[index+i]) & 0xFF
 			}
 			return gets
 		}
