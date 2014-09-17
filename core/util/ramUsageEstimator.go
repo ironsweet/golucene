@@ -10,6 +10,7 @@ import (
 // amd64 system
 const (
 	NUM_BYTES_CHAR  = 2 // UTF8 uses 1-4 bytes to represent each rune
+	NUM_BYTES_SHORT = 2
 	NUM_BYTES_INT   = 8
 	NUM_BYTES_FLOAT = 4
 	NUM_BYTES_LONG  = 8
@@ -43,10 +44,14 @@ func SizeOf(arr interface{}) int64 {
 	switch arr.(type) {
 	case []int64:
 		return AlignObjectSize(NUM_BYTES_ARRAY_HEADER + NUM_BYTES_LONG*int64(len(arr.([]int64))))
+	case []int16:
+		return AlignObjectSize(NUM_BYTES_ARRAY_HEADER + NUM_BYTES_SHORT*int64(len(arr.([]int16))))
 	case []byte:
 		return AlignObjectSize(NUM_BYTES_ARRAY_HEADER + int64(len(arr.([]byte))))
+	default:
+		fmt.Println("Unknown type:", reflect.TypeOf(arr))
+		panic("not supported yet")
 	}
-	panic("not supported yet")
 }
 
 /*

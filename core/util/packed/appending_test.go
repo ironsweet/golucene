@@ -40,7 +40,7 @@ func TestAppendDeltaPackedLongBuffer(t *testing.T) {
 }
 
 func TestAppendingLongBuffer(t *testing.T) {
-	arr := make([]int64, rand.Intn(100)+1)
+	arr := make([]int64, rand.Intn(10000)+1)
 	radioOptions := []float32{PackedInts.DEFAULT, PackedInts.COMPACT, PackedInts.FAST}
 	for _, bpv := range []int{0, 1, 63, 64, rand.Intn(61) + 2} {
 		t.Logf("BPV: %v", bpv)
