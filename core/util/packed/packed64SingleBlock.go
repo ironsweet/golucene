@@ -57,12 +57,7 @@ func (p *Packed64SingleBlock) Set(index int, value int64) {
 }
 
 func (p *Packed64SingleBlock) getBulk(index int, arr []int64) int {
-	panic("niy")
-}
-
-func (p *Packed64SingleBlock) setBulk(index int, arr []int64) int {
-	off := 0
-	length := len(arr)
+	off, length := 0, len(arr)
 	assert2(length > 0, "len must be > 0 (got %v)", length)
 	assert(index >= 0 && index < p.valueCount)
 	if p.valueCount-index < length {
@@ -76,7 +71,53 @@ func (p *Packed64SingleBlock) setBulk(index int, arr []int64) int {
 	offsetInBlock := index % valuesPerBlock
 	if offsetInBlock != 0 {
 		for i := offsetInBlock; i < valuesPerBlock && length > 0; i++ {
-			p.set(index, arr[off])
+			arr[off] = p.Get(index)
+			off++
+			index++
+			length--
+		}
+		if length == 0 {
+			return index - originalIndex
+		}
+	}
+
+	// bulk get
+	assert(index%valuesPerBlock == 0)
+	op := newBulkOperation(PackedFormat(PACKED_SINGLE_BLOCK), uint32(p.bitsPerValue))
+	assert(op.LongBlockCount() == 1)
+	assert(op.LongValueCount() == valuesPerBlock)
+	blockIndex := index / valuesPerBlock
+	nBlocks := (index+length)/valuesPerBlock - blockIndex
+	op.decodeLongToLong(p.blocks[blockIndex:], arr[off:], nBlocks)
+	diff := nBlocks * valuesPerBlock
+	index += diff
+	length -= diff
+
+	if index > originalIndex {
+		// stay at the block boundry
+		return index - originalIndex
+	}
+	// no progress so far => already at a block boundry but no full block to set
+	assert(index == originalIndex)
+	return p.MutableImpl.getBulk(index, arr[off:off+length])
+}
+
+func (p *Packed64SingleBlock) setBulk(index int, arr []int64) int {
+	off, length := 0, len(arr)
+	assert2(length > 0, "len must be > 0 (got %v)", length)
+	assert(index >= 0 && index < p.valueCount)
+	if p.valueCount-index < length {
+		length = p.valueCount - index
+	}
+
+	originalIndex := index
+
+	// go to the next block boundry
+	valuesPerBlock := 64 / p.bitsPerValue
+	offsetInBlock := index % valuesPerBlock
+	if offsetInBlock != 0 {
+		for i := offsetInBlock; i < valuesPerBlock && length > 0; i++ {
+			p.Set(index, arr[off])
 			index++
 			off++
 			length--

@@ -211,6 +211,10 @@ func (p *BulkOperationPackedSingleBlock) encodeInts(values []int) int64 {
 	return block
 }
 
+func (p *BulkOperationPackedSingleBlock) decodeLongToLong(blocks, values []int64, iterations int) {
+	panic("niy")
+}
+
 func (p *BulkOperationPackedSingleBlock) decodeByteToLong(blocks []byte,
 	values []int64, iterations int) {
 	panic("niy")
