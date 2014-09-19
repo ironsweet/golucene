@@ -6,7 +6,6 @@ import (
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/util"
 	"math"
-	"strconv"
 )
 
 // util/packed/PackedInts.java
@@ -750,8 +749,16 @@ unsigned value.
 NOTE: This method returns at least 1.
 */
 func UnsignedBitsRequired(bits int64) int {
-	// TODO not efficient
-	return len(strconv.FormatInt(bits, 2))
+	if bits == 0 {
+		return 1
+	}
+	n := uint64(bits)
+	ans := 0
+	for n != 0 {
+		n >>= 1
+		ans++
+	}
+	return ans
 }
 
 func assert2(ok bool, msg string, args ...interface{}) {

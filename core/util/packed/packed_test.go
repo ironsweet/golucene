@@ -53,3 +53,9 @@ func TestGetPackedIntsDecoder(t *testing.T) {
 		t.Errorf("ByteValueCount() should be 8, instead of %v", n)
 	}
 }
+
+func TestUnsignedBitsRequired(t *testing.T) {
+	if n := UnsignedBitsRequired(-158146830731166066); n != 64 {
+		t.Errorf("-158146830731166066 -> 64bit (got %v)", n)
+	}
+}
