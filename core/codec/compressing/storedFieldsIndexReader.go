@@ -66,7 +66,7 @@ func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput,
 			if bitsPerDocBase > 32 {
 				return nil, errors.New(fmt.Sprintf("Corrupted bitsPerDocBase (resource=%v)", fieldsIndexIn))
 			}
-			pr, err := packed.NewPackedReaderNoHeader(fieldsIndexIn, packed.PACKED, packedIntsVersion, numChunks, uint32(bitsPerDocBase))
+			pr, err := packed.ReaderNoHeader(fieldsIndexIn, packed.PACKED, packedIntsVersion, numChunks, uint32(bitsPerDocBase))
 			if err != nil {
 				return nil, err
 			}
@@ -91,7 +91,7 @@ func newCompressingStoredFieldsIndexReader(fieldsIndexIn store.IndexInput,
 			if bitsPerStartPointer > 64 {
 				return nil, errors.New(fmt.Sprintf("Corrupted bitsPerStartPonter (resource=%v)", fieldsIndexIn))
 			}
-			pr, err := packed.NewPackedReaderNoHeader(fieldsIndexIn, packed.PACKED, packedIntsVersion, numChunks, uint32(bitsPerStartPointer))
+			pr, err := packed.ReaderNoHeader(fieldsIndexIn, packed.PACKED, packedIntsVersion, numChunks, uint32(bitsPerStartPointer))
 			if err != nil {
 				return nil, err
 			}

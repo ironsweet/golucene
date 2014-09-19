@@ -8,8 +8,10 @@ import (
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"github.com/balzaczyy/golucene/core/util/packed"
 	"reflect"
 	"sync"
+	"sync/atomic"
 )
 
 // lucene49/Lucene49NormsProduer.java
@@ -158,9 +160,55 @@ func (np *NormsProducer) loadNorms(field *FieldInfo) (NumericDocValues, error) {
 	case DELTA_COMPRESSED:
 		panic("not implemented yet")
 	case TABLE_COMPRESSED:
-		panic("not implemented yet")
+		var err error
+		if err = np.data.Seek(entry.offset); err == nil {
+			var packedVersion int32
+			if packedVersion, err = np.data.ReadVInt(); err == nil {
+				var size int
+				if size, err = int32ToInt(np.data.ReadVInt()); err == nil {
+					if size > 256 {
+						return nil, errors.New(fmt.Sprintf(
+							"TABLE_COMPRESSED cannot have more than 256 distinct values, input=%v",
+							np.data))
+					}
+					decode := make([]int64, size)
+					for i, _ := range decode {
+						if decode[i], err = np.data.ReadLong(); err != nil {
+							break
+						}
+					}
+					if err == nil {
+						var formatId int
+						if formatId, err = int32ToInt(np.data.ReadVInt()); err == nil {
+							var bitsPerValue int32
+							if bitsPerValue, err = np.data.ReadVInt(); err == nil {
+								var ordsReader packed.PackedIntsReader
+								if ordsReader, err = packed.ReaderNoHeader(np.data,
+									packed.PackedFormat(formatId), packedVersion,
+									int32(np.maxDoc), uint32(bitsPerValue)); err == nil {
+
+									atomic.AddInt64(&np.ramBytesUsed, util.SizeOf(decode)+ordsReader.RamBytesUsed())
+									return func(docId int) int64 {
+										return decode[int(ordsReader.Get(docId))]
+									}, nil
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+	default:
+		panic("assert fail")
 	}
 	panic("should not be here")
+}
+
+func int32ToInt(n int32, err error) (int, error) {
+	return int(n), err
 }
 
 func (np *NormsProducer) Binary(field *FieldInfo) (BinaryDocValues, error) {

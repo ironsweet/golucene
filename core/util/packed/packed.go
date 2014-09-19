@@ -450,7 +450,9 @@ func (m *MutableImpl) Size() int {
 	return m.valueCount
 }
 
-func NewPackedReaderNoHeader(in DataInput, format PackedFormat, version, valueCount int32, bitsPerValue uint32) (r PackedIntsReader, err error) {
+func ReaderNoHeader(in DataInput, format PackedFormat, version, valueCount int32,
+	bitsPerValue uint32) (r PackedIntsReader, err error) {
+
 	CheckVersion(version)
 	switch format {
 	case PACKED_SINGLE_BLOCK:
@@ -630,7 +632,7 @@ func NewPackedReader(in DataInput) (r PackedIntsReader, err error) {
 			if valueCount, err := in.ReadVInt(); err == nil {
 				if id, err := in.ReadVInt(); err == nil {
 					format := PackedFormat(id)
-					return NewPackedReaderNoHeader(in, format, version, valueCount, bitsPerValue)
+					return ReaderNoHeader(in, format, version, valueCount, bitsPerValue)
 				}
 			}
 		}

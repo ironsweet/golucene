@@ -36,11 +36,11 @@ func computeMaxDataSize() int {
 		// for each packed format
 		for format := packed.PACKED; format <= packed.PACKED_SINGLE_BLOCK; format++ {
 			// for each bit-per-value
-			for bpv := uint32(1); bpv <= 32; bpv++ {
+			for bpv := 1; bpv <= 32; bpv++ {
 				if !packed.PackedFormat(format).IsSupported(bpv) {
 					continue
 				}
-				decoder := packed.GetPackedIntsDecoder(packed.PackedFormat(format), int32(version), bpv)
+				decoder := packed.GetPackedIntsDecoder(packed.PackedFormat(format), int32(version), uint32(bpv))
 				iterations := int(computeIterations(decoder))
 				if n := iterations * decoder.ByteValueCount(); n > maxDataSize {
 					maxDataSize = n
@@ -78,15 +78,15 @@ func NewForUtilInto(accetableOverheadRatio float32, out util.DataOutput) (*ForUt
 		formatAndBits := packed.FastestFormatAndBits(
 			LUCENE41_BLOCK_SIZE, bpv, accetableOverheadRatio)
 		format := formatAndBits.Format
-		bitsPerValue := uint32(formatAndBits.BitsPerValue)
+		bitsPerValue := formatAndBits.BitsPerValue
 		assert(format.IsSupported(bitsPerValue))
 		assert(bitsPerValue <= 32)
-		ans.encodedSizes[bpv] = encodedSize(format, packedIntsVersion, bitsPerValue)
-		ans.encoders[bpv] = packed.GetPackedIntsEncoder(format, packedIntsVersion, bitsPerValue)
-		ans.decoders[bpv] = packed.GetPackedIntsDecoder(format, packedIntsVersion, bitsPerValue)
+		ans.encodedSizes[bpv] = encodedSize(format, packedIntsVersion, uint32(bitsPerValue))
+		ans.encoders[bpv] = packed.GetPackedIntsEncoder(format, packedIntsVersion, uint32(bitsPerValue))
+		ans.decoders[bpv] = packed.GetPackedIntsDecoder(format, packedIntsVersion, uint32(bitsPerValue))
 		ans.iterations[bpv] = computeIterations(ans.decoders[bpv])
 
-		err = out.WriteVInt(int32(format.Id()<<5 | (int(bitsPerValue) - 1)))
+		err = out.WriteVInt(int32(format.Id()<<5 | (bitsPerValue - 1)))
 		if err != nil {
 			return ans, err
 		}

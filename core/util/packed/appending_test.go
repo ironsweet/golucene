@@ -128,10 +128,6 @@ func testAppendingLongBuffer(t *testing.T) {
 			}
 		}
 
-		if bpv == 63 {
-			t.Log("\n", arr[:33])
-		}
-
 		for _, v := range arr {
 			buf.Add(v)
 		}
