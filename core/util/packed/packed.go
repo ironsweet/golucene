@@ -116,7 +116,7 @@ func (f PackedFormat) longCount(packedIntsVersion, valueCount int32, bitsPerValu
  * Tests whether the provided number of bits per value is supported by the
  * format.
  */
-func (f PackedFormat) IsSupported(bitsPerValue uint32) bool {
+func (f PackedFormat) IsSupported(bitsPerValue int) bool {
 	switch int(f) {
 	case PACKED_SINGLE_BLOCK:
 		return is64Supported(bitsPerValue)
@@ -128,7 +128,7 @@ func (f PackedFormat) IsSupported(bitsPerValue uint32) bool {
 func (f PackedFormat) OverheadPerValue(bitsPerValue int) float32 {
 	switch int(f) {
 	case PACKED_SINGLE_BLOCK:
-		assert(f.IsSupported(uint32(bitsPerValue)))
+		assert(f.IsSupported(bitsPerValue))
 		valuesPerBlock := 64 / bitsPerValue
 		overhead := 64 % bitsPerValue
 		return float32(overhead) / float32(valuesPerBlock)
@@ -191,7 +191,7 @@ func FastestFormatAndBits(valueCount, bitsPerValue int,
 		actualBitsPerValue = 48
 	} else {
 		for bpv := bitsPerValue; bpv <= maxBitsPerValue; bpv++ {
-			if PackedFormat(PACKED_SINGLE_BLOCK).IsSupported(uint32(bpv)) {
+			if PackedFormat(PACKED_SINGLE_BLOCK).IsSupported(bpv) {
 				overhead := PackedFormat(PACKED_SINGLE_BLOCK).OverheadPerValue(bpv)
 				acceptableOverhead := acceptableOverheadRatioValue + float32(bitsPerValue-bpv)
 				if overhead <= acceptableOverhead {

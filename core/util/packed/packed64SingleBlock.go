@@ -5,9 +5,11 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 )
 
-func is64Supported(bitsPerValue uint32) bool {
+func is64Supported(bitsPerValue int) bool {
 	// Lucene use binary-search which is unnecessary
-	return packedSingleBlockBulkOps[bitsPerValue-1] != nil
+	assert(bitsPerValue > 0 && bitsPerValue <= 64)
+	return bitsPerValue <= len(packedSingleBlockBulkOps) &&
+		packedSingleBlockBulkOps[bitsPerValue-1] != nil
 }
 
 func requiredCapacity(valueCount, valuesPerBlock int32) int32 {

@@ -61,6 +61,25 @@ func (p *BulkOperationPacked) ByteValueCount() int {
 	return p.byteValueCount
 }
 
+func (p *BulkOperationPacked) decodeLongToLong(blocks, values []int64, iterations int) {
+	blocksOff, valuesOff := 0, 0
+	bitsLeft := 64
+	for i := 0; i < p.longValueCount*iterations; i++ {
+		bitsLeft -= p.bitsPerValue
+		if bitsLeft < 0 {
+			values[valuesOff] =
+				((blocks[blocksOff] & ((int64(1) << uint(p.bitsPerValue+bitsLeft)) - 1)) << uint(-bitsLeft)) |
+					int64(uint64(blocks[blocksOff+1])>>uint(64+bitsLeft))
+			valuesOff++
+			blocksOff++
+			bitsLeft += 64
+		} else {
+			values[valuesOff] = int64(uint64(blocks[blocksOff])>>uint(bitsLeft)) & p.mask
+			valuesOff++
+		}
+	}
+}
+
 func (p *BulkOperationPacked) decodeByteToLong(blocks []byte, values []int64, iterations int) {
 	panic("niy")
 }
