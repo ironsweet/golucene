@@ -78,7 +78,9 @@ func (w *NumericDocValuesWriter) finish(numDoc int) {}
 func (w *NumericDocValuesWriter) flush(state *SegmentWriteState,
 	dvConsumer DocValuesConsumer) error {
 	maxDoc := state.SegmentInfo.DocCount()
-	dvConsumer.AddNumericField(w.fieldInfo, newNumericIterator(maxDoc, w))
+	dvConsumer.AddNumericField(w.fieldInfo, func() func() (interface{}, bool) {
+		return newNumericIterator(maxDoc, w)
+	})
 	return nil
 }
 

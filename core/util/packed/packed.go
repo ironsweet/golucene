@@ -434,7 +434,7 @@ type MutableImpl struct {
 func newMutableImpl(spi abstractMutableSPI,
 	valueCount, bitsPerValue int) *MutableImpl {
 
-	assert(bitsPerValue > 0 && bitsPerValue <= 64)
+	assert2(bitsPerValue > 0 && bitsPerValue <= 64, "%v", bitsPerValue)
 	return &MutableImpl{
 		abstractMutable: newMutable(spi),
 		valueCount:      valueCount,

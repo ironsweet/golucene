@@ -1,6 +1,7 @@
 package lucene49
 
 import (
+	// "fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
@@ -58,7 +59,7 @@ func newLucene49NormsConsumer(state *SegmentWriteState,
 }
 
 func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
-	f func() (interface{}, bool)) (err error) {
+	iter func() func() (interface{}, bool)) (err error) {
 
 	if err = nc.meta.WriteVInt(field.Number); err != nil {
 		return
@@ -68,8 +69,9 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 	uniqueValues := make(map[int64]bool)
 
 	count := int64(0)
+	next := iter()
 	for {
-		nv, ok := f()
+		nv, ok := next()
 		if !ok {
 			break
 		}
@@ -122,8 +124,9 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 										Close(); err != nil {
 				return err
 			}
+			next = iter()
 			for {
-				nv, ok := f()
+				nv, ok := next()
 				if !ok {
 					break
 				}
@@ -175,8 +178,9 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 			}
 
 			writer := packed.WriterNoHeader(nc.data, format, nc.maxDoc, bitsPerValue, packed.DEFAULT_BUFFER_SIZE)
+			next = iter()
 			for {
-				nv, ok := f()
+				nv, ok := next()
 				if !ok {
 					break
 				}

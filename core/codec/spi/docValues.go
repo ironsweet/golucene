@@ -77,7 +77,7 @@ the values multiple times.
 type DocValuesConsumer interface {
 	io.Closer
 	// Writes numeric docvalues for a field.
-	AddNumericField(*FieldInfo, func() (interface{}, bool)) error
+	AddNumericField(*FieldInfo, func() func() (interface{}, bool)) error
 }
 
 // codecs/DocvaluesProducer.java
