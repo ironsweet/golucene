@@ -491,6 +491,8 @@ func (a *BySizeDescendingSegments) Less(i, j int) bool {
 	return a.values[i].Info.Name < a.values[j].Info.Name
 }
 
+type MergeScore interface{}
+
 func (tmp *TieredMergePolicy) FindMerges(mergeTrigger MergeTrigger,
 	infos *SegmentInfos, w *IndexWriter) (spec MergeSpecification, err error) {
 
@@ -601,8 +603,39 @@ func (tmp *TieredMergePolicy) FindMerges(mergeTrigger MergeTrigger,
 		}
 
 		if len(eligible) > allowedSegCountInt {
+
 			// OK we are over budget -- find best merge!
-			panic("not implemented yet")
+			// var bestScore MergeScore
+			var best []*SegmentCommitInfo
+			// var bestTooLarge bool
+			// var bestMergeBytes int64
+
+			// Consider all merge starts:
+			for startIdx := 0; startIdx < len(eligible)-tmp.maxMergeAtOnce; startIdx++ {
+				var totAfterMergesBytes int64
+				var candidate []*SegmentCommitInfo
+				// var hitTooLarge bool
+				for idx := startIdx; idx < len(eligible) && len(candidate) < tmp.maxMergeAtOnce; idx++ {
+					info := eligible[idx]
+					var segBytes int64
+					if segBytes, err = tmp.Size(info, w); err != nil {
+						return nil, err
+					}
+
+					if totAfterMergesBytes+segBytes > tmp.maxMergedSegmentBytes {
+						panic("niy")
+					}
+					panic("niy")
+				}
+
+				panic("niy")
+			}
+
+			if best != nil {
+				panic("NIY")
+			} else {
+				return spec, nil
+			}
 		} else {
 			return
 		}
