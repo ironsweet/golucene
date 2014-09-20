@@ -228,7 +228,6 @@ func (w *Lucene41PostingsWriter) Init(termsOut store.IndexOutput) error {
 	if err == nil {
 		err = termsOut.WriteVInt(LUCENE41_BLOCK_SIZE)
 	}
-	termsOut.WriteString("ZYY")
 	return err
 }
 

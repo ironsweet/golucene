@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
-	"time"
+	// "time"
 )
 
 type NoSuchDirectoryError struct {
@@ -229,26 +229,30 @@ func (d *FSDirectory) Close() error {
 }
 
 func (d *FSDirectory) fsync(name string) error {
-	var err, err2 error
-	var success = false
-	var retryCount = 0
-	for !success && retryCount < 5 {
-		retryCount++
-		if err2, success = func() (error, bool) {
-			file, err := os.Open(name)
-			if err != nil {
-				return err, false
-			}
-			defer file.Close()
-			return file.Sync(), true
-		}(); err2 != nil {
-			if err == nil {
-				err = err2
-			}
-			time.Sleep(5 * time.Millisecond)
-		}
-	}
-	return err
+	// var err, err2 error
+	// var success = false
+	// var retryCount = 0
+	// for !success && retryCount < 5 {
+	// 	retryCount++
+	// 	if err2, success = func() (error, bool) {
+	// 		file, err := os.Open(filepath.Join(d.path, name))
+	// 		if err != nil {
+	// 			return err, false
+	// 		}
+	// 		defer file.Close()
+	// 		return file.Sync(), true
+	// 	}(); err2 != nil {
+	// 		if err == nil {
+	// 			err = err2
+	// 		}
+	// 		time.Sleep(5 * time.Millisecond)
+	// 	}
+	// }
+	// return err
+
+	// Go's fsync doesn't work the same way as Java
+	// disabled since I got "fsync: Access is denied" all the time
+	return nil
 }
 
 func (d *FSDirectory) String() string {
