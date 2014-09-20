@@ -110,5 +110,6 @@ Ensure that any writes to the given file is written to the storage
 device that contains it.
 */
 func Fsync(fileToSync string, isDir bool) error {
-	panic("not implemented yet")
+	// TODO enable fsync, now just ignored
+	return nil
 }
