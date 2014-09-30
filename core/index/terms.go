@@ -167,7 +167,15 @@ func (mt *MultiTerms) DocCount() int {
 }
 
 func (mt *MultiTerms) SumTotalTermFreq() int64 {
-	panic("not implemented yet")
+	var sum int64
+	for _, terms := range mt.subs {
+		if v := terms.SumTotalTermFreq(); v != -1 {
+			sum += v
+		} else {
+			return -1
+		}
+	}
+	return sum
 }
 
 func (mt *MultiTerms) SumDocFreq() int64 {
