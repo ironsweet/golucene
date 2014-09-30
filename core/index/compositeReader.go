@@ -138,9 +138,9 @@ func (b CompositeReaderContextBuilder) build() *CompositeReaderContext {
 
 func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 	reader IndexReader, ord, docBase int) IndexReaderContext {
-	log.Printf("Building context from %v(parent: %v, %v-%v)", reader, parent, ord, docBase)
+	// log.Printf("Building context from %v(parent: %v, %v-%v)", reader, parent, ord, docBase)
 	if ar, ok := reader.(AtomicReader); ok {
-		log.Print("AtomicReader is detected.")
+		// log.Print("AtomicReader is detected.")
 		atomic := newAtomicReaderContext(parent, ar, ord, docBase, b.leaves.Len(), b.leafDocBase)
 		b.leaves.PushBack(atomic)
 		b.leafDocBase += reader.MaxDoc()
@@ -149,7 +149,7 @@ func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 	log.Print("CompositeReader is detected: ", reader)
 	cr := reader.(CompositeReader)
 	sequentialSubReaders := cr.getSequentialSubReaders()
-	log.Printf("Found %v sub readers.", len(sequentialSubReaders))
+	// log.Printf("Found %v sub readers.", len(sequentialSubReaders))
 	children := make([]IndexReaderContext, len(sequentialSubReaders))
 	var newParent *CompositeReaderContext
 	if parent == nil {
@@ -274,6 +274,6 @@ func (r *BaseCompositeReader) readerBase(readerIndex int) int {
 }
 
 func (r *BaseCompositeReader) getSequentialSubReaders() []IndexReader {
-	log.Printf("Found %v sub readers.", len(r.subReadersList))
+	// log.Printf("Found %v sub readers.", len(r.subReadersList))
 	return r.subReadersList
 }

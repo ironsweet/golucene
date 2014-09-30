@@ -5,7 +5,6 @@ import (
 	// "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
 	// "sort"
 )
 
@@ -90,9 +89,9 @@ func NewTermContext(ctx IndexReaderContext) *TermContext {
 func NewTermContextFromTerm(ctx IndexReaderContext, t *Term) (tc *TermContext, err error) {
 	assert(ctx != nil && ctx.Parent() == nil)
 	perReaderTermState := NewTermContext(ctx)
-	fmt.Printf("prts.build term=%v\n", t)
+	// fmt.Printf("prts.build term=%v\n", t)
 	for _, leaf := range ctx.Leaves() {
-		fmt.Printf("  r=%v\n", leaf.reader)
+		// fmt.Printf("  r=%v\n", leaf.reader)
 		if fields := leaf.reader.Fields(); fields != nil {
 			if terms := fields.Terms(t.Field); terms != nil {
 				termsEnum := terms.Iterator(nil)
@@ -105,7 +104,7 @@ func NewTermContextFromTerm(ctx IndexReaderContext, t *Term) (tc *TermContext, e
 					if err != nil {
 						return nil, err
 					}
-					log.Println("    found")
+					// log.Println("    found")
 					df, err := termsEnum.DocFreq()
 					if err != nil {
 						return nil, err

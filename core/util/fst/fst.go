@@ -193,7 +193,7 @@ func LoadFST(in util.DataInput, outputs Outputs) (fst *FST, err error) {
 /** Load a previously saved FST; maxBlockBits allows you to
  *  control the size of the byte[] pages used to hold the FST bytes. */
 func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err error) {
-	log.Printf("Loading FST from %v and output to %v...", in, outputs)
+	// log.Printf("Loading FST from %v and output to %v...", in, outputs)
 	defer func() {
 		if err != nil {
 			log.Print("Failed to load FST.")
@@ -944,7 +944,7 @@ func (t *FST) FindTargetArc(labelToMatch int, follow *Arc, arc *Arc, in BytesRea
 
 	arc.node = follow.target
 
-	log.Printf("fta label=%v", labelToMatch)
+	// log.Printf("fta label=%v", labelToMatch)
 
 	b, err := in.ReadByte()
 	if err != nil {
@@ -969,7 +969,7 @@ func (t *FST) FindTargetArc(labelToMatch int, follow *Arc, arc *Arc, in BytesRea
 		}
 		arc.posArcsStart = in.getPosition()
 		for low, high := 0, arc.numArcs-1; low < high; {
-			log.Println("    cycle")
+			// log.Println("    cycle")
 			mid := int(uint(low+high) / 2)
 			in.setPosition(arc.posArcsStart)
 			in.skipBytes(int64(arc.bytesPerArc*mid) + 1)
@@ -984,7 +984,7 @@ func (t *FST) FindTargetArc(labelToMatch int, follow *Arc, arc *Arc, in BytesRea
 				high = mid - 1
 			} else {
 				arc.arcIdx = mid - 1
-				log.Println("    found!")
+				// log.Println("    found!")
 				return t.readNextRealArc(arc, in)
 			}
 		}

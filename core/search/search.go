@@ -27,7 +27,7 @@ type IndexSearcher struct {
 }
 
 func NewIndexSearcher(r index.IndexReader) *IndexSearcher {
-	log.Print("Initializing IndexSearcher from IndexReader: ", r)
+	// log.Print("Initializing IndexSearcher from IndexReader: ", r)
 	return NewIndexSearcherFromContext(r.Context())
 }
 

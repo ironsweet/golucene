@@ -316,7 +316,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 		isRunning := true
 		var listener CoreClosedListener
 		for isRunning {
-			fmt.Println("Listening for events...")
+			// fmt.Println("Listening for events...")
 			select {
 			case listener = <-self.addListener:
 				coreClosedListeners = append(coreClosedListeners, listener)
@@ -405,7 +405,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 		}
 	}
 
-	fmt.Println("Success")
+	// fmt.Println("Success")
 	success = true
 
 	return self, nil

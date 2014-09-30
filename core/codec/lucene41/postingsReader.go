@@ -345,7 +345,7 @@ func (de *blockDocsEnum) canReuse(docIn store.IndexInput, fieldInfo *FieldInfo) 
 
 func (de *blockDocsEnum) reset(liveDocs util.Bits, termState *intBlockTermState, flags int) (ret DocsEnum, err error) {
 	de.liveDocs = liveDocs
-	fmt.Println("  FPR.reset: termState=", termState)
+	// fmt.Println("  FPR.reset: termState=", termState)
 	de.docFreq = termState.DocFreq
 	if de.indexHasFreq {
 		de.totalTermFreq = termState.TotalTermFreq
@@ -401,7 +401,7 @@ func (de *blockDocsEnum) refillDocs() (err error) {
 		de.freqBuffer[0] = int(de.totalTermFreq)
 	} else {
 		// Read vInts:
-		fmt.Println("    fill last vInt block from fp=", de.docIn.FilePointer())
+		// fmt.Println("    fill last vInt block from fp=", de.docIn.FilePointer())
 		err = readVIntBlock(de.docIn, de.docDeltaBuffer, de.freqBuffer, left, de.indexHasFreq)
 	}
 	de.docBufferUpto = 0

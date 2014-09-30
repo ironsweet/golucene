@@ -103,8 +103,8 @@ func (f *segmentTermsEnumFrame) setFloorData(in *store.ByteArrayDataInput, sourc
 	f.numFollowFloorBlocks, _ = asInt(f.floorDataReader.ReadVInt())
 	b, _ := f.floorDataReader.ReadByte()
 	f.nextFloorLabel = int(b)
-	fmt.Printf("    setFloorData fpOrig=%v bytes=%v numFollowFloorBlocks=%v nextFloorLabel=%x\n",
-		f.fpOrig, source[in.Pos:], f.numFollowFloorBlocks, f.nextFloorLabel)
+	// fmt.Printf("    setFloorData fpOrig=%v bytes=%v numFollowFloorBlocks=%v nextFloorLabel=%x\n",
+	// 	f.fpOrig, source[in.Pos:], f.numFollowFloorBlocks, f.nextFloorLabel)
 }
 
 func (f *segmentTermsEnumFrame) getTermBlockOrd() int {
@@ -166,13 +166,13 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 	}
 	f.suffixesReader.Reset(f.suffixBytes)
 
-	if f.arc == nil {
-		fmt.Printf("    loadBlock (next) fp=%v entCount=%v prefixLen=%v isLastInFloor=%v leaf?=%v\n",
-			f.fp, f.entCount, f.prefix, f.isLastInFloor, f.isLeafBlock)
-	} else {
-		fmt.Printf("    loadBlock (seek) fp=%v entCount=%v prefixLen=%v hasTerms?=%v isFloor?=%v isLastInFloor=%v leaf?=%v\n",
-			f.fp, f.entCount, f.prefix, f.hasTerms, f.isFloor, f.isLastInFloor, f.isLeafBlock)
-	}
+	// if f.arc == nil {
+	// 	fmt.Printf("    loadBlock (next) fp=%v entCount=%v prefixLen=%v isLastInFloor=%v leaf?=%v\n",
+	// 		f.fp, f.entCount, f.prefix, f.isLastInFloor, f.isLeafBlock)
+	// } else {
+	// 	fmt.Printf("    loadBlock (seek) fp=%v entCount=%v prefixLen=%v hasTerms?=%v isFloor?=%v isLastInFloor=%v leaf?=%v\n",
+	// 		f.fp, f.entCount, f.prefix, f.hasTerms, f.isFloor, f.isLastInFloor, f.isLeafBlock)
+	// }
 
 	// stats
 	numBytes, err = asInt(f.ste.in.ReadVInt())
@@ -213,7 +213,7 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 	// Sub-blocks of a single floor block are always
 	// written one after another -- tail recurse:
 	f.fpEnd = f.ste.in.FilePointer()
-	fmt.Printf("      fpEnd=%v\n", f.fpEnd)
+	// fmt.Printf("      fpEnd=%v\n", f.fpEnd)
 	return nil
 }
 
@@ -251,8 +251,8 @@ func (f *segmentTermsEnumFrame) nextNonLeaf() bool {
 // floor blocks we "typically" get
 func (f *segmentTermsEnumFrame) scanToFloorFrame(target []byte) {
 	if !f.isFloor || len(target) <= f.prefix {
-		fmt.Printf("    scanToFloorFrame skip: isFloor=%v target.length=%v vs prefix=%v\n",
-			f.isFloor, len(target), f.prefix)
+		// fmt.Printf("    scanToFloorFrame skip: isFloor=%v target.length=%v vs prefix=%v\n",
+		// 	f.isFloor, len(target), f.prefix)
 		return
 	}
 
@@ -317,8 +317,8 @@ func (f *segmentTermsEnumFrame) scanToTerm(target []byte, exactOnly bool) (statu
 // Target's prefix matches this block's prefix; we
 // scan the entries check if the suffix matches.
 func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (status SeekStatus, err error) {
-	fmt.Printf("    scanToTermLeaf: block fp=%v prefix=%v nextEnt=%v (of %v) target=%v term=%v\n",
-		f.fp, f.prefix, f.nextEnt, f.entCount, brToString(target), f.ste.term)
+	// fmt.Printf("    scanToTermLeaf: block fp=%v prefix=%v nextEnt=%v (of %v) target=%v term=%v\n",
+	// 	f.fp, f.prefix, f.nextEnt, f.entCount, brToString(target), f.ste.term)
 	assert(f.nextEnt != -1)
 
 	f.ste.termExists = true
@@ -343,9 +343,9 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 			return 0, err
 		}
 
-		suffixReaderPos := f.suffixesReader.Pos
-		fmt.Printf("      cycle: term %v (of %v) suffix=%v\n",
-			f.nextEnt-1, f.entCount, brToString(f.suffixBytes[suffixReaderPos:suffixReaderPos+f.suffix]))
+		// suffixReaderPos := f.suffixesReader.Pos
+		// fmt.Printf("      cycle: term %v (of %v) suffix=%v\n",
+		// 	f.nextEnt-1, f.entCount, brToString(f.suffixBytes[suffixReaderPos:suffixReaderPos+f.suffix]))
 
 		termLen := f.prefix + f.suffix
 		f.startBytePos = f.suffixesReader.Pos
@@ -412,7 +412,7 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 					}
 				}
 
-				fmt.Println("        not found")
+				// fmt.Println("        not found")
 				return SEEK_STATUS_NOT_FOUND, nil
 			} else if stop {
 				// Exact match!
@@ -423,7 +423,7 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 
 				assert(f.ste.termExists)
 				f.fillTerm()
-				fmt.Println("        found!")
+				// fmt.Println("        found!")
 				return SEEK_STATUS_FOUND, nil
 			}
 		}
