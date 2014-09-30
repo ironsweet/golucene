@@ -579,8 +579,8 @@ func (f *segmentTermsEnumFrame) fillTerm() {
 }
 
 func (f *segmentTermsEnumFrame) decodeMetaData() (err error) {
-	fmt.Printf("BTTR.decodeMetadata seg=%v mdUpto=%v vs termBlockOrd=%v\n",
-		f.ste.fr.parent.segment, f.metaDataUpto, f.state.TermBlockOrd)
+	// fmt.Printf("BTTR.decodeMetadata seg=%v mdUpto=%v vs termBlockOrd=%v\n",
+	// 	f.ste.fr.parent.segment, f.metaDataUpto, f.state.TermBlockOrd)
 
 	// lazily catch up on metadata decode:
 	limit := f.getTermBlockOrd()

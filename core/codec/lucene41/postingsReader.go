@@ -409,12 +409,12 @@ func (de *blockDocsEnum) refillDocs() (err error) {
 }
 
 func (de *blockDocsEnum) NextDoc() (n int, err error) {
-	fmt.Println("FPR.nextDoc")
+	// fmt.Println("FPR.nextDoc")
 	for {
-		fmt.Printf("  docUpto=%v (of df=%v) docBufferUpto=%v\n", de.docUpto, de.docFreq, de.docBufferUpto)
+		// fmt.Printf("  docUpto=%v (of df=%v) docBufferUpto=%v\n", de.docUpto, de.docFreq, de.docBufferUpto)
 
 		if de.docUpto == de.docFreq {
-			fmt.Println("  return doc=END")
+			// fmt.Println("  return doc=END")
 			de.doc = NO_MORE_DOCS
 			return de.doc, nil
 		}
@@ -426,7 +426,7 @@ func (de *blockDocsEnum) NextDoc() (n int, err error) {
 			}
 		}
 
-		fmt.Printf("    accum=%v docDeltaBuffer[%v]=%v\n", de.accum, de.docBufferUpto, de.docDeltaBuffer[de.docBufferUpto])
+		// fmt.Printf("    accum=%v docDeltaBuffer[%v]=%v\n", de.accum, de.docBufferUpto, de.docDeltaBuffer[de.docBufferUpto])
 		de.accum += de.docDeltaBuffer[de.docBufferUpto]
 		de.docUpto++
 
@@ -434,10 +434,10 @@ func (de *blockDocsEnum) NextDoc() (n int, err error) {
 			de.doc = de.accum
 			de.freq = de.freqBuffer[de.docBufferUpto]
 			de.docBufferUpto++
-			fmt.Printf("  return doc=%v freq=%v\n", de.doc, de.freq)
+			// fmt.Printf("  return doc=%v freq=%v\n", de.doc, de.freq)
 			return de.doc, nil
 		}
-		fmt.Printf("  doc=%v is deleted; try next doc\n", de.accum)
+		// fmt.Printf("  doc=%v is deleted; try next doc\n", de.accum)
 		de.docBufferUpto++
 	}
 }
