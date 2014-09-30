@@ -602,14 +602,14 @@ func (f *segmentTermsEnumFrame) decodeMetaData() (err error) {
 		if f.state.DocFreq, err = asInt(f.statsReader.ReadVInt()); err != nil {
 			return err
 		}
-		fmt.Printf("    dF=%v\n", f.state.DocFreq)
+		// fmt.Printf("    dF=%v\n", f.state.DocFreq)
 		if f.ste.fr.fieldInfo.IndexOptions() != INDEX_OPT_DOCS_ONLY {
 			var n int64
 			if n, err = f.statsReader.ReadVLong(); err != nil {
 				return err
 			}
 			f.state.TotalTermFreq = int64(f.state.DocFreq) + n
-			fmt.Printf("    totTF=%v\n", f.state.TotalTermFreq)
+			// fmt.Printf("    totTF=%v\n", f.state.TotalTermFreq)
 		}
 
 		// metadata
