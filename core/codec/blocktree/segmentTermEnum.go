@@ -6,9 +6,8 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/fst"
-	"log"
 	"sort"
-	"strconv"
+	// "strconv"
 )
 
 // blocktree/SegmentTermsEnum.java
@@ -57,7 +56,7 @@ func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 		arcs:          make([]*fst.Arc, 1),
 	}
 	ans.TermsEnumImpl = NewTermsEnumImpl(ans)
-	log.Printf("BTTR.init seg=%v", r.parent.segment)
+	// fmt.Printf("BTTR.init seg=%v\n", r.parent.segment)
 
 	// Used to hold seek by TermState, or cached seek
 	ans.staticFrame = newFrame(ans, -1)
@@ -82,7 +81,7 @@ func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 		}
 	}
 	ans.validIndexPrefix = 0
-	log.Printf("init frame state %v", ans.currentFrame.ord)
+	// fmt.Printf("init frame state %v\n", ans.currentFrame.ord)
 	ans.printSeekState()
 
 	// ans.computeBlockStats()
@@ -133,7 +132,7 @@ func (e *SegmentTermsEnum) Comparator() sort.Interface {
 
 // Pushes a frame we seek'd to
 func (e *SegmentTermsEnum) pushFrame(arc *fst.Arc, frameData []byte, length int) (f *segmentTermsEnumFrame, err error) {
-	// log.Println("Pushing frame...")
+	// fmt.Println("Pushing frame...")
 	e.scratchReader.Reset(frameData)
 	code, err := e.scratchReader.ReadVLong()
 	if err != nil {
@@ -157,12 +156,12 @@ func (e *SegmentTermsEnum) pushFrameAt(arc *fst.Arc, fp int64, length int) (f *s
 	f = e.frame(1 + e.currentFrame.ord)
 	f.arc = arc
 	if f.fpOrig == fp && f.nextEnt != -1 {
-		log.Printf("      push reused frame ord=%v fp=%v isFloor?=%v hasTerms=%v pref=%v nextEnt=%v targetBeforeCurrentLength=%v term.length=%v vs prefix=%v",
-			f.ord, f.fp, f.isFloor, f.hasTerms, e.term, f.nextEnt, e.targetBeforeCurrentLength, e.term.length, f.prefix)
+		// fmt.Printf("      push reused frame ord=%v fp=%v isFloor?=%v hasTerms=%v pref=%v nextEnt=%v targetBeforeCurrentLength=%v term.length=%v vs prefix=%v\n",
+		// 	f.ord, f.fp, f.isFloor, f.hasTerms, e.term, f.nextEnt, e.targetBeforeCurrentLength, e.term.length, f.prefix)
 		if f.ord > e.targetBeforeCurrentLength {
 			f.rewind()
 		} else {
-			log.Println("        skip rewind!")
+			// fmt.Println("        skip rewind!")
 		}
 		if length != f.prefix {
 			panic("assert fail")
@@ -173,8 +172,8 @@ func (e *SegmentTermsEnum) pushFrameAt(arc *fst.Arc, fp int64, length int) (f *s
 		f.state.TermBlockOrd = 0
 		f.fpOrig, f.fp = fp, fp
 		f.lastSubFP = -1
-		log.Printf("      push new frame ord=%v fp=%v hasTerms=%v isFloor=%v pref=%v",
-			f.ord, f.fp, f.hasTerms, f.isFloor, e.term)
+		// fmt.Printf("      push new frame ord=%v fp=%v hasTerms=%v isFloor=%v pref=%v\n",
+		// 	f.ord, f.fp, f.hasTerms, f.isFloor, e.term)
 	}
 	return f, nil
 }
@@ -189,9 +188,9 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 	}
 
 	e.eof = false
-	log.Printf("BTTR.seekExact seg=%v target=%v:%v current=%v (exists?=%v) validIndexPrefix=%v",
-		e.fr.parent.segment, e.fr.fieldInfo.Name, brToString(target),
-		brToString(e.term.bytes), e.termExists, e.validIndexPrefix)
+	// fmt.Printf("BTTR.seekExact seg=%v target=%v:%v current=%v (exists?=%v) validIndexPrefix=%v\n",
+	// 	e.fr.parent.segment, e.fr.fieldInfo.Name, brToString(target),
+	// 	brToString(e.term.bytes), e.termExists, e.validIndexPrefix)
 	e.printSeekState()
 
 	var arc *fst.Arc
@@ -209,7 +208,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		// seeks to foobaz, we can re-use the seek state
 		// for the first 5 bytes.
 
-		log.Printf("  re-use current seek state validIndexPrefix=%v", e.validIndexPrefix)
+		// fmt.Printf("  re-use current seek state validIndexPrefix=%v\n", e.validIndexPrefix)
 
 		arc = e.arcs[0]
 		if !arc.IsFinal() {
@@ -238,8 +237,8 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		// First compare up to valid seek frames:
 		for targetUpto < targetLimit {
 			cmp = int(e.term.bytes[targetUpto]) - int(target[targetUpto])
-			log.Printf("    cycle targetUpto=%v (vs limit=%v) cmp=%v (targetLabel=%c vs termLabel=%c) arc.output=%v output=%v",
-				targetUpto, targetLimit, cmp, target[targetUpto], e.term.bytes[targetUpto], arc.Output, output)
+			// fmt.Printf("    cycle targetUpto=%v (vs limit=%v) cmp=%v (targetLabel=%c vs termLabel=%c) arc.output=%v output=%v\n",
+			// 	targetUpto, targetLimit, cmp, target[targetUpto], e.term.bytes[targetUpto], arc.Output, output)
 			if cmp != 0 {
 				break
 			}
@@ -270,8 +269,8 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			}
 			for targetUpto < targetLimit2 {
 				cmp = int(e.term.bytes[targetUpto]) - int(target[targetUpto])
-				log.Printf("    cycle2 targetUpto=%v (vs limit=%v) cmp=%v (targetLabel=%c vs termLabel=%c)",
-					targetUpto, targetLimit, cmp, target[targetUpto], e.term.bytes[targetUpto])
+				// fmt.Printf("    cycle2 targetUpto=%v (vs limit=%v) cmp=%v (targetLabel=%c vs termLabel=%c)\n",
+				// 	targetUpto, targetLimit, cmp, target[targetUpto], e.term.bytes[targetUpto])
 				if cmp != 0 {
 					break
 				}
@@ -288,7 +287,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			// Common case: target term is after current
 			// term, ie, app is seeking multiple terms
 			// in sorted order
-			log.Printf("  target is after current (shares prefixLen=%v); frame.ord=%v", targetUpto, lastFrame.ord)
+			// fmt.Printf("  target is after current (shares prefixLen=%v); frame.ord=%v\n", targetUpto, lastFrame.ord)
 			e.currentFrame = lastFrame
 		} else if cmp > 0 {
 			// Uncommon case: target term
@@ -296,7 +295,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			// keep the currentFrame but we must rewind it
 			// (so we scan from the start)
 			e.targetBeforeCurrentLength = lastFrame.ord
-			log.Printf("  target is before current (shares prefixLen=%v); rewind frame ord=%v", targetUpto, lastFrame.ord)
+			// fmt.Printf("  target is before current (shares prefixLen=%v); rewind frame ord=%v\n", targetUpto, lastFrame.ord)
 			e.currentFrame = lastFrame
 			e.currentFrame.rewind()
 		} else {
@@ -305,10 +304,10 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 				panic("assert fail")
 			}
 			if e.termExists {
-				log.Println("  target is same as current; return true")
+				// fmt.Println("  target is same as current; return true")
 				return true, nil
 			} else {
-				log.Println("  target is same as current but term doesn't exist")
+				// fmt.Println("  target is same as current but term doesn't exist")
 			}
 		}
 	} else {
@@ -318,7 +317,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		// Empty string prefix must have an output (block) in the index!
 		assert(arc.IsFinal() && arc.Output != nil)
 
-		log.Println("    no seek state; push root frame")
+		// fmt.Println("    no seek state; push root frame")
 
 		output = arc.Output
 
@@ -330,8 +329,8 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		}
 	}
 
-	log.Printf("  start index loop targetUpto=%v output=%v currentFrame.ord=%v targetBeforeCurrentLength=%v",
-		targetUpto, output, e.currentFrame.ord, e.targetBeforeCurrentLength)
+	// fmt.Printf("  start index loop targetUpto=%v output=%v currentFrame.ord=%v targetBeforeCurrentLength=%v\n",
+	// 	targetUpto, output, e.currentFrame.ord, e.targetBeforeCurrentLength)
 
 	for targetUpto < len(target) {
 		targetLabel := int(target[targetUpto])
@@ -341,7 +340,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		}
 		if nextArc == nil {
 			// Index is exhausted
-			log.Printf("    index: index exhausted label=%c %x", targetLabel, targetLabel)
+			// fmt.Printf("    index: index exhausted label=%c %x\n", targetLabel, targetLabel)
 
 			e.validIndexPrefix = e.currentFrame.prefix
 
@@ -350,7 +349,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			if !e.currentFrame.hasTerms {
 				e.termExists = false
 				e.term.bytes[targetUpto] = byte(targetLabel)
-				log.Printf("  FAST NOT_FOUND term=%v", e.term)
+				// fmt.Printf("  FAST NOT_FOUND term=%v\n", e.term)
 				return false, nil
 			}
 
@@ -363,10 +362,10 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 				return false, err
 			}
 			if status == SEEK_STATUS_FOUND {
-				log.Printf("  return FOUND term=%v", e.term)
+				// fmt.Printf("  return FOUND term=%v\n", e.term)
 				return true, nil
 			} else {
-				log.Printf("  got %v; return NOT_FOUND term=%v", status, e.term)
+				// fmt.Printf("  got %v; return NOT_FOUND term=%v\n", status, e.term)
 				return false, nil
 			}
 		} else {
@@ -378,18 +377,18 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			if !fst.CompareFSTValue(arc.Output, noOutput) {
 				output = fstOutputs.Add(output, arc.Output)
 			}
-			fmt.Printf("    index: follow label=%x arc.output=%v arc.nfo=%v\n",
-				strconv.FormatInt(int64(target[targetUpto]), 16), arc.Output, arc.NextFinalOutput)
+			// fmt.Printf("    index: follow label=%x arc.output=%v arc.nfo=%v\n",
+			// 	strconv.FormatInt(int64(target[targetUpto]), 16), arc.Output, arc.NextFinalOutput)
 			targetUpto++
 
 			if arc.IsFinal() {
-				fmt.Println("    arc is final!")
+				// fmt.Println("    arc is final!")
 				if e.currentFrame, err = e.pushFrame(arc,
 					fstOutputs.Add(output, arc.NextFinalOutput).([]byte),
 					targetUpto); err != nil {
 					return false, err
 				}
-				fmt.Printf("    curFrame.ord=%v hasTerms=%v\n", e.currentFrame.ord, e.currentFrame.hasTerms)
+				// fmt.Printf("    curFrame.ord=%v hasTerms=%v\n", e.currentFrame.ord, e.currentFrame.hasTerms)
 			}
 		}
 	}
@@ -402,7 +401,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 	if !e.currentFrame.hasTerms {
 		e.termExists = false
 		e.term.length = targetUpto
-		log.Printf("  FAST NOT_FOUND term=%v", e.term)
+		// log.Printf("  FAST NOT_FOUND term=%v", e.term)
 		return false, nil
 	}
 
@@ -415,10 +414,10 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		return false, err
 	}
 	if status == SEEK_STATUS_FOUND {
-		log.Printf("  return FOUND term=%v", e.term)
+		// log.Printf("  return FOUND term=%v", e.term)
 		return true, nil
 	} else {
-		log.Printf("  got result %v; return NOT_FOUND term=%v", status, e.term)
+		// log.Printf("  got result %v; return NOT_FOUND term=%v", status, e.term)
 		return false, nil
 	}
 }
@@ -429,9 +428,9 @@ func (e *SegmentTermsEnum) SeekCeil(text []byte) SeekStatus {
 
 func (e *SegmentTermsEnum) printSeekState() {
 	if e.currentFrame == e.staticFrame {
-		log.Println("  no prior seek")
+		// log.Println("  no prior seek")
 	} else {
-		log.Println("  prior seek state:")
+		// log.Println("  prior seek state:")
 		ord := 0
 		isSeekFrame := true
 		for {
@@ -439,14 +438,14 @@ func (e *SegmentTermsEnum) printSeekState() {
 			assert(f != nil)
 			prefix := e.term.bytes[0:f.prefix]
 			if f.nextEnt == -1 {
-				action := "(next)"
-				if isSeekFrame {
-					action = "(seek)"
-				}
-				fpOrigValue := ""
-				if f.isFloor {
-					fpOrigValue = fmt.Sprintf(" (fpOrig=%v", f.fpOrig)
-				}
+				// action := "(next)"
+				// if isSeekFrame {
+				// 	action = "(seek)"
+				// }
+				// fpOrigValue := ""
+				// if f.isFloor {
+				// 	fpOrigValue = fmt.Sprintf(" (fpOrig=%v", f.fpOrig)
+				// }
 				code := (f.fp << BTT_OUTPUT_FLAGS_NUM_BITS)
 				if f.hasTerms {
 					code += BTT_OUTPUT_FLAG_HAS_TERMS
@@ -454,17 +453,17 @@ func (e *SegmentTermsEnum) printSeekState() {
 				if f.isFloor {
 					code += BTT_OUTPUT_FLAG_IS_FLOOR
 				}
-				log.Printf("    frame %v ord=%v fp=%v%v prefixLen=%v prefix=%v hasTerms=%v isFloor=%v code=%v isLastInFloor=%v mdUpto=%v tbOrd=%v",
-					action, ord, f.fp, fpOrigValue, f.prefix, prefix, f.hasTerms, f.isFloor, code, f.isLastInFloor, f.metaDataUpto, f.getTermBlockOrd())
+				// log.Printf("    frame %v ord=%v fp=%v%v prefixLen=%v prefix=%v hasTerms=%v isFloor=%v code=%v isLastInFloor=%v mdUpto=%v tbOrd=%v",
+				// 	action, ord, f.fp, fpOrigValue, f.prefix, prefix, f.hasTerms, f.isFloor, code, f.isLastInFloor, f.metaDataUpto, f.getTermBlockOrd())
 			} else {
-				action := "(next, loaded)"
-				if isSeekFrame {
-					action = "(seek, loaded)"
-				}
-				fpOrigValue := ""
-				if f.isFloor {
-					fpOrigValue = fmt.Sprintf(" (fpOrig=%v", f.fpOrig)
-				}
+				// action := "(next, loaded)"
+				// if isSeekFrame {
+				// 	action = "(seek, loaded)"
+				// }
+				// fpOrigValue := ""
+				// if f.isFloor {
+				// 	fpOrigValue = fmt.Sprintf(" (fpOrig=%v", f.fpOrig)
+				// }
 				code := (f.fp << BTT_OUTPUT_FLAGS_NUM_BITS)
 				if f.hasTerms {
 					code += BTT_OUTPUT_FLAG_HAS_TERMS
@@ -472,8 +471,8 @@ func (e *SegmentTermsEnum) printSeekState() {
 				if f.isFloor {
 					code += BTT_OUTPUT_FLAG_IS_FLOOR
 				}
-				log.Printf("    frame %v ord=%v fp=%v prefixLen=%v prefix=%v nextEnt=%v (of %v) hasTerms=%v isFloor=%v code=%v lastSubFP=%v isLastInFloor=%v mdUpto=%v tbOrd=%v",
-					action, ord, f.fp, fpOrigValue, f.prefix, prefix, f.nextEnt, f.entCount, f.hasTerms, f.isFloor, code, f.lastSubFP, f.isLastInFloor, f.metaDataUpto, f.getTermBlockOrd())
+				// log.Printf("    frame %v ord=%v fp=%v prefixLen=%v prefix=%v nextEnt=%v (of %v) hasTerms=%v isFloor=%v code=%v lastSubFP=%v isLastInFloor=%v mdUpto=%v tbOrd=%v",
+				// 	action, ord, f.fp, fpOrigValue, f.prefix, prefix, f.nextEnt, f.entCount, f.hasTerms, f.isFloor, code, f.lastSubFP, f.isLastInFloor, f.metaDataUpto, f.getTermBlockOrd())
 			}
 			if e.fr.index != nil {
 				assert2(!isSeekFrame || f.arc != nil,
@@ -485,7 +484,7 @@ func (e *SegmentTermsEnum) printSeekState() {
 				}
 				output := ret.([]byte)
 				if output == nil {
-					log.Println("      broken seek state: prefix is not final in index")
+					// log.Println("      broken seek state: prefix is not final in index")
 					panic("seek state is broken")
 				} else if isSeekFrame && !f.isFloor {
 					reader := store.NewByteArrayDataInput(output)
@@ -498,7 +497,7 @@ func (e *SegmentTermsEnum) printSeekState() {
 						code += BTT_OUTPUT_FLAG_IS_FLOOR
 					}
 					if codeOrig != code {
-						log.Printf("      broken seek state: output code=%v doesn't match frame code=%v", codeOrig, code)
+						// log.Printf("      broken seek state: output code=%v doesn't match frame code=%v", codeOrig, code)
 						panic("seek state is broken")
 					}
 				}
@@ -537,10 +536,10 @@ func assert2(ok bool, msg string, args ...interface{}) {
 
 func (e *SegmentTermsEnum) DocFreq() (df int, err error) {
 	assert(!e.eof)
-	log.Println("BTTR.docFreq")
+	// log.Println("BTTR.docFreq")
 	err = e.currentFrame.decodeMetaData()
 	df = e.currentFrame.state.DocFreq
-	log.Printf("  return %v", df)
+	// log.Printf("  return %v", df)
 	return
 }
 
@@ -553,12 +552,12 @@ func (e *SegmentTermsEnum) TotalTermFreq() (tf int64, err error) {
 
 func (e *SegmentTermsEnum) DocsByFlags(skipDocs util.Bits, reuse DocsEnum, flags int) (de DocsEnum, err error) {
 	assert(!e.eof)
-	log.Printf("BTTR.docs seg=%v", e.fr.parent.segment)
+	// log.Printf("BTTR.docs seg=%v", e.fr.parent.segment)
 	err = e.currentFrame.decodeMetaData()
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("  state=%v", e.currentFrame.state)
+	// log.Printf("  state=%v", e.currentFrame.state)
 	return e.fr.parent.postingsReader.Docs(e.fr.fieldInfo, e.currentFrame.state, skipDocs, reuse, flags)
 }
 
@@ -567,8 +566,8 @@ func (e *SegmentTermsEnum) DocsAndPositionsByFlags(skipDocs util.Bits, reuse Doc
 }
 
 func (e *SegmentTermsEnum) SeekExactFromLast(target []byte, otherState TermState) error {
-	log.Printf("BTTR.seekExact termState seg=%v target=%v state=%v",
-		e.fr.parent.segment, brToString(target), otherState)
+	// log.Printf("BTTR.seekExact termState seg=%v target=%v state=%v",
+	// 	e.fr.parent.segment, brToString(target), otherState)
 	e.eof = false
 	if !fst.CompareFSTValue(target, e.term.toBytes()) || !e.termExists {
 		assert(otherState != nil)
@@ -582,7 +581,7 @@ func (e *SegmentTermsEnum) SeekExactFromLast(target []byte, otherState TermState
 		assert(e.currentFrame.metaDataUpto > 0)
 		e.validIndexPrefix = 0
 	} else {
-		log.Printf("  skip seek: already on target state=%v", e.currentFrame.state)
+		// log.Printf("  skip seek: already on target state=%v", e.currentFrame.state)
 	}
 	return nil
 }
@@ -601,7 +600,7 @@ func (e *SegmentTermsEnum) TermState() (ts TermState, err error) {
 		return nil, err
 	}
 	ts = e.currentFrame.state.Clone() // <-- clone doesn't work here
-	log.Printf("BTTR.termState seg=%v state=%v", e.fr.parent.segment, ts)
+	// log.Printf("BTTR.termState seg=%v state=%v", e.fr.parent.segment, ts)
 	return
 }
 
