@@ -145,23 +145,31 @@ type MultiTerms struct {
 	subSlices []ReaderSlice
 }
 
-func NewMultiTerms(subs []Terms, subSlices []ReaderSlice) MultiTerms {
+func NewMultiTerms(subs []Terms, subSlices []ReaderSlice) *MultiTerms {
 	// TODO support customized comparator
-	return MultiTerms{subs, subSlices}
+	return &MultiTerms{subs, subSlices}
 }
 
-func (mt MultiTerms) Iterator(reuse TermsEnum) TermsEnum {
+func (mt *MultiTerms) Iterator(reuse TermsEnum) TermsEnum {
 	panic("not implemented yet")
 }
 
-func (mt MultiTerms) DocCount() int {
+func (mt *MultiTerms) DocCount() int {
+	sum := 0
+	for _, terms := range mt.subs {
+		if v := terms.DocCount(); v != -1 {
+			sum += v
+		} else {
+			return -1
+		}
+	}
+	return sum
+}
+
+func (mt *MultiTerms) SumTotalTermFreq() int64 {
 	panic("not implemented yet")
 }
 
-func (mt MultiTerms) SumTotalTermFreq() int64 {
-	panic("not implemented yet")
-}
-
-func (mt MultiTerms) SumDocFreq() int64 {
+func (mt *MultiTerms) SumDocFreq() int64 {
 	panic("not implemented yet")
 }
