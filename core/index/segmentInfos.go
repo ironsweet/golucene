@@ -453,7 +453,7 @@ func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string)
 			}
 			fCodec = LoadCodec(codecName)
 			assert2(fCodec != nil, "Invalid codec name: %v", codecName)
-			fmt.Printf("SIS.read seg=%v codec=%v\n", seg, fCodec)
+			// fmt.Printf("SIS.read seg=%v codec=%v\n", seg, fCodec)
 			var info *SegmentInfo
 			if info, err = fCodec.SegmentInfoFormat().SegmentInfoReader().Read(directory, segName, store.IO_CONTEXT_READ); err != nil {
 				return

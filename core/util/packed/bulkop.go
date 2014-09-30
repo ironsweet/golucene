@@ -158,7 +158,7 @@ func (p *BulkOperationPacked) EncodeIntToByte(values []int, blocks []byte, itera
 			blocksOff++
 			for bits >= 8 {
 				bits -= 8
-				blocks[blocksOff] = byte(nextBlock | int(uint(v)>>uint(bits)))
+				blocks[blocksOff] = byte(uint(v) >> uint(bits))
 				blocksOff++
 			}
 			// then buffer

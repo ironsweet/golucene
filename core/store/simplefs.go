@@ -124,7 +124,7 @@ func NewSimpleFSDirectory(path string) (d *SimpleFSDirectory, err error) {
 func (d *SimpleFSDirectory) OpenInput(name string, context IOContext) (IndexInput, error) {
 	d.EnsureOpen()
 	fpath := filepath.Join(d.path, name)
-	fmt.Printf("Opening %v...\n", fpath)
+	// fmt.Printf("Opening %v...\n", fpath)
 	return newSimpleFSIndexInput(fmt.Sprintf("SimpleFSIndexInput(path='%v')", fpath), fpath, context)
 }
 
