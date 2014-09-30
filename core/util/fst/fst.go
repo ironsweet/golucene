@@ -7,7 +7,6 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
-	"log"
 	"math"
 	"reflect"
 )
@@ -194,11 +193,11 @@ func LoadFST(in util.DataInput, outputs Outputs) (fst *FST, err error) {
  *  control the size of the byte[] pages used to hold the FST bytes. */
 func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST, err error) {
 	// log.Printf("Loading FST from %v and output to %v...", in, outputs)
-	defer func() {
-		if err != nil {
-			log.Print("Failed to load FST.")
-		}
-	}()
+	// defer func() {
+	// 	if err != nil {
+	// 		log.Print("Failed to load FST.")
+	// 	}
+	// }()
 	fst = &FST{outputs: outputs, startNode: -1}
 
 	if maxBlockBits < 1 || maxBlockBits > 30 {
@@ -222,16 +221,16 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 			// 1 KB blocks:
 			emptyBytes := newBytesStoreFromBits(10)
 			if numBytes, err := in.ReadVInt(); err == nil {
-				log.Printf("Number of bytes: %v", numBytes)
+				// log.Printf("Number of bytes: %v", numBytes)
 				emptyBytes.CopyBytes(in, int64(numBytes))
 
 				// De-serialize empty-string output:
 				var reader BytesReader
 				if fst.packed {
-					log.Printf("Forward reader.")
+					// log.Printf("Forward reader.")
 					reader = emptyBytes.forwardReader()
 				} else {
-					log.Printf("Reverse reader.")
+					// log.Printf("Reverse reader.")
 					reader = emptyBytes.reverseReader()
 					// NoOutputs uses 0 bytes when writing its output,
 					// so we have to check here else BytesStore gets
@@ -240,7 +239,7 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 						reader.setPosition(int64(numBytes - 1))
 					}
 				}
-				log.Printf("Reading final output from %v to %v...\n", reader, outputs)
+				// log.Printf("Reading final output from %v to %v...\n", reader, outputs)
 				fst.emptyOutput, err = outputs.ReadFinalOutput(reader)
 			}
 		} // else emptyOutput = nil

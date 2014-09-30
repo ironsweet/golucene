@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-const NRT_VERBOSE = true
+const NRT_VERBOSE = false
 
 // TODO
 // - let subclass dictate policy...?

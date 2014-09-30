@@ -5,7 +5,6 @@ import (
 	"container/list"
 	"fmt"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
-	"log"
 	"math"
 	"reflect"
 )
@@ -58,7 +57,7 @@ func (r *CompositeReaderImpl) Context() IndexReaderContext {
 	r.ensureOpen()
 	// lazy init without thread safety for perf reasons: Building the readerContext twice does not hurt!
 	if r.readerContext == nil {
-		log.Print("Obtaining context for: ", r)
+		// log.Print("Obtaining context for: ", r)
 		// assert getSequentialSubReaders() != null;
 		r.readerContext = newCompositeReaderContext(r)
 	}
@@ -146,7 +145,7 @@ func (b CompositeReaderContextBuilder) build4(parent *CompositeReaderContext,
 		b.leafDocBase += reader.MaxDoc()
 		return atomic
 	}
-	log.Print("CompositeReader is detected: ", reader)
+	// log.Print("CompositeReader is detected: ", reader)
 	cr := reader.(CompositeReader)
 	sequentialSubReaders := cr.getSequentialSubReaders()
 	// log.Printf("Found %v sub readers.", len(sequentialSubReaders))
@@ -194,7 +193,7 @@ type BaseCompositeReader struct {
 }
 
 func newBaseCompositeReader(spi BaseCompositeReaderSPI, readers []IndexReader) *BaseCompositeReader {
-	log.Printf("Initializing BaseCompositeReader with %v IndexReaders", len(readers))
+	// log.Printf("Initializing BaseCompositeReader with %v IndexReaders", len(readers))
 	ans := &BaseCompositeReader{}
 	ans.CompositeReaderImpl = newCompositeReader(spi, spi)
 	ans.subReaders = readers
@@ -209,13 +208,13 @@ func newBaseCompositeReader(spi BaseCompositeReaderSPI, readers []IndexReader) *
 			panic(fmt.Sprintf("Too many documents, composite IndexReaders cannot exceed %v", math.MaxInt32))
 		}
 		numDocs += r.NumDocs() // compute numDocs
-		log.Printf("Obtained %v docs (max %v)", numDocs, maxDoc)
+		// log.Printf("Obtained %v docs (max %v)", numDocs, maxDoc)
 		r.registerParentReader(ans)
 	}
 	ans.starts[len(readers)] = maxDoc
 	ans.maxDoc = maxDoc
 	ans.numDocs = numDocs
-	log.Print("Success")
+	// log.Print("Success")
 	return ans
 }
 

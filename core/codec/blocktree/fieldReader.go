@@ -4,7 +4,6 @@ import (
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util/fst"
-	"log"
 )
 
 type FieldReader struct {
@@ -30,7 +29,7 @@ func newFieldReader(parent *BlockTreeTermsReader,
 	indexStartFP int64, longsSize int, indexIn store.IndexInput,
 	minTerm, maxTerm []byte) (r FieldReader, err error) {
 
-	log.Print("Initializing FieldReader...")
+	// log.Print("Initializing FieldReader...")
 	assert(numTerms > 0)
 	r = FieldReader{
 		parent:           parent,

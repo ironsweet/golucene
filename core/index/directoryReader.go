@@ -7,7 +7,6 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 	// "io"
 	"errors"
-	"log"
 	"strings"
 )
 
@@ -28,7 +27,7 @@ type DirectoryReaderImpl struct {
 }
 
 func newDirectoryReader(spi BaseCompositeReaderSPI, directory store.Directory, segmentReaders []AtomicReader) *DirectoryReaderImpl {
-	log.Printf("Initializing DirectoryReader with %v segment readers...", len(segmentReaders))
+	// log.Printf("Initializing DirectoryReader with %v segment readers...", len(segmentReaders))
 	readers := make([]IndexReader, len(segmentReaders))
 	for i, v := range segmentReaders {
 		readers[i] = v
@@ -96,7 +95,7 @@ type StandardDirectoryReader struct {
 // TODO support IndexWriter
 func newStandardDirectoryReader(directory store.Directory, readers []AtomicReader,
 	sis *SegmentInfos, termInfosIndexDivisor int, applyAllDeletes bool) *StandardDirectoryReader {
-	log.Printf("Initializing StandardDirectoryReader with %v sub readers...", len(readers))
+	// log.Printf("Initializing StandardDirectoryReader with %v sub readers...", len(readers))
 	ans := &StandardDirectoryReader{segmentInfos: sis}
 	ans.DirectoryReaderImpl = newDirectoryReader(ans, directory, readers)
 	return ans
@@ -104,14 +103,14 @@ func newStandardDirectoryReader(directory store.Directory, readers []AtomicReade
 
 func openStandardDirectoryReader(directory store.Directory,
 	commit IndexCommit, termInfosIndexDivisor int) (r DirectoryReader, err error) {
-	log.Print("Initializing SegmentsFile...")
+	// log.Print("Initializing SegmentsFile...")
 	obj, err := NewFindSegmentsFile(directory, func(segmentFileName string) (interface{}, error) {
 		sis := &SegmentInfos{}
 		err := sis.Read(directory, segmentFileName)
 		if err != nil {
 			return nil, err
 		}
-		log.Printf("Found %v segments...", len(sis.Segments))
+		// log.Printf("Found %v segments...", len(sis.Segments))
 		readers := make([]AtomicReader, len(sis.Segments))
 		for i := len(sis.Segments) - 1; i >= 0; i-- {
 			sr, err := NewSegmentReader(sis.Segments[i], termInfosIndexDivisor, store.IO_CONTEXT_READ)
@@ -125,7 +124,7 @@ func openStandardDirectoryReader(directory store.Directory,
 			}
 			readers[i] = sr
 		}
-		log.Printf("Obtained %v SegmentReaders.", len(readers))
+		// log.Printf("Obtained %v SegmentReaders.", len(readers))
 		return newStandardDirectoryReader(directory, readers, sis, termInfosIndexDivisor, false), nil
 	}).run(commit)
 	if err != nil {

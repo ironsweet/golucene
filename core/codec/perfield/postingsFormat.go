@@ -6,7 +6,6 @@ import (
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/util"
 	"io"
-	"log"
 	"strconv"
 )
 
@@ -178,10 +177,10 @@ func newPerFieldPostingsReader(state SegmentReadState) (fp FieldsProducer, err e
 	success := false
 	defer func() {
 		if !success {
-			log.Printf("Failed to initialize PerFieldPostingsReader.")
-			if err != nil {
-				log.Print("DEBUG ", err)
-			}
+			// log.Printf("Failed to initialize PerFieldPostingsReader.")
+			// if err != nil {
+			// 	log.Print("DEBUG ", err)
+			// }
 			fps := make([]FieldsProducer, 0)
 			for _, v := range ans.formats {
 				fps = append(fps, v)
@@ -195,21 +194,21 @@ func newPerFieldPostingsReader(state SegmentReadState) (fp FieldsProducer, err e
 	}()
 	// Read field name -> format name
 	for _, fi := range state.FieldInfos.Values {
-		log.Printf("Processing %v...", fi)
+		// log.Printf("Processing %v...", fi)
 		if fi.IsIndexed() {
 			fieldName := fi.Name
-			log.Printf("Name: %v", fieldName)
+			// log.Printf("Name: %v", fieldName)
 			if formatName := fi.Attribute(PER_FIELD_FORMAT_KEY); formatName != "" {
-				log.Printf("Format: %v", formatName)
+				// log.Printf("Format: %v", formatName)
 				// null formatName means the field is in fieldInfos, but has no postings!
 				suffix := fi.Attribute(PER_FIELD_SUFFIX_KEY)
-				log.Printf("Suffix: %v", suffix)
+				// log.Printf("Suffix: %v", suffix)
 				assert(suffix != "")
 				format := LoadPostingsFormat(formatName)
 				segmentSuffix := formatName + "_" + suffix
-				log.Printf("Segment suffix: %v", segmentSuffix)
+				// log.Printf("Segment suffix: %v", segmentSuffix)
 				if _, ok := ans.formats[segmentSuffix]; !ok {
-					log.Printf("Loading fields producer: %v", segmentSuffix)
+					// log.Printf("Loading fields producer: %v", segmentSuffix)
 					newReadState := state // clone
 					newReadState.SegmentSuffix = formatName + "_" + suffix
 					fp, err = format.FieldsProducer(newReadState)

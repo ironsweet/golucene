@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
 	"reflect"
 	"sync"
 )
@@ -55,7 +54,7 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 	self.BaseDirectory = NewBaseDirectory(self)
 
 	if !openForWrite {
-		log.Printf("Open for read.")
+		// log.Printf("Open for read.")
 		success := false
 		defer func() {
 			if !success {
@@ -88,7 +87,7 @@ func (d *CompoundFileDirectory) Close() error {
 	d.Lock() // syncronized
 	defer d.Unlock()
 
-	fmt.Printf("Closing %v...\n", d)
+	// fmt.Printf("Closing %v...\n", d)
 	if !d.IsOpen {
 		fmt.Println("CompoundFileDirectory is already closed.")
 		// allow double close - usually to be consistent with other closeables
@@ -191,7 +190,7 @@ func readEntries(handle IndexInput, dir Directory, name string) (mapping map[str
 	}()
 
 	stream = handle.Clone()
-	fmt.Printf("Reading from stream: %v\n", stream)
+	// fmt.Printf("Reading from stream: %v\n", stream)
 	firstInt, err := stream.ReadVInt()
 	if err != nil {
 		return nil, err
@@ -235,7 +234,7 @@ func readEntries(handle IndexInput, dir Directory, name string) (mapping map[str
 		}
 
 		mapping = make(map[string]FileSlice)
-		fmt.Printf("Entries number: %v\n", numEntries)
+		// fmt.Printf("Entries number: %v\n", numEntries)
 		for i := int32(0); i < numEntries; i++ {
 			id, err := entriesStream.ReadString()
 			if err != nil {
@@ -245,7 +244,7 @@ func readEntries(handle IndexInput, dir Directory, name string) (mapping map[str
 				return nil, errors.New(fmt.Sprintf(
 					"Duplicate cfs entry id=%v in CFS: %v", id, entriesStream))
 			}
-			log.Printf("Found entry: %v", id)
+			// log.Printf("Found entry: %v", id)
 			offset, err := entriesStream.ReadLong()
 			if err != nil {
 				return nil, err

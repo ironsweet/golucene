@@ -11,7 +11,6 @@ import (
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
 	"sync/atomic"
 )
 
@@ -54,7 +53,7 @@ func NewSegmentReader(si *SegmentCommitInfo,
 	if r.fieldInfos, err = ReadFieldInfos(si); err != nil {
 		return nil, err
 	}
-	log.Print("Obtaining SegmentCoreReaders...")
+	// log.Print("Obtaining SegmentCoreReaders...")
 	if r.core, err = newSegmentCoreReaders(r, si.Info.Dir, si, context, termInfosIndexDivisor); err != nil {
 		return nil, err
 	}
@@ -68,7 +67,7 @@ func NewSegmentReader(si *SegmentCommitInfo,
 		// of things that were opened so that we don't have to
 		// wait for a GC to do so.
 		if !success {
-			log.Printf("Failed to initialize SegmentReader.")
+			// log.Printf("Failed to initialize SegmentReader.")
 			r.core.decRef()
 		}
 	}()
@@ -294,7 +293,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 
 	assert2(termsIndexDivisor != 0,
 		"indexDivisor must be < 0 (don't load terms index) or greater than 0 (got 0)")
-	fmt.Println("Initializing SegmentCoreReaders from directory:", dir)
+	// fmt.Println("Initializing SegmentCoreReaders from directory:", dir)
 
 	self = &SegmentCoreReaders{
 		refCount: 1,
@@ -306,7 +305,7 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 		return self.fieldsReaderOrig.Clone()
 	}
 
-	fmt.Println("Initializing listeners...")
+	// fmt.Println("Initializing listeners...")
 	self.addListener = make(chan CoreClosedListener)
 	self.removeListener = make(chan CoreClosedListener)
 	self.notifyListener = make(chan bool)
@@ -352,31 +351,31 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 	}()
 
 	codec := si.Info.Codec().(Codec)
-	fmt.Println("Obtaining CFS Directory...")
+	// fmt.Println("Obtaining CFS Directory...")
 	var cfsDir store.Directory // confusing name: if (cfs) its the cfsdir, otherwise its the segment's directory.
 	if si.Info.IsCompoundFile() {
-		fmt.Println("Detected CompoundFile.")
+		// fmt.Println("Detected CompoundFile.")
 		name := util.SegmentFileName(si.Info.Name, "", store.COMPOUND_FILE_EXTENSION)
 		if self.cfsReader, err = store.NewCompoundFileDirectory(dir, name, context, false); err != nil {
 			return nil, err
 		}
-		fmt.Println("CompoundFileDirectory: ", self.cfsReader)
+		// fmt.Println("CompoundFileDirectory: ", self.cfsReader)
 		cfsDir = self.cfsReader
 	} else {
 		cfsDir = dir
 	}
-	fmt.Println("CFS Directory:", cfsDir)
+	// fmt.Println("CFS Directory:", cfsDir)
 
-	fmt.Println("Reading FieldInfos...")
+	// fmt.Println("Reading FieldInfos...")
 	fieldInfos := owner.fieldInfos
 
 	self.termsIndexDivisor = termsIndexDivisor
 	format := codec.PostingsFormat()
 
-	fmt.Println("Obtaining SegmentReadState...")
+	// fmt.Println("Obtaining SegmentReadState...")
 	segmentReadState := NewSegmentReadState(cfsDir, si.Info, fieldInfos, context, termsIndexDivisor)
 	// Ask codec for its Fields
-	fmt.Println("Obtaining FieldsProducer...")
+	// fmt.Println("Obtaining FieldsProducer...")
 	if self.fields, err = format.FieldsProducer(segmentReadState); err != nil {
 		return nil, err
 	}
@@ -386,20 +385,20 @@ func newSegmentCoreReaders(owner *SegmentReader, dir store.Directory, si *Segmen
 	// kinda jaky to assume the codec handles the case of no norms file at all gracefully?!
 
 	if fieldInfos.HasNorms {
-		fmt.Println("Obtaining NormsDocValuesProducer...")
+		// fmt.Println("Obtaining NormsDocValuesProducer...")
 		if self.normsProducer, err = codec.NormsFormat().NormsProducer(segmentReadState); err != nil {
 			return nil, err
 		}
 		assert(self.normsProducer != nil)
 	}
 
-	fmt.Println("Obtaining StoredFieldsReader...")
+	// fmt.Println("Obtaining StoredFieldsReader...")
 	if self.fieldsReaderOrig, err = si.Info.Codec().(Codec).StoredFieldsFormat().FieldsReader(cfsDir, si.Info, fieldInfos, context); err != nil {
 		return nil, err
 	}
 
 	if fieldInfos.HasVectors { // open term vector files only as needed
-		fmt.Println("Obtaining TermVectorsReader...")
+		// fmt.Println("Obtaining TermVectorsReader...")
 		if self.termVectorsReaderOrig, err = si.Info.Codec().(Codec).TermVectorsFormat().VectorsReader(cfsDir, si.Info, fieldInfos, context); err != nil {
 			return nil, err
 		}

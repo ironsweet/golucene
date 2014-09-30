@@ -31,7 +31,7 @@ func NewFindSegmentsFile(directory store.Directory,
 
 // TODO support IndexCommit
 func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
-	fmt.Println("Finding segments file...")
+	// fmt.Println("Finding segments file...")
 	if commit != nil {
 		if fsf.directory != commit.Directory() {
 			return nil, errors.New("the specified commit does not match the specified Directory")
@@ -64,9 +64,9 @@ func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
 	// when necessary.
 
 	for {
-		fmt.Println("Trying...")
+		// fmt.Println("Trying...")
 		if useFirstMethod {
-			fmt.Println("Trying first method...")
+			// fmt.Println("Trying first method...")
 			// List the directory and use the highest
 			// segments_N file.  This method works well as long
 			// as there is no stale caching on the directory
@@ -82,7 +82,7 @@ func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
 				genA = LastCommitGeneration(files)
 			}
 
-			message("directory listing genA=%v", genA)
+			// message("directory listing genA=%v", genA)
 
 			// Also open segments.gen and read its
 			// contents.  Then we take the larger of the two
@@ -95,15 +95,15 @@ func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
 				message("segments.gen open: %v", err)
 			} else {
 				defer genInput.Close()
-				fmt.Println("Reading segments info...")
+				// fmt.Println("Reading segments info...")
 
 				var version int32
 				if version, err = genInput.ReadInt(); err != nil {
 					return nil, err
 				}
-				fmt.Printf("Version: %v\n", version)
+				// fmt.Printf("Version: %v\n", version)
 				if version == FORMAT_SEGMENTS_GEN_47 || version == FORMAT_SEGMENTS_GEN_CURRENT {
-					fmt.Println("Version is current.")
+					// fmt.Println("Version is current.")
 					var gen0, gen1 int64
 					if gen0, err = genInput.ReadLong(); err != nil {
 						return nil, err
@@ -176,7 +176,7 @@ func (fsf *FindSegmentsFile) run(commit IndexCommit) (interface{}, error) {
 
 		lastGen = gen
 		segmentFileName := util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", gen)
-		fmt.Printf("SegmentFileName: %v\n", segmentFileName)
+		// fmt.Printf("SegmentFileName: %v\n", segmentFileName)
 
 		var v interface{}
 		var err error
@@ -392,7 +392,7 @@ Read a particular segmentFileName. Note that this may return IO error
 if a commit is in process.
 */
 func (sis *SegmentInfos) Read(directory store.Directory, segmentFileName string) (err error) {
-	fmt.Printf("Reading segment info from %v...\n", segmentFileName)
+	// fmt.Printf("Reading segment info from %v...\n", segmentFileName)
 
 	// Clear any previous segments:
 	sis.Clear()

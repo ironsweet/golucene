@@ -46,7 +46,7 @@ func NewLucene41PostingsReader(dir store.Directory,
 	fis FieldInfos, si *SegmentInfo,
 	ctx store.IOContext, segmentSuffix string) (r PostingsReaderBase, err error) {
 
-	fmt.Println("Initializing Lucene41PostingsReader...")
+	// fmt.Println("Initializing Lucene41PostingsReader...")
 	success := false
 	var docIn, posIn, payIn store.IndexInput = nil, nil, nil
 	defer func() {
@@ -97,7 +97,7 @@ func NewLucene41PostingsReader(dir store.Directory,
 }
 
 func (r *Lucene41PostingsReader) Init(termsIn store.IndexInput) error {
-	fmt.Println("Initializing from:", termsIn)
+	// fmt.Println("Initializing from:", termsIn)
 	// Make sure we are talking to the matching postings writer
 	_, err := codec.CheckHeader(termsIn, LUCENE41_TERMS_CODEC, LUCENE41_VERSION_START, LUCENE41_VERSION_CURRENT)
 	if err != nil {
@@ -107,7 +107,7 @@ func (r *Lucene41PostingsReader) Init(termsIn store.IndexInput) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Index block size:", indexBlockSize)
+	// fmt.Println("Index block size:", indexBlockSize)
 	if indexBlockSize != LUCENE41_BLOCK_SIZE {
 		panic(fmt.Sprintf("index-time BLOCK_SIZE (%v) != read-time BLOCK_SIZE (%v)", indexBlockSize, LUCENE41_BLOCK_SIZE))
 	}

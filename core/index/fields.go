@@ -2,7 +2,6 @@ package index
 
 import (
 	. "github.com/balzaczyy/golucene/core/index/model"
-	"log"
 )
 
 type MultiFields struct {
@@ -44,11 +43,11 @@ func (mf MultiFields) Terms(field string) Terms {
 }
 
 func GetMultiFields(r IndexReader) Fields {
-	log.Print("Obtaining MultiFields from ", r)
+	// log.Print("Obtaining MultiFields from ", r)
 	leaves := r.Leaves()
 	switch len(leaves) {
 	case 0:
-		log.Print("No fields are found.")
+		// log.Print("No fields are found.")
 		// no fields
 		return nil
 	case 1:
@@ -65,7 +64,7 @@ func GetMultiFields(r IndexReader) Fields {
 			fields = append(fields, f)
 			slices = append(slices, ReaderSlice{ctx.DocBase, r.MaxDoc(), len(fields)})
 		}
-		log.Printf("Found %v fields in %v slices.", len(fields), len(slices))
+		// log.Printf("Found %v fields in %v slices.", len(fields), len(slices))
 		switch len(fields) {
 		case 0:
 			return nil
@@ -78,7 +77,7 @@ func GetMultiFields(r IndexReader) Fields {
 }
 
 func GetMultiTerms(r IndexReader, field string) Terms {
-	log.Printf("Loading field '%v' from %v", field, r)
+	// log.Printf("Loading field '%v' from %v", field, r)
 	fields := GetMultiFields(r)
 	if fields.Terms == nil {
 		return nil
