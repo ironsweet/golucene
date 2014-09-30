@@ -79,9 +79,10 @@ func BitCount(b byte) int {
 func pop_array(arr []int64) int {
 	popCount := 0
 	for _, v := range arr {
-		for v > 0 {
-			popCount += BitCount(byte(v & 0xff))
-			v >>= 8
+		uv := uint64(v)
+		for uv > 0 {
+			popCount += BitCount(byte(uv & 0xff))
+			uv >>= 8
 		}
 	}
 	return popCount

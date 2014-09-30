@@ -1665,7 +1665,7 @@ func (w *IndexWriter) startCommit(toSync *SegmentInfos) error {
 		if err != nil {
 			return err
 		}
-		fmt.Print("DONE prepareCommit")
+		fmt.Println("DONE prepareCommit")
 
 		pendingCommitSet = true
 		w.pendingCommit = toSync
