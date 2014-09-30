@@ -19,7 +19,7 @@ type ScoreDoc struct {
 }
 
 func newScoreDoc(doc int, score float32) *ScoreDoc {
-	return &ScoreDoc{Score: score, Doc: doc}
+	return newShardedScoreDoc(doc, score, -1)
 }
 
 func newShardedScoreDoc(doc int, score float32, shardIndex int) *ScoreDoc {
@@ -298,8 +298,7 @@ func (c *InOrderTopScoreDocCollector) Collect(doc int) (err error) {
 	}
 	c.pqTop.Doc = doc + c.docBase
 	c.pqTop.Score = float32(score)
-	heap.Pop(c.pq)
-	heap.Push(c.pq, c.pqTop)
+	c.pqTop = c.pq.updateTop().(*ScoreDoc)
 	return
 }
 
