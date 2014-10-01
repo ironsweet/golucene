@@ -201,7 +201,130 @@ func (tm *TokenManager) jjMoveNfa_2(startState, curPos int) int {
 				}
 			}
 		} else if tm.curChar < 128 {
-			panic("not implemented yet")
+			l := int64(1) << (uint(tm.curChar) & 077)
+			for {
+				i--
+				switch tm.jjstateSet[i] {
+				case 49:
+					panic("niy")
+				case 0:
+					if (0x97ffffff87ffffff & uint64(l)) != 0 {
+						if kind > 20 {
+							kind = 20
+						}
+						tm.jjCheckNAddStates(6, 10)
+					} else if tm.curChar == 92 {
+						panic("niy")
+					} else if tm.curChar == 126 {
+						panic("niy")
+					}
+					if (0x97ffffff87ffffff & uint64(l)) != 0 {
+						if kind > 23 {
+							kind = 23
+						}
+						tm.jjCheckNAddTwoStates(33, 34)
+					}
+					switch tm.curChar {
+					case 78:
+						panic("niy")
+					case 124:
+						panic("niy")
+					case 79:
+						panic("niy")
+					case 65:
+						panic("niy")
+					}
+				case 1:
+					panic("niy")
+				case 2:
+					panic("niy")
+				case 3:
+					panic("niy")
+				case 6:
+					panic("niy")
+				case 7:
+					panic("niy")
+				case 8:
+					panic("niy")
+				case 9:
+					panic("niy")
+				case 10:
+					panic("niy")
+				case 11:
+					panic("niy")
+				case 12:
+					panic("niy")
+				case 17:
+					panic("niy")
+				case 18:
+					panic("niy")
+				case 19:
+					panic("niy")
+				case 21:
+					panic("niy")
+				case 25:
+					panic("niy")
+				case 26:
+					panic("niy")
+				case 27:
+					panic("niy")
+				case 28:
+					panic("niy")
+				case 29:
+					panic("niy")
+				case 30:
+					panic("niy")
+				case 32:
+					panic("niy")
+				case 33:
+					if (0x97ffffff87ffffff & uint64(l)) != 0 {
+						if kind > 23 {
+							kind = 23
+						}
+						tm.jjCheckNAddTwoStates(33, 34)
+					}
+				case 34:
+					if tm.curChar == 92 {
+						tm.jjCheckNAddTwoStates(35, 35)
+					}
+				case 35:
+					panic("niy")
+				case 37:
+					panic("niy")
+				case 39:
+					panic("niy")
+				case 41:
+					panic("niy")
+				case 42:
+					if (0x97ffffff87ffffff & uint64(l)) != 0 {
+						if kind > 20 {
+							kind = 20
+						}
+						tm.jjCheckNAddTwoStates(42, 43)
+					}
+				case 43:
+					if tm.curChar == 92 {
+						tm.jjCheckNAddTwoStates(44, 44)
+					}
+				case 44:
+					panic("niy")
+				case 45:
+					if (0x97ffffff87ffffff & uint64(l)) != 0 {
+						tm.jjCheckNAddStates(18, 20)
+					}
+				case 46:
+					if tm.curChar == 92 {
+						tm.jjCheckNAddTwoStates(47, 47)
+					}
+				case 47:
+					panic("niy")
+				case 48:
+					panic("niy")
+				}
+				if i <= startsAt { // ==?
+					break
+				}
+			}
 		} else {
 			hiByte := int(tm.curChar >> 8)
 			i1 := hiByte >> 6
