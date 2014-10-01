@@ -503,7 +503,7 @@ func (tm *TokenManager) nextToken() (matchedToken *Token) {
 			if tm.jjmatchedPos+1 < curPos {
 				tm.input_stream.backup(curPos - tm.jjmatchedPos - 1)
 			}
-			if (jjtoToken[tm.jjmatchedKind>>6] & int64(1<<uint64(tm.jjmatchedKind&077))) != 0 {
+			if (jjtoToken[tm.jjmatchedKind>>6] & int64(1) << uint(tm.jjmatchedKind&077)) != 0 {
 				matchedToken = tm.jjFillToken()
 				if jjnewLexState[tm.jjmatchedKind] != -1 {
 					panic("not implemented yet")
@@ -511,8 +511,9 @@ func (tm *TokenManager) nextToken() (matchedToken *Token) {
 				return matchedToken
 			} else {
 				if n := jjnewLexState[tm.jjmatchedKind]; n != -1 {
-					tm.curLexState = n
-					continue
+					panic("niy")
+					// tm.curLexState = n
+					// continue
 				}
 			}
 		}
@@ -521,7 +522,6 @@ func (tm *TokenManager) nextToken() (matchedToken *Token) {
 		var error_after string
 		var eofSeen = false
 		if _, err = tm.input_stream.readChar(); err == nil {
-			tm.input_stream.backup(1)
 			tm.input_stream.backup(1)
 			if curPos > 1 {
 				error_after = tm.input_stream.image()
