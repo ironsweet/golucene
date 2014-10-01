@@ -83,7 +83,11 @@ func (qp *QueryBuilder) createFieldQuery(analyzer analysis.Analyzer,
 	if numTokens == 0 {
 		return nil
 	} else if numTokens == 1 {
-		panic("not implemented yet")
+		if hasNext, err := buffer.IncrementToken(); err == nil {
+			assert(hasNext)
+			termAtt.FillBytesRef()
+		} // safe to ignore error, because we know the number of tokens
+		return qp.newTermQuery(index.NewTermFromBytes(field, util.DeepCopyOf(bytes).Value))
 	} else {
 		if severalTokensAtSamePosition || !quoted {
 			if positionCount == 1 || !quoted {
