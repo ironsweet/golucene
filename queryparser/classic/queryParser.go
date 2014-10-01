@@ -218,16 +218,26 @@ func (qp *QueryParser) jj_2_1(xla int) (ok bool) {
 	qp.jj_lastpos = qp.token
 	qp.jj_scanpos = qp.token
 	defer func() {
-		if err := recover(); err == lookAheadSuccess {
-			ok = true
-		}
+		// Disable following recover() to deal with dev panic
+		// 	if err := recover(); err == lookAheadSuccess {
+		// 		ok = true
+		// 	}
 		qp.jj_save(0, xla)
 	}()
 	return !qp.jj_3_1()
 }
 
+func (qp *QueryParser) jj_3R_2() bool {
+	return qp.jj_scan_token(TERM) ||
+		qp.jj_scan_token(COLON)
+}
+
 func (qp *QueryParser) jj_3_1() bool {
-	panic("not implemented yet")
+	// xsp := qp.jj_scanpos
+	if qp.jj_3R_2() {
+		panic("niy")
+	}
+	return false
 }
 
 // L540
@@ -269,6 +279,33 @@ func (qp *QueryParser) jj_consume_token(kind int) (*Token, error) {
 type LookAheadSuccess bool
 
 var lookAheadSuccess = LookAheadSuccess(true)
+
+func (qp *QueryParser) jj_scan_token(kind int) bool {
+	if qp.jj_scanpos == qp.jj_lastpos {
+		qp.jj_la--
+		if qp.jj_scanpos.next == nil {
+			nextToken := qp.token_source.nextToken()
+			qp.jj_lastpos = nextToken
+			qp.jj_scanpos = nextToken
+			qp.jj_scanpos.next = nextToken
+		} else {
+			qp.jj_lastpos = qp.jj_scanpos.next
+			qp.jj_scanpos = qp.jj_scanpos.next
+		}
+	} else {
+		panic("niy")
+	}
+	if qp.jj_rescan {
+		panic("niy")
+	}
+	if qp.jj_scanpos.kind != kind {
+		return true
+	}
+	if qp.jj_la == 0 && qp.jj_scanpos == qp.jj_lastpos {
+		panic(lookAheadSuccess)
+	}
+	return false
+}
 
 // L636
 func (qp *QueryParser) get_jj_ntk() int {
