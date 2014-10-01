@@ -110,7 +110,9 @@ func (tm *TokenManager) jjMoveNfa_2(startState, curPos int) int {
 						}
 						tm.jjCheckNAddTwoStates(33, 34)
 					} else if (0x100002600 & l) != 0 {
-						panic("not implemented yet")
+						if kind > 7 {
+							kind = 7
+						}
 					} else if (0x280200000000 & l) != 0 {
 						panic("not implemented yet")
 					} else if tm.curChar == 47 {
@@ -508,7 +510,10 @@ func (tm *TokenManager) nextToken() (matchedToken *Token) {
 				}
 				return matchedToken
 			} else {
-				panic("not implemented yet")
+				if n := jjnewLexState[tm.jjmatchedKind]; n != -1 {
+					tm.curLexState = n
+					continue
+				}
 			}
 		}
 		error_line := tm.input_stream.endLine()
