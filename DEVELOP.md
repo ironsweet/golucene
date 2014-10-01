@@ -6,6 +6,7 @@ Milestones
 - 2014/6/29   Third test case (gl3.go) that index string field has passed.
 - 2014/8/8    Migrated to Lucene 4.9.0 code base.
 - 2014/9/5    QueryParser scenario for simple keywords can be used.
+- 2014/9/30   Index/search for hamlet is done.
 
 Progress
 --------
