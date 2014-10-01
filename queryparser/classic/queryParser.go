@@ -219,9 +219,9 @@ func (qp *QueryParser) jj_2_1(xla int) (ok bool) {
 	qp.jj_scanpos = qp.token
 	defer func() {
 		// Disable following recover() to deal with dev panic
-		// 	if err := recover(); err == lookAheadSuccess {
-		// 		ok = true
-		// 	}
+		if err := recover(); err == lookAheadSuccess {
+			ok = true
+		}
 		qp.jj_save(0, xla)
 	}()
 	return !qp.jj_3_1()
@@ -233,11 +233,19 @@ func (qp *QueryParser) jj_3R_2() bool {
 }
 
 func (qp *QueryParser) jj_3_1() bool {
-	// xsp := qp.jj_scanpos
+	xsp := qp.jj_scanpos
 	if qp.jj_3R_2() {
-		panic("niy")
+		qp.jj_scanpos = xsp
+		if qp.jj_3R_3() {
+			return true
+		}
 	}
 	return false
+}
+
+func (qp *QueryParser) jj_3R_3() bool {
+	return qp.jj_scan_token(STAR) ||
+		qp.jj_scan_token(COLON)
 }
 
 // L540
@@ -260,8 +268,8 @@ func (qp *QueryParser) jj_consume_token(kind int) (*Token, error) {
 	if qp.token.next != nil {
 		qp.token = qp.token.next
 	} else {
-		qp.token = qp.token_source.nextToken()
-		qp.token.next = qp.token
+		qp.token.next = qp.token_source.nextToken()
+		qp.token = qp.token.next
 	}
 	qp.jj_ntk = -1
 	if qp.token.kind == kind {
@@ -285,15 +293,15 @@ func (qp *QueryParser) jj_scan_token(kind int) bool {
 		qp.jj_la--
 		if qp.jj_scanpos.next == nil {
 			nextToken := qp.token_source.nextToken()
-			qp.jj_lastpos = nextToken
-			qp.jj_scanpos = nextToken
 			qp.jj_scanpos.next = nextToken
+			qp.jj_scanpos = nextToken
+			qp.jj_lastpos = nextToken
 		} else {
-			qp.jj_lastpos = qp.jj_scanpos.next
 			qp.jj_scanpos = qp.jj_scanpos.next
+			qp.jj_lastpos = qp.jj_scanpos.next
 		}
 	} else {
-		panic("niy")
+		qp.jj_scanpos = qp.jj_scanpos.next
 	}
 	if qp.jj_rescan {
 		panic("niy")
