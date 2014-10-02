@@ -123,6 +123,29 @@ func (qp *QueryParserBase) newBooleanClause(q search.Query, occur search.Occur) 
 	return search.NewBooleanClause(q, occur)
 }
 
+// L676
+/*
+Factory method for generating query, given a set of clauses.
+By default creates a boolean query composed of clauses passed in.
+
+Can be overridden by extending classes, to modify query being
+returned.
+*/
+func (qp *QueryParserBase) booleanQuery(clauses []*search.BooleanClause) (search.Query, error) {
+	return qp.booleanQueryDisableCoord(clauses, false)
+}
+
+func (qp *QueryParserBase) booleanQueryDisableCoord(clauses []*search.BooleanClause, disableCoord bool) (search.Query, error) {
+	if len(clauses) == 0 {
+		return nil, nil // all clause words were filetered away by the analyzer.
+	}
+	query := qp.newBooleanQuery(disableCoord)
+	for _, clause := range clauses {
+		query.AddClause(clause)
+	}
+	return query, nil
+}
+
 // L827
 func (qp *QueryParserBase) handleBareTokenQuery(qField string,
 	term, fuzzySlop *Token, prefix, wildcard, fuzzy, regexp bool) (q search.Query, err error) {

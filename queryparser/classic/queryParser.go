@@ -49,7 +49,17 @@ func NewQueryParser(matchVersion util.Version, f string, a analysis.Analyzer) *Q
 }
 
 func (qp *QueryParser) conjunction() (int, error) {
-	panic("not implemented yet")
+	ret := CONJ_NONE
+	if qp.jj_ntk == -1 {
+		qp.get_jj_ntk()
+	}
+	switch qp.jj_ntk {
+	case AND, OR:
+		panic("niy")
+	default:
+		qp.jj_la1[1] = qp.jj_gen
+	}
+	return ret, nil
 }
 
 func (qp *QueryParser) modifiers() (ret int, err error) {
@@ -118,8 +128,7 @@ func (qp *QueryParser) Query(field string) (q search.Query, err error) {
 	if len(clauses) == 1 && firstQuery != nil {
 		return firstQuery, nil
 	} else {
-		panic("not implemented yet")
-		// return qp.booleanQuery(clauses)
+		return qp.booleanQuery(clauses)
 	}
 }
 
