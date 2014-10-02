@@ -534,6 +534,9 @@ func (f *segmentTermsEnumFrame) scanToTermNonLeaf(target []byte,
 				if !exactOnly && !f.ste.termExists {
 					panic("niy")
 				}
+
+				fmt.Println("        not found")
+				return SEEK_STATUS_NOT_FOUND, nil
 			} else if stop {
 				// Exact match!
 
