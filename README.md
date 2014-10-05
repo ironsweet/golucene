@@ -3,7 +3,12 @@ golucene
 
 A [Go](http://golang.org) port of [Apache Lucene](http://lucene.apache.org).
 
+Live Demo
+---------
+Try the latest demo [here](http://hamlet.mybluemix.net/). It supports basic query parser syntax (classic) but may not fully work. It would help if you could raise issue when you see one, or I will collect and fix issues regularly. Note that, classic query parser is not a high priority item since new query parser is available and I need to spend time migrate to 4.10.
+
 Why do we need yet another port of Lucene?
+------------------------------------------
 
 Since Lucene Java is already optimized to teeth (and yes, I know it very much), potential performance gain should not be expected from its Go port. Quote from Lucy's FAQ:
 
