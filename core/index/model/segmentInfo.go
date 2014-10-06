@@ -164,3 +164,17 @@ func (si *SegmentInfo) checkFileNames(files map[string]bool) {
 		}
 	}
 }
+
+func (si *SegmentInfo) cloneMap(m map[string]string) map[string]string {
+	panic("niy")
+}
+
+func (si *SegmentInfo) Clone() *SegmentInfo {
+	other := NewSegmentInfo2(si.Dir, si.version, si.Name, si.DocCount(),
+		si.isCompoundFile, si.codec, si.cloneMap(si.diagnostics),
+		si.cloneMap(si.attributes))
+	if si.files != nil {
+		other.SetFiles(si.files)
+	}
+	return other
+}

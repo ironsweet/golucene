@@ -250,9 +250,7 @@ func (fd *IndexFileDeleter) deleteCommits() error {
 				fd.infoStream.Message("IFD", "deleteCommits: now decRef commit '%v'",
 					commit.segmentsFileName)
 			}
-			for _, file := range commit.files {
-				fd.decRefFile(file)
-			}
+			fd.decRefFiles(commit.files)
 		}
 		fd.commitsToDelete = nil
 

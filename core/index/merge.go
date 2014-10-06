@@ -275,7 +275,8 @@ type OneMerge struct {
 	// Segments to ber merged.
 	segments []*SegmentCommitInfo
 
-	// Number of documents in the merged segment.
+	// Total number of documents in segments to be merged, not
+	// accounting for deletions.
 	totalDocCount int
 	aborted       bool
 }

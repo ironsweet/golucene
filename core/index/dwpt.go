@@ -89,6 +89,7 @@ type DocumentsWriterPerThread struct {
 	deleteSlice        *DeleteSlice
 	byteBlockAllocator util.ByteAllocator
 	intBlockAllocator  util.IntAllocator
+	pendingNumDocs     *int64
 	indexWriterConfig  LiveIndexWriterConfig
 
 	filesToDelete map[string]bool
@@ -97,13 +98,14 @@ type DocumentsWriterPerThread struct {
 func newDocumentsWriterPerThread(segmentName string,
 	directory store.Directory, indexWriterConfig LiveIndexWriterConfig,
 	infoStream util.InfoStream, deleteQueue *DocumentsWriterDeleteQueue,
-	fieldInfos *FieldInfosBuilder) *DocumentsWriterPerThread {
+	fieldInfos *FieldInfosBuilder, pendingNumDocs *int64) *DocumentsWriterPerThread {
 
 	counter := util.NewCounter()
 	ans := &DocumentsWriterPerThread{
 		directoryOrig:      directory,
 		directory:          store.NewTrackingDirectoryWrapper(directory),
 		fieldInfos:         fieldInfos,
+		pendingNumDocs:     pendingNumDocs,
 		indexWriterConfig:  indexWriterConfig,
 		infoStream:         infoStream,
 		codec:              indexWriterConfig.Codec(),
@@ -170,6 +172,18 @@ func (dwpt *DocumentsWriterPerThread) testPoint(msg string) {
 	}
 }
 
+/*
+Anything that will add N docs to the index should reserve first to
+make sure it's allowed.
+*/
+func (dwpt *DocumentsWriterPerThread) reserveDoc() {
+	if atomic.AddInt64(dwpt.pendingNumDocs, 1) > int64(actualMaxDocs) {
+		// reserve failed
+		atomic.AddInt64(dwpt.pendingNumDocs, -1)
+		panic(fmt.Sprintf("number of documents in the index cannot exceed %v", actualMaxDocs))
+	}
+}
+
 func (dwpt *DocumentsWriterPerThread) updateDocument(doc []IndexableField,
 	analyzer analysis.Analyzer, delTerm *Term) error {
 
@@ -182,6 +196,12 @@ func (dwpt *DocumentsWriterPerThread) updateDocument(doc []IndexableField,
 		dwpt.infoStream.Message("DWPT", "update delTerm=%v docID=%v seg=%v ",
 			delTerm, dwpt.docState.docID, dwpt.segmentInfo.Name)
 	}
+	// Even on error, the document is still added (but marked deleted),
+	// so we don't need to un-reserve at that point. Aborting errors
+	// will actually "lose" more than one document, so the counter will
+	// be "wrong" in that case, but it's very hard to fix (we can't
+	// easily distinguish aborting vs non-aborting errors):
+	dwpt.reserveDoc()
 	if err := func() error {
 		var success = false
 		defer func() {

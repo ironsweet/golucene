@@ -5,7 +5,6 @@ import (
 	"container/list"
 	"fmt"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
-	"math"
 	"reflect"
 )
 
@@ -203,9 +202,11 @@ func newBaseCompositeReader(spi BaseCompositeReaderSPI, readers []IndexReader) *
 	var maxDoc, numDocs int
 	for i, r := range readers {
 		ans.starts[i] = maxDoc
-		maxDoc += r.MaxDoc() // compute maxDocs
-		if maxDoc < 0 {      // overflow
-			panic(fmt.Sprintf("Too many documents, composite IndexReaders cannot exceed %v", math.MaxInt32))
+		maxDoc += r.MaxDoc()                      // compute maxDocs
+		if maxDoc < 0 || maxDoc > actualMaxDocs { // overflow
+			panic(fmt.Sprintf(
+				"Too many documents, composite IndexReaders cannot exceed %v",
+				actualMaxDocs))
 		}
 		numDocs += r.NumDocs() // compute numDocs
 		// log.Printf("Obtained %v docs (max %v)", numDocs, maxDoc)

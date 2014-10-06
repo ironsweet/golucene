@@ -1,7 +1,6 @@
 package util
 
 import (
-	"math"
 	"testing"
 )
 
@@ -11,7 +10,7 @@ func TestGrowth(t *testing.T) {
 	var copyCost int64 = 0
 
 	// Make sure it hits math.MaxInt32, if we insist:
-	for currentSize != math.MaxInt32 {
+	for currentSize != MAX_ARRAY_LENGTH {
 		nextSize := Oversize(1+currentSize, NUM_BYTES_OBJECT_REF)
 		assert2(nextSize > currentSize, "%v -> %v", currentSize, nextSize)
 		if currentSize > 0 {

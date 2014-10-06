@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
 	. "github.com/balzaczyy/golucene/test_framework"
@@ -12,6 +13,8 @@ import (
 )
 
 func main() {
+	panic("Test framework is not supported yet.")
+
 	fmt.Printf("tests_codec: %v\n", os.Getenv("tests_codec"))
 
 	index.DefaultSimilarity = func() index.Similarity {
@@ -40,7 +43,7 @@ func main() {
 		t.Assert2(err == nil, "%v", err)
 		t.Assert(writer != nil)
 
-		d := index.NewDocument()
+		d := document.NewDocument()
 		d.Add(NewTextField("foo", "bar", true))
 		err = writer.AddDocument(d.Fields())
 		t.Assert2(err == nil, "%v", err)

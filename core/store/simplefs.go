@@ -235,6 +235,8 @@ func (in *SimpleFSIndexInput) Clone() IndexInput {
 }
 
 func (in *SimpleFSIndexInput) Slice(desc string, offset, length int64) (IndexInput, error) {
+	assert2(offset >= 0 && length >= 0 && offset+length <= in.Length(),
+		"slice() %v out of bounds: %v", desc, in)
 	ans := newSimpleFSIndexInputFromFileSlice(desc, in.file, in.off+offset, length, in.bufferSize)
 	ans.fileLock = in.fileLock // share same file lock
 	return ans, nil

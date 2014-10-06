@@ -7,6 +7,9 @@ import (
 
 // util/ArrayUtil.java
 
+/* Maximum length for an array */
+const MAX_ARRAY_LENGTH = math.MaxInt32 - NUM_BYTES_ARRAY_HEADER
+
 // L152
 /** Returns an array size >= minTargetSize, generally
  *  over-allocating exponentially to achieve amortized
@@ -34,6 +37,9 @@ func Oversize(minTargetSize int, bytesPerElement int) int {
 		return 0
 	}
 
+	assert2(minTargetSize <= MAX_ARRAY_LENGTH,
+		"requested array size %v exceeds maximum array in Go (%v)", MAX_ARRAY_LENGTH)
+
 	// asymptotic exponential growth by 1/8th, favors
 	// spending a bit more CPU to not tie up too much wasted
 	// RAM:
@@ -47,9 +53,9 @@ func Oversize(minTargetSize int, bytesPerElement int) int {
 
 	newSize := minTargetSize + extra
 	// add 7 to allow for worst case byte alignment addition below:
-	if int32(newSize+7) < 0 {
-		// int overflowed -- return max allowed array size
-		return int(math.MaxInt32)
+	if n := int32(newSize + 7); n < 0 || n > MAX_ARRAY_LENGTH {
+		// int overflowed, or we exceeded the maximum array length
+		return MAX_ARRAY_LENGTH
 	}
 
 	// Lucene support 32bit/64bit detection

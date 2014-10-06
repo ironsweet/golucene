@@ -229,7 +229,16 @@ func (si *SegmentCommitInfo) String() string {
 }
 
 func (si *SegmentCommitInfo) Clone() *SegmentCommitInfo {
-	clone := NewSegmentCommitInfo(si.Info, si.delCount, si.delGen, si.fieldInfosGen, si.docValuesGen)
+	return si.CloneDeep(false)
+}
+
+func (si *SegmentCommitInfo) CloneDeep(cloneSegmentInfo bool) *SegmentCommitInfo {
+	otherInfo := si.Info
+	if cloneSegmentInfo {
+		otherInfo = si.Info.Clone()
+	}
+	clone := NewSegmentCommitInfo(otherInfo, si.delCount, si.delGen,
+		si.fieldInfosGen, si.docValuesGen)
 	// Not clear that we need ot carry over nextWriteDelGen (i.e. do we
 	// ever clone after a failed write and before the next successful
 	// write?), but just do it to be safe:

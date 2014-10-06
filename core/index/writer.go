@@ -10,6 +10,7 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"log"
+	"math"
 	"os"
 	"runtime"
 	"sort"
@@ -132,6 +133,15 @@ func (cc *ClosingControl) close(f func() (ok bool, err error)) error {
 	return <-cc.done
 }
 
+/*
+Hard limit on maximum number of documents that may be added to the
+index. If you try to add more than this, you'll hit panic.
+*/
+const MAX_DOCS = math.MaxInt32 - 128
+
+/* test only */
+var actualMaxDocs = MAX_DOCS
+
 const UNBOUNDED_MAX_MERGE_SEGMENTS = -1
 
 /* Name of the write lock in the index. */
@@ -229,6 +239,14 @@ type IndexWriter struct {
 	// time.Now() when commits started; used to write an infoStream
 	// message about how long commit took.
 	startCommitTime time.Time
+
+	// How many documents are in the index, or are in the process of
+	// being added (reserved). E.g., operations like addIndexes will
+	// first reserve the right to add N docs, before they actually
+	// charge the index, much like how hotels place an "authorization
+	// hold" on your credit card to make sure they can later charge you
+	// when you checkout.
+	pendingNumDocs int64
 
 	codec Codec // for writing new segments
 
@@ -1484,6 +1502,7 @@ func (w *IndexWriter) _applyAllDeletesAndUpdates() error {
 			// will then drop it once it's done:
 			if _, ok := w.mergingSegments[info]; !ok {
 				w.segmentInfos.remove(info)
+				atomic.AddInt64(&w.pendingNumDocs, -int64(info.Info.DocCount()))
 				err = w.readerPool.drop(info)
 				if err != nil {
 					return err

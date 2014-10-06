@@ -276,7 +276,7 @@ func (dw *DocumentsWriter) ensureInitialized(state *ThreadState) {
 	if state.isActive && state.dwpt == nil {
 		infos := model.NewFieldInfosBuilder(dw.writer.globalFieldNumberMap)
 		state.dwpt = newDocumentsWriterPerThread(dw.writer.newSegmentName(),
-			dw.directory, dw.config, dw.infoStream, dw.deleteQueue, infos)
+			dw.directory, dw.config, dw.infoStream, dw.deleteQueue, infos, &dw.writer.pendingNumDocs)
 	}
 }
 

@@ -825,15 +825,15 @@ func (t *StandardTokenizerImpl) zzRefill() (bool, error) {
 		t.zzStartRead = 0
 	}
 
-	// is the buffer big enough?
-	if t.zzCurrentPos >= len(t.zzBuffer) {
-		panic("not implemented yet")
-	}
-
 	// finally: fill the buffer with new input
-	numRead, err := readRunes(t.zzReader.(io.RuneReader), t.zzBuffer[t.zzEndRead:])
-	if err != nil && err != io.EOF {
-		return false, err
+	var numRead = 0
+	var err error
+	var requested = len(t.zzBuffer) - t.zzEndRead
+	if requested > 0 {
+		if numRead, err = readRunes(t.zzReader.(io.RuneReader),
+			t.zzBuffer[t.zzEndRead:]); err != nil && err != io.EOF {
+			return false, err
+		}
 	}
 
 	if numRead > 0 {

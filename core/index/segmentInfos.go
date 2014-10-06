@@ -679,6 +679,10 @@ func versionLess(a, b string) bool {
 Returns a copy of this instance, also copying each SegmentInfo.
 */
 func (sis *SegmentInfos) Clone() *SegmentInfos {
+	return sis.clone(false)
+}
+
+func (sis *SegmentInfos) clone(cloneSegmentInfo bool) *SegmentInfos {
 	clone := &SegmentInfos{
 		counter:        sis.counter,
 		version:        sis.version,
@@ -689,7 +693,7 @@ func (sis *SegmentInfos) Clone() *SegmentInfos {
 	}
 	for _, info := range sis.Segments {
 		assert(info.Info.Codec() != nil)
-		clone.Segments = append(clone.Segments, info.Clone())
+		clone.Segments = append(clone.Segments, info.CloneDeep(cloneSegmentInfo))
 	}
 	for k, v := range sis.userData {
 		clone.userData[k] = v
