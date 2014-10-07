@@ -50,10 +50,8 @@ does not suit your application, please consider copying this source
 code directory to your project and maintaining your own grammar-based
 tokenizer.
 
-Version
-
-You must specify the required Version compatibility when creating
-StandardTokenizer:
+You may specify the Version
+compatibility when creating StandardTokenizer:
 
 	- As of 3.4, Hiragana and Han characters are no longer wrongly
 	split from their combining characters. If you use a previous

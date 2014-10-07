@@ -23,10 +23,8 @@ var ENGLISH_STOP_WORDS_SET = map[string]bool{
 /*
 Removes stop words from a token stream.
 
-Version
-
-You must specify the required Version compatibility when creating
-StopFilter:
+You may specify the Version
+compatibility when creating StopFilter:
 
 	- As of 3.1, StopFilter correctly handles Unicode 4.0 supplementary
 	characters in stopwords and position increments are preserved
@@ -41,7 +39,9 @@ type StopFilter struct {
 Constructs a filter which removes words from the input TokenStream
 that are named in the Set.
 */
-func NewStopFilter(matchVersion util.Version, in TokenStream, stopWords map[string]bool) *StopFilter {
+func NewStopFilter(matchVersion util.Version,
+	in TokenStream, stopWords map[string]bool) *StopFilter {
+
 	ans := &StopFilter{stopWords: stopWords}
 	ans.FilteringTokenFilter = NewFilteringTokenFilter(ans, matchVersion, in)
 	ans.termAtt = ans.Attributes().Add("CharTermAttribute").(CharTermAttribute)

@@ -6,6 +6,8 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 )
 
+// util/FilteringTokenFilter.java
+
 type FilteringTokenFilterSPI interface {
 	// Override this method and return if the current input token
 	// should be returned by IncrementToken().
