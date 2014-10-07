@@ -73,8 +73,7 @@ func (b *FixedBitSet) At(index int) bool {
 
 func (b *FixedBitSet) Set(index int) {
 	assert2(index >= 0 && index < b.numBits, "index=%v, numBits=%v", index, b.numBits)
-	wordNum := index >> 6     // div 64
-	bit := uint(index & 0x3f) // mod 64
-	bitmask := int64(1 << bit)
+	wordNum := index >> 6 // div 64
+	bitmask := int64(1 << uint(index))
 	b.bits[wordNum] |= bitmask
 }

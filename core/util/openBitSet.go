@@ -26,8 +26,7 @@ func (b *OpenBitSet) Get(index int64) bool {
 	if i >= len(b.bits) {
 		return false
 	}
-	bit := uint(index & 0x3f) // mod 64
-	bitmask := int64(1) << bit
+	bitmask := int64(1) << uint(index)
 	return (b.bits[i] & bitmask) != 0
 }
 
