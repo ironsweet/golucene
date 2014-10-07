@@ -15,6 +15,7 @@ lexicographically larger or equal compared to any previous sequences
 added to this automaton (the input must be sorted)
 */
 func (builder *DaciukMihovAutomatonBuilder) add(current []rune) {
+	panic("niy")
 	// assert2(builder.stateRegistry != nil, "Automaton already builder.")
 	// assert2(builder.previous == nil || builder.previous <= cur)
 }
@@ -28,7 +29,7 @@ func (builder *DaciukMihovAutomatonBuilder) complete() *dfsaState {
 }
 
 // Internal recursive traversal for conversion.
-func convert(s *dfsaState, visited map[*dfsaState]*State) *State {
+func convert(a *AutomatonBuilder, s *dfsaState, visited map[*dfsaState]int) int {
 	panic("not implemented yet")
 }
 
@@ -37,19 +38,19 @@ Build a minimal, deterministic automaton from a sorted list of []byte
 representing strings in UTF-8. These strings must be binary-sorted.
 */
 func buildDaciukMihovAutomaton(input [][]byte) *Automaton {
-	builder := &DaciukMihovAutomatonBuilder{}
+	// builder := &DaciukMihovAutomatonBuilder{}
 	// scratch := make([]rune, 0)
 	// for _, b := range input {
 	panic("not implemented yet")
 	// 	builder.add(scratch)
 	// }
 
-	a := newEmptyAutomaton()
-	a.initial = convert(
-		builder.complete(),
-		make(map[*dfsaState]*State))
-	a.deterministic = true
-	return a
+	// a := newEmptyAutomaton()
+	// a.initial = convert(
+	// 	builder.complete(),
+	// 	make(map[*dfsaState]*State))
+	// a.deterministic = true
+	// return a
 }
 
 // utils/CharsRef.java

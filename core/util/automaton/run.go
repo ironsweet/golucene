@@ -8,6 +8,7 @@ import (
 
 // Finite-state automaton with fast run operation.
 type RunAutomaton struct {
+	automaton   *Automaton
 	maxInterval int
 	size        int
 	accept      []bool
@@ -28,36 +29,37 @@ func (ra *RunAutomaton) charClass(c int) int {
 
 // Constructs a new RunAutomaton from a deterministic Automaton.
 func newRunAutomaton(a *Automaton, maxInterval int, tablesize bool) *RunAutomaton {
-	a.determinize()
-	states := a.NumberedStates()
-	nStates := len(states)
-	points := a.startPoints()
-	nPoints := len(points)
-	ans := &RunAutomaton{
-		maxInterval: maxInterval,
-		points:      points,
-		initial:     a.initial.number,
-		size:        nStates,
-		accept:      make([]bool, nStates),
-		transitions: make([]int, nStates*nPoints),
-	}
-	for i, _ := range ans.transitions {
-		ans.transitions[i] = -1
-	}
-	for _, s := range states {
-		n := s.number
-		ans.accept[n] = s.accept
-		for c, v := range ans.points {
-			if q := s.step(v); q != nil {
-				ans.transitions[n*nPoints+c] = q.number
-			}
-		}
-	}
-	// Set alphabet table for optimal run performance.
-	if tablesize {
-		panic("not implemented yet")
-	}
-	return ans
+	panic("niy")
+	// a.determinize()
+	// states := a.NumberedStates()
+	// nStates := len(states)
+	// points := a.startPoints()
+	// nPoints := len(points)
+	// ans := &RunAutomaton{
+	// 	maxInterval: maxInterval,
+	// 	points:      points,
+	// 	initial:     a.initial.number,
+	// 	size:        nStates,
+	// 	accept:      make([]bool, nStates),
+	// 	transitions: make([]int, nStates*nPoints),
+	// }
+	// for i, _ := range ans.transitions {
+	// 	ans.transitions[i] = -1
+	// }
+	// for _, s := range states {
+	// 	n := s.number
+	// 	ans.accept[n] = s.accept
+	// 	for c, v := range ans.points {
+	// 		if q := s.step(v); q != nil {
+	// 			ans.transitions[n*nPoints+c] = q.number
+	// 		}
+	// 	}
+	// }
+	// // Set alphabet table for optimal run performance.
+	// if tablesize {
+	// 	panic("not implemented yet")
+	// }
+	// return ans
 }
 
 /*
