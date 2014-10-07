@@ -93,7 +93,10 @@ adding transitions to a new source state, but for the last state you
 add, you need to call this method yourself.
 */
 func (a *Automaton) finishState() {
-	panic("niy")
+	if a.curState != -1 {
+		a.finishCurrentState()
+		a.curState = -1
+	}
 }
 
 func (a *Automaton) numStates() int {
