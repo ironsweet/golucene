@@ -83,7 +83,26 @@ func (s *Sorter) upper(from, to, val int) int {
 }
 
 func (s *Sorter) rotate(lo, mid, hi int) {
-	panic("niy")
+	assert(lo <= mid && mid <= hi)
+	if lo == mid || mid == hi {
+		return
+	}
+	s.doRotate(lo, mid, hi)
+}
+
+func (s *Sorter) doRotate(lo, mid, hi int) {
+	if mid-lo == hi-mid {
+		// happens rarely but saves n/2 swaps
+		for mid < hi {
+			s.Swap(lo, mid)
+			lo++
+			mid++
+		}
+	} else {
+		s.reverse(lo, mid)
+		s.reverse(mid, hi)
+		s.reverse(lo, hi)
+	}
 }
 
 func (sorter *Sorter) reverse(from, to int) {
