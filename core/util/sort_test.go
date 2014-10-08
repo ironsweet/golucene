@@ -17,6 +17,6 @@ func TestInPlaceMergeSorter(t *testing.T) {
 		assert(data[i] == i)
 	}
 	for i := 26; i < 50; i++ {
-		assert(data[i] == -i)
+		assert(data[i] == 25-i)
 	}
 }

@@ -64,7 +64,18 @@ func (s *Sorter) mergeInPlace(from, mid, to int) {
 }
 
 func (s *Sorter) lower(from, to, val int) int {
-	panic("niy")
+	size := to - from
+	for size > 0 {
+		half := int(uint(size) >> 1)
+		mid := from + half
+		if s.Less(mid, val) {
+			from = mid + 1
+			size = size - half - 1
+		} else {
+			size = half
+		}
+	}
+	return from
 }
 
 func (s *Sorter) upper(from, to, val int) int {
