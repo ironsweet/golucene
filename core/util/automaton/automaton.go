@@ -96,7 +96,33 @@ Copies over all state/transition from other. The state numbers are
 sequentially assigned (appended).
 */
 func (a *Automaton) copy(other *Automaton) {
-	panic("niy")
+	// bulk copy and then fixup the state pointers
+	stateOffset := a.numStates()
+	a.states = append(a.states, other.states...)
+	for i := 0; i < len(other.states); i += 2 {
+		if a.states[stateOffset*2+i] != -1 {
+			a.states[stateOffset*2+i] += len(a.transitions)
+		}
+	}
+	otherNumStates := other.numStates()
+	otherAcceptStates := other.isAccept
+	for state := 0; state < otherNumStates; state++ {
+		if otherAcceptStates.Bit(state) == 0 {
+			continue
+		}
+		a.setAccept(stateOffset+state, true)
+	}
+
+	// bulk copy and then fixup dest for each transition
+	transOffset := len(a.transitions)
+	a.transitions = append(a.transitions, other.transitions...)
+	for i := 0; i < len(other.transitions); i += 3 {
+		a.transitions[transOffset+i] += stateOffset
+	}
+
+	if !other.deterministic {
+		a.deterministic = false
+	}
 }
 
 /* Freezes the last state, sorting and reducing the transitions. */
