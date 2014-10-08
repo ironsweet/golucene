@@ -82,6 +82,23 @@ func (a *Automaton) addTransitionRange(source, dest, min, max int) {
 	a.states[2*a.curState+1]++
 }
 
+/*
+Add a [virtual] epsilon transition between source and dest. Dest
+state must already have all transitions added because this method
+simply copies those same transitions over to source.
+*/
+func (a *Automaton) addEpsilon(source, dest int) {
+	panic("niy")
+}
+
+/*
+Copies over all state/transition from other. The state numbers are
+sequentially assigned (appended).
+*/
+func (a *Automaton) copy(other *Automaton) {
+	panic("niy")
+}
+
 /* Freezes the last state, sorting and reducing the transitions. */
 func (a *Automaton) finishCurrentState() {
 	numTransitions := a.states[2*a.curState+1]

@@ -364,29 +364,24 @@ given automata.
 Complexity: linear in number of states.
 */
 func unionN(l []*Automaton) *Automaton {
-	panic("niy")
-	// // ids := make(map[int]bool)
-	// hasAliases := false
-	// s := newState()
-	// for _, b := range l {
-	// 	if isEmpty(b) {
-	// 		continue
-	// 	}
-	// 	bb := b
-	// 	if hasAliases {
-	// 		// bb = bb.cloneExpanded()
-	// 		panic("not implemented yet")
-	// 	} else {
-	// 		bb = bb.cloneExpandedIfRequired()
-	// 	}
-	// 	s.addEpsilon(bb.initial)
-	// }
-	// a := newEmptyAutomaton()
-	// a.initial = s
-	// a.deterministic = false
-	// a.clearNumberedStates()
-	// a.checkMinimizeAlways()
-	// return a
+	ans := newEmptyAutomaton()
+	// create initial state
+	ans.createState()
+	// copy over all automata
+	for _, a := range l {
+		ans.copy(a)
+	}
+	// add epsilon transition from new initial state
+	stateOffset := 1
+	for _, a := range l {
+		if a.numStates() == 0 {
+			continue
+		}
+		ans.addEpsilon(0, stateOffset)
+		stateOffset += a.numStates()
+	}
+	ans.finishState()
+	return removeDeadStates(ans)
 }
 
 // Holds all transitions that start on this int point, or end at this
@@ -654,8 +649,20 @@ func determinize(a *Automaton) *Automaton {
 // 	panic("not implemented yet")
 // }
 
-// Finds the largest entry whose value is less than or equal to c, or
-// 0 if there is no such entry.
+/*
+Removes transitions to dead states (a state is "dead" if it is not
+reachable from the initial state or no accept state is reachable from
+it.)
+*/
+
+func removeDeadStates(a *Automaton) *Automaton {
+	panic("niy")
+}
+
+/*
+Finds the largest entry whose value is less than or equal to c, or
+0 if there is no such entry.
+*/
 func findIndex(c int, points []int) int {
 	a, b := 0, len(points)
 	for b-a > 1 {
