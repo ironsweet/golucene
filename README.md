@@ -1,11 +1,9 @@
+[![Build Status](https://travis-ci.org/balzaczyy/golucene.svg?branch=master)](https://travis-ci.org/balzaczyy/golucene)
+
 golucene
 ========
 
-A [Go](http://golang.org) port of [Apache Lucene](http://lucene.apache.org).
-
-Live Demo
----------
-Try the latest demo [here](http://hamlet.mybluemix.net/). It supports basic query parser syntax (classic) but may not fully work. It would help if you could raise issue when you see one, or I will collect and fix issues regularly. Note that, classic query parser is not a high priority item since new query parser is available and I need to spend time migrate to 4.10.
+A [Go](http://golang.org) port of [Apache Lucene](http://lucene.apache.org). Check out the online demo [here](http://hamlet.mybluemix.net/)!
 
 Why do we need yet another port of Lucene?
 ------------------------------------------
@@ -23,6 +21,10 @@ It also applies to GoLucene. But some benefits can still be expected:
 - ready-to-use byte, array utilities which can reduce the code size, and lead to easy maintenance.
 
 Though it started as a pet project, I've been pretty serious about this.
+
+Dependencies
+------------
+Go 1.2+
 
 Installation
 ------------
