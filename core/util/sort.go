@@ -68,7 +68,18 @@ func (s *Sorter) lower(from, to, val int) int {
 }
 
 func (s *Sorter) upper(from, to, val int) int {
-	panic("niy")
+	size := to - from
+	for size > 0 {
+		half := int(uint(size) >> 1)
+		mid := from + half
+		if s.Less(val, mid) {
+			size = half
+		} else {
+			from = mid + 1
+			size = size - half - 1
+		}
+	}
+	return from
 }
 
 func (s *Sorter) rotate(lo, mid, hi int) {
