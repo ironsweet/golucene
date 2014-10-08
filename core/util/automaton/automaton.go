@@ -1,6 +1,7 @@
 package automaton
 
 import (
+	"github.com/balzaczyy/golucene/core/util"
 	"math/big"
 )
 
@@ -83,7 +84,45 @@ func (a *Automaton) addTransitionRange(source, dest, min, max int) {
 
 /* Freezes the last state, sorting and reducing the transitions. */
 func (a *Automaton) finishCurrentState() {
-	panic("niy")
+	numTransitions := a.states[2*a.curState+1]
+	assert(numTransitions > 0)
+
+	offset := a.states[2*a.curState]
+	start := offset / 3
+	util.NewInPlaceMergeSorter(destMinMaxTransitions(a.transitions)).Sort(start, start+numTransitions)
+
+	// reduce any "adjacent" transitions:
+	upto, min, max, dest := 0, -1, -1, -1
+
+	for i := 0; i < numTransitions; i++ {
+		tDest := a.transitions[offset+3*i]
+		// tMin := a.transitions[offset+3*i+1]
+		// tMax := a.transitions[offset+3*i+2]
+
+		if dest == tDest {
+			panic("niy")
+		} else {
+			panic("niy")
+		}
+	}
+
+	if dest != -1 {
+		// last transition
+		a.transitions[offset+3*upto] = dest
+		a.transitions[offset+3*upto+1] = min
+		a.transitions[offset+3*upto+2] = max
+		upto++
+	}
+
+	a.transitions = a.transitions[:len(a.transitions)-(numTransitions-upto)*3]
+	a.states[2*a.curState+1] = upto
+
+	// sort transitions by min/max/dest:
+	util.NewInPlaceMergeSorter(minMaxDestTransitions(a.transitions)).Sort(start, start+upto)
+
+	if a.deterministic && upto > 1 {
+		panic("niy")
+	}
 }
 
 /*
@@ -101,6 +140,34 @@ func (a *Automaton) finishState() {
 
 func (a *Automaton) numStates() int {
 	return len(a.states) / 2
+}
+
+type destMinMaxTransitions []int
+
+func (s destMinMaxTransitions) Len() int {
+	panic("niy")
+}
+
+func (s destMinMaxTransitions) Swap(i, j int) {
+	panic("niy")
+}
+
+func (s destMinMaxTransitions) Less(i, j int) bool {
+	panic("niy")
+}
+
+type minMaxDestTransitions []int
+
+func (s minMaxDestTransitions) Len() int {
+	panic("niy")
+}
+
+func (s minMaxDestTransitions) Swap(i, j int) {
+	panic("niy")
+}
+
+func (s minMaxDestTransitions) Less(i, j int) bool {
+	panic("niy")
 }
 
 // Go doesn't have unicode.MinRune which should be 0

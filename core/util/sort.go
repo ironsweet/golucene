@@ -15,7 +15,9 @@ type Sorter struct {
 }
 
 func newSorter(arr sort.Interface) *Sorter {
-	return &Sorter{arr}
+	return &Sorter{
+		Interface: arr,
+	}
 }
 
 func (sorter *Sorter) checkRange(from, to int) {
@@ -284,7 +286,7 @@ type IntroSorterSPI interface {
 /*
 Sorter implementation based on a variant of the quicksort algorithm
 called introsort: when the recursion level exceeds the log of the
-length of the array to sort, it falls back to heapsort. This revents
+length of the array to sort, it falls back to heapsort. This prevents
 quicksort from running into its worst-case quadratic runtime. Small
 arrays are sorted with insertion sort.
 */
@@ -372,4 +374,29 @@ func (s *IntroSorter) quicksort(from, to, maxDepth int) {
 	// for i := from; i < to-1; i++ {
 	// 	assert(!s.Less(i+1, i))
 	// }
+}
+
+// util/InPlaceMergeSorter.java
+
+/*
+Sorter implementation absed on the merge-sort algorithm that merges
+in place (no extra memory will be allocated). Small arrays are sorter
+with insertion sort.
+*/
+type InPlaceMergeSorter struct {
+	impl sort.Interface
+}
+
+func NewInPlaceMergeSorter(impl sort.Interface) *InPlaceMergeSorter {
+	return &InPlaceMergeSorter{
+		impl: impl,
+	}
+}
+
+func (s *InPlaceMergeSorter) Sort(from, to int) {
+	panic("niy")
+}
+
+func (s *InPlaceMergeSorter) mergeSort(from, to int) {
+	panic("niy")
 }
