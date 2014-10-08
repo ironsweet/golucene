@@ -30,6 +30,51 @@ func assert2(ok bool, msg string, args ...interface{}) {
 	}
 }
 
+func (s *Sorter) mergeInPlace(from, mid, to int) {
+	if from == mid || mid == to || !s.Less(mid, mid-1) {
+		return
+	}
+	if to-from == 2 {
+		s.Swap(mid-1, mid)
+		return
+	}
+	for !s.Less(mid, from) {
+		from++
+	}
+	for !s.Less(to-1, mid-1) {
+		to--
+	}
+	var first_cut, second_cut int
+	var len11, len22 int
+	if mid-from > to-mid {
+		len11 = int(uint(mid-from) >> 1)
+		first_cut = from + len11
+		second_cut = s.lower(mid, to, first_cut)
+		len22 = second_cut - mid
+	} else {
+		len22 = int(uint(to-mid) >> 1)
+		second_cut = mid + len22
+		first_cut = s.upper(from, mid, second_cut)
+		// len11 = first_cut - from
+	}
+	s.rotate(first_cut, mid, second_cut)
+	new_mid := first_cut + len22
+	s.mergeInPlace(from, first_cut, new_mid)
+	s.mergeInPlace(new_mid, second_cut, to)
+}
+
+func (s *Sorter) lower(from, to, val int) int {
+	panic("niy")
+}
+
+func (s *Sorter) upper(from, to, val int) int {
+	panic("niy")
+}
+
+func (s *Sorter) rotate(lo, mid, hi int) {
+	panic("niy")
+}
+
 func (sorter *Sorter) reverse(from, to int) {
 	for to--; from < to; from, to = from+1, to-1 {
 		sorter.Swap(from, to)
@@ -384,19 +429,27 @@ in place (no extra memory will be allocated). Small arrays are sorter
 with insertion sort.
 */
 type InPlaceMergeSorter struct {
-	impl sort.Interface
+	*Sorter
 }
 
 func NewInPlaceMergeSorter(impl sort.Interface) *InPlaceMergeSorter {
 	return &InPlaceMergeSorter{
-		impl: impl,
+		Sorter: newSorter(impl),
 	}
 }
 
 func (s *InPlaceMergeSorter) Sort(from, to int) {
-	panic("niy")
+	s.checkRange(from, to)
+	s.mergeSort(from, to)
 }
 
 func (s *InPlaceMergeSorter) mergeSort(from, to int) {
-	panic("niy")
+	if to-from < SORTER_THRESHOLD {
+		s.insertionSort(from, to)
+	} else {
+		mid := int((uint(from) + uint(to)) >> 2)
+		s.mergeSort(from, mid)
+		s.mergeSort(mid, to)
+		s.mergeInPlace(from, mid, to)
+	}
 }
