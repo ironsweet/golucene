@@ -88,7 +88,15 @@ state must already have all transitions added because this method
 simply copies those same transitions over to source.
 */
 func (a *Automaton) addEpsilon(source, dest int) {
-	panic("niy")
+	t := newTransition()
+	count := a.initTransition(dest, t)
+	for i := 0; i < count; i++ {
+		a.nextTransition(t)
+		a.addTransitionRange(source, t.dest, t.min, t.max)
+	}
+	if a.isAccept.Bit(dest) != 0 {
+		a.setAccept(source, true)
+	}
 }
 
 /*
@@ -186,8 +194,17 @@ func (a *Automaton) finishState() {
 	}
 }
 
+/* How many states this automaton has. */
 func (a *Automaton) numStates() int {
 	return len(a.states) / 2
+}
+
+/* How many transitions this state has. */
+func (a *Automaton) numTransitions(state int) int {
+	if count := a.states[2*state+1]; count != -1 {
+		return count
+	}
+	return 0
 }
 
 type destMinMaxTransitions []int
@@ -216,6 +233,28 @@ func (s minMaxDestTransitions) Swap(i, j int) {
 
 func (s minMaxDestTransitions) Less(i, j int) bool {
 	panic("niy")
+}
+
+/*
+Initialize the provided Transition to iterate through all transitions
+leaving the specified state. You must call nextTransition() to get
+each transition. Returns the number of transitions leaving this tate.
+*/
+func (a *Automaton) initTransition(state int, t *Transition) int {
+	assert2(state < a.numStates(), "state=%v nextState=%v", state, a.numStates())
+	t.source = state
+	t.transitionUpto = a.states[2*state]
+	return a.numTransitions(state)
+}
+
+/* Iterate to the next transition after the provided one */
+func (a *Automaton) nextTransition(t *Transition) {
+	// make sure there is still a transition left
+	assert((t.transitionUpto + 3 - a.states[2*t.source]) <= 3*a.states[2*t.source+1])
+	t.dest = a.transitions[t.transitionUpto]
+	t.min = a.transitions[t.transitionUpto+1]
+	t.max = a.transitions[t.transitionUpto+2]
+	t.transitionUpto += 3
 }
 
 // Go doesn't have unicode.MinRune which should be 0
