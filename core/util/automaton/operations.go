@@ -1,6 +1,7 @@
 package automaton
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -280,6 +281,17 @@ func sameLanguage(a1, a2 *Automaton) bool {
 		return true
 	}
 	return subsetOf(a2, a1) && subsetOf(a1, a2)
+}
+
+/*
+Returns true if the automaton has any states that cannot be reached
+from the initial state or cannot reach an accept state.
+Cost is O(numTransitions+numStates).
+*/
+func hasDeadStates(a *Automaton) bool {
+	// liveStates := liveStates(a)
+	// numLive := liveStates.
+	panic("niy")
 }
 
 /*
@@ -650,13 +662,53 @@ func determinize(a *Automaton) *Automaton {
 // }
 
 /*
+Returns the set of live states. A state is "live" if an accept state
+is reachable from it and if it is reachable from the initial state.
+*/
+func liveStates(a *Automaton) *util.OpenBitSet {
+	// live := liveStatesFromInitial(a)
+	// live
+	panic("niy")
+}
+
+/*
 Removes transitions to dead states (a state is "dead" if it is not
 reachable from the initial state or no accept state is reachable from
 it.)
 */
-
 func removeDeadStates(a *Automaton) *Automaton {
-	panic("niy")
+	numStates := a.numStates()
+	liveSet := liveStates(a)
+
+	m := make([]int, numStates)
+
+	ans := newEmptyAutomaton()
+	fmt.Printf("liveSet: %v numStates=%v", liveSet, numStates)
+	for i := 0; i < numStates; i++ {
+		if liveSet.Get(int64(i)) {
+			m[i] = ans.createState()
+			ans.setAccept(m[i], a.IsAccept(i))
+		}
+	}
+
+	t := newTransition()
+
+	for i := 0; i < numStates; i++ {
+		if liveSet.Get(int64(i)) {
+			numTransitions := a.initTransition(i, t)
+			// filter out transitions to dead states:
+			for j := 0; j < numTransitions; j++ {
+				a.nextTransition(t)
+				if liveSet.Get(int64(t.dest)) {
+					ans.addTransitionRange(m[i], m[t.dest], t.min, t.max)
+				}
+			}
+		}
+	}
+
+	ans.finishState()
+	assert(!hasDeadStates(ans))
+	return ans
 }
 
 /*

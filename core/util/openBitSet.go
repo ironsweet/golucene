@@ -35,6 +35,11 @@ func (b *OpenBitSet) Set(index int64) {
 	panic("not implemented yet")
 }
 
+/* Clears a bit, allowing access beyond the current set size without changing the size. */
+func (b *OpenBitSet) Clear(index int64) {
+	panic("niy")
+}
+
 /* Returns the number of 64 bit words it would take to hold numBits */
 func bits2words(numBits int64) int {
 	return int((uint64(numBits-1) >> 6) + 1)

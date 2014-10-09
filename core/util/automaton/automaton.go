@@ -2,7 +2,6 @@ package automaton
 
 import (
 	"github.com/balzaczyy/golucene/core/util"
-	"math/big"
 )
 
 // util/automaton/Automaton.java
@@ -24,7 +23,7 @@ type Automaton struct {
 	curState      int
 	states        []int // 2x
 	transitions   []int // 3x
-	isAccept      *big.Int
+	isAccept      *util.OpenBitSet
 	deterministic bool
 }
 
@@ -32,7 +31,7 @@ func newEmptyAutomaton() *Automaton {
 	return &Automaton{
 		deterministic: true,
 		curState:      -1,
-		isAccept:      big.NewInt(0),
+		isAccept:      util.NewOpenBitSet(),
 	}
 }
 
@@ -47,10 +46,15 @@ func (a *Automaton) createState() int {
 func (a *Automaton) setAccept(state int, accept bool) {
 	assert2(state < a.numStates(), "state=%v is out of bounds (numStates=%v)", state, a.numStates())
 	if accept {
-		a.isAccept.SetBit(a.isAccept, state, 1)
+		a.isAccept.Set(int64(state))
 	} else {
-		a.isAccept.SetBit(a.isAccept, state, 0)
+		a.isAccept.Clear(int64(state))
 	}
+}
+
+/* Returns true if this state is an accept state. */
+func (a *Automaton) IsAccept(state int) bool {
+	return a.isAccept.Get(int64(state))
 }
 
 /* Add a new transition with min = max = label. */
@@ -94,7 +98,7 @@ func (a *Automaton) addEpsilon(source, dest int) {
 		a.nextTransition(t)
 		a.addTransitionRange(source, t.dest, t.min, t.max)
 	}
-	if a.isAccept.Bit(dest) != 0 {
+	if a.IsAccept(dest) {
 		a.setAccept(source, true)
 	}
 }
@@ -113,9 +117,8 @@ func (a *Automaton) copy(other *Automaton) {
 		}
 	}
 	otherNumStates := other.numStates()
-	otherAcceptStates := other.isAccept
 	for state := 0; state < otherNumStates; state++ {
-		if otherAcceptStates.Bit(state) == 0 {
+		if !other.IsAccept(state) {
 			continue
 		}
 		a.setAccept(stateOffset+state, true)
