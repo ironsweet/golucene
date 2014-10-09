@@ -8,6 +8,7 @@ type OpenBitSet struct {
 
 /* Constructs an OpenBitSet large enough to hold numBits. */
 func NewOpenBitSetOf(numBits int64) *OpenBitSet {
+	assert(numBits > 0)
 	bits := make([]int64, bits2words(numBits))
 	return &OpenBitSet{
 		numBits: numBits,
@@ -32,7 +33,17 @@ func (b *OpenBitSet) Get(index int64) bool {
 
 /* Sets a bit, expanding the set size if necessary */
 func (b *OpenBitSet) Set(index int64) {
-	panic("not implemented yet")
+	wordNum := b.expandingWordNum(index)
+	bitmask := int64(1) << uint64(index)
+	b.bits[wordNum] |= bitmask
+}
+
+func (b *OpenBitSet) expandingWordNum(index int64) int {
+	wordNum := int(index >> 6)
+	if wordNum >= b.wlen {
+		b.ensureCapacity(index + 1)
+	}
+	return wordNum
 }
 
 /* Clears a bit, allowing access beyond the current set size without changing the size. */
@@ -47,3 +58,26 @@ func bits2words(numBits int64) int {
 
 /* Expert: returns the []int64 storing the bits */
 func (b *OpenBitSet) RealBits() []int64 { return b.bits }
+
+/* Expand the []int64 with the size given as a number of words (64 bits long). */
+func (b *OpenBitSet) ensureCapacityWords(numWords int) {
+	if len(b.bits) < numWords {
+		arr := make([]int64, numWords)
+		copy(arr, b.bits)
+		b.bits = arr
+	}
+	b.wlen = numWords
+	if n := int64(numWords) << 6; n > b.numBits {
+		b.numBits = n
+	}
+}
+
+/* Ensure that the []int64 is big enough to hold numBits, expanding it if necessary. */
+func (b *OpenBitSet) ensureCapacity(numBits int64) {
+	b.ensureCapacityWords(bits2words(numBits))
+	// ensureCapacityWords sets numBits to a multiple of 64, but we
+	// want to set it to exactly what the app asked.
+	if numBits > b.numBits {
+		b.numBits = numBits
+	}
+}
