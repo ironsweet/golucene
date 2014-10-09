@@ -218,7 +218,31 @@ func (s destMinMaxTransitions) Swap(i, j int) {
 }
 
 func (s destMinMaxTransitions) Less(i, j int) bool {
-	panic("niy")
+	iStart := 3 * i
+	jStart := 3 * j
+
+	// first dest:
+	iDest := s[iStart]
+	jDest := s[jStart]
+	if iDest < jDest {
+		return true
+	} else if iDest > jDest {
+		return false
+	}
+
+	// then min:
+	iMin := s[iStart+1]
+	jMin := s[jStart+1]
+	if iMin < jMin {
+		return true
+	} else if iMin > jMin {
+		return false
+	}
+
+	// then max:
+	iMax := s[iStart+2]
+	jMax := s[jStart+2]
+	return iMax < jMax
 }
 
 type minMaxDestTransitions []int
