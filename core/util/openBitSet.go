@@ -57,7 +57,11 @@ func bits2words(numBits int64) int {
 }
 
 /* Expert: returns the []int64 storing the bits */
-func (b *OpenBitSet) RealBits() []int64 { return b.bits }
+// func (b *OpenBitSet) RealBits() []int64 { return b.bits }
+
+func (b *OpenBitSet) And(other *OpenBitSet) {
+	panic("niy")
+}
 
 /* Expand the []int64 with the size given as a number of words (64 bits long). */
 func (b *OpenBitSet) ensureCapacityWords(numWords int) {

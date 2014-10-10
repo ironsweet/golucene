@@ -666,8 +666,18 @@ Returns the set of live states. A state is "live" if an accept state
 is reachable from it and if it is reachable from the initial state.
 */
 func liveStates(a *Automaton) *util.OpenBitSet {
-	// live := liveStatesFromInitial(a)
-	// live
+	live := liveStatesFromInitial(a)
+	live.And(liveStatesToAccept(a))
+	return live
+}
+
+/* Returns BitSet marking states reachable from the initial state. */
+func liveStatesFromInitial(a *Automaton) *util.OpenBitSet {
+	panic("niy")
+}
+
+/* Returns BitSet marking states that can reach an accept state. */
+func liveStatesToAccept(a *Automaton) *util.OpenBitSet {
 	panic("niy")
 }
 
