@@ -1,6 +1,7 @@
 package automaton
 
 import (
+	"container/list"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 )
@@ -673,7 +674,29 @@ func liveStates(a *Automaton) *util.OpenBitSet {
 
 /* Returns BitSet marking states reachable from the initial state. */
 func liveStatesFromInitial(a *Automaton) *util.OpenBitSet {
-	panic("niy")
+	numStates := a.numStates()
+	live := util.NewOpenBitSet()
+	if numStates == 0 {
+		return live
+	}
+	workList := list.New()
+	live.Set(0)
+	workList.PushBack(0)
+
+	t := newTransition()
+	for workList.Len() > 0 {
+		s := workList.Remove(workList.Front()).(int)
+		count := a.initTransition(s, t)
+		for i := 0; i < count; i++ {
+			a.nextTransition(t)
+			if !live.Get(int64(t.dest)) {
+				live.Set(int64(t.dest))
+				workList.PushBack(t.dest)
+			}
+		}
+	}
+
+	return live
 }
 
 /* Returns BitSet marking states that can reach an accept state. */
