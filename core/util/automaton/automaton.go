@@ -310,11 +310,38 @@ func (s srcMinMaxDestSorter) Len() int {
 }
 
 func (s srcMinMaxDestSorter) Swap(i, j int) {
-	panic("niy")
+	iStart, jStart := 4*i, 4*j
+	for n := 0; n < 4; n++ {
+		s[iStart+n], s[jStart+n] = s[jStart+n], s[iStart+n]
+	}
 }
 
 func (s srcMinMaxDestSorter) Less(i, j int) bool {
-	panic("niy")
+	iStart, jStart := 4*i, 4*j
+
+	iSrc, jSrc := s[iStart], s[jStart]
+	if iSrc < jSrc {
+		return true
+	} else if iSrc > jSrc {
+		return false
+	}
+
+	iMin, jMin := s[iStart+2], s[jStart+2]
+	if iMin < jMin {
+		return true
+	} else if iMin > jMin {
+		return false
+	}
+
+	iMax, jMax := s[iStart+3], s[jStart+3]
+	if iMax < jMax {
+		return true
+	} else if iMax > jMax {
+		return false
+	}
+
+	iDest, jDest := s[iStart+1], s[jStart+1]
+	return iDest < jDest
 }
 
 /* Compiles all added states and transitions into a new Automaton and returns it. */
