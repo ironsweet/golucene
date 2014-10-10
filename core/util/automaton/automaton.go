@@ -288,4 +288,22 @@ func (a *Automaton) nextTransition(t *Transition) {
 const MIN_CODE_POINT = 0
 
 type AutomatonBuilder struct {
+	transitions []int
+	a           *Automaton
+}
+
+func newAutomatonBuilder() *AutomatonBuilder {
+	panic("niy")
+}
+
+func (b *AutomatonBuilder) addTransitionRange(source, dest, min, max int) {
+	panic("niy")
+}
+
+func (b *AutomatonBuilder) finish() *Automaton {
+	panic("niy")
+}
+
+func (b *AutomatonBuilder) createState() int {
+	return b.a.createState()
 }

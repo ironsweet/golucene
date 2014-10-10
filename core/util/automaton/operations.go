@@ -701,7 +701,50 @@ func liveStatesFromInitial(a *Automaton) *util.OpenBitSet {
 
 /* Returns BitSet marking states that can reach an accept state. */
 func liveStatesToAccept(a *Automaton) *util.OpenBitSet {
-	panic("niy")
+	builder := newAutomatonBuilder()
+
+	// NOTE: not quite the same thing as what SpecialOperations.reverse does:
+	t := newTransition()
+	numStates := a.numStates()
+	for s := 0; s < numStates; s++ {
+		builder.createState()
+	}
+	for s := 0; s < numStates; s++ {
+		count := a.initTransition(s, t)
+		for i := 0; i < count; i++ {
+			a.nextTransition(t)
+			builder.addTransitionRange(t.dest, s, t.min, t.max)
+		}
+	}
+	a2 := builder.finish()
+
+	workList := list.New()
+	live := util.NewOpenBitSet()
+	acceptBits := a.isAccept
+	s := 0
+	for s < numStates {
+		s = int(acceptBits.NextSetBit(int64(s)))
+		if s == -1 {
+			break
+		}
+		live.Set(int64(s))
+		workList.PushBack(s)
+		s++
+	}
+
+	for workList.Len() > 0 {
+		s = workList.Remove(workList.Front()).(int)
+		count := a2.initTransition(s, t)
+		for i := 0; i < count; i++ {
+			a2.nextTransition(t)
+			if !live.Get(int64(t.dest)) {
+				live.Set(int64(t.dest))
+				workList.PushBack(t.dest)
+			}
+		}
+	}
+
+	return live
 }
 
 /*

@@ -51,6 +51,16 @@ func (b *OpenBitSet) Clear(index int64) {
 	panic("niy")
 }
 
+// L606
+
+/*
+Returns the index of the first set bit starting at the index specified.
+- is returned if there are no more set bits.
+*/
+func (b *OpenBitSet) NextSetBit(index int64) int64 {
+	panic("niy")
+}
+
 /* Returns the number of 64 bit words it would take to hold numBits */
 func bits2words(numBits int64) int {
 	return int((uint64(numBits-1) >> 6) + 1)
