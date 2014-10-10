@@ -1,6 +1,7 @@
 package automaton
 
 import (
+	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
 )
 
@@ -293,15 +294,45 @@ type AutomatonBuilder struct {
 }
 
 func newAutomatonBuilder() *AutomatonBuilder {
-	panic("niy")
+	return &AutomatonBuilder{
+		a: newEmptyAutomaton(),
+	}
 }
 
 func (b *AutomatonBuilder) addTransitionRange(source, dest, min, max int) {
+	b.transitions = append(b.transitions, source, dest, min, max)
+}
+
+type srcMinMaxDestSorter []int
+
+func (s srcMinMaxDestSorter) Len() int {
 	panic("niy")
 }
 
-func (b *AutomatonBuilder) finish() *Automaton {
+func (s srcMinMaxDestSorter) Swap(i, j int) {
 	panic("niy")
+}
+
+func (s srcMinMaxDestSorter) Less(i, j int) bool {
+	panic("niy")
+}
+
+/* Compiles all added states and transitions into a new Automaton and returns it. */
+func (b *AutomatonBuilder) finish() *Automaton {
+	fmt.Printf("LA.Builder.finish: count=%v\n", len(b.transitions)/4)
+	fmt.Println("finish pending")
+	util.NewInPlaceMergeSorter(srcMinMaxDestSorter(b.transitions)).Sort(0, len(b.transitions)/4)
+	for upto := 0; upto < len(b.transitions); upto += 4 {
+		b.a.addTransitionRange(
+			b.transitions[upto],
+			b.transitions[upto+1],
+			b.transitions[upto+2],
+			b.transitions[upto]+3,
+		)
+	}
+
+	b.a.finishState()
+	return b.a
 }
 
 func (b *AutomatonBuilder) createState() int {
