@@ -165,7 +165,7 @@ func (a *Automaton) finishCurrentState() {
 
 	offset := a.states[2*a.curState]
 	start := offset / 3
-	util.NewInPlaceMergeSorter(destMinMaxTransitions(a.transitions)).Sort(start, start+numTransitions)
+	util.NewInPlaceMergeSorter(destMinMaxSorter(a.transitions)).Sort(start, start+numTransitions)
 
 	// reduce any "adjacent" transitions:
 	upto, min, max, dest := 0, -1, -1, -1
@@ -245,17 +245,20 @@ func (a *Automaton) numTransitions(state int) int {
 	return 0
 }
 
-type destMinMaxTransitions []int
+type destMinMaxSorter []int
 
-func (s destMinMaxTransitions) Len() int {
+func (s destMinMaxSorter) Len() int {
 	panic("niy")
 }
 
-func (s destMinMaxTransitions) Swap(i, j int) {
-	panic("niy")
+func (s destMinMaxSorter) Swap(i, j int) {
+	iStart, jStart := 3*i, 3*j
+	for n := 0; n < 3; n++ {
+		s[iStart+n], s[jStart+n] = s[jStart+n], s[iStart+n]
+	}
 }
 
-func (s destMinMaxTransitions) Less(i, j int) bool {
+func (s destMinMaxSorter) Less(i, j int) bool {
 	iStart := 3 * i
 	jStart := 3 * j
 
@@ -290,7 +293,10 @@ func (s minMaxDestSorter) Len() int {
 }
 
 func (s minMaxDestSorter) Swap(i, j int) {
-	panic("niy")
+	iStart, jStart := 3*i, 3*j
+	for n := 0; n < 3; n++ {
+		s[iStart+n], s[jStart+n] = s[jStart+n], s[iStart+n]
+	}
 }
 
 func (s minMaxDestSorter) Less(i, j int) bool {
