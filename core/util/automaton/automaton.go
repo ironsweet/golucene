@@ -292,7 +292,11 @@ Fill the provided Transition with the index'th transition leaving the
 specified state.
 */
 func (a *Automaton) transition(state, index int, t *Transition) {
-	panic("niy")
+	i := a.states[2*state] + 3*index
+	t.source = state
+	t.dest = a.transitions[i]
+	t.min = a.transitions[i+1]
+	t.max = a.transitions[i+2]
 }
 
 // L563
