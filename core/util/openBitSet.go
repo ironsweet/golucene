@@ -51,6 +51,12 @@ func (b *OpenBitSet) Clear(index int64) {
 	panic("niy")
 }
 
+// L553
+/* Return the number of set bits */
+func (b *OpenBitSet) Cardinality() int64 {
+	return int64(pop_array(b.bits[:b.wlen]))
+}
+
 // L606
 
 /*

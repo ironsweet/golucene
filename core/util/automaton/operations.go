@@ -290,9 +290,11 @@ from the initial state or cannot reach an accept state.
 Cost is O(numTransitions+numStates).
 */
 func hasDeadStates(a *Automaton) bool {
-	// liveStates := liveStates(a)
-	// numLive := liveStates.
-	panic("niy")
+	liveStates := liveStates(a)
+	numLive := liveStates.Cardinality()
+	numStates := a.numStates()
+	assert2(numLive <= int64(numStates), "numLive=%v numStates=%v %v", numLive, numStates, liveStates)
+	return numLive < int64(numStates)
 }
 
 /*
