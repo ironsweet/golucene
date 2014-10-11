@@ -53,7 +53,12 @@ func (b *OpenBitSet) expandingWordNum(index int64) int {
 
 /* Clears a bit, allowing access beyond the current set size without changing the size. */
 func (b *OpenBitSet) Clear(index int64) {
-	panic("niy")
+	wordNum := int(index >> 6) // div 64
+	if wordNum >= b.wlen {
+		return
+	}
+	bitmask := int64(1) << uint64(index)
+	b.bits[wordNum] &= ^bitmask
 }
 
 // L553

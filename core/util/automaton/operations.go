@@ -165,15 +165,12 @@ the language of the given automaton.
 Complexity: linear in number of states (if already deterministic).
 */
 func complement(a *Automaton) *Automaton {
-	panic("niy")
-	// a = a.cloneExpandedIfRequired()
-	// a.determinize()
-	// a.totalize()
-	// for _, p := range a.NumberedStates() {
-	// 	p.accept = !p.accept
-	// }
-	// a.removeDeadTransitions()
-	// return a
+	a = totalize(determinize(a))
+	numStates := a.numStates()
+	for p := 0; p < numStates; p++ {
+		a.setAccept(p, !a.IsAccept(p))
+	}
+	return removeDeadStates(a)
 }
 
 /*
