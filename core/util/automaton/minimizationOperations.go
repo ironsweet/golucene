@@ -188,7 +188,7 @@ func minimizeHopcroft(a *Automaton) *Automaton {
 
 		for q, _ := range partition[n] {
 			stateMap[q] = newState
-			fmt.Println("      q=%v isAccept?=%v\n", q, a.IsAccept(q))
+			fmt.Printf("      q=%v isAccept?=%v\n", q, a.IsAccept(q))
 			ans.setAccept(newState, a.IsAccept(q))
 			stateRep[newState] = q // select representative
 		}

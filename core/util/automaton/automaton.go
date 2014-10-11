@@ -215,7 +215,15 @@ func (a *Automaton) finishCurrentState() {
 	util.NewInPlaceMergeSorter(minMaxDestSorter(a.transitions)).Sort(start, start+upto)
 
 	if a.deterministic && upto > 1 {
-		panic("niy")
+		lastMax := a.transitions[offset+2]
+		for i := 1; i < upto; i++ {
+			min = a.transitions[offset+3*i+1]
+			if min <= lastMax {
+				a.deterministic = false
+				break
+			}
+			lastMax = a.transitions[offset+3*i+2]
+		}
 	}
 }
 
