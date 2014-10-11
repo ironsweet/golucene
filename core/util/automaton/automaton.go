@@ -55,8 +55,23 @@ func (a *Automaton) setAccept(state int, accept bool) {
 	}
 }
 
+/*
+Sugar to get all transitions for all states. This is object-heavy;
+it's better to iterate state by state instead.
+*/
 func (a *Automaton) sortedTransitions() [][]*Transition {
-	panic("niy")
+	numStates := a.numStates()
+	transitions := make([][]*Transition, numStates)
+	for s := 0; s < numStates; s++ {
+		numTransitions := a.numTransitions(s)
+		transitions[s] = make([]*Transition, numTransitions)
+		for t := 0; t < numTransitions; t++ {
+			transition := newTransition()
+			a.transition(s, t, transition)
+			transitions[s][t] = transition
+		}
+	}
+	return transitions
 }
 
 /* Returns true if this state is an accept state. */
