@@ -285,6 +285,25 @@ func (a *Automaton) nextTransition(t *Transition) {
 	t.transitionUpto += 3
 }
 
+/*
+Fill the provided Transition with the index'th transition leaving the
+specified state.
+*/
+func (a *Automaton) transition(state, index int, t *Transition) {
+	panic("niy")
+}
+
+// L563
+/* Returns sorted array of all interval start points. */
+func (a *Automaton) startPoints() []int {
+	panic("niy")
+}
+
+/* Performs lookup in transitions, assuming determinism. */
+func (a *Automaton) step(state, label int) int {
+	panic("niy")
+}
+
 // Go doesn't have unicode.MinRune which should be 0
 const MIN_CODE_POINT = 0
 

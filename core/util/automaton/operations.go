@@ -852,3 +852,12 @@ func reverse(a *Automaton) *Automaton {
 	// a.clearNumberedStates()
 	// return accept
 }
+
+/*
+Returns a new automaton accepting the same language with added
+transitions to a dead state so that from every state and every label
+there is a transition.
+*/
+func totalize(a *Automaton) *Automaton {
+	panic("niy")
+}

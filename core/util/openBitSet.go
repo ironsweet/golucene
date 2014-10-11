@@ -1,5 +1,10 @@
 package util
 
+import (
+	"bytes"
+	"fmt"
+)
+
 type OpenBitSet struct {
 	bits    []int64
 	wlen    int   // number of words (elements) used in the array
@@ -143,4 +148,21 @@ func (b *OpenBitSet) ensureCapacity(numBits int64) {
 	if numBits > b.numBits {
 		b.numBits = numBits
 	}
+}
+
+func (b *OpenBitSet) String() string {
+	var buf bytes.Buffer
+	buf.WriteRune('{')
+	i := b.NextSetBit(0)
+	if i >= 0 {
+		fmt.Fprintf(&buf, "%v", i)
+		for {
+			if i = b.NextSetBit(i + 1); i < 0 {
+				break
+			}
+			fmt.Fprintf(&buf, ", %v", i)
+		}
+	}
+	buf.WriteRune('}')
+	return buf.String()
 }
