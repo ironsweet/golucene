@@ -212,7 +212,7 @@ func (a *Automaton) finishCurrentState() {
 	a.states[2*a.curState+1] = upto
 
 	// sort transitions by min/max/dest:
-	util.NewInPlaceMergeSorter(minMaxDestTransitions(a.transitions)).Sort(start, start+upto)
+	util.NewInPlaceMergeSorter(minMaxDestSorter(a.transitions)).Sort(start, start+upto)
 
 	if a.deterministic && upto > 1 {
 		panic("niy")
@@ -283,18 +283,35 @@ func (s destMinMaxTransitions) Less(i, j int) bool {
 	return iMax < jMax
 }
 
-type minMaxDestTransitions []int
+type minMaxDestSorter []int
 
-func (s minMaxDestTransitions) Len() int {
+func (s minMaxDestSorter) Len() int {
 	panic("niy")
 }
 
-func (s minMaxDestTransitions) Swap(i, j int) {
+func (s minMaxDestSorter) Swap(i, j int) {
 	panic("niy")
 }
 
-func (s minMaxDestTransitions) Less(i, j int) bool {
-	panic("niy")
+func (s minMaxDestSorter) Less(i, j int) bool {
+	iStart, jStart := 3*i, 3*j
+
+	iMin, jMin := s[iStart+1], s[jStart+1]
+	if iMin < jMin {
+		return true
+	} else if iMin > jMin {
+		return false
+	}
+
+	iMax, jMax := s[iStart+2], s[jStart+2]
+	if iMax < jMax {
+		return true
+	} else if iMax > jMax {
+		return false
+	}
+
+	iDest, jDest := s[iStart], s[jStart]
+	return iDest < jDest
 }
 
 /*
