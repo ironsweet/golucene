@@ -3,6 +3,8 @@ package automaton
 import (
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
+	"sort"
+	"unicode"
 )
 
 // util/automaton/Automaton.java
@@ -296,7 +298,29 @@ func (a *Automaton) transition(state, index int, t *Transition) {
 // L563
 /* Returns sorted array of all interval start points. */
 func (a *Automaton) startPoints() []int {
-	panic("niy")
+	pointset := make(map[int]bool)
+	pointset[MIN_CODE_POINT] = true
+	fmt.Println("getStartPoints")
+	for s := 0; s < len(a.states); s += 2 {
+		trans := a.states[s]
+		limit := trans + 3*a.states[s+1]
+		fmt.Printf("  state=%v trans=%v limit=%v\n", s/2, trans, limit)
+		for trans < limit {
+			min, max := a.transitions[trans+1], a.transitions[trans+2]
+			fmt.Printf("    min=%v\n", min)
+			pointset[min] = true
+			if max < unicode.MaxRune {
+				pointset[max+1] = true
+			}
+			trans += 3
+		}
+	}
+	var points []int
+	for m, _ := range pointset {
+		points = append(points, m)
+	}
+	sort.Ints(points)
+	return points
 }
 
 /* Performs lookup in transitions, assuming determinism. */
