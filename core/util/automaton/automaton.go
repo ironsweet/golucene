@@ -325,7 +325,19 @@ func (a *Automaton) startPoints() []int {
 
 /* Performs lookup in transitions, assuming determinism. */
 func (a *Automaton) step(state, label int) int {
-	panic("niy")
+	assert(state >= 0)
+	assert(label >= 0)
+	trans := a.states[2*state]
+	limit := trans + 3*a.states[2*state+1]
+	// TODO binary search
+	for trans < limit {
+		dest, min, max := a.transitions[trans], a.transitions[trans+1], a.transitions[trans+2]
+		if min <= label && label <= max {
+			return dest
+		}
+		trans += 3
+	}
+	return -1
 }
 
 // Go doesn't have unicode.MinRune which should be 0
