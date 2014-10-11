@@ -209,65 +209,53 @@ of the given automata. Never modifies the input automata languages.
 Complexity: quadratic in number of states.
 */
 func intersection(a1, a2 *Automaton) *Automaton {
-	panic("niy")
-	// if a1.isSingleton() {
-	// 	if run(a2, a1.singleton) {
-	// 		return a1.cloneIfRequired()
-	// 	}
-	// 	return MakeEmpty()
-	// }
-	// if a2.isSingleton() {
-	// 	if run(a1, a2.singleton) {
-	// 		return a2.cloneIfRequired()
-	// 	}
-	// 	return MakeEmpty()
-	// }
-	// if a1 == a2 {
-	// 	return a1.cloneIfRequired()
-	// }
-	// transitions1 := a1.sortedTransitions()
-	// transitions2 := a2.sortedTransitions()
-	// c := newEmptyAutomaton()
-	// worklist := list.New()
-	// newstates := make(map[string]*StatePair)
-	// hash := func(p *StatePair) string {
-	// 	return fmt.Sprintf("%v/%v", p.s1.id, p.s2.id)
-	// }
-	// p := &StatePair{c.initial, a1.initial, a2.initial}
-	// worklist.PushBack(p)
-	// newstates[hash(p)] = p
-	// for worklist.Len() > 0 {
-	// 	p = worklist.Front().Value.(*StatePair)
-	// 	worklist.Remove(worklist.Front())
-	// 	p.s.accept = (p.s1.accept && p.s2.accept)
-	// 	t1 := transitions1[p.s1.number]
-	// 	t2 := transitions2[p.s2.number]
-	// 	for n1, b2, t1Len := 0, 0, len(t1); n1 < t1Len; n1++ {
-	// 		t2Len := len(t2)
-	// 		for b2 < t2Len && t2[b2].max < t1[n1].min {
-	// 			b2++
-	// 		}
-	// 		for n2 := b2; n2 < t2Len && t1[n1].max >= t2[n2].min; n2++ {
-	// 			if t2[n2].max >= t1[n1].min {
-	// 				q := &StatePair{nil, t1[n1].to, t2[n2].to}
-	// 				r, ok := newstates[hash(q)]
-	// 				if !ok {
-	// 					q.s = newState()
-	// 					worklist.PushBack(q)
-	// 					newstates[hash(q)] = q
-	// 					r = q
-	// 				}
-	// 				min := or(t1[n1].min > t2[n2].min, t1[n1].min, t2[n2].min).(int)
-	// 				max := or(t1[n1].max < t2[n2].max, t1[n1].max, t2[n2].max).(int)
-	// 				p.s.addTransition(newTransitionRange(min, max, r.s))
-	// 			}
-	// 		}
-	// 	}
-	// }
-	// c.deterministic = (a1.deterministic && a2.deterministic)
-	// c.removeDeadTransitions()
-	// c.checkMinimizeAlways()
-	// return c
+	if a1 == a2 || a1.numStates() == 0 {
+		return a1
+	}
+	if a2.numStates() == 0 {
+		return a2
+	}
+
+	transitions1 := a1.sortedTransitions()
+	transitions2 := a2.sortedTransitions()
+	c := newEmptyAutomaton()
+	c.createState()
+	worklist := list.New()
+	newstates := make(map[string]*StatePair)
+	hash := func(p *StatePair) string {
+		return fmt.Sprintf("%v/%v", p.s1, p.s2)
+	}
+	p := &StatePair{0, 0, 0}
+	worklist.PushBack(p)
+	newstates[hash(p)] = p
+	for worklist.Len() > 0 {
+		p = worklist.Remove(worklist.Front()).(*StatePair)
+		c.setAccept(p.s, a1.IsAccept(p.s1) && a2.IsAccept(p.s2))
+		t1 := transitions1[p.s1]
+		t2 := transitions2[p.s2]
+		for n1, b2 := 0, 0; n1 < len(t1); n1++ {
+			for b2 < len(t2) && t2[b2].max < t1[n1].min {
+				b2++
+			}
+			for n2 := b2; n2 < len(t2) && t1[n1].max >= t2[n2].min; n2++ {
+				if t2[n2].max >= t1[n1].min {
+					q := &StatePair{-1, t1[n1].dest, t2[n2].dest}
+					r, ok := newstates[hash(q)]
+					if !ok {
+						q.s = c.createState()
+						worklist.PushBack(q)
+						newstates[hash(q)] = q
+						r = q
+					}
+					min := or(t1[n1].min > t2[n2].min, t1[n1].min, t2[n2].min).(int)
+					max := or(t1[n1].max < t2[n2].max, t1[n1].max, t2[n2].max).(int)
+					c.addTransitionRange(p.s, r.s, min, max)
+				}
+			}
+		}
+	}
+	c.finishState()
+	return removeDeadStates(c)
 }
 
 /*

@@ -55,6 +55,10 @@ func (a *Automaton) setAccept(state int, accept bool) {
 	}
 }
 
+func (a *Automaton) sortedTransitions() [][]*Transition {
+	panic("niy")
+}
+
 /* Returns true if this state is an accept state. */
 func (a *Automaton) IsAccept(state int) bool {
 	return a.isAccept.Get(int64(state))
