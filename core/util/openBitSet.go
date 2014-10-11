@@ -90,8 +90,30 @@ func bits2words(numBits int64) int {
 /* Expert: returns the []int64 storing the bits */
 // func (b *OpenBitSet) RealBits() []int64 { return b.bits }
 
+// L724
+
+func (b *OpenBitSet) intersect(other *OpenBitSet) {
+	newLen := b.wlen
+	if other.wlen < newLen {
+		newLen = other.wlen
+	}
+	thisArr := b.bits
+	otherArr := other.bits
+	// testing against zero can be more efficient
+	for pos := newLen - 1; pos >= 0; pos-- {
+		thisArr[pos] &= otherArr[pos]
+	}
+	if b.wlen > newLen {
+		// fill zeros from the new shorter length to the old length
+		for i := newLen; i < b.wlen; i++ {
+			b.bits[i] = 0
+		}
+	}
+	b.wlen = newLen
+}
+
 func (b *OpenBitSet) And(other *OpenBitSet) {
-	panic("niy")
+	b.intersect(other)
 }
 
 /* Expand the []int64 with the size given as a number of words (64 bits long). */

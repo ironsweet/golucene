@@ -759,7 +759,7 @@ func removeDeadStates(a *Automaton) *Automaton {
 	m := make([]int, numStates)
 
 	ans := newEmptyAutomaton()
-	fmt.Printf("liveSet: %v numStates=%v", liveSet, numStates)
+	fmt.Printf("liveSet: %v numStates=%v\n", liveSet, numStates)
 	for i := 0; i < numStates; i++ {
 		if liveSet.Get(int64(i)) {
 			m[i] = ans.createState()
