@@ -513,114 +513,119 @@ Split the code points in ranges, and merge overlapping states.
 Worst case complexity: exponential in number of states.
 */
 func determinize(a *Automaton) *Automaton {
-	panic("niy")
-	// if a.deterministic || a.isSingleton() {
-	// 	return
-	// }
+	if a.deterministic || a.numStates() <= 1 {
+		return a
+	}
 
-	// allStates := a.NumberedStates()
+	// subset construction
+	b := newAutomatonBuilder()
 
-	// // subset construction
-	// initAccept := a.initial.accept
-	// initNumber := a.initial.number
-	// a.initial = newState()
-	// initialset := newFrozenIntSet([]int{initNumber}, a.initial)
+	fmt.Println("DET:")
 
-	// worklist := list.New()
-	// newstate := make(map[string]*FrozenIntSet)
+	initialset := newFrozenIntSetOf(0, 0)
 
-	// worklist.PushBack(initialset)
+	// craete state 0:
+	b.createState()
 
-	// a.initial.accept = initAccept
-	// newstate[initialset.String()] = initialset
+	worklist := list.New()
+	newstate := make(map[string][]interface{})
 
-	// newStatesArray := make([]*State, 0, 5)
-	// newStatesArray = append(newStatesArray, a.initial)
-	// a.initial.number = 0
+	worklist.PushBack(initialset)
 
-	// // like map[int]*PointTransitions
-	// points := newPointTransitionSet()
+	b.setAccept(0, a.IsAccept(0))
+	newstate[initialset.String()] = []interface{}{initialset, 0}
 
-	// // like sorted map[int]int
-	// statesSet := newSortedIntSet(5)
+	// like map[int]*PointTransitions
+	points := newPointTransitionSet()
 
-	// for worklist.Len() > 0 {
-	// 	s := worklist.Front().Value.(*FrozenIntSet)
-	// 	worklist.Remove(worklist.Front())
+	// like sorted map[int]int
+	statesSet := newSortedIntSet(5)
 
-	// 	// Collate all outgoing transitions by min/1+max
-	// 	for _, v := range s.values {
-	// 		s0 := allStates[v]
-	// 		for _, t := range s0.transitionsArray {
-	// 			points.add(t)
-	// 		}
-	// 	}
+	t := newTransition()
 
-	// 	if len(points.points) == 0 {
-	// 		// No outgoing transitions -- skip it
-	// 		continue
-	// 	}
+	for worklist.Len() > 0 {
+		s := worklist.Remove(worklist.Front()).(*FrozenIntSet)
+		fmt.Printf("det: pop set=%v\n", s)
 
-	// 	points.sort()
+		// Collate all outgoing transitions by min/1+max
+		for _, s0 := range s.values {
+			numTransitions := a.numTransitions(s0)
+			a.initTransition(s0, t)
+			for j := 0; j < numTransitions; j++ {
+				a.nextTransition(t)
+				points.add(t)
+			}
+		}
 
-	// 	lastPoint := -1
-	// 	accCount := 0
+		if len(points.points) == 0 {
+			// No outgoing transitions -- skip it
+			continue
+		}
 
-	// 	r := s.state
-	// 	for _, v := range points.points {
-	// 		point := v.point
+		points.sort()
 
-	// 		if len(statesSet.values) > 0 {
-	// 			assert(lastPoint != -1)
+		lastPoint := -1
+		accCount := 0
 
-	// 			hashKey := statesSet.computeHash().String()
+		r := s.state
+		for _, v := range points.points {
+			point := v.point
 
-	// 			var q *State
-	// 			ss, ok := newstate[hashKey]
-	// 			if !ok {
-	// 				q = newState()
-	// 				p := statesSet.freeze(q)
-	// 				worklist.PushBack(p)
-	// 				newStatesArray = append(newStatesArray, q)
-	// 				q.number = len(newStatesArray) - 1
-	// 				q.accept = accCount > 0
-	// 				newstate[p.String()] = p
-	// 			} else {
-	// 				q = ss.state
-	// 				assert2(q.accept == (accCount > 0), fmt.Sprintf(
-	// 					"accCount=%v vs existing accept=%v states=%v",
-	// 					accCount, q.accept, statesSet))
-	// 			}
+			if len(statesSet.values) > 0 {
+				assert(lastPoint != -1)
 
-	// 			r.addTransition(newTransitionRange(lastPoint, point-1, q))
-	// 		}
+				hashKey := statesSet.computeHash().String()
 
-	// 		// process transitions that end on this point
-	// 		// (closes an overlapping interval)
-	// 		for _, t := range v.ends {
-	// 			statesSet.decr(t.to.number)
-	// 			if t.to.accept {
-	// 				accCount--
-	// 			}
-	// 		}
-	// 		v.ends = v.ends[:0] // reuse slice
+				var q int
+				ss, ok := newstate[hashKey]
+				if !ok {
+					q = b.createState()
+					p := statesSet.freeze(q)
+					fmt.Printf("  make new state=%v -> %v accCount=%v\n", q, p, accCount)
+					worklist.PushBack(p)
+					b.setAccept(q, accCount > 0)
+					newstate[p.String()] = []interface{}{p, q}
+				} else {
+					q = ss[1].(int)
+					assert2(b.isAccept(q) == (accCount > 0),
+						"accCount=%v vs existing accept=%v states=%v",
+						accCount, b.isAccept(q), statesSet)
+				}
 
-	// 		// process transitions that start on this point
-	// 		// (opens a new interval)
-	// 		for _, t := range v.starts {
-	// 			statesSet.incr(t.to.number)
-	// 			if t.to.accept {
-	// 				accCount++
-	// 			}
-	// 		}
-	// 		v.starts = v.starts[:0] // reuse slice
-	// 		lastPoint = point
-	// 	}
-	// 	points.reset()
-	// 	assert2(len(statesSet.values) == 0, fmt.Sprintf("upto=%v", len(statesSet.values)))
-	// }
-	// a.deterministic = true
-	// a.setNumberedStates(newStatesArray)
+				fmt.Printf("  add trans src=%v dest=%v min=%v max=%v\n",
+					r, q, lastPoint, point-1)
+				b.addTransitionRange(r, q, lastPoint, point-1)
+			}
+
+			// process transitions that end on this point
+			// (closes an overlapping interval)
+			for _, t := range v.ends {
+				statesSet.decr(t.dest)
+				if a.IsAccept(t.dest) {
+					accCount--
+				}
+			}
+			v.ends = v.ends[:0] // reuse slice
+
+			// process transitions that start on this point
+			// (opens a new interval)
+			for _, t := range v.starts {
+				statesSet.incr(t.dest)
+				if a.IsAccept(t.dest) {
+					accCount++
+				}
+			}
+			v.starts = v.starts[:0] // reuse slice
+
+			lastPoint = point
+		}
+		points.reset()
+		assert2(len(statesSet.values) == 0, fmt.Sprintf("upto=%v", len(statesSet.values)))
+	}
+
+	ans := b.finish()
+	assert(ans.deterministic)
+	return ans
 }
 
 // // L775

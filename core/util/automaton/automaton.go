@@ -384,3 +384,11 @@ func (b *AutomatonBuilder) finish() *Automaton {
 func (b *AutomatonBuilder) createState() int {
 	return b.a.createState()
 }
+
+func (b *AutomatonBuilder) setAccept(state int, accept bool) {
+	b.a.setAccept(state, accept)
+}
+
+func (b *AutomatonBuilder) isAccept(state int) bool {
+	return b.a.IsAccept(state)
+}

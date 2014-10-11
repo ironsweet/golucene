@@ -158,9 +158,17 @@ func newFrozenIntSet(values []int, state int) *FrozenIntSet {
 	return &FrozenIntSet{values, state}
 }
 
+func newFrozenIntSetOf(num, state int) *FrozenIntSet {
+	return &FrozenIntSet{
+		values: make([]int, num),
+		state:  state,
+	}
+}
+
 func (fis *FrozenIntSet) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("[")
+	sort.Ints(fis.values)
 	for i, v := range fis.values {
 		if i > 0 {
 			buf.WriteString(" ")
