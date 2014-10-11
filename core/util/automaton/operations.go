@@ -124,19 +124,30 @@ Never modifies the input automaton language.
 Complexity: linear in number of states.
 */
 func repeat(a *Automaton) *Automaton {
-	panic("niy")
-	// a = a.cloneExpandedIfRequired()
-	// s := newState()
-	// s.accept = true
-	// s.addEpsilon(a.initial)
-	// for _, p := range a.acceptStates() {
-	// 	p.addEpsilon(s)
-	// }
-	// a.initial = s
-	// a.deterministic = false
-	// a.clearNumberedStates()
-	// a.checkMinimizeAlways()
-	// return a
+	b := newAutomatonBuilder()
+	b.createState()
+	b.setAccept(0, true)
+	b.copy(a)
+
+	t := newTransition()
+	count := a.initTransition(0, t)
+	for i := 0; i < count; i++ {
+		a.nextTransition(t)
+		b.addTransitionRange(0, t.dest+1, t.min, t.max)
+	}
+
+	numStates := a.numStates()
+	for s := 0; s < numStates; s++ {
+		if a.IsAccept(s) {
+			count = a.initTransition(0, t)
+			for i := 0; i < count; i++ {
+				a.nextTransition(t)
+				b.addTransitionRange(s+1, t.dest+1, t.min, t.max)
+			}
+		}
+	}
+
+	return b.finish()
 }
 
 /*

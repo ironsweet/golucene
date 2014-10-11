@@ -451,3 +451,20 @@ func (b *AutomatonBuilder) setAccept(state int, accept bool) {
 func (b *AutomatonBuilder) isAccept(state int) bool {
 	return b.a.IsAccept(state)
 }
+
+func (b *AutomatonBuilder) copy(other *Automaton) {
+	offset := b.a.numStates()
+	otherNumStates := other.numStates()
+	for s := 0; s < otherNumStates; s++ {
+		newState := b.createState()
+		b.setAccept(newState, other.IsAccept(s))
+	}
+	t := newTransition()
+	for s := 0; s < otherNumStates; s++ {
+		count := other.initTransition(s, t)
+		for i := 0; i < count; i++ {
+			other.nextTransition(t)
+			b.addTransitionRange(offset+s, offset+t.dest, t.min, t.max)
+		}
+	}
+}
