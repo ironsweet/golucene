@@ -176,12 +176,25 @@ func (a *Automaton) finishCurrentState() {
 		tMax := a.transitions[offset+3*i+2]
 
 		if dest == tDest {
-			panic("niy")
+			if tMin <= max+1 {
+				if tMax > max {
+					max = tMax
+				}
+			} else {
+				if dest != -1 {
+					a.transitions[offset+3*upto] = dest
+					a.transitions[offset+3*upto+1] = min
+					a.transitions[offset+3*upto+2] = max
+					upto++
+				}
+				min, max = tMin, tMax
+			}
 		} else {
 			if dest != -1 {
 				a.transitions[offset+3*upto] = dest
 				a.transitions[offset+3*upto+1] = min
 				a.transitions[offset+3*upto+2] = max
+				upto++
 			}
 			dest, min, max = tDest, tMin, tMax
 		}
