@@ -69,6 +69,8 @@ func minimizeHopcroft(a *Automaton) *Automaton {
 		partition[j][q] = true
 		block[q] = j
 		for x, v := range sigma {
+			n := a.step(q, v)
+			assert2(n >= 0 && n < len(reverse), "%v", n)
 			r := reverse[a.step(q, v)]
 			r[x] = append(r[x], q)
 		}

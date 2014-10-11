@@ -26,75 +26,80 @@ languages of the given automata.
 Complexity: linear in total number of states.
 */
 func concatenateN(l []*Automaton) *Automaton {
-	panic("niy")
-	// if len(l) == 0 {
-	// 	return makeEmptyString()
-	// }
-	// allSingleton := true
-	// for _, a := range l {
-	// 	if !a.isSingleton() {
-	// 		allSingleton = false
-	// 		break
-	// 	}
-	// }
-	// if allSingleton {
-	// 	var b bytes.Buffer
-	// 	for _, a := range l {
-	// 		b.WriteString(a.singleton)
-	// 	}
-	// 	return makeString(b.String())
-	// }
-	// for _, a := range l {
-	// 	if isEmpty(a) {
-	// 		return MakeEmpty()
-	// 	}
-	// }
-	// all := make(map[*Automaton]bool)
-	// hasAliases := false
-	// for _, a := range l {
-	// 	if _, ok := all[a]; ok {
-	// 		hasAliases = true
-	// 		break
-	// 	} else {
-	// 		all[a] = true
-	// 	}
-	// }
-	// b := l[0]
-	// if hasAliases {
-	// 	b = b.cloneExpanded()
-	// } else {
-	// 	b = b.cloneExpandedIfRequired()
-	// }
-	// ac := b.acceptStates()
-	// first := true
-	// for _, a := range l {
-	// 	if first {
-	// 		first = false
-	// 	} else {
-	// 		if a.isEmptyString() {
-	// 			continue
-	// 		}
-	// 		aa := a
-	// 		if hasAliases {
-	// 			aa = aa.cloneExpanded()
-	// 		} else {
-	// 			aa = aa.cloneExpandedIfRequired()
-	// 		}
-	// 		ns := aa.acceptStates()
-	// 		for _, s := range ac {
-	// 			s.accept = false
-	// 			s.addEpsilon(aa.initial)
-	// 			if s.accept {
-	// 				ns[s.id] = s
-	// 			}
-	// 		}
-	// 		ac = ns
-	// 	}
-	// }
-	// b.deterministic = false
-	// b.clearNumberedStates()
-	// b.checkMinimizeAlways()
-	// return b
+	ans := newEmptyAutomaton()
+
+	// first pass: create all states
+	for _, a := range l {
+		if a.numStates() == 0 {
+			ans.finishState()
+			return ans
+		}
+		numStates := a.numStates()
+		for s := 0; s < numStates; s++ {
+			ans.createState()
+		}
+	}
+
+	// second pass: add transitions, carefully linking accept
+	// states of A to init state of next A:
+	stateOffset := 0
+	t := newTransition()
+	for i, a := range l {
+		numStates := a.numStates()
+
+		var nextA *Automaton
+		if i < len(l)-1 {
+			nextA = l[i+1]
+		}
+
+		for s := 0; s < numStates; s++ {
+			numTransitions := a.initTransition(s, t)
+			for j := 0; j < numTransitions; j++ {
+				a.nextTransition(t)
+				ans.addTransitionRange(stateOffset+s, stateOffset+t.dest, t.min, t.max)
+			}
+
+			if a.IsAccept(s) {
+				followA := nextA
+				followOffset := stateOffset
+				upto := i + 1
+				for {
+					if followA != nil {
+						// adds a "virtual" epsilon transition:
+						numTransitions = followA.initTransition(0, t)
+						for j := 0; j < numTransitions; j++ {
+							followA.nextTransition(t)
+							ans.addTransitionRange(stateOffset+s, followOffset+numStates+t.dest, t.min, t.max)
+						}
+						if followA.IsAccept(0) {
+							// keep chaning if followA accepts empty string
+							followOffset += followA.numStates()
+							if upto < len(l)-1 {
+								followA = l[upto+1]
+							} else {
+								followA = nil
+							}
+							upto++
+						} else {
+							break
+						}
+					} else {
+						ans.setAccept(stateOffset+s, true)
+						break
+					}
+				}
+			}
+		}
+
+		stateOffset += numStates
+	}
+
+	if ans.numStates() == 0 {
+		ans.createState()
+	}
+
+	ans.finishState()
+	return ans
 }
 
 /*
