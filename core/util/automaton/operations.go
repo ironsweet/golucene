@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	"github.com/balzaczyy/golucene/core/util"
+	"unicode"
 )
 
 // Basic automata operations.
@@ -864,5 +865,36 @@ transitions to a dead state so that from every state and every label
 there is a transition.
 */
 func totalize(a *Automaton) *Automaton {
-	panic("niy")
+	ans := newEmptyAutomaton()
+	numStates := a.numStates()
+	for i := 0; i < numStates; i++ {
+		ans.createState()
+		ans.setAccept(i, a.IsAccept(i))
+	}
+
+	deadState := ans.createState()
+	ans.addTransitionRange(deadState, deadState, MIN_CODE_POINT, unicode.MaxRune)
+
+	t := newTransition()
+	for i := 0; i < numStates; i++ {
+		maxi := MIN_CODE_POINT
+		count := a.initTransition(i, t)
+		for j := 0; j < count; j++ {
+			a.nextTransition(t)
+			ans.addTransitionRange(i, t.dest, t.min, t.max)
+			if t.min > maxi {
+				ans.addTransitionRange(i, deadState, maxi, t.min-1)
+			}
+			if t.max+1 > maxi {
+				maxi = t.max + 1
+			}
+		}
+
+		if maxi <= unicode.MaxRune {
+			ans.addTransitionRange(i, deadState, maxi, unicode.MaxRune)
+		}
+	}
+
+	ans.finishState()
+	return ans
 }
