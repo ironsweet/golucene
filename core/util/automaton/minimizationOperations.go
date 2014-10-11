@@ -121,7 +121,7 @@ func minimizeHopcroft(a *Automaton) *Automaton {
 			sb := splitblock[j]
 			if len(sb) < len(partition[j]) {
 				b1, b2 := partition[j], partition[k]
-				for s, _ := range sb {
+				for _, s := range sb {
 					delete(b1, s)
 					b2[s] = true
 					block[s] = k
