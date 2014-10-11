@@ -58,7 +58,28 @@ Returns the index of the first set bit starting at the index specified.
 - is returned if there are no more set bits.
 */
 func (b *OpenBitSet) NextSetBit(index int64) int64 {
-	panic("niy")
+	assert(index >= 0)
+	i := int(uint64(index) >> 6)
+	if i >= b.wlen {
+		return -1
+	}
+	subIndex := int(index & 0x3f)                      // index within the word
+	word := int64(uint64(b.bits[i]) >> uint(subIndex)) // skip all the bits to the right of index
+
+	if word != 0 {
+		return (int64(i) << 6) + int64(subIndex) + int64(NumberOfTrailingZeros(word))
+	}
+
+	i++
+	for i < b.wlen {
+		word = b.bits[i]
+		if word != 0 {
+			return (int64(i) << 6) + int64(NumberOfTrailingZeros(word))
+		}
+		i++
+	}
+
+	return -1
 }
 
 /* Returns the number of 64 bit words it would take to hold numBits */
