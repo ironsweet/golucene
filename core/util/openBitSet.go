@@ -26,6 +26,11 @@ func NewOpenBitSet() *OpenBitSet {
 	return NewOpenBitSetOf(64)
 }
 
+/* Returns true if there are no set bits */
+func (b *OpenBitSet) IsEmpty() bool {
+	return b.Cardinality() == 0
+}
+
 /* Returns true or false for the specified bit index */
 func (b *OpenBitSet) Get(index int64) bool {
 	i := int(index >> 6) // div 64
@@ -128,8 +133,26 @@ func (b *OpenBitSet) intersect(other *OpenBitSet) {
 	b.wlen = newLen
 }
 
+//L760
+
+func (b *OpenBitSet) remove(other *OpenBitSet) {
+	idx := b.wlen
+	if other.wlen < idx {
+		idx = other.wlen
+	}
+	thisArr := b.bits
+	otherArr := other.bits
+	for pos := idx - 1; pos >= 0; pos-- {
+		thisArr[pos] &= ^otherArr[pos]
+	}
+}
+
 func (b *OpenBitSet) And(other *OpenBitSet) {
 	b.intersect(other)
+}
+
+func (b *OpenBitSet) AndNot(other *OpenBitSet) {
+	b.remove(other)
 }
 
 /* Expand the []int64 with the size given as a number of words (64 bits long). */

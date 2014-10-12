@@ -198,7 +198,7 @@ deterministic.
 Complexity: quadratic in number of states (if already deterministic).
 */
 func minus(a1, a2 *Automaton) *Automaton {
-	if isEmpty(a) || a1 == a2 {
+	if isEmpty(a1) || a1 == a2 {
 		return MakeEmpty()
 	}
 	if isEmpty(a2) {
@@ -291,69 +291,75 @@ func hasDeadStates(a *Automaton) bool {
 	return numLive < int64(numStates)
 }
 
+func hasDeadStatesFromInitial(a *Automaton) bool {
+	reachableFromInitial := liveStatesFromInitial(a)
+	reachableFromAccept := liveStatesToAccept(a)
+	reachableFromInitial.AndNot(reachableFromAccept)
+	return !reachableFromInitial.IsEmpty()
+}
+
 /*
 Returns true if the language of a1 is a subset of the language of a2.
 As a side-effect, a2 is determinized if not already marked as
 deterministic.
 */
 func subsetOf(a1, a2 *Automaton) bool {
-	panic("niy")
-	// if a1 == a2 {
-	// 	return true
-	// }
-	// if a1.isSingleton() {
-	// 	if a2.isSingleton() {
-	// 		return a1.singleton == a2.singleton
-	// 	}
-	// 	return run(a2, a1.singleton)
-	// }
-	// a2.determinize()
-	// transitions1 := a1.sortedTransitions()
-	// transitions2 := a2.sortedTransitions()
-	// worklist := list.New()
-	// visited := make(map[string]*StatePair)
-	// hash := func(p *StatePair) string {
-	// 	return fmt.Sprintf("%v/%v", p.s1.id, p.s2.id)
-	// }
-	// p := &StatePair{nil, a1.initial, a2.initial}
-	// worklist.PushBack(p)
-	// visited[hash(p)] = p
-	// for worklist.Len() > 0 {
-	// 	p = worklist.Front().Value.(*StatePair)
-	// 	worklist.Remove(worklist.Front())
-	// 	if p.s1.accept && !p.s2.accept {
-	// 		return false
-	// 	}
-	// 	t1 := transitions1[p.s1.number]
-	// 	t2 := transitions2[p.s2.number]
-	// 	for n1, b2, t1Len := 0, 0, len(t1); n1 < t1Len; n1++ {
-	// 		t2Len := len(t2)
-	// 		for b2 < t2Len && t2[b2].max < t1[n1].min {
-	// 			b2++
-	// 		}
-	// 		min1, max1 := t1[n1].min, t1[n1].max
+	assert2(a1.deterministic, "a1 must be deterministic")
+	assert2(a2.deterministic, "a2 must be deterministic")
+	assert(!hasDeadStatesFromInitial(a1))
+	assert(!hasDeadStatesFromInitial(a2))
+	if a1.numStates() == 0 {
+		// empty language is always a subset of any other language
+		return true
+	} else if a2.numStates() == 0 {
+		return isEmpty(a1)
+	}
 
-	// 		for n2 := b2; n2 < t2Len && t1[n1].max >= t2[n2].min; n2++ {
-	// 			if t2[n2].min > min1 {
-	// 				return false
-	// 			}
-	// 			if t2[n2].max < unicode.MaxRune {
-	// 				min1 = t2[n2].max + 1
-	// 			} else {
-	// 				min1, max1 = unicode.MaxRune, MIN_CODE_POINT
-	// 			}
-	// 			q := &StatePair{nil, t1[n1].to, t2[n2].to}
-	// 			if _, ok := visited[hash(q)]; !ok {
-	// 				worklist.PushBack(q)
-	// 				visited[hash(q)] = q
-	// 			}
-	// 		}
-	// 		if min1 <= max1 {
-	// 			return false
-	// 		}
-	// 	}
-	// }
-	// return true
+	transitions1 := a1.sortedTransitions()
+	transitions2 := a2.sortedTransitions()
+	worklist := list.New()
+	visited := make(map[string]*StatePair)
+	hash := func(p *StatePair) string {
+		return fmt.Sprintf("%v/%v", p.s1, p.s2)
+	}
+	p := &StatePair{-1, 0, 0}
+	worklist.PushBack(p)
+	visited[hash(p)] = p
+	for worklist.Len() > 0 {
+		p = worklist.Remove(worklist.Front()).(*StatePair)
+		if a1.IsAccept(p.s1) && !a2.IsAccept(p.s2) {
+			return false
+		}
+		t1 := transitions1[p.s1]
+		t2 := transitions2[p.s2]
+		for n1, b2, t1Len := 0, 0, len(t1); n1 < t1Len; n1++ {
+			t2Len := len(t2)
+			for b2 < t2Len && t2[b2].max < t1[n1].min {
+				b2++
+			}
+			min1, max1 := t1[n1].min, t1[n1].max
+
+			for n2 := b2; n2 < t2Len && t1[n1].max >= t2[n2].min; n2++ {
+				if t2[n2].min > min1 {
+					return false
+				}
+				if t2[n2].max < unicode.MaxRune {
+					min1 = t2[n2].max + 1
+				} else {
+					min1, max1 = unicode.MaxRune, MIN_CODE_POINT
+				}
+				q := &StatePair{-1, t1[n1].dest, t2[n2].dest}
+				if _, ok := visited[hash(q)]; !ok {
+					worklist.PushBack(q)
+					visited[hash(q)] = q
+				}
+			}
+			if min1 <= max1 {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 /*
