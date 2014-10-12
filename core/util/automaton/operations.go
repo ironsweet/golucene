@@ -112,7 +112,7 @@ func optional(a *Automaton) *Automaton {
 	ans := newEmptyAutomaton()
 	ans.createState()
 	ans.setAccept(0, true)
-	if ans.numStates() > 0 {
+	if a.numStates() > 0 {
 		ans.copy(a)
 		ans.addEpsilon(0, 1)
 	}
@@ -128,6 +128,10 @@ Never modifies the input automaton language.
 Complexity: linear in number of states.
 */
 func repeat(a *Automaton) *Automaton {
+	if isEmpty(a) {
+		return a
+	}
+
 	b := newAutomatonBuilder()
 	b.createState()
 	b.setAccept(0, true)
@@ -291,10 +295,10 @@ func hasDeadStates(a *Automaton) bool {
 }
 
 func hasDeadStatesFromInitial(a *Automaton) bool {
-	reachableFromInitial := liveStatesFromInitial(a)
-	reachableFromAccept := liveStatesToAccept(a)
-	reachableFromInitial.AndNot(reachableFromAccept)
-	return !reachableFromInitial.IsEmpty()
+	r1 := liveStatesFromInitial(a)
+	r2 := liveStatesToAccept(a)
+	r1.AndNot(r2)
+	return !r1.IsEmpty()
 }
 
 /*
@@ -519,7 +523,7 @@ func determinize(a *Automaton) *Automaton {
 	// subset construction
 	b := newAutomatonBuilder()
 
-	fmt.Println("DET:")
+	// fmt.Println("DET:")
 
 	initialset := newFrozenIntSetOf(0, 0)
 
@@ -544,7 +548,7 @@ func determinize(a *Automaton) *Automaton {
 
 	for worklist.Len() > 0 {
 		s := worklist.Remove(worklist.Front()).(*FrozenIntSet)
-		fmt.Printf("det: pop set=%v\n", s)
+		// fmt.Printf("det: pop set=%v\n", s)
 
 		// Collate all outgoing transitions by min/1+max
 		for _, s0 := range s.values {
@@ -790,7 +794,7 @@ func removeDeadStates(a *Automaton) *Automaton {
 	m := make([]int, numStates)
 
 	ans := newEmptyAutomaton()
-	fmt.Printf("liveSet: %v numStates=%v\n", liveSet, numStates)
+	// fmt.Printf("liveSet: %v numStates=%v\n", liveSet, numStates)
 	for i := 0; i < numStates; i++ {
 		if liveSet.Get(int64(i)) {
 			m[i] = ans.createState()

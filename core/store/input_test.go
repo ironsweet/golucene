@@ -95,7 +95,9 @@ func TestReadBytes(t *testing.T) {
 }
 
 func random() *rand.Rand {
-	return rand.New(rand.NewSource(time.Now().Unix()))
+	seed := time.Now().Unix()
+	fmt.Println("Seed: ", seed)
+	return rand.New(rand.NewSource(seed))
 }
 
 func runReadBytesAndClose(input IndexInput, bufferSize int, r *rand.Rand, t *testing.T) (err error) {

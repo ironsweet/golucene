@@ -488,7 +488,7 @@ func (s *InPlaceMergeSorter) mergeSort(from, to int) {
 	if to-from < SORTER_THRESHOLD {
 		s.insertionSort(from, to)
 	} else {
-		mid := int((uint(from) + uint(to)) >> 2)
+		mid := int((uint(from) + uint(to)) >> 1)
 		s.mergeSort(from, mid)
 		s.mergeSort(mid, to)
 		s.mergeInPlace(from, mid, to)

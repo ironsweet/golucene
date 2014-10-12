@@ -143,12 +143,9 @@ func (a *Automaton) copy(other *Automaton) {
 			a.states[stateOffset*2+i] += len(a.transitions)
 		}
 	}
-	otherNumStates := other.numStates()
-	for state := 0; state < otherNumStates; state++ {
-		if !other.IsAccept(state) {
-			continue
-		}
-		a.setAccept(stateOffset+state, true)
+	otherAcceptState := other.isAccept
+	for state := otherAcceptState.NextSetBit(0); state != -1; state = otherAcceptState.NextSetBit(state + 1) {
+		a.setAccept(stateOffset+int(state), true)
 	}
 
 	// bulk copy and then fixup dest for each transition
@@ -372,14 +369,14 @@ func (a *Automaton) transition(state, index int, t *Transition) {
 func (a *Automaton) startPoints() []int {
 	pointset := make(map[int]bool)
 	pointset[MIN_CODE_POINT] = true
-	fmt.Println("getStartPoints")
+	// fmt.Println("getStartPoints")
 	for s := 0; s < len(a.states); s += 2 {
 		trans := a.states[s]
 		limit := trans + 3*a.states[s+1]
-		fmt.Printf("  state=%v trans=%v limit=%v\n", s/2, trans, limit)
+		// fmt.Printf("  state=%v trans=%v limit=%v\n", s/2, trans, limit)
 		for trans < limit {
 			min, max := a.transitions[trans+1], a.transitions[trans+2]
-			fmt.Printf("    min=%v\n", min)
+			// fmt.Printf("    min=%v\n", min)
 			pointset[min] = true
 			if max < unicode.MaxRune {
 				pointset[max+1] = true
@@ -473,8 +470,8 @@ func (s srcMinMaxDestSorter) Less(i, j int) bool {
 
 /* Compiles all added states and transitions into a new Automaton and returns it. */
 func (b *AutomatonBuilder) finish() *Automaton {
-	fmt.Printf("LA.Builder.finish: count=%v\n", len(b.transitions)/4)
-	fmt.Println("finish pending")
+	// fmt.Printf("LA.Builder.finish: count=%v\n", len(b.transitions)/4)
+	// fmt.Println("finish pending")
 	util.NewInPlaceMergeSorter(srcMinMaxDestSorter(b.transitions)).Sort(0, len(b.transitions)/4)
 	for upto := 0; upto < len(b.transitions); upto += 4 {
 		b.a.addTransitionRange(

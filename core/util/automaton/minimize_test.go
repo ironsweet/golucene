@@ -1,6 +1,7 @@
 package automaton
 
 import (
+	"fmt"
 	. "github.com/balzaczyy/golucene/test_framework/util"
 	"testing"
 )
@@ -45,8 +46,9 @@ func TestMinimize(t *testing.T) {
 	num := AtLeast(200)
 	for i := 0; i < num; i++ {
 		a := randomAutomaton(Random())
-		b := minimize(a)
-		assert(sameLanguage(a, b))
+		la := removeDeadStates(determinize(removeDeadStates(a)))
+		lb := minimize(a)
+		assert(sameLanguage(la, lb))
 	}
 }
 

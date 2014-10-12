@@ -2,7 +2,7 @@ package automaton
 
 import (
 	"container/list"
-	"fmt"
+	// "fmt"
 	"github.com/balzaczyy/golucene/core/util"
 	"unicode"
 )
@@ -93,12 +93,12 @@ func minimizeHopcroft(a *Automaton) *Automaton {
 	}
 	// process pending until fixed point
 	k := 2
-	fmt.Println("start min")
+	// fmt.Println("start min")
 	for pending.Len() > 0 {
-		fmt.Println("  cycle pending")
+		// fmt.Println("  cycle pending")
 		ip := pending.Remove(pending.Front()).(*IntPair)
 		p, x := ip.n1, ip.n2
-		fmt.Printf("    pop n1=%v n2=%v\n", ip.n1, ip.n2)
+		// fmt.Printf("    pop n1=%v n2=%v\n", ip.n1, ip.n2)
 		pending2.Clear(int64(x*statesLen + p))
 		// find states that need to be split off their blocks
 		for m := active[p][x].first; m != nil; m = m.next {
@@ -158,7 +158,7 @@ func minimizeHopcroft(a *Automaton) *Automaton {
 
 	ans := newEmptyAutomaton()
 	t := newTransition()
-	fmt.Printf("  k=%v\n", k)
+	// fmt.Printf("  k=%v\n", k)
 
 	// make a new state for each equivalence class, set initial state
 	stateMap := make([]int, statesLen)
@@ -166,15 +166,15 @@ func minimizeHopcroft(a *Automaton) *Automaton {
 
 	ans.createState()
 
-	fmt.Printf("min: k=%v\n", k)
+	// fmt.Printf("min: k=%v\n", k)
 	for n := 0; n < k; n++ {
-		fmt.Printf("    n=%v\n", n)
+		// fmt.Printf("    n=%v\n", n)
 
 		isInitial := false
 		for q, _ := range partition[n] {
 			if q == 0 {
 				isInitial = true
-				fmt.Println("    isInitial!")
+				// fmt.Println("    isInitial!")
 				break
 			}
 		}
@@ -184,11 +184,11 @@ func minimizeHopcroft(a *Automaton) *Automaton {
 			newState = ans.createState()
 		}
 
-		fmt.Printf("  newState=%v\n", newState)
+		// fmt.Printf("  newState=%v\n", newState)
 
 		for q, _ := range partition[n] {
 			stateMap[q] = newState
-			fmt.Printf("      q=%v isAccept?=%v\n", q, a.IsAccept(q))
+			// fmt.Printf("      q=%v isAccept?=%v\n", q, a.IsAccept(q))
 			ans.setAccept(newState, a.IsAccept(q))
 			stateRep[newState] = q // select representative
 		}
@@ -199,12 +199,12 @@ func minimizeHopcroft(a *Automaton) *Automaton {
 		numTransitions := a.initTransition(stateRep[n], t)
 		for i := 0; i < numTransitions; i++ {
 			a.nextTransition(t)
-			fmt.Println("  add trans")
+			// fmt.Println("  add trans")
 			ans.addTransitionRange(n, stateMap[t.dest], t.min, t.max)
 		}
 	}
 	ans.finishState()
-	fmt.Printf("%v states\n", ans.numStates())
+	// fmt.Printf("%v states\n", ans.numStates())
 
 	return removeDeadStates(ans)
 }

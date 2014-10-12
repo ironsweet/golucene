@@ -27,6 +27,14 @@ func TestComplementSimple(t *testing.T) {
 	assert(sameLanguage(a, complement(complement(a))))
 }
 
+func TestRemoveDeadStatesSimple(t *testing.T) {
+	a := newEmptyAutomaton()
+	a.createState()
+	assert(a.numStates() == 1)
+	a = removeDeadStates(a)
+	assert(a.numStates() == 0)
+}
+
 // func TestStringUnion(t testing.T) {
 // strings := make([]string, 0, 500)
 // for i := NextInt(Random(), 0, 1000); i >= 0; i-- {
