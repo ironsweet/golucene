@@ -37,14 +37,14 @@ func (b *OpenBitSet) Get(index int64) bool {
 	if i >= len(b.bits) {
 		return false
 	}
-	bitmask := int64(1) << uint(index)
+	bitmask := int64(1) << uint(index&0x3f)
 	return (b.bits[i] & bitmask) != 0
 }
 
 /* Sets a bit, expanding the set size if necessary */
 func (b *OpenBitSet) Set(index int64) {
 	wordNum := b.expandingWordNum(index)
-	bitmask := int64(1) << uint64(index)
+	bitmask := int64(1) << uint64(index&0x3f)
 	b.bits[wordNum] |= bitmask
 }
 
@@ -91,13 +91,11 @@ func (b *OpenBitSet) NextSetBit(index int64) int64 {
 		return (int64(i) << 6) + int64(subIndex) + int64(NumberOfTrailingZeros(word))
 	}
 
-	i++
-	for i < b.wlen {
+	for i++; i < b.wlen; i++ {
 		word = b.bits[i]
 		if word != 0 {
 			return (int64(i) << 6) + int64(NumberOfTrailingZeros(word))
 		}
-		i++
 	}
 
 	return -1

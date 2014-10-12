@@ -1,7 +1,7 @@
 export tests_codec=Lucene45
 
 go test github.com/balzaczyy/golucene/core/util
-# go test github.com/balzaczyy/golucene/core/util/automaton
+go test github.com/balzaczyy/golucene/core/util/automaton
 go test github.com/balzaczyy/golucene/core/util/fst
 go test github.com/balzaczyy/golucene/core/util/packed
 go test github.com/balzaczyy/golucene/core/analysis/tokenattributes
