@@ -537,7 +537,7 @@ func determinize(a *Automaton) *Automaton {
 	b.createState()
 
 	worklist := list.New()
-	newstate := make(map[string][]interface{})
+	newstate := make(map[string]int)
 	hash := func(s *FrozenIntSet) string {
 		return s.String()
 	}
@@ -545,7 +545,7 @@ func determinize(a *Automaton) *Automaton {
 	worklist.PushBack(initialset)
 
 	b.setAccept(0, a.IsAccept(0))
-	newstate[hash(initialset)] = []interface{}{initialset, 0}
+	newstate[hash(initialset)] = 0
 
 	// like map[int]*PointTransitions
 	points := newPointTransitionSet()
@@ -588,17 +588,15 @@ func determinize(a *Automaton) *Automaton {
 
 				hashKey := statesSet.computeHash().String()
 
-				var q int
-				ss, ok := newstate[hashKey]
+				q, ok := newstate[hashKey]
 				if !ok {
 					q = b.createState()
 					p := statesSet.freeze(q)
 					// fmt.Printf("  make new state=%v -> %v accCount=%v\n", q, p, accCount)
 					worklist.PushBack(p)
 					b.setAccept(q, accCount > 0)
-					newstate[p.String()] = []interface{}{p, q}
+					newstate[hash(p)] = q
 				} else {
-					q = ss[1].(int)
 					assert2(b.isAccept(q) == (accCount > 0),
 						"accCount=%v vs existing accept=%v states=%v",
 						accCount, b.isAccept(q), statesSet)
@@ -634,7 +632,7 @@ func determinize(a *Automaton) *Automaton {
 			lastPoint = point
 		}
 		points.reset()
-		assert2(len(statesSet.values) == 0, fmt.Sprintf("upto=%v", len(statesSet.values)))
+		assert2(len(statesSet.values) == 0, "upto=%v", len(statesSet.values))
 	}
 
 	ans := b.finish()

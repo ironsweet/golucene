@@ -38,7 +38,6 @@ func newSortedIntSet(capacity int) *SortedIntSet {
 
 // Adds this state ot the set
 func (sis *SortedIntSet) incr(num int) {
-	// log.Println("DEBUG incr", sis, num)
 	if sis.useTreeMap {
 		val, ok := sis.dict[num]
 		if !ok {
@@ -75,7 +74,6 @@ func (sis *SortedIntSet) incr(num int) {
 
 // Removes the state from the set, if count decrs to 0
 func (sis *SortedIntSet) decr(num int) {
-	// log.Println("DEBUG decr", sis, num)
 	if sis.useTreeMap {
 		count, ok := sis.dict[num]
 		assert(ok)
@@ -123,6 +121,7 @@ func (sis *SortedIntSet) computeHash() *FrozenIntSet {
 		for state, _ := range sis.dict {
 			sis.values = append(sis.values, state)
 		}
+		sort.Ints(sis.values) // keys in map are not sorted
 	} else {
 		// do nothing
 	}
@@ -132,18 +131,17 @@ func (sis *SortedIntSet) computeHash() *FrozenIntSet {
 func (sis *SortedIntSet) freeze(state int) *FrozenIntSet {
 	c := make([]int, len(sis.values))
 	copy(c, sis.values)
-	sort.Ints(c)
 	return newFrozenIntSet(c, state)
 }
 
 func (sis *SortedIntSet) String() string {
 	var b bytes.Buffer
 	b.WriteRune('[')
-	for i, limit := 0, len(sis.values); i < limit; i++ {
+	for i, v := range sis.values {
 		if i > 0 {
 			b.WriteRune(' ')
 		}
-		fmt.Fprintf(&b, "%v:%v", sis.values[i], sis.counts[i])
+		fmt.Fprintf(&b, "%v:%v", v, sis.counts[i])
 	}
 	b.WriteRune(']')
 	return b.String()
@@ -166,15 +164,14 @@ func newFrozenIntSetOf(num, state int) *FrozenIntSet {
 }
 
 func (fis *FrozenIntSet) String() string {
-	var buf bytes.Buffer
-	buf.WriteString("[")
-	sort.Ints(fis.values)
+	var b bytes.Buffer
+	b.WriteRune('[')
 	for i, v := range fis.values {
 		if i > 0 {
-			buf.WriteString(" ")
+			b.WriteRune(' ')
 		}
-		buf.WriteString(strconv.Itoa(v))
+		b.WriteString(strconv.Itoa(v))
 	}
-	buf.WriteString("]")
-	return buf.String()
+	b.WriteRune(']')
+	return b.String()
 }
