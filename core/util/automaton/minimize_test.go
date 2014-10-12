@@ -1,8 +1,8 @@
 package automaton
 
 import (
-	"fmt"
 	. "github.com/balzaczyy/golucene/test_framework/util"
+	. "github.com/balzaczyy/gounit"
 	"testing"
 )
 
@@ -54,10 +54,10 @@ func TestMinimize(t *testing.T) {
 	num := AtLeast(200)
 	for i := 0; i < num; i++ {
 		a := randomAutomaton(Random())
-		fmt.Println("DEBUG4", removeDeadStates(a))
 		la := determinize(removeDeadStates(a))
 		lb := minimize(a)
-		assert(sameLanguage(la, lb))
+		It(t).Should("have same language for %v and %v from %v", la, lb, a).
+			Verify(sameLanguage(la, lb))
 	}
 }
 

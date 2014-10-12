@@ -275,7 +275,6 @@ This is a costly computation! Note also that a1 and a2 will be
 determinized as a side effect.
 */
 func sameLanguage(a1, a2 *Automaton) bool {
-	fmt.Println("DEBUG3", a1, a2)
 	if a1 == a2 {
 		return true
 	}
@@ -558,7 +557,7 @@ func determinize(a *Automaton) *Automaton {
 
 	for worklist.Len() > 0 {
 		s := worklist.Remove(worklist.Front()).(*FrozenIntSet)
-		fmt.Printf("det: pop set=%v\n", s)
+		// fmt.Printf("det: pop set=%v\n", s)
 
 		// Collate all outgoing transitions by min/1+max
 		for _, s0 := range s.values {
@@ -594,7 +593,7 @@ func determinize(a *Automaton) *Automaton {
 				if !ok {
 					q = b.createState()
 					p := statesSet.freeze(q)
-					fmt.Printf("  make new state=%v -> %v accCount=%v\n", q, p, accCount)
+					// fmt.Printf("  make new state=%v -> %v accCount=%v\n", q, p, accCount)
 					worklist.PushBack(p)
 					b.setAccept(q, accCount > 0)
 					newstate[p.String()] = []interface{}{p, q}
@@ -605,8 +604,8 @@ func determinize(a *Automaton) *Automaton {
 						accCount, b.isAccept(q), statesSet)
 				}
 
-				fmt.Printf("  add trans src=%v dest=%v min=%v max=%v\n",
-					r, q, lastPoint, point-1)
+				// fmt.Printf("  add trans src=%v dest=%v min=%v max=%v\n",
+				// 	r, q, lastPoint, point-1)
 				b.addTransitionRange(r, q, lastPoint, point-1)
 			}
 
