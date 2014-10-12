@@ -50,9 +50,19 @@ func makeCharRange(min, max int) *Automaton {
 // Returns a new (deterministic) automaton that accepts the single given string
 func makeString(s string) *Automaton {
 	a := newEmptyAutomaton()
-	panic("niy")
-	// a.singleton = s
-	// a.deterministic = true
+	lastState := a.createState()
+	for _, r := range s {
+		state := a.createState()
+		a.addTransitionRange(lastState, state, int(r), int(r))
+		lastState = state
+	}
+
+	a.setAccept(lastState, true)
+	a.finishState()
+
+	assert(a.deterministic)
+	assert(!hasDeadStates(a))
+
 	return a
 }
 
