@@ -198,21 +198,13 @@ deterministic.
 Complexity: quadratic in number of states (if already deterministic).
 */
 func minus(a1, a2 *Automaton) *Automaton {
-	panic("niy")
-	// if isEmpty(a1) || a1 == a2 {
-	// 	return MakeEmpty()
-	// }
-	// if isEmpty(a2) {
-	// 	return a1.cloneIfRequired()
-	// }
-	// if a1.isSingleton() {
-	// 	if run(a2, a1.singleton) {
-	// 		return MakeEmpty()
-	// 	} else {
-	// 		return a1.cloneIfRequired()
-	// 	}
-	// }
-	// return intersection(a1, a2.complement())
+	if isEmpty(a) || a1 == a2 {
+		return MakeEmpty()
+	}
+	if isEmpty(a2) {
+		return a1
+	}
+	return intersection(a1, complement(a2))
 }
 
 // Pair of states.
@@ -630,20 +622,45 @@ func determinize(a *Automaton) *Automaton {
 	return ans
 }
 
-// // L775
-// // Returns true if the given automaton accepts the empty string and
-// // nothing else.
-// func isEmptyString(a *Automaton) bool {
-// 	if a.isSingleton() {
-// 		return len(a.singleton) == 0
-// 	}
-// 	return a.initial.accept && len(a.initial.transitionsArray) == 0
-// }
+// // L779
+// Returns true if the given automaton accepts no strings.
+func isEmpty(a *Automaton) bool {
+	if a.numStates() == 0 {
+		// common case: no states
+		return true
+	}
+	if !a.IsAccept(0) && a.numTransitions(0) == 0 {
+		// common case: just one initial state
+		return true
+	}
+	if a.IsAccept(0) {
+		// apparently common case: it accepts the empty string
+		return false
+	}
 
-// // Returns true if the given automaton accepts no strings.
-// func isEmpty(a *Automaton) bool {
-// 	return !a.isSingleton() && !a.initial.accept && len(a.initial.transitionsArray) == 0
-// }
+	workList := list.New()
+	seen := util.NewOpenBitSet()
+	workList.PushBack(0)
+	seen.Set(0)
+
+	t := newTransition()
+	for workList.Len() > 0 {
+		state := workList.Remove(workList.Front()).(int)
+		if a.IsAccept(state) {
+			return false
+		}
+		count := a.initTransition(state, t)
+		for i := 0; i < count; i++ {
+			a.nextTransition(t)
+			if !seen.Get(int64(t.dest)) {
+				workList.PushBack(t.dest)
+				seen.Set(int64(t.dest))
+			}
+		}
+	}
+
+	return true
+}
 
 // /*
 // Returns true if the given string is accepted by the autmaton.
