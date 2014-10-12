@@ -109,16 +109,15 @@ the language of the given automaton.
 Complexity: linear in number of states.
 */
 func optional(a *Automaton) *Automaton {
-	panic("niy")
-	// s := newState()
-	// s.addEpsilon(a.initial)
-	// s.accept = true
-	// a = a.cloneExpandedIfRequired()
-	// a.initial = s
-	// a.deterministic = false
-	// a.clearNumberedStates()
-	// a.checkMinimizeAlways()
-	// return a
+	ans := newEmptyAutomaton()
+	ans.createState()
+	ans.setAccept(0, true)
+	if ans.numStates() > 0 {
+		ans.copy(a)
+		ans.addEpsilon(0, 1)
+	}
+	ans.finishState()
+	return ans
 }
 
 /*
