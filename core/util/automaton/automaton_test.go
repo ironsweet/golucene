@@ -13,7 +13,7 @@ import (
 func TestRegExpToAutomaton(t *testing.T) {
 	a := NewRegExp("[^ \t\r\n]+").ToAutomaton()
 	assert(a.deterministic)
-	assert(1 == a.curState)
+	assert(-1 == a.curState)
 	assert(2 == a.numStates())
 }
 

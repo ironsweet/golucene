@@ -38,6 +38,11 @@ func newEmptyAutomaton() *Automaton {
 	}
 }
 
+func (a *Automaton) String() string {
+	return fmt.Sprintf("{curState=%v,states=%v,transitions=%v,isAccept=%v,%v}",
+		a.curState, a.states, a.transitions, a.isAccept, a.deterministic)
+}
+
 /* Create a new state. */
 func (a *Automaton) createState() int {
 	state := len(a.states) / 2
@@ -476,7 +481,7 @@ func (b *AutomatonBuilder) finish() *Automaton {
 			b.transitions[upto],
 			b.transitions[upto+1],
 			b.transitions[upto+2],
-			b.transitions[upto]+3,
+			b.transitions[upto+3],
 		)
 	}
 
