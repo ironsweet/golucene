@@ -1,14 +1,13 @@
 package automaton
 
 import (
-	// "container/list"
+	"container/list"
 	"github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/test_framework/util"
-	// "math/big"
 	// "fmt"
 	"math/rand"
 	"testing"
-	// "unicode"
+	"unicode"
 )
 
 func TestRegExpToAutomaton(t *testing.T) {
@@ -205,71 +204,79 @@ func randomAutomaton(r *rand.Rand) *Automaton {
 /**
  * Simple, original brics implementation of Brzozowski minimize()
  */
-func minimizeSimple(a *Automaton) {
-	panic("niy")
-	// if a.isSingleton() {
-	// 	return
-	// }
-	// determinizeSimple(a, reverse(a))
-	// determinizeSimple(a, reverse(a))
+func minimizeSimple(a *Automaton) *Automaton {
+	var initialSet map[int]bool
+	a, initialSet = reverse(a)
+	a = determinizeSimple(a, initialSet)
+	a, initialSet = reverse(a)
+	a = determinizeSimple(a, initialSet)
+	return a
 }
 
-// Simple original brics implementation of determinize()
-func determinizeSimple(a *Automaton) *Automaton {
-	panic("niy")
-	// points := a.startPoints()
-	// // subset construction
-	// sets := make(map[string]bool)
-	// hash := func(sets map[int]*State) string {
-	// 	n := big.NewInt(0)
-	// 	for k, _ := range sets {
-	// 		n.SetBit(n, k, 1)
-	// 	}
-	// 	return n.String()
-	// }
-	// worklist := list.New()
-	// newstate := make(map[string]*State)
-	// sets[hash(initialset)] = true
-	// worklist.PushBack(initialset)
-	// a.initial = newState()
-	// newstate[hash(initialset)] = a.initial
-	// for worklist.Len() > 0 {
-	// 	s := worklist.Front().Value.(map[int]*State)
-	// 	worklist.Remove(worklist.Front())
-	// 	r := newstate[hash(s)]
-	// 	for _, q := range s {
-	// 		if q.accept {
-	// 			r.accept = true
-	// 			break
-	// 		}
-	// 	}
-	// 	for n, point := range points {
-	// 		p := make(map[int]*State)
-	// 		for _, q := range s {
-	// 			for _, t := range q.transitionsArray {
-	// 				if t.min <= point && point <= t.max {
-	// 					p[t.to.id] = t.to
-	// 				}
-	// 			}
-	// 		}
-	// 		hashKey := hash(p)
-	// 		if _, ok := sets[hashKey]; !ok {
-	// 			sets[hashKey] = true
-	// 			worklist.PushBack(p)
-	// 			newstate[hashKey] = newState()
-	// 		}
-	// 		q := newstate[hashKey]
-	// 		min := point
-	// 		var max int
-	// 		if n+1 < len(points) {
-	// 			max = points[n+1] - 1
-	// 		} else {
-	// 			max = unicode.MaxRune
-	// 		}
-	// 		r.addTransition(newTransitionRange(min, max, q))
-	// 	}
-	// }
-	// a.deterministic = true
-	// a.clearNumberedStates()
-	// a.removeDeadTransitions()
+/*
+Simple original brics implementation of determinize()
+Determinizes the given automaton using the given set of initial states.
+*/
+func determinizeSimple(a *Automaton, initialset map[int]bool) *Automaton {
+	if a.numStates() == 0 {
+		return a
+	}
+	points := a.startPoints()
+	// subset construction
+	sets := make(map[string]bool)
+	hash := func(sets map[int]bool) string {
+		n := util.NewOpenBitSet()
+		for k, _ := range sets {
+			n.Set(int64(k))
+		}
+		return n.String()
+	}
+	worklist := list.New()
+	newstate := make(map[string]int)
+	sets[hash(initialset)] = true
+	worklist.PushBack(initialset)
+	b := newAutomatonBuilder()
+	b.createState()
+	newstate[hash(initialset)] = 0
+	t := newTransition()
+	for worklist.Len() > 0 {
+		s := worklist.Remove(worklist.Front()).(map[int]bool)
+		r := newstate[hash(s)]
+		for q, _ := range s {
+			if a.IsAccept(q) {
+				b.setAccept(r, true)
+				break
+			}
+		}
+		for n, point := range points {
+			p := make(map[int]bool)
+			for q, _ := range s {
+				count := a.initTransition(q, t)
+				for i := 0; i < count; i++ {
+					a.nextTransition(t)
+					if t.min <= point && point <= t.max {
+						p[t.dest] = true
+					}
+				}
+			}
+
+			hashKey := hash(p)
+			if _, ok := sets[hashKey]; !ok {
+				sets[hashKey] = true
+				worklist.PushBack(p)
+				newstate[hashKey] = b.createState()
+			}
+			q := newstate[hashKey]
+			min := point
+			var max int
+			if n+1 < len(points) {
+				max = points[n+1] - 1
+			} else {
+				max = unicode.MaxRune
+			}
+			b.addTransitionRange(r, q, min, max)
+		}
+	}
+
+	return removeDeadStates(b.finish())
 }

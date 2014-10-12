@@ -853,7 +853,7 @@ func findIndex(c int, points []int) int {
 }
 
 /* Returns an automaton accepting the reverse language. */
-func reverse(a *Automaton) *Automaton {
+func reverse(a *Automaton) (*Automaton, map[int]bool) {
 	panic("niy")
 	// a.ExpandSingleton()
 	// // reverse all edges
