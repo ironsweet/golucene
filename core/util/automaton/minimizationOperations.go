@@ -103,7 +103,7 @@ func minimizeHopcroft(a *Automaton) *Automaton {
 		// find states that need to be split off their blocks
 		for m := active[p][x].first; m != nil; m = m.next {
 			if r := reverse[m.q][x]; r != nil {
-				for i, _ := range r {
+				for _, i := range r {
 					if !split.Get(int64(i)) {
 						split.Set(int64(i))
 						j := block[i]
@@ -148,7 +148,7 @@ func minimizeHopcroft(a *Automaton) *Automaton {
 				k++
 			}
 			refine2.Clear(int64(j))
-			for s, _ := range sb {
+			for _, s := range sb {
 				split.Clear(int64(s))
 			}
 			splitblock[j] = nil // clear sb
