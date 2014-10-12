@@ -9,9 +9,7 @@ import (
 // Returns a new (deterministic) automaton with the empty language.
 func MakeEmpty() *Automaton {
 	a := newEmptyAutomaton()
-	panic("niy")
-	// a.initial = newState()
-	// a.deterministic = true
+	a.finishState()
 	return a
 }
 
