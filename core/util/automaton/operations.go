@@ -854,47 +854,45 @@ func findIndex(c int, points []int) int {
 
 /* Returns an automaton accepting the reverse language. */
 func reverse(a *Automaton) (*Automaton, map[int]bool) {
-	panic("niy")
-	// a.ExpandSingleton()
-	// // reverse all edges
-	// m := make(map[int]map[string]*Transition)
-	// hash := func(t *Transition) string {
-	// 	return fmt.Sprintf("%v/%v/%v", t.min, t.max, t.to.id)
-	// }
-	// states := a.NumberedStates()
-	// accept := make(map[int]*State)
-	// for _, s := range states {
-	// 	if s.accept {
-	// 		accept[s.id] = s
-	// 	}
-	// }
-	// for _, r := range states {
-	// 	m[r.id] = make(map[string]*Transition)
-	// 	r.accept = false
-	// }
-	// for _, r := range states {
-	// 	for _, t := range r.transitionsArray {
-	// 		tt := newTransitionRange(t.min, t.max, r)
-	// 		m[t.to.id][hash(tt)] = tt
-	// 	}
-	// }
-	// for _, r := range states {
-	// 	tr := m[r.id]
-	// 	arr := make([]*Transition, 0, len(tr))
-	// 	for _, t := range tr {
-	// 		arr = append(arr, t)
-	// 	}
-	// 	r.transitionsArray = arr
-	// }
-	// // make new initial + final states
-	// a.initial.accept = true
-	// a.initial = newState()
-	// for _, r := range accept {
-	// 	a.initial.addEpsilon(r) // ensures that all initial states are reachable
-	// }
-	// a.deterministic = false
-	// a.clearNumberedStates()
-	// return accept
+	if isEmpty(a) {
+		return newEmptyAutomaton(), nil
+	}
+
+	numStates := a.numStates()
+
+	// build a new automaton with all edges reversed
+	b := newAutomatonBuilder()
+
+	// initial node; we'll add epsilon transitions in the end:
+	b.createState()
+	for s := 0; s < numStates; s++ {
+		b.createState()
+	}
+
+	// old initial state becomes new accept state:
+	b.setAccept(1, true)
+
+	t := newTransition()
+	for s := 0; s < numStates; s++ {
+		numTransitions := a.numTransitions(s)
+		a.initTransition(s, t)
+		for i := 0; i < numTransitions; i++ {
+			a.nextTransition(t)
+			b.addTransitionRange(t.dest+1, s+1, t.min, t.max)
+		}
+	}
+
+	ans := b.finish()
+	initialStates := make(map[int]bool)
+
+	acceptStates := a.isAccept
+	for s := acceptStates.NextSetBit(0); s != -1; s = acceptStates.NextSetBit(s + 1) {
+		ans.addEpsilon(0, int(s+1))
+		initialStates[int(s+1)] = true
+	}
+
+	ans.finishState()
+	return ans, initialStates
 }
 
 /*

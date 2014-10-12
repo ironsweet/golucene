@@ -69,11 +69,13 @@ same.
 func TestAgainstBrzozowski(t *testing.T) {
 	num := AtLeast(200)
 	for i := 0; i < num; i++ {
-		a := randomAutomaton(Random())
-		minimizeSimple(a)
+		o := randomAutomaton(Random())
+		a := minimizeSimple(o)
 		b := minimize(a)
-		assert(sameLanguage(a, b))
-		assert(a.numStates() == b.numStates())
+		It(t).Should("have same language for %v and %v from %v", a, b, o).
+			Verify(sameLanguage(a, b))
+		It(t).Should("have same number of states (%v vs %v)", a.numStates(), b.numStates()).
+			Verify(a.numStates() == b.numStates())
 
 		sum1 := 0
 		for s := 0; s < a.numStates(); s++ {
@@ -83,8 +85,8 @@ func TestAgainstBrzozowski(t *testing.T) {
 		for s := 0; s < b.numStates(); s++ {
 			sum2 += b.numTransitions(s)
 		}
-
-		assert(sum1 == sum2)
+		It(t).Should("have same number of transitions (%v vs %v)", sum1, sum2).
+			Verify(sum1 == sum2)
 	}
 }
 
