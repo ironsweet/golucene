@@ -275,6 +275,7 @@ This is a costly computation! Note also that a1 and a2 will be
 determinized as a side effect.
 */
 func sameLanguage(a1, a2 *Automaton) bool {
+	fmt.Println("DEBUG3", a1, a2)
 	if a1 == a2 {
 		return true
 	}
@@ -310,7 +311,7 @@ func subsetOf(a1, a2 *Automaton) bool {
 	assert2(a1.deterministic, "a1 must be deterministic")
 	assert2(a2.deterministic, "a2 must be deterministic")
 	assert(!hasDeadStatesFromInitial(a1))
-	assert(!hasDeadStatesFromInitial(a2))
+	assert2(!hasDeadStatesFromInitial(a2), "%v", a2)
 	if a1.numStates() == 0 {
 		// empty language is always a subset of any other language
 		return true
@@ -402,25 +403,34 @@ func unionN(l []*Automaton) *Automaton {
 	return removeDeadStates(ans)
 }
 
+/* Simple custom []*Transition */
+type TransitionList struct {
+	transitions []int // dest,min,max
+}
+
+func (l *TransitionList) add(t *Transition) {
+	l.transitions = append(l.transitions, t.dest, t.min, t.max)
+}
+
 // Holds all transitions that start on this int point, or end at this
 // point-1
 type PointTransitions struct {
 	point  int
-	ends   []*Transition
-	starts []*Transition
+	ends   *TransitionList
+	starts *TransitionList
 }
 
 func newPointTransitions() *PointTransitions {
 	return &PointTransitions{
-		ends:   make([]*Transition, 0, 2),
-		starts: make([]*Transition, 0, 2),
+		ends:   new(TransitionList),
+		starts: new(TransitionList),
 	}
 }
 
 func (pt *PointTransitions) reset(point int) {
 	pt.point = point
-	pt.ends = pt.ends[:0]     // reuse slice
-	pt.starts = pt.starts[:0] // reuse slice
+	pt.ends.transitions = pt.ends.transitions[:0]
+	pt.starts.transitions = pt.starts.transitions[:0]
 }
 
 const HASHMAP_CUTOVER = 30
@@ -497,11 +507,8 @@ func (pts *PointTransitionSet) sort() {
 }
 
 func (pts *PointTransitionSet) add(t *Transition) {
-	p1 := pts.find(t.min)
-	p1.starts = append(p1.starts, t)
-
-	p2 := pts.find(1 + t.max)
-	p2.ends = append(p2.ends, t)
+	pts.find(t.min).starts.add(t)
+	pts.find(1 + t.max).ends.add(t)
 }
 
 func (pts *PointTransitionSet) String() string {
@@ -532,11 +539,14 @@ func determinize(a *Automaton) *Automaton {
 
 	worklist := list.New()
 	newstate := make(map[string][]interface{})
+	hash := func(s *FrozenIntSet) string {
+		return s.String()
+	}
 
 	worklist.PushBack(initialset)
 
 	b.setAccept(0, a.IsAccept(0))
-	newstate[initialset.String()] = []interface{}{initialset, 0}
+	newstate[hash(initialset)] = []interface{}{initialset, 0}
 
 	// like map[int]*PointTransitions
 	points := newPointTransitionSet()
@@ -548,7 +558,7 @@ func determinize(a *Automaton) *Automaton {
 
 	for worklist.Len() > 0 {
 		s := worklist.Remove(worklist.Front()).(*FrozenIntSet)
-		// fmt.Printf("det: pop set=%v\n", s)
+		fmt.Printf("det: pop set=%v\n", s)
 
 		// Collate all outgoing transitions by min/1+max
 		for _, s0 := range s.values {
@@ -602,23 +612,25 @@ func determinize(a *Automaton) *Automaton {
 
 			// process transitions that end on this point
 			// (closes an overlapping interval)
-			for _, t := range v.ends {
-				statesSet.decr(t.dest)
-				if a.IsAccept(t.dest) {
+			for j, limit := 0, len(v.ends.transitions); j < limit; j += 3 {
+				dest := v.ends.transitions[j]
+				statesSet.decr(dest)
+				if a.IsAccept(dest) {
 					accCount--
 				}
 			}
-			v.ends = v.ends[:0] // reuse slice
+			v.ends.transitions = v.ends.transitions[:0] // reuse slice
 
 			// process transitions that start on this point
 			// (opens a new interval)
-			for _, t := range v.starts {
-				statesSet.incr(t.dest)
-				if a.IsAccept(t.dest) {
+			for j, limit := 0, len(v.starts.transitions); j < limit; j += 3 {
+				dest := v.starts.transitions[j]
+				statesSet.incr(dest)
+				if a.IsAccept(dest) {
 					accCount++
 				}
 			}
-			v.starts = v.starts[:0] // reuse slice
+			v.starts.transitions = v.starts.transitions[:0] // reuse slice
 
 			lastPoint = point
 		}

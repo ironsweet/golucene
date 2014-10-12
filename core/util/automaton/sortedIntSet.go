@@ -160,7 +160,7 @@ func newFrozenIntSet(values []int, state int) *FrozenIntSet {
 
 func newFrozenIntSetOf(num, state int) *FrozenIntSet {
 	return &FrozenIntSet{
-		values: make([]int, num),
+		values: []int{num},
 		state:  state,
 	}
 }

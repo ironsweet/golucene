@@ -38,6 +38,14 @@ func TestMinimizeCase3(t *testing.T) {
 	assert(sameLanguage(a, b))
 }
 
+func TestRemoveDeadStatesSimple(t *testing.T) {
+	a := newEmptyAutomaton()
+	a.createState()
+	assert(a.numStates() == 1)
+	a = removeDeadStates(a)
+	assert(a.numStates() == 0)
+}
+
 // util/automaton/TestMinimize.java
 // This test builds some randomish NFA/DFA and minimizes them.
 
@@ -46,7 +54,8 @@ func TestMinimize(t *testing.T) {
 	num := AtLeast(200)
 	for i := 0; i < num; i++ {
 		a := randomAutomaton(Random())
-		la := removeDeadStates(determinize(removeDeadStates(a)))
+		fmt.Println("DEBUG4", removeDeadStates(a))
+		la := determinize(removeDeadStates(a))
 		lb := minimize(a)
 		assert(sameLanguage(la, lb))
 	}
@@ -58,17 +67,25 @@ check not only that they are the same, but that transitions are the
 same.
 */
 func TestAgainstBrzozowski(t *testing.T) {
-	panic("niy")
-	// num := AtLeast(200)
-	// for i := 0; i < num; i++ {
-	// 	a := randomAutomaton(Random())
-	// 	minimizeSimple(a)
-	// 	b := a.Clone()
-	// 	minimize(b)
-	// 	assert(sameLanguage(a, b))
-	// 	assert(a.NumberOfStates() == b.NumberOfStates())
-	// 	assert(a.NumberOfTransitions() == b.NumberOfTransitions())
-	// }
+	num := AtLeast(200)
+	for i := 0; i < num; i++ {
+		a := randomAutomaton(Random())
+		minimizeSimple(a)
+		b := minimize(a)
+		assert(sameLanguage(a, b))
+		assert(a.numStates() == b.numStates())
+
+		sum1 := 0
+		for s := 0; s < a.numStates(); s++ {
+			sum1 += a.numTransitions(s)
+		}
+		sum2 := 0
+		for s := 0; s < b.numStates(); s++ {
+			sum2 += b.numTransitions(s)
+		}
+
+		assert(sum1 == sum2)
+	}
 }
 
 // n^2 space usage in Hopcroft minimization?

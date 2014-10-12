@@ -5,6 +5,7 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/test_framework/util"
 	// "math/big"
+	// "fmt"
 	"math/rand"
 	"testing"
 	// "unicode"
@@ -27,12 +28,13 @@ func TestComplementSimple(t *testing.T) {
 	assert(sameLanguage(a, complement(complement(a))))
 }
 
-func TestRemoveDeadStatesSimple(t *testing.T) {
-	a := newEmptyAutomaton()
-	a.createState()
-	assert(a.numStates() == 1)
+func TestDeterminizeSimple(t *testing.T) {
+	a1 := complement(NewRegExpWithFlag("-", NONE).ToAutomaton())
+	a2 := NewRegExpWithFlag("ݖ|+", NONE).ToAutomaton()
+	a := concatenate(a1, a2)
 	a = removeDeadStates(a)
-	assert(a.numStates() == 0)
+	a = determinize(a)
+	assert(a.numStates() == 4)
 }
 
 // func TestStringUnion(t testing.T) {
@@ -72,15 +74,11 @@ func randomRegexp(r *rand.Rand) string {
 					ok = false
 				}
 			}()
-			l := make([]rune, 0, len(regexp))
-			for _, ch := range regexp {
-				l = append(l, ch)
-			}
 			// log.Println("Trying", regexp)
 			NewRegExpWithFlag(regexp, NONE)
 			return
 		}(regexp); ok {
-			// log.Println("Valid regexp found:", regexp)
+			// fmt.Println("Valid regexp found:", regexp)
 			return regexp
 		}
 	}
@@ -156,16 +154,16 @@ func randomAutomaton(r *rand.Rand) *Automaton {
 	// combine them in random ways
 	switch r.Intn(4) {
 	case 0:
-		// log.Println("DEBUG way 0")
+		// fmt.Println("DEBUG way 0")
 		return concatenate(a1, a2)
 	case 1:
-		// log.Println("DEBUG way 1")
+		// fmt.Println("DEBUG way 1")
 		return union(a1, a2)
 	case 2:
-		// log.Println("DEBUG way 2")
+		// fmt.Println("DEBUG way 2")
 		return intersection(a1, a2)
 	default:
-		// log.Println("DEBUG way 3")
+		// fmt.Println("DEBUG way 3")
 		return minus(a1, a2)
 	}
 }
