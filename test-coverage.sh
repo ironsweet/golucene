@@ -26,7 +26,7 @@ done
 # Failures have incomplete results, so don't send
 if [ -n "$COVERALLS" ] && [ "$fail" -eq 0 ]
 then
-  goveralls -v -coverprofile=acc.out $COVERALLS
+  $HOME/gopath/bin/goveralls -v -coverprofile=acc.out $COVERALLS
 fi
 
 # rm -f acc.out

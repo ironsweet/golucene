@@ -3,7 +3,8 @@ go:
   - 1.2
   - 1.3
   - tip
-script: "COVERALLS='-repotoken=3ZQ6kcxCwyh2jtJ1XeQaKKcapPQdQLDf0' ./test-coverage.sh"
+script: 
+  - COVERALLS="-repotoken 3ZQ6kcxCwyh2jtJ1XeQaKKcapPQdQLDf0" ./test-coverage.sh
 install:
   - go get github.com/axw/gocov/gocov
   - go get github.com/mattn/goveralls
