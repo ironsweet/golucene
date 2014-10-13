@@ -32,7 +32,7 @@ import (
 
 // Use this constant then creating Analyzers and any other version-dependent
 // stuff. NOTE: Change this when developmenet starts for new Lucene version:
-const TEST_VERSION_CURRENT = util.VERSION_45
+var TEST_VERSION_CURRENT = util.VERSION_45
 
 // Throttling
 var TEST_THROTTLING = either(TEST_NIGHTLY, THROTTLING_SOMETIMES, THROTTLING_NEVER).(Throttling)

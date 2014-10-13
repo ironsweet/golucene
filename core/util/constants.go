@@ -5,9 +5,9 @@ package util
 /*
 This is the internal Lucene version, recorded into each segment.
 */
-const LUCENE_MAIN_VERSION = string(VERSION_LATEST)
+var LUCENE_MAIN_VERSION = VERSION_LATEST.String()
 
 /*
 This is the Lucene version for display purpose.
 */
-var LUCENE_VERSION = string(VERSION_LATEST)
+var LUCENE_VERSION = VERSION_LATEST.String()
