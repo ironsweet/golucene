@@ -39,7 +39,7 @@ var RANDOM_MULTIPLIER = func() int {
 
 var (
 	// Gets the codc to run tests with.
-	TEST_CODEC = or(os.Getenv("tests_codec"), "random")
+	TEST_CODEC = or(os.Getenv("tests_codec"), "Lucene49") // TODO prefer random
 
 	// Gets the postingsFormat to run tests with.
 	TEST_POSTINGSFORMAT = or(os.Getenv("tests_postingsformat"), "random")
@@ -71,10 +71,10 @@ var PREFLEX_IMPERSONATION_IS_ACTIVE bool
 
 /*
 When true, Codecs fo rold Lucene version will support writing indexes
-in that format. Defaults to true, can be disabled by specific tests
+in that format. Defaults to false, can be disabled by specific tests
 on demand.
 */
-const OLD_FORMAT_IMPERSONATION_IS_ACTIVE = true
+var OLD_FORMAT_IMPERSONATION_IS_ACTIVE = false
 
 // -----------------------------------------------------------------
 // Class level (suite) rules.

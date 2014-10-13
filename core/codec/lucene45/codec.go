@@ -25,7 +25,6 @@ extend FilterCodec.
 */
 type Lucene45Codec struct {
 	*CodecImpl
-	PostingsFormatForField func(string) PostingsFormat
 }
 
 func init() {
@@ -47,7 +46,9 @@ var Lucene45CodecImpl = func() *Lucene45Codec {
 		}),
 		lucene42.NewLucene42NormsFormat(),
 	)
-	return &Lucene45Codec{codec, f}
+	return &Lucene45Codec{
+		CodecImpl: codec,
+	}
 }()
 
 // codec/lucene45/Lucene45DocValuesFormat.java

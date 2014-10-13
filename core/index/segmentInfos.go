@@ -637,6 +637,7 @@ func (sis *SegmentInfos) write(directory store.Directory) (err error) {
 		// If this segment is pre-4.x, perform a one-time "upgrade" to
 		// write the .si file for it:
 		if version := si.Version(); version == "" || versionLess(version, "4.0") {
+			fmt.Println("DEBUG1", version)
 			panic("not implemented yet")
 		}
 	}

@@ -122,7 +122,13 @@ func RegisterCodec(codecs ...Codec) {
 
 // looks up a codec by name
 func LoadCodec(name string) Codec {
-	return allCodecs[name]
+	c, ok := allCodecs[name]
+	if !ok {
+		fmt.Println("Unknown codec:", name)
+		fmt.Println("Available codecs:", allCodecs)
+		assert(ok)
+	}
+	return c
 }
 
 // returns a list of all available codec names

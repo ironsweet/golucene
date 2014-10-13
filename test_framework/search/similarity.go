@@ -71,6 +71,10 @@ func NewRandomSimilarityProvider(r *rand.Rand) *RandomSimilarityProvider {
 	return ans
 }
 
+func (rp *RandomSimilarityProvider) Coord(overlap, maxOverlap int) float32 {
+	panic("niy")
+}
+
 func (rp *RandomSimilarityProvider) QueryNorm(sumOfSquaredWeights float32) float32 {
 	if rp.shouldQueryNorm {
 		return rp.defaultSim.QueryNorm(sumOfSquaredWeights)

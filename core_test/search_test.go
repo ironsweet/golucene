@@ -2,9 +2,13 @@ package core_test
 
 import (
 	"fmt"
+	std "github.com/balzaczyy/golucene/analysis/standard"
+	_ "github.com/balzaczyy/golucene/core/codec/lucene49"
 	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
+	"github.com/balzaczyy/golucene/core/store"
+	"github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/test_framework"
 	"github.com/balzaczyy/golucene/test_framework/analysis"
 	. "github.com/balzaczyy/golucene/test_framework/util"
@@ -17,6 +21,7 @@ import (
 func TestBefore(t *testing.T) {
 	fmt.Printf("tests_codec: %v\n", os.Getenv("tests_codec"))
 
+	// util.SetDefaultInfoStream(util.NewPrintStreamInfoStream(os.Stdout))
 	index.DefaultSimilarity = func() index.Similarity {
 		return search.NewDefaultSimilarity()
 	}
@@ -26,6 +31,47 @@ func TestBefore(t *testing.T) {
 	ClassRuleChain(ClassEnvRule)
 
 	BeforeSuite(t)
+}
+
+func TestBasicIndexAndSearch(t *testing.T) {
+	q := search.NewTermQuery(index.NewTerm("foo", "bar"))
+
+	os.RemoveAll(".gltest")
+
+	directory, err := store.OpenFSDirectory(".gltest")
+	It(t).Should("has no error: %v", err).Assert(err == nil)
+	It(t).Should("has valid directory").Assert(directory != nil)
+	fmt.Println("Directory", directory)
+	defer directory.Close()
+
+	analyzer := std.NewStandardAnalyzer(util.VERSION_49)
+	conf := index.NewIndexWriterConfig(util.VERSION_49, analyzer)
+
+	writer, err := index.NewIndexWriter(directory, conf)
+	It(t).Should("has no error: %v", err).Assert(err == nil)
+
+	d := docu.NewDocument()
+	d.Add(docu.NewTextFieldFromString("foo", "bar", docu.STORE_YES))
+	err = writer.AddDocument(d.Fields())
+	It(t).Should("has no error: %v", err).Assert(err == nil)
+	err = writer.Close() // ensure index is written
+	It(t).Should("has no error: %v", err).Assert(err == nil)
+
+	reader, err := index.OpenDirectoryReader(directory)
+	It(t).Should("has no error: %v", err).Assert(err == nil)
+	defer reader.Close()
+
+	searcher := search.NewIndexSearcher(reader)
+	res, err := searcher.Search(q, nil, 1000)
+	It(t).Should("has no error: %v", err).Assert(err == nil)
+	hits := res.ScoreDocs
+	It(t).Should("expect 1 hits, but %v only.", len(hits)).Assert(len(hits) == 1)
+	It(t).Should("expect score to be negative (got %v)", hits[0].Score).Verify(hits[0].Score < 0)
+
+	explain, err := searcher.Explain(q, hits[0].Doc)
+	It(t).Should("has no error: %v", err).Assert(err == nil)
+	It(t).Should("score doesn't match explanation").Verify(isSimilar(hits[0].Score, explain.Value(), 0.001))
+	It(t).Should("explain doesn't think doc is a match").Verify(explain.IsMatch())
 }
 
 func TestNegativeQueryBoost(t *testing.T) {

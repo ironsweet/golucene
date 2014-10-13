@@ -19,8 +19,6 @@ func main() {
 	}
 
 	q := search.NewTermQuery(index.NewTerm("foo", "bar"))
-	q.SetBoost(-42)
-	assert(q.Boost() == -42)
 
 	os.RemoveAll(".gltest")
 

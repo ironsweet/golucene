@@ -396,6 +396,9 @@ func (a *Automaton) startPoints() []int {
 func (a *Automaton) step(state, label int) int {
 	assert(state >= 0)
 	assert(label >= 0)
+	if 2*state >= len(a.states) {
+		return -1 // invalid state
+	}
 	trans := a.states[2*state]
 	limit := trans + 3*a.states[2*state+1]
 	// TODO binary search

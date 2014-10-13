@@ -388,7 +388,7 @@ type StandardTokenizerImpl struct {
 	// When a lead/high surrogate has been read from the input stream
 	// into the final zzBuffer position, this will have a value of 1;
 	// otherwise, it will have a value of 0.
-	zzFinalHighSurrogate
+	zzFinalHighSurrogate int
 }
 
 func newStandardTokenizerImpl(in io.RuneReader) *StandardTokenizerImpl {
