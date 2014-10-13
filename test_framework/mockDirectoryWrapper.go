@@ -1101,8 +1101,7 @@ func newMockLockFactoryWrapper(dir *MockDirectoryWrapper, delegate store.LockFac
 }
 
 func (w *MockLockFactoryWrapper) Make(lockName string) store.Lock {
-	panic("not implemented yet")
-	// return newMockLock(w.dir, w.LockFactory.Make(lockName), lockName)
+	return newMockLock(w.dir, w.LockFactory.Make(lockName), lockName)
 }
 
 func (w *MockLockFactoryWrapper) Clear(lockName string) error {
@@ -1152,7 +1151,7 @@ func (lock *MockLock) Obtain() (ok bool, err error) {
 	return ok, nil
 }
 
-func (lock *MockLock) Release() error {
+func (lock *MockLock) Close() error {
 	panic("not implemented yet")
 	// if err := lock.delegate.Release(); err != nil {
 	// 	return err
