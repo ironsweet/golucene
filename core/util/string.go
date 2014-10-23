@@ -44,6 +44,15 @@ var GOOD_FAST_HASH_SEED = func() uint32 {
 	}
 }()
 
+/* Returns true iff the ref starts with the given prefix. Otherwise false. */
+func StartsWith(ref, prefix []byte) bool {
+	return sliceEquals(ref, prefix, 0)
+}
+
+func sliceEquals(sliceToTest, other []byte, pos int) bool {
+	panic("niy")
+}
+
 /*
 Returns the MurmurHash3_x86_32 hash.
 Original source/tests at https://github.com/yonik/java_util/

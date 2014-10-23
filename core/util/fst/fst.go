@@ -159,6 +159,8 @@ type FST struct {
 	// TODO: we could be smarter here, and prune periodically as we go;
 	// high in-count nodes will "usually" become clear early on:
 	inCounts *packed.GrowableWriter
+
+	cachedArcsBytesUsed int
 }
 
 /* Make a new empty FST, for building; Builder invokes this ctor */
@@ -292,6 +294,10 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 	return fst, err
 }
 
+func (t *FST) ramBytesUsed(arcs []*Arc) int64 {
+	panic("niy")
+}
+
 func (t *FST) finish(newStartNode int64) error {
 	assert2(t.startNode == -1, "already finished")
 	if newStartNode == FST_FINAL_END_NODE && t.emptyOutput != nil {
@@ -314,6 +320,7 @@ func (t *FST) getNodeAddress(node int64) int64 {
 func (t *FST) cacheRootArcs() error {
 	t.cachedRootArcs = make([]*Arc, 0x80)
 	t.readRootArcs(t.cachedRootArcs)
+	t.cachedArcsBytesUsed += int(t.ramBytesUsed(t.cachedRootArcs))
 
 	if err := t.setAssertingRootArcs(t.cachedRootArcs); err != nil {
 		return err
@@ -347,7 +354,11 @@ func (t *FST) readRootArcs(arcs []*Arc) (err error) {
 
 func (t *FST) setAssertingRootArcs(arcs []*Arc) error {
 	t.assertingCachedRootArcs = make([]*Arc, len(arcs))
-	return t.readRootArcs(t.assertingCachedRootArcs)
+	err := t.readRootArcs(t.assertingCachedRootArcs)
+	if err == nil {
+		t.cachedArcsBytesUsed *= 2
+	}
+	return err
 }
 
 func (t *FST) assertRootArcs() {

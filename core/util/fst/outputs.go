@@ -79,8 +79,6 @@ func (out *abstractOutputs) merge(first, second interface{}) interface{} {
 	panic("not supported yet")
 }
 
-// fst/NoOutputs.java
-
 var NO_OUTPUT = newNoOutputs()
 
 /* A nil FST Outputs implementation; use this if you just want to build an FSA. */
@@ -194,6 +192,7 @@ func (out *ByteSequenceOutputs) Subtract(_output, _inc interface{}) interface{} 
 		return _output
 	}
 	output, inc := _output.([]byte), _inc.([]byte)
+	assert(util.StartsWith(output, inc))
 	if len(inc) == len(output) {
 		// entire output removed
 		return NO_OUTPUT

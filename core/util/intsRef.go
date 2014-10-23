@@ -94,6 +94,12 @@ type IntsRefBuilder struct {
 	ref *IntsRef
 }
 
+func NewIntsRefBuilder() *IntsRefBuilder {
+	return &IntsRefBuilder{
+		ref: NewEmptyIntsRef(),
+	}
+}
+
 func (a *IntsRefBuilder) Length() int {
 	return a.ref.Length
 }
