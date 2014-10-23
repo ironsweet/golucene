@@ -87,3 +87,30 @@ func (a *IntsRef) Grow(newLength int) {
 		a.Ints = GrowIntSlice(a.Ints, newLength)
 	}
 }
+
+// util/IntsRefBuilder.java
+
+type IntsRefBuilder struct {
+	ref *IntsRef
+}
+
+func (a *IntsRefBuilder) Length() int {
+	return a.ref.Length
+}
+
+func (a *IntsRefBuilder) At(offset int) int {
+	return a.ref.Ints[offset]
+}
+
+func (a *IntsRefBuilder) CopyIntSlice([]int) {
+	panic("niy")
+}
+
+func (a *IntsRefBuilder) CopyInts(ints *IntsRef) {
+	a.CopyIntSlice(ints.Ints[ints.Offset : ints.Offset+ints.Length])
+}
+
+func (a *IntsRefBuilder) Get() *IntsRef {
+	assert2(a.ref.Offset == 0, "Modifying the offset of the returned ref is illegal")
+	return a.ref
+}

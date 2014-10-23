@@ -5,9 +5,6 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 )
 
-/* Expert: invoked by Builder whenever a suffix is serialized. */
-type FreezeTail func([]*UnCompiledNode, int, *util.IntsRef) error
-
 /*
 Builds a minimal FST (maps an []int term to an arbitrary output) from
 pre-sorted terms with outputs. The FST becomes an FSA if you use
@@ -38,7 +35,7 @@ type Builder struct {
 	doShareNonSingletonNodes bool
 	shareMaxTailLength       int
 
-	lastInput *util.IntsRef
+	lastInput *util.IntsRefBuilder
 
 	// for packing
 	doPackFST               bool
@@ -46,8 +43,6 @@ type Builder struct {
 
 	// current frontier
 	frontier []*UnCompiledNode
-
-	_freezeTail FreezeTail
 }
 
 /*
@@ -58,7 +53,7 @@ construction tweaks. Read parameter documentation carefully.
 */
 func NewBuilder(inputType InputType, minSuffixCount1, minSuffixCount2 int,
 	doShareSuffix, doShareNonSingletonNodes bool, shareMaxTailLength int,
-	outputs Outputs, freezeTail FreezeTail, doPackFST bool,
+	outputs Outputs, doPackFST bool,
 	acceptableOverheadRatio float32, allowArrayArcs bool, bytesPageBits int) *Builder {
 
 	fst := newFST(inputType, outputs, doPackFST, acceptableOverheadRatio, allowArrayArcs, bytesPageBits)
@@ -66,7 +61,6 @@ func NewBuilder(inputType InputType, minSuffixCount1, minSuffixCount2 int,
 	ans := &Builder{
 		minSuffixCount1:          minSuffixCount1,
 		minSuffixCount2:          minSuffixCount2,
-		_freezeTail:              freezeTail,
 		doShareNonSingletonNodes: doShareNonSingletonNodes,
 		shareMaxTailLength:       shareMaxTailLength,
 		doPackFST:                doPackFST,
@@ -74,7 +68,7 @@ func NewBuilder(inputType InputType, minSuffixCount1, minSuffixCount2 int,
 		fst:       fst,
 		NO_OUTPUT: outputs.NoOutput(),
 		frontier:  f,
-		lastInput: util.NewEmptyIntsRef(),
+		lastInput: util.NewIntsRefBuilder(),
 	}
 	if doShareSuffix {
 		ans.dedupHash = newNodeHash(fst, fst.bytes.reverseReaderAllowSingle(false))
@@ -110,16 +104,12 @@ func (b *Builder) compileNode(nodeIn *UnCompiledNode, tailLength int) (*Compiled
 }
 
 func (b *Builder) freezeTail(prefixLenPlus1 int) error {
-	if b._freezeTail != nil {
-		// Custom plugin:
-		return b._freezeTail(b.frontier, prefixLenPlus1, b.lastInput)
-	}
 	// fmt.Printf("  compileTail %v\n", prefixLenPlus1)
 	downTo := prefixLenPlus1
 	if downTo < 1 {
 		downTo = 1
 	}
-	for idx := b.lastInput.Length; idx >= downTo; idx-- {
+	for idx := b.lastInput.Length(); idx >= downTo; idx-- {
 		doPrune := false
 		doCompile := false
 
@@ -170,7 +160,7 @@ func (b *Builder) freezeTail(prefixLenPlus1 int) error {
 		} else {
 
 			if b.minSuffixCount2 != 0 {
-				b.compileAllTargets(node, b.lastInput.Length-idx)
+				b.compileAllTargets(node, b.lastInput.Length()-idx)
 			}
 			nextFinalOutput := node.output
 
@@ -183,8 +173,8 @@ func (b *Builder) freezeTail(prefixLenPlus1 int) error {
 			if doCompile {
 				// this node makes it and we now compile it. first, compile
 				// any targets that were previously undecided:
-				label := b.lastInput.Ints[b.lastInput.Offset+idx-1]
-				node, err := b.compileNode(node, 1+b.lastInput.Length-idx)
+				label := b.lastInput.At(idx - 1)
+				node, err := b.compileNode(node, 1+b.lastInput.Length()-idx)
 				if err != nil {
 					return err
 				}
@@ -224,9 +214,9 @@ func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
 		output = NO_OUTPUT
 	}
 
-	assert2(b.lastInput.Length == 0 || !input.Less(b.lastInput),
+	assert2(b.lastInput.Length() == 0 || !input.Less(b.lastInput.Get()),
 		"inputs are added out of order, lastInput=%v vs input=%v",
-		b.lastInput, input)
+		b.lastInput.Get(), input)
 
 	if input.Length == 0 {
 		// empty input: only allowed as first input. We have to special
@@ -242,13 +232,13 @@ func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
 	// compare shared prefix length
 	pos1 := 0
 	pos2 := input.Offset
-	pos1Stop := b.lastInput.Length
+	pos1Stop := b.lastInput.Length()
 	if input.Length < pos1Stop {
 		pos1Stop = input.Length
 	}
 	for {
 		b.frontier[pos1].InputCount++
-		if pos1 >= pos1Stop || b.lastInput.Ints[pos1] != input.Ints[pos2] {
+		if pos1 >= pos1Stop || b.lastInput.At(pos1) != input.Ints[pos2] {
 			break
 		}
 		pos1++
@@ -278,7 +268,7 @@ func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
 	}
 
 	lastNode := b.frontier[input.Length]
-	if b.lastInput.Length != input.Length || prefixLenPlus1 != input.Length+1 {
+	if b.lastInput.Length() != input.Length || prefixLenPlus1 != input.Length+1 {
 		lastNode.IsFinal = true
 		lastNode.output = b.NO_OUTPUT
 	}
@@ -305,7 +295,7 @@ func (b *Builder) Add(input *util.IntsRef, output interface{}) error {
 		output = b.fst.outputs.Subtract(output, commonOutputPrefix)
 	}
 
-	if b.lastInput.Length == input.Length && prefixLenPlus1 == 1+input.Length {
+	if b.lastInput.Length() == input.Length && prefixLenPlus1 == 1+input.Length {
 		// same input more than 1 time in a row, mapping to multiple outputs
 		panic("not implemented yet")
 	} else {
@@ -351,13 +341,13 @@ func (b *Builder) Finish() (*FST, error) {
 		}
 	} else {
 		if b.minSuffixCount2 != 0 {
-			err = b.compileAllTargets(root, b.lastInput.Length)
+			err = b.compileAllTargets(root, b.lastInput.Length())
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
-	d, err := b.compileNode(root, b.lastInput.Length)
+	d, err := b.compileNode(root, b.lastInput.Length())
 	if err != nil {
 		return nil, err
 	}
