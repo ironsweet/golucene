@@ -3,6 +3,7 @@ package analysis
 import (
 	"bytes"
 	"fmt"
+	"github.com/balzaczyy/golucene/core/util"
 	"io"
 )
 
@@ -55,6 +56,7 @@ type container struct {
 type AnalyzerImpl struct {
 	Spi           AnalyzerSPI
 	reuseStrategy ReuseStrategy
+	version       *util.SetOnce
 	// Since Go doesn't have ThreadLocal alternatives, to share
 	// Analyzer, one must Clone() the Analyzer for each Go routine. It
 	// also means the performance may not be competitive compared to
@@ -73,6 +75,7 @@ func NewAnalyzer() *AnalyzerImpl {
 func NewAnalyzerWithStrategy(reuseStrategy ReuseStrategy) *AnalyzerImpl {
 	ans := &AnalyzerImpl{
 		reuseStrategy: reuseStrategy,
+		version:       util.NewSetOnce(),
 		storedValue:   &container{nil},
 	}
 	ans.Spi = ans
@@ -129,6 +132,10 @@ func (a *AnalyzerImpl) PositionIncrementGap(fieldName string) int {
 
 func (a *AnalyzerImpl) OffsetGap(fieldName string) int {
 	return 1
+}
+
+func (a *AnalyzerImpl) SetVersion(v util.Version) {
+	a.version.Set(v)
 }
 
 type myTokenizer interface {
