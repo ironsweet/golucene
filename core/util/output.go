@@ -122,6 +122,11 @@ The format is described further in WriteVInt().
 */
 func (out *DataOutputImpl) WriteVLong(i int64) error {
 	assert(i >= 0)
+	return out.writeNegativeVLong(i)
+}
+
+/* write a potentially negative gLong */
+func (out *DataOutputImpl) writeNegativeVLong(i int64) error {
 	for (i & ^0x7F) != 0 {
 		err := out.Writer.WriteByte(byte((i & 0x7F) | 0x80))
 		if err != nil {

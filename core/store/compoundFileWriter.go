@@ -183,7 +183,7 @@ func (w *CompoundFileWriter) copyFileEntry(dataOut IndexOutput, fileEntry *FileE
 			err = util.Close(is)
 			// copy successful - delete file
 			if err == nil {
-				err = fileEntry.dir.DeleteFile(fileEntry.file)
+				fileEntry.dir.DeleteFile(fileEntry.file) // ignore error
 			}
 		} else {
 			util.CloseWhileSuppressingError(is)

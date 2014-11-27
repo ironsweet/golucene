@@ -138,7 +138,11 @@ func (in *DataInputImpl) ReadLong() (n int64, err error) {
 	return (int64(d1) << 32) | int64(d2)&0xFFFFFFFF, nil
 }
 
-func (in *DataInputImpl) ReadVLong() (n int64, err error) {
+func (in *DataInputImpl) ReadVLong() (int64, error) {
+	return in.readVLong(false)
+}
+
+func (in *DataInputImpl) readVLong(allowNegative bool) (n int64, err error) {
 	if b, err := in.Reader.ReadByte(); err == nil {
 		n = int64(b & 0x7F)
 		if b < 128 {
@@ -183,6 +187,9 @@ func (in *DataInputImpl) ReadVLong() (n int64, err error) {
 										n |= (int64(b&0x7F) << 56)
 										if b < 128 {
 											return n, nil
+										}
+										if allowNegative {
+											panic("niy")
 										}
 										return 0, errors.New("Invalid vLong detected (negative values disallowed)")
 									}

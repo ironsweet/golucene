@@ -415,7 +415,7 @@ func (in *RAMInputStream) ReadBytes(buf []byte) error {
 
 func (in *RAMInputStream) switchCurrentBuffer(enforceEOF bool) error {
 	in.bufferStart = int64(BUFFER_SIZE * in.currentBufferIndex)
-	if in.currentBufferIndex >= in.file.numBuffers() {
+	if in.bufferStart > in.length || in.currentBufferIndex >= in.file.numBuffers() {
 		// end of file reached, no more buffer left
 		if enforceEOF {
 			return errors.New(fmt.Sprintf("read past EOF: %v", in))
