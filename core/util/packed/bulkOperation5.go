@@ -97,7 +97,7 @@ func (op *BulkOperationPacked5) decodeByteToInt(blocks []byte, values []int32, i
 		blocksOffset++
 		values[valuesOffset] = int32((int64(byte0 & 7) << 2) | int64(uint8(byte1) >> 6))
 		valuesOffset++
-		values[valuesOffset] = int32( int64(uint8(byte1 >> 1)) & 31)
+		values[valuesOffset] = int32( int64(uint8(byte1) >> 1) & 31)
 		valuesOffset++
 		byte2 := blocks[blocksOffset]
 		blocksOffset++
@@ -107,13 +107,13 @@ func (op *BulkOperationPacked5) decodeByteToInt(blocks []byte, values []int32, i
 		blocksOffset++
 		values[valuesOffset] = int32((int64(byte2 & 15) << 1) | int64(uint8(byte3) >> 7))
 		valuesOffset++
-		values[valuesOffset] = int32( int64(uint8(byte3 >> 2)) & 31)
+		values[valuesOffset] = int32( int64(uint8(byte3) >> 2) & 31)
 		valuesOffset++
 		byte4 := blocks[blocksOffset]
 		blocksOffset++
 		values[valuesOffset] = int32((int64(byte3 & 3) << 3) | int64(uint8(byte4) >> 5))
 		valuesOffset++
-		values[valuesOffset] = int32( byte4 & 31)
+		values[valuesOffset] = int32( int64(byte4) & 31)
 		valuesOffset++
 	}
 }
@@ -203,7 +203,7 @@ func (op *BulkOperationPacked5) decodeByteToLong(blocks []byte, values []int64, 
 		blocksOffset++
 		values[valuesOffset] = int64((int64(byte0 & 7) << 2) | int64(uint8(byte1) >> 6))
 		valuesOffset++
-		values[valuesOffset] = int64( int64(uint8(byte1 >> 1)) & 31)
+		values[valuesOffset] = int64( int64(uint8(byte1) >> 1) & 31)
 		valuesOffset++
 		byte2 := blocks[blocksOffset]
 		blocksOffset++
@@ -213,13 +213,13 @@ func (op *BulkOperationPacked5) decodeByteToLong(blocks []byte, values []int64, 
 		blocksOffset++
 		values[valuesOffset] = int64((int64(byte2 & 15) << 1) | int64(uint8(byte3) >> 7))
 		valuesOffset++
-		values[valuesOffset] = int64( int64(uint8(byte3 >> 2)) & 31)
+		values[valuesOffset] = int64( int64(uint8(byte3) >> 2) & 31)
 		valuesOffset++
 		byte4 := blocks[blocksOffset]
 		blocksOffset++
 		values[valuesOffset] = int64((int64(byte3 & 3) << 3) | int64(uint8(byte4) >> 5))
 		valuesOffset++
-		values[valuesOffset] = int64( byte4 & 31)
+		values[valuesOffset] = int64( int64(byte4) & 31)
 		valuesOffset++
 	}
 }

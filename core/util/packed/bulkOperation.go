@@ -212,15 +212,15 @@ var (
 						if byteStart == byteEnd {
 							if bitStart == 0 {
 								if bitEnd == 7 {
-									fmt.Fprintf(f, " byte%d", byteStart)
+									fmt.Fprintf(f, " int64(byte%d)", byteStart)
 								} else {
 									fmt.Fprintf(f, " int64(uint8(byte%d) >> %d)", byteStart, 7-bitEnd)
 								}
 							} else {
 								if bitEnd == 7 {
-									fmt.Fprintf(f, " byte%d & %d", byteStart, 1<<uint(8-bitStart)-1)
+									fmt.Fprintf(f, " int64(byte%d) & %d", byteStart, 1<<uint(8-bitStart)-1)
 								} else {
-									fmt.Fprintf(f, " int64(uint8(byte%d >> %d)) & %d", byteStart, 7-bitEnd, 1<<uint(bitEnd-bitStart+1)-1)
+									fmt.Fprintf(f, " int64(uint8(byte%d) >> %d) & %d", byteStart, 7-bitEnd, 1<<uint(bitEnd-bitStart+1)-1)
 								}
 							}
 						} else {

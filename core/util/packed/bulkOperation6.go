@@ -67,7 +67,7 @@ func (op *BulkOperationPacked6) decodeByteToInt(blocks []byte, values []int32, i
 		blocksOffset++
 		values[valuesOffset] = int32((int64(byte1 & 15) << 2) | int64(uint8(byte2) >> 6))
 		valuesOffset++
-		values[valuesOffset] = int32( byte2 & 63)
+		values[valuesOffset] = int32( int64(byte2) & 63)
 		valuesOffset++
 	}
 }
@@ -127,7 +127,7 @@ func (op *BulkOperationPacked6) decodeByteToLong(blocks []byte, values []int64, 
 		blocksOffset++
 		values[valuesOffset] = int64((int64(byte1 & 15) << 2) | int64(uint8(byte2) >> 6))
 		valuesOffset++
-		values[valuesOffset] = int64( byte2 & 63)
+		values[valuesOffset] = int64( int64(byte2) & 63)
 		valuesOffset++
 	}
 }
