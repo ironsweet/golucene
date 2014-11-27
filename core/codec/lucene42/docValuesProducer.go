@@ -121,6 +121,10 @@ func newLucene42DocValuesProducer(state SegmentReadState,
 		return nil, errors.New("Format versions mismatch")
 	}
 
+	if version >= LUCENE42_DV_VERSION_CHECKSUM {
+		panic("niy")
+	}
+
 	success = true
 
 	return dvp, nil
