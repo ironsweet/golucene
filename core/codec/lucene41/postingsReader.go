@@ -12,24 +12,6 @@ import (
 
 // Lucene41PostingsReader.java
 
-const (
-	LUCENE41_DOC_EXTENSION = "doc"
-	LUCENE41_POS_EXTENSION = "pos"
-	LUCENE41_PAY_EXTENSION = "pay"
-
-	LUCENE41_BLOCK_SIZE = 128
-
-	LUCENE41_TERMS_CODEC = "Lucene41PostingsWriterTerms"
-	LUCENE41_DOC_CODEC   = "Lucene41PostingsWriterDoc"
-	LUCENE41_POS_CODEC   = "Lucene41PostingsWriterPos"
-	LUCENE41_PAY_CODEC   = "Lucene41PostingsWriterPay"
-
-	LUCENE41_VERSION_START         = 0
-	LUCENE41_VERSION_META_ARRAY    = 1
-	LUCENE41_VERSION_META_CHECKSUM = 2
-	LUCENE41_VERSION_CURRENT       = LUCENE41_VERSION_META_CHECKSUM
-)
-
 /*
 Concrete class that reads docId (maybe frq,pos,offset,payload) list
 with postings format.
@@ -70,6 +52,10 @@ func NewLucene41PostingsReader(dir store.Directory,
 		return nil, err
 	}
 
+	if version >= LUCENE41_VERSION_CHECKSUM {
+		panic("niy")
+	}
+
 	if fis.HasProx {
 		posIn, err = dir.OpenInput(util.SegmentFileName(si.Name, segmentSuffix, LUCENE41_POS_EXTENSION), ctx)
 		if err != nil {
@@ -80,6 +66,10 @@ func NewLucene41PostingsReader(dir store.Directory,
 			return nil, err
 		}
 
+		if version >= LUCENE41_VERSION_CHECKSUM {
+			panic("niy")
+		}
+
 		if fis.HasPayloads || fis.HasOffsets {
 			payIn, err = dir.OpenInput(util.SegmentFileName(si.Name, segmentSuffix, LUCENE41_PAY_EXTENSION), ctx)
 			if err != nil {
@@ -88,6 +78,10 @@ func NewLucene41PostingsReader(dir store.Directory,
 			_, err = codec.CheckHeader(payIn, LUCENE41_PAY_CODEC, version, version)
 			if err != nil {
 				return nil, err
+			}
+
+			if version >= LUCENE41_VERSION_CHECKSUM {
+				panic("niy")
 			}
 		}
 	}

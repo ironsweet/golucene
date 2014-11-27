@@ -14,6 +14,14 @@ func init() {
 
 // codecs/lucene41/Lucene41PostingsFormat.java
 
+const (
+	LUCENE41_DOC_EXTENSION = "doc"
+	LUCENE41_POS_EXTENSION = "pos"
+	LUCENE41_PAY_EXTENSION = "pay"
+
+	LUCENE41_BLOCK_SIZE = 128
+)
+
 type Lucene41PostingsFormat struct {
 	minTermBlockSize int
 	maxTermBlockSize int
