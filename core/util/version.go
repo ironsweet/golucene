@@ -21,6 +21,10 @@ var (
 	VERSION_LATEST = VERSION_4_10_1
 )
 
+func ParseVersion(version string) (Version, error) {
+	panic("niy")
+}
+
 func (v Version) OnOrAfter(other Version) bool {
 	return encoded(v) >= encoded(other)
 }

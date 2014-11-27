@@ -36,10 +36,15 @@ func (r *Lucene40SegmentInfoReader) Read(dir store.Directory,
 	if err != nil {
 		return nil, err
 	}
-	version, err := input.ReadString()
+	versionStr, err := input.ReadString()
 	if err != nil {
 		return nil, err
 	}
+	version, err := util.ParseVersion(versionStr)
+	if err != nil {
+		return nil, err
+	}
+
 	docCount, err := input.ReadInt()
 	if err != nil {
 		return nil, err

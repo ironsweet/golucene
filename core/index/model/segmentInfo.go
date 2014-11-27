@@ -16,7 +16,7 @@ const YES = 1
 
 type SegmentInfo struct {
 	Dir            store.Directory
-	version        string
+	version        util.Version
 	Name           string
 	docCount       *util.SetOnce // number of docs in seg
 	isCompoundFile bool
@@ -37,14 +37,14 @@ func (info *SegmentInfo) Diagnostics() map[string]string {
 }
 
 func NewSegmentInfo(dir store.Directory,
-	version, name string, docCount int,
+	version util.Version, name string, docCount int,
 	isCompoundFile bool, codec interface{},
 	diagnostics map[string]string) *SegmentInfo {
 	return NewSegmentInfo2(dir, version, name, docCount, isCompoundFile, codec, diagnostics, nil)
 }
 
 func NewSegmentInfo2(dir store.Directory,
-	version, name string, docCount int,
+	version util.Version, name string, docCount int,
 	isCompoundFile bool, codec interface{},
 	diagnostics map[string]string,
 	attributes map[string]string) *SegmentInfo {
@@ -111,10 +111,10 @@ func (si *SegmentInfo) StringOf(dir store.Directory, delCount int) string {
 	var buf bytes.Buffer
 	buf.WriteString(si.Name)
 	buf.WriteString("(")
-	if si.version == "" {
+	if len(si.version) == 0 { // empty check
 		buf.WriteString("?")
 	} else {
-		buf.WriteString(si.version)
+		buf.WriteString(si.version.String())
 	}
 	buf.WriteString("):")
 	if si.isCompoundFile {
@@ -139,7 +139,7 @@ func (si *SegmentInfo) StringOf(dir store.Directory, delCount int) string {
 }
 
 /* Returns the version of the code which wrote the segment. */
-func (si *SegmentInfo) Version() string {
+func (si *SegmentInfo) Version() util.Version {
 	return si.version
 }
 
