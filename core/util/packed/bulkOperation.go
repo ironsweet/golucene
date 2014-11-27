@@ -212,30 +212,30 @@ var (
 						if byteStart == byteEnd {
 							if bitStart == 0 {
 								if bitEnd == 7 {
-									fmt.Fprintf(f, " byte%d", byteStart)
+									fmt.Fprintf(f, " int64(byte%d)", byteStart)
 								} else {
-									fmt.Fprintf(f, " byte(uint8(byte%d) >> %d)", byteStart, 7-bitEnd)
+									fmt.Fprintf(f, " int64(uint8(byte%d) >> %d)", byteStart, 7-bitEnd)
 								}
 							} else {
 								if bitEnd == 7 {
-									fmt.Fprintf(f, " byte%d & %d", byteStart, 1<<uint(8-bitStart)-1)
+									fmt.Fprintf(f, " int64(byte%d) & %d", byteStart, 1<<uint(8-bitStart)-1)
 								} else {
-									fmt.Fprintf(f, " byte(uint8(byte%d >> %d)) & %d", byteStart, 7-bitEnd, 1<<uint(bitEnd-bitStart+1)-1)
+									fmt.Fprintf(f, " int64(uint8(byte%d) >> %d) & %d", byteStart, 7-bitEnd, 1<<uint(bitEnd-bitStart+1)-1)
 								}
 							}
 						} else {
 							if bitStart == 0 {
-								fmt.Fprintf(f, "(byte%d << %d)", byteStart, shift(byteStart))
+								fmt.Fprintf(f, "(int64(byte%d) << %d)", byteStart, shift(byteStart))
 							} else {
-								fmt.Fprintf(f, "((byte%d & %d) << %d)", byteStart, 1<<uint(8-bitStart)-1, shift(byteStart))
+								fmt.Fprintf(f, "(int64(byte%d & %d) << %d)", byteStart, 1<<uint(8-bitStart)-1, shift(byteStart))
 							}
 							for b, until := byteStart+1, byteEnd; b < until; b++ {
-								fmt.Fprintf(f, " | (byte%d << %d)", b, shift(b))
+								fmt.Fprintf(f, " | (int64(byte%d) << %d)", b, shift(b))
 							}
 							if bitEnd == 7 {
-								fmt.Fprintf(f, " | byte%d", byteEnd)
+								fmt.Fprintf(f, " | int64(byte%d)", byteEnd)
 							} else {
-								fmt.Fprintf(f, " | byte(uint8(byte%d) >> %d)", byteEnd, 7-bitEnd)
+								fmt.Fprintf(f, " | int64(uint8(byte%d) >> %d)", byteEnd, 7-bitEnd)
 							}
 						}
 						fmt.Fprintf(f, ")")

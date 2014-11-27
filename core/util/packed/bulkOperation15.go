@@ -103,47 +103,47 @@ func (op *BulkOperationPacked15) decodeByteToInt(blocks []byte, values []int32, 
 		blocksOffset++
 		byte1 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32((byte0 << 7) | byte(uint8(byte1) >> 1))
+		values[valuesOffset] = int32((int64(byte0) << 7) | int64(uint8(byte1) >> 1))
 		valuesOffset++
 		byte2 := blocks[blocksOffset]
 		blocksOffset++
 		byte3 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte1 & 1) << 14) | (byte2 << 6) | byte(uint8(byte3) >> 2))
+		values[valuesOffset] = int32((int64(byte1 & 1) << 14) | (int64(byte2) << 6) | int64(uint8(byte3) >> 2))
 		valuesOffset++
 		byte4 := blocks[blocksOffset]
 		blocksOffset++
 		byte5 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte3 & 3) << 13) | (byte4 << 5) | byte(uint8(byte5) >> 3))
+		values[valuesOffset] = int32((int64(byte3 & 3) << 13) | (int64(byte4) << 5) | int64(uint8(byte5) >> 3))
 		valuesOffset++
 		byte6 := blocks[blocksOffset]
 		blocksOffset++
 		byte7 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte5 & 7) << 12) | (byte6 << 4) | byte(uint8(byte7) >> 4))
+		values[valuesOffset] = int32((int64(byte5 & 7) << 12) | (int64(byte6) << 4) | int64(uint8(byte7) >> 4))
 		valuesOffset++
 		byte8 := blocks[blocksOffset]
 		blocksOffset++
 		byte9 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte7 & 15) << 11) | (byte8 << 3) | byte(uint8(byte9) >> 5))
+		values[valuesOffset] = int32((int64(byte7 & 15) << 11) | (int64(byte8) << 3) | int64(uint8(byte9) >> 5))
 		valuesOffset++
 		byte10 := blocks[blocksOffset]
 		blocksOffset++
 		byte11 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte9 & 31) << 10) | (byte10 << 2) | byte(uint8(byte11) >> 6))
+		values[valuesOffset] = int32((int64(byte9 & 31) << 10) | (int64(byte10) << 2) | int64(uint8(byte11) >> 6))
 		valuesOffset++
 		byte12 := blocks[blocksOffset]
 		blocksOffset++
 		byte13 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte11 & 63) << 9) | (byte12 << 1) | byte(uint8(byte13) >> 7))
+		values[valuesOffset] = int32((int64(byte11 & 63) << 9) | (int64(byte12) << 1) | int64(uint8(byte13) >> 7))
 		valuesOffset++
 		byte14 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte13 & 127) << 8) | byte14)
+		values[valuesOffset] = int32((int64(byte13 & 127) << 8) | int64(byte14))
 		valuesOffset++
 	}
 }
@@ -239,47 +239,47 @@ func (op *BulkOperationPacked15) decodeByteToLong(blocks []byte, values []int64,
 		blocksOffset++
 		byte1 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64((byte0 << 7) | byte(uint8(byte1) >> 1))
+		values[valuesOffset] = int64((int64(byte0) << 7) | int64(uint8(byte1) >> 1))
 		valuesOffset++
 		byte2 := blocks[blocksOffset]
 		blocksOffset++
 		byte3 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte1 & 1) << 14) | (byte2 << 6) | byte(uint8(byte3) >> 2))
+		values[valuesOffset] = int64((int64(byte1 & 1) << 14) | (int64(byte2) << 6) | int64(uint8(byte3) >> 2))
 		valuesOffset++
 		byte4 := blocks[blocksOffset]
 		blocksOffset++
 		byte5 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte3 & 3) << 13) | (byte4 << 5) | byte(uint8(byte5) >> 3))
+		values[valuesOffset] = int64((int64(byte3 & 3) << 13) | (int64(byte4) << 5) | int64(uint8(byte5) >> 3))
 		valuesOffset++
 		byte6 := blocks[blocksOffset]
 		blocksOffset++
 		byte7 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte5 & 7) << 12) | (byte6 << 4) | byte(uint8(byte7) >> 4))
+		values[valuesOffset] = int64((int64(byte5 & 7) << 12) | (int64(byte6) << 4) | int64(uint8(byte7) >> 4))
 		valuesOffset++
 		byte8 := blocks[blocksOffset]
 		blocksOffset++
 		byte9 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte7 & 15) << 11) | (byte8 << 3) | byte(uint8(byte9) >> 5))
+		values[valuesOffset] = int64((int64(byte7 & 15) << 11) | (int64(byte8) << 3) | int64(uint8(byte9) >> 5))
 		valuesOffset++
 		byte10 := blocks[blocksOffset]
 		blocksOffset++
 		byte11 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte9 & 31) << 10) | (byte10 << 2) | byte(uint8(byte11) >> 6))
+		values[valuesOffset] = int64((int64(byte9 & 31) << 10) | (int64(byte10) << 2) | int64(uint8(byte11) >> 6))
 		valuesOffset++
 		byte12 := blocks[blocksOffset]
 		blocksOffset++
 		byte13 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte11 & 63) << 9) | (byte12 << 1) | byte(uint8(byte13) >> 7))
+		values[valuesOffset] = int64((int64(byte11 & 63) << 9) | (int64(byte12) << 1) | int64(uint8(byte13) >> 7))
 		valuesOffset++
 		byte14 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte13 & 127) << 8) | byte14)
+		values[valuesOffset] = int64((int64(byte13 & 127) << 8) | int64(byte14))
 		valuesOffset++
 	}
 }
