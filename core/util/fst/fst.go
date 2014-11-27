@@ -11,6 +11,10 @@ import (
 	"reflect"
 )
 
+// util/fst/FST.java
+
+var ARC_SHALLOW_RAM_BYTES_USED = util.ShallowSizeOfInstance(reflect.TypeOf(Arc{}))
+
 type InputType int
 
 const (
@@ -295,7 +299,22 @@ func loadFST3(in util.DataInput, outputs Outputs, maxBlockBits uint32) (fst *FST
 }
 
 func (t *FST) ramBytesUsed(arcs []*Arc) int64 {
-	panic("niy")
+	var size int64
+	if arcs != nil {
+		size += util.ShallowSizeOf(arcs)
+		for _, arc := range arcs {
+			if arc != nil {
+				size += ARC_SHALLOW_RAM_BYTES_USED
+				if arc.Output != nil && arc.Output != t.outputs.NoOutput() {
+					size += t.outputs.ramBytesUsed(arc.Output)
+				}
+				if arc.NextFinalOutput != nil && arc.NextFinalOutput != t.outputs.NoOutput() {
+					size += t.outputs.ramBytesUsed(arc.NextFinalOutput)
+				}
+			}
+		}
+	}
+	return size
 }
 
 func (t *FST) finish(newStartNode int64) error {

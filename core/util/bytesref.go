@@ -106,3 +106,22 @@ func (br BytesRefs) Less(i, j int) bool {
 func (br BytesRefs) Swap(i, j int) {
 	br[i], br[j] = br[j], br[i]
 }
+
+// util/BytesRefBuilder.java
+
+type BytesRefBuilder struct {
+	ref []byte
+}
+
+func NewBytesRefBuilder() *BytesRefBuilder {
+	return new(BytesRefBuilder)
+}
+
+func (b *BytesRefBuilder) Get() *BytesRef {
+	return NewBytesRef(b.ref)
+}
+
+func (b *BytesRefBuilder) Copy(ref []byte) {
+	b.ref = GrowByteSlice(b.ref, len(ref))
+	copy(b.ref, ref)
+}

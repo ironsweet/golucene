@@ -309,7 +309,7 @@ func (b *PendingBlock) compileIndex(floorBlocks []*PendingBlock,
 	outputs := fst.ByteSequenceOutputsSingleton()
 	indexBuilder := fst.NewBuilder(fst.INPUT_TYPE_BYTE1,
 		0, 0, true, false, int(math.MaxInt32),
-		outputs, nil, false,
+		outputs, false,
 		packed.PackedInts.COMPACT, true, 15)
 
 	// fmt.Printf("  compile index for prefix=%v\n", b.prefix)
@@ -427,49 +427,6 @@ func newTermsWriter(owner *BlockTreeTermsWriter,
 		metaWriter:       store.NewRAMOutputStreamBuffer(),
 		bytesWriter:      store.NewRAMOutputStreamBuffer(),
 	}
-	// This builder is just used transiently to fragment terms into
-	// "good" blocks; we don't save the resulting FST:
-	ans.blockBuilder = fst.NewBuilder(
-		fst.INPUT_TYPE_BYTE1, 0, 0, true, true,
-		int(math.MaxInt32), fst.NO_OUTPUT,
-		//Assign terms to blocks "naturally", ie, according to the number of
-		//terms under a given prefix that we encounter:
-		func(frontier []*fst.UnCompiledNode, prefixLenPlus1 int, lastInput *util.IntsRef) error {
-			for idx := lastInput.Length; idx >= prefixLenPlus1; idx-- {
-				node := frontier[idx]
-
-				totCount := int64(0)
-
-				if node.IsFinal {
-					totCount++
-				}
-
-				for arcIdx := 0; arcIdx < node.NumArcs; arcIdx++ {
-					target := node.Arcs[arcIdx].Target.(*fst.UnCompiledNode)
-					totCount += target.InputCount
-					target.Clear()
-					node.Arcs[arcIdx].Target = nil
-				}
-				node.NumArcs = 0
-
-				if totCount >= int64(ans.owner.minItemsInBlock) || idx == 0 {
-					// we are on a prefix node that has enough entries (terms
-					// or sub-blocks) under it to let us write a new block or
-					// multiple blocks (main block + follow on floor blocks):
-					err := ans.writeBlocks(lastInput, idx, int(totCount))
-					if err != nil {
-						return err
-					}
-					node.InputCount = 1
-				} else {
-					// stragglers! carry count upwards
-					node.InputCount = totCount
-				}
-				frontier[idx] = fst.NewUnCompiledNode(ans.blockBuilder, idx)
-			}
-			return nil
-		}, false, packed.PackedInts.COMPACT,
-		true, 15)
 	ans.longsSize = owner.postingsWriter.SetField(fieldInfo)
 	return ans
 }

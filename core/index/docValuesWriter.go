@@ -18,7 +18,7 @@ const MISSING int64 = 0
 
 /* Buffers up pending long per doc, then flushes when segment flushes. */
 type NumericDocValuesWriter struct {
-	pending       *packed.AppendingDeltaPackedLongBuffer
+	pending       *packed.PackedLongValuesBuilder
 	iwBytesUsed   util.Counter
 	bytesUsed     int64
 	docsWithField *util.FixedBitSet
@@ -34,7 +34,7 @@ func newNumericDocValuesWriter(fieldInfo *FieldInfo,
 	if trackDocsWithField {
 		ans.docsWithField = util.NewFixedBitSetOf(64)
 	}
-	ans.pending = packed.NewAppendingDeltaPackedLongBufferWithOverhead(packed.PackedInts.COMPACT)
+	ans.pending = packed.NewDeltaPackedBuilder(packed.PackedInts.COMPACT)
 	ans.bytesUsed = ans.pending.RamBytesUsed() + ans.docsWithFieldBytesUsed()
 	ans.iwBytesUsed.AddAndGet(ans.bytesUsed)
 	return ans
@@ -77,9 +77,11 @@ func (w *NumericDocValuesWriter) finish(numDoc int) {}
 
 func (w *NumericDocValuesWriter) flush(state *SegmentWriteState,
 	dvConsumer DocValuesConsumer) error {
+
 	maxDoc := state.SegmentInfo.DocCount()
+	values := w.pending.Build()
 	dvConsumer.AddNumericField(w.fieldInfo, func() func() (interface{}, bool) {
-		return newNumericIterator(maxDoc, w)
+		return newNumericIterator(maxDoc, values, w.docsWithField)
 	})
 	return nil
 }
@@ -87,9 +89,12 @@ func (w *NumericDocValuesWriter) flush(state *SegmentWriteState,
 /* Iterates over the values we have in ram */
 type NumericIterator struct{}
 
-func newNumericIterator(maxDoc int, owner *NumericDocValuesWriter) func() (interface{}, bool) {
-	upto, size := 0, int(owner.pending.Size())
-	iter := owner.pending.Iterator()
+func newNumericIterator(maxDoc int,
+	values *packed.PackedLongValues,
+	docsWithFields *util.FixedBitSet) func() (interface{}, bool) {
+
+	upto, size := 0, int(values.Size())
+	iter := values.Iterator()
 	return func() (interface{}, bool) {
 		if upto >= maxDoc {
 			return nil, false
@@ -97,12 +102,12 @@ func newNumericIterator(maxDoc int, owner *NumericDocValuesWriter) func() (inter
 		var value interface{}
 		if upto < size {
 			v, _ := iter()
-			if owner.docsWithField == nil || owner.docsWithField.At(upto) {
+			if docsWithFields == nil || docsWithFields.At(upto) {
 				value = v
 			} else {
 				value = nil
 			}
-		} else if owner.docsWithField != nil {
+		} else if docsWithFields != nil {
 			value = nil
 		} else {
 			value = MISSING

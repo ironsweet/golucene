@@ -46,6 +46,7 @@ type Outputs interface {
 	NoOutput() interface{}
 	outputToString(interface{}) string
 	merge(first, second interface{}) interface{}
+	ramBytesUsed(interface{}) int64
 }
 
 type iOutputsReader interface {
@@ -257,6 +258,12 @@ func (out *ByteSequenceOutputs) outputToString(output interface{}) string {
 
 func (out *ByteSequenceOutputs) String() string {
 	return "ByteSequenceOutputs"
+}
+
+var BASE_NUM_BYTES = util.ShallowSizeOf(NO_OUTPUT)
+
+func (out *ByteSequenceOutputs) ramBytesUsed(output interface{}) int64 {
+	return BASE_NUM_BYTES + util.SizeOf(output.([]byte))
 }
 
 // util/fst/Util.java
