@@ -113,7 +113,7 @@ func (op *BulkOperationPacked23) decodeByteToInt(blocks []byte, values []int32, 
 		blocksOffset++
 		byte2 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32((byte0 << 15) | (byte1 << 7) | byte(uint8(byte2) >> 1))
+		values[valuesOffset] = int32((int64(byte0) << 15) | (int64(byte1) << 7) | int64(uint8(byte2) >> 1))
 		valuesOffset++
 		byte3 := blocks[blocksOffset]
 		blocksOffset++
@@ -121,7 +121,7 @@ func (op *BulkOperationPacked23) decodeByteToInt(blocks []byte, values []int32, 
 		blocksOffset++
 		byte5 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte2 & 1) << 22) | (byte3 << 14) | (byte4 << 6) | byte(uint8(byte5) >> 2))
+		values[valuesOffset] = int32((int64(byte2 & 1) << 22) | (int64(byte3) << 14) | (int64(byte4) << 6) | int64(uint8(byte5) >> 2))
 		valuesOffset++
 		byte6 := blocks[blocksOffset]
 		blocksOffset++
@@ -129,7 +129,7 @@ func (op *BulkOperationPacked23) decodeByteToInt(blocks []byte, values []int32, 
 		blocksOffset++
 		byte8 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte5 & 3) << 21) | (byte6 << 13) | (byte7 << 5) | byte(uint8(byte8) >> 3))
+		values[valuesOffset] = int32((int64(byte5 & 3) << 21) | (int64(byte6) << 13) | (int64(byte7) << 5) | int64(uint8(byte8) >> 3))
 		valuesOffset++
 		byte9 := blocks[blocksOffset]
 		blocksOffset++
@@ -137,7 +137,7 @@ func (op *BulkOperationPacked23) decodeByteToInt(blocks []byte, values []int32, 
 		blocksOffset++
 		byte11 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte8 & 7) << 20) | (byte9 << 12) | (byte10 << 4) | byte(uint8(byte11) >> 4))
+		values[valuesOffset] = int32((int64(byte8 & 7) << 20) | (int64(byte9) << 12) | (int64(byte10) << 4) | int64(uint8(byte11) >> 4))
 		valuesOffset++
 		byte12 := blocks[blocksOffset]
 		blocksOffset++
@@ -145,7 +145,7 @@ func (op *BulkOperationPacked23) decodeByteToInt(blocks []byte, values []int32, 
 		blocksOffset++
 		byte14 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte11 & 15) << 19) | (byte12 << 11) | (byte13 << 3) | byte(uint8(byte14) >> 5))
+		values[valuesOffset] = int32((int64(byte11 & 15) << 19) | (int64(byte12) << 11) | (int64(byte13) << 3) | int64(uint8(byte14) >> 5))
 		valuesOffset++
 		byte15 := blocks[blocksOffset]
 		blocksOffset++
@@ -153,7 +153,7 @@ func (op *BulkOperationPacked23) decodeByteToInt(blocks []byte, values []int32, 
 		blocksOffset++
 		byte17 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte14 & 31) << 18) | (byte15 << 10) | (byte16 << 2) | byte(uint8(byte17) >> 6))
+		values[valuesOffset] = int32((int64(byte14 & 31) << 18) | (int64(byte15) << 10) | (int64(byte16) << 2) | int64(uint8(byte17) >> 6))
 		valuesOffset++
 		byte18 := blocks[blocksOffset]
 		blocksOffset++
@@ -161,13 +161,13 @@ func (op *BulkOperationPacked23) decodeByteToInt(blocks []byte, values []int32, 
 		blocksOffset++
 		byte20 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte17 & 63) << 17) | (byte18 << 9) | (byte19 << 1) | byte(uint8(byte20) >> 7))
+		values[valuesOffset] = int32((int64(byte17 & 63) << 17) | (int64(byte18) << 9) | (int64(byte19) << 1) | int64(uint8(byte20) >> 7))
 		valuesOffset++
 		byte21 := blocks[blocksOffset]
 		blocksOffset++
 		byte22 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int32(((byte20 & 127) << 16) | (byte21 << 8) | byte22)
+		values[valuesOffset] = int32((int64(byte20 & 127) << 16) | (int64(byte21) << 8) | int64(byte22))
 		valuesOffset++
 	}
 }
@@ -273,7 +273,7 @@ func (op *BulkOperationPacked23) decodeByteToLong(blocks []byte, values []int64,
 		blocksOffset++
 		byte2 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64((byte0 << 15) | (byte1 << 7) | byte(uint8(byte2) >> 1))
+		values[valuesOffset] = int64((int64(byte0) << 15) | (int64(byte1) << 7) | int64(uint8(byte2) >> 1))
 		valuesOffset++
 		byte3 := blocks[blocksOffset]
 		blocksOffset++
@@ -281,7 +281,7 @@ func (op *BulkOperationPacked23) decodeByteToLong(blocks []byte, values []int64,
 		blocksOffset++
 		byte5 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte2 & 1) << 22) | (byte3 << 14) | (byte4 << 6) | byte(uint8(byte5) >> 2))
+		values[valuesOffset] = int64((int64(byte2 & 1) << 22) | (int64(byte3) << 14) | (int64(byte4) << 6) | int64(uint8(byte5) >> 2))
 		valuesOffset++
 		byte6 := blocks[blocksOffset]
 		blocksOffset++
@@ -289,7 +289,7 @@ func (op *BulkOperationPacked23) decodeByteToLong(blocks []byte, values []int64,
 		blocksOffset++
 		byte8 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte5 & 3) << 21) | (byte6 << 13) | (byte7 << 5) | byte(uint8(byte8) >> 3))
+		values[valuesOffset] = int64((int64(byte5 & 3) << 21) | (int64(byte6) << 13) | (int64(byte7) << 5) | int64(uint8(byte8) >> 3))
 		valuesOffset++
 		byte9 := blocks[blocksOffset]
 		blocksOffset++
@@ -297,7 +297,7 @@ func (op *BulkOperationPacked23) decodeByteToLong(blocks []byte, values []int64,
 		blocksOffset++
 		byte11 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte8 & 7) << 20) | (byte9 << 12) | (byte10 << 4) | byte(uint8(byte11) >> 4))
+		values[valuesOffset] = int64((int64(byte8 & 7) << 20) | (int64(byte9) << 12) | (int64(byte10) << 4) | int64(uint8(byte11) >> 4))
 		valuesOffset++
 		byte12 := blocks[blocksOffset]
 		blocksOffset++
@@ -305,7 +305,7 @@ func (op *BulkOperationPacked23) decodeByteToLong(blocks []byte, values []int64,
 		blocksOffset++
 		byte14 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte11 & 15) << 19) | (byte12 << 11) | (byte13 << 3) | byte(uint8(byte14) >> 5))
+		values[valuesOffset] = int64((int64(byte11 & 15) << 19) | (int64(byte12) << 11) | (int64(byte13) << 3) | int64(uint8(byte14) >> 5))
 		valuesOffset++
 		byte15 := blocks[blocksOffset]
 		blocksOffset++
@@ -313,7 +313,7 @@ func (op *BulkOperationPacked23) decodeByteToLong(blocks []byte, values []int64,
 		blocksOffset++
 		byte17 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte14 & 31) << 18) | (byte15 << 10) | (byte16 << 2) | byte(uint8(byte17) >> 6))
+		values[valuesOffset] = int64((int64(byte14 & 31) << 18) | (int64(byte15) << 10) | (int64(byte16) << 2) | int64(uint8(byte17) >> 6))
 		valuesOffset++
 		byte18 := blocks[blocksOffset]
 		blocksOffset++
@@ -321,13 +321,13 @@ func (op *BulkOperationPacked23) decodeByteToLong(blocks []byte, values []int64,
 		blocksOffset++
 		byte20 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte17 & 63) << 17) | (byte18 << 9) | (byte19 << 1) | byte(uint8(byte20) >> 7))
+		values[valuesOffset] = int64((int64(byte17 & 63) << 17) | (int64(byte18) << 9) | (int64(byte19) << 1) | int64(uint8(byte20) >> 7))
 		valuesOffset++
 		byte21 := blocks[blocksOffset]
 		blocksOffset++
 		byte22 := blocks[blocksOffset]
 		blocksOffset++
-		values[valuesOffset] = int64(((byte20 & 127) << 16) | (byte21 << 8) | byte22)
+		values[valuesOffset] = int64((int64(byte20 & 127) << 16) | (int64(byte21) << 8) | int64(byte22))
 		valuesOffset++
 	}
 }
