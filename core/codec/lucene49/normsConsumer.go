@@ -1,14 +1,12 @@
 package lucene49
 
 import (
-	// "fmt"
 	"github.com/balzaczyy/golucene/core/codec"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	"github.com/balzaczyy/golucene/core/util/packed"
 	"math"
-	"sort"
 )
 
 // lucene49/Lucene49NormsConsumer.java
@@ -66,7 +64,7 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 	}
 	minValue, maxValue := int64(math.MaxInt64), int64(math.MinInt64)
 	// TODO: more efficient?
-	uniqueValues := make(map[int64]bool)
+	uniqueValues := newNormMap()
 
 	count := int64(0)
 	next := iter()
@@ -85,12 +83,8 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 			maxValue = v
 		}
 
-		if uniqueValues != nil {
-			_, ok := uniqueValues[v]
-			uniqueValues[v] = true
-			if !ok && len(uniqueValues) > 256 {
-				uniqueValues = nil
-			}
+		if uniqueValues != nil && uniqueValues.add(v) && uniqueValues.size > 256 {
+			uniqueValues = nil
 		}
 
 		count++
@@ -99,7 +93,7 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 		"illegal norms data for field %v, expected %v values, got %v",
 		field.Name, nc.maxDoc, count)
 
-	if len(uniqueValues) == 1 {
+	if uniqueValues != nil && uniqueValues.size == 1 {
 		// 0 bpv
 		if err = nc.meta.WriteByte(CONST_COMPRESSED); err != nil {
 			return
@@ -107,11 +101,11 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 		if err = nc.meta.WriteLong(minValue); err != nil {
 			return
 		}
-	} else if len(uniqueValues) > 0 {
+	} else if uniqueValues != nil {
 		// small number of unique values; this is the typical case:
 		// we only use bpv=1,2,4,8
 		format := packed.PackedFormat(packed.PACKED_SINGLE_BLOCK)
-		bitsPerValue := packed.BitsRequired(int64(len(uniqueValues)) - 1)
+		bitsPerValue := packed.BitsRequired(int64(uniqueValues.size) - 1)
 		if bitsPerValue == 3 {
 			bitsPerValue = 4
 		} else if bitsPerValue > 4 {
@@ -148,22 +142,16 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 				return err
 			}
 
-			var decode []int64
-			for k, _ := range uniqueValues {
-				decode = append(decode, k)
-			}
-			sort.Sort(Longs(decode))
-			encode := make(map[int64]int)
+			decode := uniqueValues.decodeTable()
 			// upgrade to power of two sized array
 			size := 1 << uint(bitsPerValue)
 			if err = nc.data.WriteVInt(int32(size)); err != nil {
 				return err
 			}
-			for i, v := range decode {
+			for _, v := range decode {
 				if err = nc.data.WriteLong(v); err != nil {
 					return err
 				}
-				encode[v] = i
 			}
 			for i := len(decode); i < size; i++ {
 				if err = nc.data.WriteLong(0); err != nil {
@@ -184,9 +172,7 @@ func (nc *NormsConsumer) AddNumericField(field *FieldInfo,
 				if !ok {
 					break
 				}
-				i, ok := encode[nv.(int64)]
-				assert(ok)
-				if err = writer.Add(int64(i)); err != nil {
+				if err = writer.Add(int64(uniqueValues.ord(nv.(int64)))); err != nil {
 					return err
 				}
 			}
@@ -231,4 +217,31 @@ func (nc *NormsConsumer) Close() (err error) {
 	}
 	success = true
 	return nil
+}
+
+type NormMap struct {
+	size int
+}
+
+/*
+Specialized deduplication of long-ord for norms: 99.99999% of the
+time this will be a single-byte range.
+*/
+func newNormMap() *NormMap {
+	panic("niy")
+}
+
+/* Adds an item to the mapping. Returns true if actually added. */
+func (m *NormMap) add(l int64) bool {
+	panic("niy")
+}
+
+/* Gets the ordinal for a previously added item. */
+func (m *NormMap) ord(l int64) int {
+	panic("niy")
+}
+
+/* Retrieves the ordinal table for previously added items. */
+func (m *NormMap) decodeTable() []int64 {
+	panic("niy")
 }
