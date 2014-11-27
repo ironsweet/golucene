@@ -36,6 +36,8 @@ func (f *Lucene46SegmentInfoFormat) SegmentInfoWriter() SegmentInfoWriter {
 	return f
 }
 
+// codecs/lucene46/Lucene46SegmentInfoReader.java
+
 func (f *Lucene46SegmentInfoFormat) Read(dir store.Directory,
 	segName string, ctx store.IOContext) (si *SegmentInfo, err error) {
 
@@ -58,8 +60,13 @@ func (f *Lucene46SegmentInfoFormat) Read(dir store.Directory,
 	if codecVersion, err = asInt(codec.CheckHeader(input, SI_CODEC_NAME, SI_VERSION_START, SI_VERSION_CURRENT)); err != nil {
 		return
 	}
-	var version string
-	if version, err = input.ReadString(); err != nil {
+	var versionStr string
+	if versionStr, err = input.ReadString(); err != nil {
+		return
+	}
+	var version util.Version
+	if version, err = util.ParseVersion(versionStr); err != nil {
+		err = errors.New(fmt.Sprintf("unable to parse version string (resource=%v): %v", input, err))
 		return
 	}
 	var docCount int
@@ -118,15 +125,18 @@ func (f *Lucene46SegmentInfoFormat) Write(dir store.Directory, si *SegmentInfo, 
 	defer func() {
 		if !success {
 			util.CloseWhileSuppressingError(output)
-			_ = si.Dir.DeleteFile(filename) // ignore error
+			si.Dir.DeleteFile(filename) // ignore error
 		} else {
 			output.Close()
 		}
 	}()
 
 	if err = codec.WriteHeader(output, SI_CODEC_NAME, SI_VERSION_CURRENT); err == nil {
+		version := si.Version()
+		assert2(version[0] == 3 || version[0] == 4,
+			"invalid major version: should be 3 or 4 but got: %v", version[0])
 		// write the Lucene version that created this segment, since 3.1
-		if err = output.WriteString(si.Version()); err == nil {
+		if err = output.WriteString(version.String()); err == nil {
 			if err = output.WriteInt(int32(si.DocCount())); err == nil {
 
 				flag := NO

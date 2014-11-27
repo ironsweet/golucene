@@ -97,6 +97,9 @@ var Lucene46FieldInfosReader = func(dir store.Directory,
 		if fieldNumber, err = input.ReadVInt(); err != nil {
 			return
 		}
+		assert2(fieldNumber >= 0,
+			"invalid field number for field: %v, fieldNumber=%v (resource=%v)",
+			name, fieldNumber, input)
 		if bits, err = input.ReadByte(); err != nil {
 			return
 		}
