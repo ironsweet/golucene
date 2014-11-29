@@ -145,6 +145,10 @@ func newCompressingStoredFieldsReader(d store.Directory,
 	r.decompressor = compressionMode.NewDecompressor()
 	r.bytes = make([]byte, 0)
 
+	if r.version >= VERSION_CHECKSUM {
+		panic("niy")
+	}
+
 	success = true
 	return r, nil
 }
