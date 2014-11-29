@@ -143,7 +143,10 @@ func (f *segmentTermsEnumFrame) loadBlock() (err error) {
 	f.entCount = int(uint(code) >> 1)
 	assert(f.entCount > 0)
 	f.isLastInFloor = (code & 1) != 0
-	assert(f.arc == nil || !f.isLastInFloor || !f.isFloor)
+
+	assert2(f.arc == nil || !f.isLastInFloor || !f.isFloor,
+		"fp=%v arc=%v isFloor=%v isLastInFloor=%v",
+		f.fp, f.arc, f.isFloor, f.isLastInFloor)
 
 	// TODO: if suffixes were stored in random-access
 	// array structure, then we could do binary search
@@ -225,6 +228,7 @@ func (f *segmentTermsEnumFrame) rewind() {
 	if f.isFloor {
 		f.floorDataReader.Rewind()
 		f.numFollowFloorBlocks, _ = asInt(f.floorDataReader.ReadVInt())
+		assert(f.numFollowFloorBlocks > 0)
 		b, _ := f.floorDataReader.ReadByte()
 		f.nextFloorLabel = int(b)
 	}
@@ -296,10 +300,63 @@ func (f *segmentTermsEnumFrame) scanToFloorFrame(target []byte) {
 	}
 }
 
+func (f *segmentTermsEnumFrame) decodeMetaData() (err error) {
+	// fmt.Printf("BTTR.decodeMetadata seg=%v mdUpto=%v vs termBlockOrd=%v\n",
+	// 	f.ste.fr.parent.segment, f.metaDataUpto, f.state.TermBlockOrd)
+
+	// lazily catch up on metadata decode:
+	limit := f.getTermBlockOrd()
+	absolute := f.metaDataUpto == 0
+	assert(limit > 0)
+
+	// TODO: better API would be "jump straight to term=N"???
+	for f.metaDataUpto < limit {
+		// TODO: we could make "tiers" of metadata, ie,
+		// decode docFreq/totalTF but don't decode postings
+		// metadata; this way caller could get
+		// docFreq/totalTF w/o paying decode cost for
+		// postings
+
+		// TODO: if docFreq were bulk decoded we could
+		// just skipN here:
+
+		// stats
+		if f.state.DocFreq, err = asInt(f.statsReader.ReadVInt()); err != nil {
+			return err
+		}
+		// fmt.Printf("    dF=%v\n", f.state.DocFreq)
+		if f.ste.fr.fieldInfo.IndexOptions() != INDEX_OPT_DOCS_ONLY {
+			var n int64
+			if n, err = f.statsReader.ReadVLong(); err != nil {
+				return err
+			}
+			f.state.TotalTermFreq = int64(f.state.DocFreq) + n
+			// fmt.Printf("    totTF=%v\n", f.state.TotalTermFreq)
+		}
+
+		// metadata
+		for i := 0; i < f.ste.fr.longsSize; i++ {
+			if f.longs[i], err = f.bytesReader.ReadVLong(); err != nil {
+				return err
+			}
+		}
+
+		if err = f.ste.fr.parent.postingsReader.DecodeTerm(f.longs,
+			f.bytesReader, f.ste.fr.fieldInfo, f.state, absolute); err != nil {
+			return err
+		}
+		f.metaDataUpto++
+		absolute = false
+	}
+
+	f.state.TermBlockOrd = f.metaDataUpto
+	return nil
+}
+
 // Used only by assert
 func (f *segmentTermsEnumFrame) prefixMatches(target []byte) bool {
 	for i := 0; i < f.prefix; i++ {
-		if target[i] != f.ste.term.bytes[i] {
+		if target[i] != f.ste.term.At(i) {
 			return false
 		}
 	}
@@ -393,24 +450,6 @@ func (f *segmentTermsEnumFrame) scanToTermLeaf(target []byte, exactOnly bool) (s
 				// // Done!  Current entry is after target --
 				//     // return NOT_FOUND:
 				f.fillTerm()
-
-				if !exactOnly && !f.ste.termExists {
-					// We are on a sub-block, and caller wants
-					// us to position to the next term after
-					// the target, so we must recurse into the
-					// sub-frame(s):
-					if f.ste.currentFrame, err = f.ste.pushFrameAt(nil, f.ste.currentFrame.lastSubFP, termLen); err == nil {
-						err = f.ste.currentFrame.loadBlock()
-					}
-					for err == nil && f.ste.currentFrame.next() {
-						if f.ste.currentFrame, err = f.ste.pushFrameAt(nil, f.ste.currentFrame.lastSubFP, f.ste.term.length); err == nil {
-							err = f.ste.currentFrame.loadBlock()
-						}
-					}
-					if err != nil {
-						return 0, err
-					}
-				}
 
 				// fmt.Println("        not found")
 				return SEEK_STATUS_NOT_FOUND, nil
@@ -574,64 +613,9 @@ func (f *segmentTermsEnumFrame) scanToTermNonLeaf(target []byte,
 
 func (f *segmentTermsEnumFrame) fillTerm() {
 	termLength := f.prefix + f.suffix
-	f.ste.term.length = f.prefix + f.suffix
-	if len(f.ste.term.bytes) < termLength {
-		f.ste.term.ensureSize(termLength)
-	}
-	copy(f.ste.term.bytes[f.prefix:], f.suffixBytes[f.startBytePos:f.startBytePos+f.suffix])
-}
-
-func (f *segmentTermsEnumFrame) decodeMetaData() (err error) {
-	// fmt.Printf("BTTR.decodeMetadata seg=%v mdUpto=%v vs termBlockOrd=%v\n",
-	// 	f.ste.fr.parent.segment, f.metaDataUpto, f.state.TermBlockOrd)
-
-	// lazily catch up on metadata decode:
-	limit := f.getTermBlockOrd()
-	absolute := f.metaDataUpto == 0
-	assert(limit > 0)
-
-	// TODO: better API would be "jump straight to term=N"???
-	for f.metaDataUpto < limit {
-		// TODO: we could make "tiers" of metadata, ie,
-		// decode docFreq/totalTF but don't decode postings
-		// metadata; this way caller could get
-		// docFreq/totalTF w/o paying decode cost for
-		// postings
-
-		// TODO: if docFreq were bulk decoded we could
-		// just skipN here:
-
-		// stats
-		if f.state.DocFreq, err = asInt(f.statsReader.ReadVInt()); err != nil {
-			return err
-		}
-		// fmt.Printf("    dF=%v\n", f.state.DocFreq)
-		if f.ste.fr.fieldInfo.IndexOptions() != INDEX_OPT_DOCS_ONLY {
-			var n int64
-			if n, err = f.statsReader.ReadVLong(); err != nil {
-				return err
-			}
-			f.state.TotalTermFreq = int64(f.state.DocFreq) + n
-			// fmt.Printf("    totTF=%v\n", f.state.TotalTermFreq)
-		}
-
-		// metadata
-		for i := 0; i < f.ste.fr.longsSize; i++ {
-			if f.longs[i], err = f.bytesReader.ReadVLong(); err != nil {
-				return err
-			}
-		}
-
-		if err = f.ste.fr.parent.postingsReader.DecodeTerm(f.longs,
-			f.bytesReader, f.ste.fr.fieldInfo, f.state, absolute); err != nil {
-			return err
-		}
-		f.metaDataUpto++
-		absolute = false
-	}
-
-	f.state.TermBlockOrd = f.metaDataUpto
-	return nil
+	f.ste.term.SetLength(termLength)
+	f.ste.term.Grow(termLength)
+	copy(f.ste.term.Bytes()[f.prefix:], f.suffixBytes[f.startBytePos:f.startBytePos+f.suffix])
 }
 
 // for debugging
@@ -663,50 +647,50 @@ func utf8ToString(iso8859_1_buf []byte) string {
 	return string(iso8859_1_buf)
 }
 
-// Lucene's BytesRef is basically Slice in Go, except here
-// that it's used as a local buffer when data is filled with
-// length unchanged temporarily.
-type bytesRef struct {
-	/** The contents of the BytesRef. Should never be {@code null}. */
-	bytes []byte
-	/** Length of used bytes. */
-	length int
-}
+// // Lucene's BytesRef is basically Slice in Go, except here
+// // that it's used as a local buffer when data is filled with
+// // length unchanged temporarily.
+// type bytesRef struct {
+// 	/** The contents of the BytesRef. Should never be {@code null}. */
+// 	bytes []byte
+// 	/** Length of used bytes. */
+// 	length int
+// }
 
-func newBytesRef() *bytesRef {
-	return &bytesRef{}
-}
+// func newBytesRef() *bytesRef {
+// 	return &bytesRef{}
+// }
 
-func (br *bytesRef) toBytes() []byte {
-	return br.bytes[0:br.length]
-}
+// func (br *bytesRef) toBytes() []byte {
+// 	return br.bytes[0:br.length]
+// }
 
-func (br *bytesRef) ensureSize(minSize int) {
-	assert(minSize >= 0)
-	if cap(br.bytes) < minSize {
-		next := make([]byte, util.Oversize(minSize, 1))
-		copy(next, br.bytes)
-		br.bytes = next
-	}
-}
+// func (br *bytesRef) ensureSize(minSize int) {
+// 	assert(minSize >= 0)
+// 	if cap(br.bytes) < minSize {
+// 		next := make([]byte, util.Oversize(minSize, 1))
+// 		copy(next, br.bytes)
+// 		br.bytes = next
+// 	}
+// }
 
-func (br *bytesRef) String() string {
-	return brToString(br.bytes[0:br.length])
-}
+// func (br *bytesRef) String() string {
+// 	return brToString(br.bytes[0:br.length])
+// }
 
-/**
- * Copies the bytes from the given {@link BytesRef}
- * <p>
- * NOTE: if this would exceed the array size, this method creates a
- * new reference array.
- */
-func (br *bytesRef) copyBytes(other []byte) {
-	if cap(br.bytes) < len(other) {
-		next := make([]byte, len(other))
-		br.bytes = next
-	} else if len(br.bytes) < len(other) {
-		br.bytes = br.bytes[0:len(other)]
-	}
-	copy(br.bytes, other)
-	br.length = len(other)
-}
+// /**
+//  * Copies the bytes from the given {@link BytesRef}
+//  * <p>
+//  * NOTE: if this would exceed the array size, this method creates a
+//  * new reference array.
+//  */
+// func (br *bytesRef) copyBytes(other []byte) {
+// 	if cap(br.bytes) < len(other) {
+// 		next := make([]byte, len(other))
+// 		br.bytes = next
+// 	} else if len(br.bytes) < len(other) {
+// 		br.bytes = br.bytes[0:len(other)]
+// 	}
+// 	copy(br.bytes, other)
+// 	br.length = len(other)
+// }

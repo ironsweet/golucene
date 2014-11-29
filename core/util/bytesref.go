@@ -117,6 +117,37 @@ func NewBytesRefBuilder() *BytesRefBuilder {
 	return new(BytesRefBuilder)
 }
 
+/* Return a reference to the bytes of this build. */
+func (b *BytesRefBuilder) Bytes() []byte {
+	return b.ref
+}
+
+/* Return the number of bytes in this buffer. */
+func (b *BytesRefBuilder) Length() int {
+	return len(b.ref)
+}
+
+/* Set the length. */
+func (b *BytesRefBuilder) SetLength(length int) {
+	assert(length <= len(b.ref))
+	b.ref = b.ref[:length]
+}
+
+/* Return the byte at the given offset. */
+func (b *BytesRefBuilder) At(offset int) byte {
+	return b.ref[offset]
+}
+
+/* Set a byte. */
+func (b *BytesRefBuilder) Set(offset int, v byte) {
+	b.ref[offset] = v
+}
+
+/* Ensure that this builder can hold at least capacity bytes without resizing. */
+func (b *BytesRefBuilder) Grow(capacity int) {
+	b.ref = GrowByteSlice(b.ref, capacity)
+}
+
 func (b *BytesRefBuilder) Get() *BytesRef {
 	return NewBytesRef(b.ref)
 }

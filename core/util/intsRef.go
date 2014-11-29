@@ -104,8 +104,22 @@ func (a *IntsRefBuilder) Length() int {
 	return a.ref.Length
 }
 
+func (a *IntsRefBuilder) Clear() {
+	a.ref.Length = 0
+}
+
 func (a *IntsRefBuilder) At(offset int) int {
 	return a.ref.Ints[offset]
+}
+
+func (a *IntsRefBuilder) Append(i int) {
+	a.Grow(a.ref.Length + 1)
+	a.ref.Ints[a.ref.Length] = i
+	a.ref.Length++
+}
+
+func (a *IntsRefBuilder) Grow(newLength int) {
+	a.ref.Ints = GrowIntSlice(a.ref.Ints, newLength)
 }
 
 func (a *IntsRefBuilder) CopyIntSlice([]int) {

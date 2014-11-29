@@ -41,7 +41,7 @@ type SegmentTermsEnum struct {
 	// assert only:
 	eof bool
 
-	term      *bytesRef
+	term      *util.BytesRefBuilder
 	fstReader fst.BytesReader
 
 	arcs []*fst.Arc
@@ -52,7 +52,7 @@ func newSegmentTermsEnum(r *FieldReader) *SegmentTermsEnum {
 		fr:            r,
 		stack:         make([]*segmentTermsEnumFrame, 0),
 		scratchReader: store.NewEmptyByteArrayDataInput(),
-		term:          newBytesRef(),
+		term:          util.NewBytesRefBuilder(),
 		arcs:          make([]*fst.Arc, 1),
 	}
 	ans.TermsEnumImpl = NewTermsEnumImpl(ans)
@@ -179,13 +179,9 @@ func (e *SegmentTermsEnum) pushFrameAt(arc *fst.Arc, fp int64, length int) (f *s
 }
 
 func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
-	if e.fr.index == nil {
-		panic("terms index was not loaded")
-	}
+	assert2(e.fr.index != nil, "terms index was not loaded")
 
-	if cap(e.term.bytes) <= len(target) {
-		e.term.ensureSize(1 + len(target))
-	}
+	e.term.Grow(1 + len(target))
 
 	e.eof = false
 	// fmt.Printf("BTTR.seekExact seg=%v target=%v:%v current=%v (exists?=%v) validIndexPrefix=%v\n",
@@ -211,16 +207,12 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		// fmt.Printf("  re-use current seek state validIndexPrefix=%v\n", e.validIndexPrefix)
 
 		arc = e.arcs[0]
-		if !arc.IsFinal() {
-			panic("assert fail")
-		}
+		assert(arc.IsFinal())
 		output = arc.Output
 		targetUpto = 0
 
 		lastFrame := e.stack[0]
-		if e.validIndexPrefix > e.term.length {
-			panic("assert fail")
-		}
+		assert(e.validIndexPrefix <= e.term.Length())
 
 		targetLimit := len(target)
 		if e.validIndexPrefix < targetLimit {
@@ -236,7 +228,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 		// First compare up to valid seek frames:
 		for targetUpto < targetLimit {
-			cmp = int(e.term.bytes[targetUpto]) - int(target[targetUpto])
+			cmp = int(e.term.At(targetUpto)) - int(target[targetUpto])
 			// fmt.Printf("    cycle targetUpto=%v (vs limit=%v) cmp=%v (targetLabel=%c vs termLabel=%c) arc.output=%v output=%v\n",
 			// 	targetUpto, targetLimit, cmp, target[targetUpto], e.term.bytes[targetUpto], arc.Output, output)
 			if cmp != 0 {
@@ -264,11 +256,11 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			// to find out if the target term is before,
 			// equal or after the current term
 			targetLimit2 := len(target)
-			if e.term.length < targetLimit2 {
-				targetLimit2 = e.term.length
+			if e.term.Length() < targetLimit2 {
+				targetLimit2 = e.term.Length()
 			}
 			for targetUpto < targetLimit2 {
-				cmp = int(e.term.bytes[targetUpto]) - int(target[targetUpto])
+				cmp = int(e.term.At(targetUpto)) - int(target[targetUpto])
 				// fmt.Printf("    cycle2 targetUpto=%v (vs limit=%v) cmp=%v (targetLabel=%c vs termLabel=%c)\n",
 				// 	targetUpto, targetLimit, cmp, target[targetUpto], e.term.bytes[targetUpto])
 				if cmp != 0 {
@@ -278,7 +270,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			}
 
 			if cmp == 0 {
-				cmp = e.term.length - len(target)
+				cmp = e.term.Length() - len(target)
 			}
 			targetUpto = targetUptoMid
 		}
@@ -300,9 +292,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 			e.currentFrame.rewind()
 		} else {
 			// Target is exactly the same as current term
-			if e.term.length != len(target) {
-				panic("assert fail")
-			}
+			assert(e.term.Length() == len(target))
 			if e.termExists {
 				// fmt.Println("  target is same as current; return true")
 				return true, nil
@@ -348,7 +338,8 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 
 			if !e.currentFrame.hasTerms {
 				e.termExists = false
-				e.term.bytes[targetUpto] = byte(targetLabel)
+				e.term.Set(targetUpto, byte(targetLabel))
+				e.term.SetLength(1 + targetUpto)
 				// fmt.Printf("  FAST NOT_FOUND term=%v\n", e.term)
 				return false, nil
 			}
@@ -371,7 +362,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 		} else {
 			// Follow this arc
 			arc = nextArc
-			e.term.bytes[targetUpto] = byte(targetLabel)
+			e.term.Set(targetUpto, byte(targetLabel))
 			// aggregate output as we go:
 			assert(arc.Output != nil)
 			if !fst.CompareFSTValue(arc.Output, noOutput) {
@@ -400,7 +391,7 @@ func (e *SegmentTermsEnum) SeekExact(target []byte) (ok bool, err error) {
 	// Target term is entirely contained in the index:
 	if !e.currentFrame.hasTerms {
 		e.termExists = false
-		e.term.length = targetUpto
+		e.term.SetLength(targetUpto)
 		// log.Printf("  FAST NOT_FOUND term=%v", e.term)
 		return false, nil
 	}
@@ -436,7 +427,7 @@ func (e *SegmentTermsEnum) printSeekState() {
 		for {
 			f := e.frame(ord)
 			assert(f != nil)
-			prefix := e.term.bytes[0:f.prefix]
+			// prefix := e.term.Bytes()[:f.prefix]
 			if f.nextEnt == -1 {
 				// action := "(next)"
 				// if isSeekFrame {
@@ -478,29 +469,29 @@ func (e *SegmentTermsEnum) printSeekState() {
 				assert2(!isSeekFrame || f.arc != nil,
 					"isSeekFrame=%v f.arc=%v", isSeekFrame, f.arc)
 				panic("not implemented yet")
-				ret, err := fst.GetFSTOutput(e.fr.index, prefix)
-				if err != nil {
-					panic(err)
-				}
-				output := ret.([]byte)
-				if output == nil {
-					// log.Println("      broken seek state: prefix is not final in index")
-					panic("seek state is broken")
-				} else if isSeekFrame && !f.isFloor {
-					reader := store.NewByteArrayDataInput(output)
-					codeOrig, _ := reader.ReadVLong()
-					code := f.fp << BTT_OUTPUT_FLAGS_NUM_BITS
-					if f.hasTerms {
-						code += BTT_OUTPUT_FLAG_HAS_TERMS
-					}
-					if f.isFloor {
-						code += BTT_OUTPUT_FLAG_IS_FLOOR
-					}
-					if codeOrig != code {
-						// log.Printf("      broken seek state: output code=%v doesn't match frame code=%v", codeOrig, code)
-						panic("seek state is broken")
-					}
-				}
+				// ret, err := fst.GetFSTOutput(e.fr.index, prefix)
+				// if err != nil {
+				// 	panic(err)
+				// }
+				// output := ret.([]byte)
+				// if output == nil {
+				// 	// log.Println("      broken seek state: prefix is not final in index")
+				// 	panic("seek state is broken")
+				// } else if isSeekFrame && !f.isFloor {
+				// 	reader := store.NewByteArrayDataInput(output)
+				// 	codeOrig, _ := reader.ReadVLong()
+				// 	code := f.fp << BTT_OUTPUT_FLAGS_NUM_BITS
+				// 	if f.hasTerms {
+				// 		code += BTT_OUTPUT_FLAG_HAS_TERMS
+				// 	}
+				// 	if f.isFloor {
+				// 		code += BTT_OUTPUT_FLAG_IS_FLOOR
+				// 	}
+				// 	if codeOrig != code {
+				// 		// log.Printf("      broken seek state: output code=%v doesn't match frame code=%v", codeOrig, code)
+				// 		panic("seek state is broken")
+				// 	}
+				// }
 			}
 			if f == e.currentFrame {
 				break
@@ -519,7 +510,7 @@ func (e *SegmentTermsEnum) Next() (buf []byte, err error) {
 
 func (e *SegmentTermsEnum) Term() []byte {
 	assert(!e.eof)
-	return e.term.toBytes()
+	return e.term.Bytes()
 }
 
 func assert(ok bool) {
@@ -569,14 +560,14 @@ func (e *SegmentTermsEnum) SeekExactFromLast(target []byte, otherState TermState
 	// log.Printf("BTTR.seekExact termState seg=%v target=%v state=%v",
 	// 	e.fr.parent.segment, brToString(target), otherState)
 	e.eof = false
-	if !fst.CompareFSTValue(target, e.term.toBytes()) || !e.termExists {
+	if !fst.CompareFSTValue(target, e.term.Get()) || !e.termExists {
 		assert(otherState != nil)
 		// TODO can not assert type conversion here
 		// _, ok := otherState.(*BlockTermState)
 		// assert(ok)
 		e.currentFrame = e.staticFrame
 		e.currentFrame.state.CopyFrom(otherState)
-		e.term.copyBytes(target)
+		e.term.Copy(target)
 		e.currentFrame.metaDataUpto = e.currentFrame.getTermBlockOrd()
 		assert(e.currentFrame.metaDataUpto > 0)
 		e.validIndexPrefix = 0
