@@ -207,8 +207,6 @@ func (e MaxBytesLengthExceededError) Error() string {
 
 /* Adds a new BytesRef. */
 func (h *BytesRefHash) Add(bytes []byte) (int, error) {
-	assert(bytes != nil)
-	assert(len(bytes) > 0)
 	assert2(h.bytesStart != nil, "Bytesstart is null - not initialized")
 	length := len(bytes)
 	// final position

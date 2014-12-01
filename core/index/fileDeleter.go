@@ -6,8 +6,10 @@ import (
 	"github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"math"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -247,7 +249,41 @@ double-write in cases where the previous IndexWriter did not
 gracefully close/rollback (e.g. os/machine crashed or lost power).
 */
 func inflateGens(infos *SegmentInfos, files []string, infoStream util.InfoStream) {
-	panic("niy")
+	var maxSegmentGen int64 = math.MinInt64
+	var maxSegmentName int64 = math.MinInt32
+
+	// Confusingly, this is the union of liveDocs, field infos, doc
+	// values (and maybe others, in the future) gens. THis is somewhat
+	// messy, since it means DV updates will suddenly write to the next
+	// gen after live docs' gen, for example, but we don't have the
+	// APIs to ask the codec which file is which:
+	maxPerSegmentGen := make(map[string]int64)
+
+	for _, filename := range files {
+		if filename == INDEX_FILENAME_SEGMENTS_GEN || filename == WRITE_LOCK_NAME {
+			// do nothing
+		} else if strings.HasPrefix(filename, INDEX_FILENAME_SEGMENTS) {
+			if n := GenerationFromSegmentsFileName(filename); n > maxSegmentGen {
+				maxSegmentGen = n
+			}
+		} else {
+			segmentName := util.ParseSegmentName(filename)
+			assert2(strings.HasPrefix(segmentName, "_"), "file=%v", filename)
+
+			n, err := strconv.ParseInt(segmentName[1:], 36, 64)
+			assert(err == nil)
+			if n > maxSegmentName {
+				maxSegmentName = n
+			}
+
+			curGen := maxPerSegmentGen[segmentName] // or zero if not exists
+			if n := util.ParseGeneration(filename); n > curGen {
+				curGen = n
+			}
+
+			maxPerSegmentGen[segmentName] = curGen
+		}
+	}
 }
 
 func (fd *IndexFileDeleter) ensureOpen() {

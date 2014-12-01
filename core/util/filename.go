@@ -84,6 +84,23 @@ func StripExtension(filename string) string {
 	return filename
 }
 
+/* Returns the generation from this file name, or 0 if there is no generation. */
+func ParseGeneration(filename string) int64 {
+	assert(strings.HasPrefix(filename, "_"))
+	parts := strings.Split(StripExtension(filename)[1:], "_")
+	// 4 cases:
+	// segment.ext
+	// segment_gen.ext
+	// segment_codec_suffix.ext
+	// segment_gen_codec_suffix.ext
+	if n := len(parts); n == 2 || n == 4 {
+		v, err := strconv.ParseInt(parts[1], 36, 64)
+		assert(err == nil)
+		return v
+	}
+	return 0
+}
+
 /*
 All files created by codecs must match this pattern (checked in SegmentInfo)
 */
