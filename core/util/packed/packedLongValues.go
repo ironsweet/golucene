@@ -76,16 +76,39 @@ func (b *PackedLongValuesBuilderImpl) Build() PackedLongValues {
 }
 
 func (b *PackedLongValuesBuilderImpl) RamBytesUsed() int64 {
-	panic("niy")
+	return b.ramBytesUsed
 }
 
 /* Return the number of elements that have been added to this builder */
 func (b *PackedLongValuesBuilderImpl) Size() int64 {
-	panic("niy")
+	return b.size
 }
 
 /* Add a new element to this builder. */
 func (b *PackedLongValuesBuilderImpl) Add(l int64) PackedLongValuesBuilder {
+	assert2(b.pending != nil, "Cannot be reused after build()")
+	if b.pendingOff == len(b.pending) { // check size
+		if b.valuesOff == len(b.values) {
+			newLength := util.Oversize(b.valuesOff+1, 8)
+			b.grow(newLength)
+		}
+		b.pack()
+	}
+	b.pending[b.pendingOff] = l
+	b.pendingOff++
+	b.size++
+	return b
+}
+
+func (b *PackedLongValuesBuilderImpl) finish() {
+	panic("niy")
+}
+
+func (b *PackedLongValuesBuilderImpl) pack() {
+	panic("niy")
+}
+
+func (b *PackedLongValuesBuilderImpl) grow(newBlockCount int) {
 	panic("niy")
 }
 
