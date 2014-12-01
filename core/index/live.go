@@ -22,6 +22,7 @@ type LiveIndexWriterConfig interface {
 	RAMBufferSizeMB() float64
 	Similarity() Similarity
 	Codec() Codec
+	MergePolicy() MergePolicy
 	indexingChain() IndexingChain
 	RAMPerThreadHardLimitMB() int
 	flushPolicy() FlushPolicy
@@ -191,6 +192,18 @@ func (conf *LiveIndexWriterConfigImpl) MaxBufferedDocs() int {
 	return conf.maxBufferedDocs
 }
 
+/*
+Expert: MergePolicy is invoked whenver there are changes to the
+segments in the index. Its role is to select which merges to do, if
+any, and return a MergeSpecification describing the merges. It also
+selects merges to do for forceMerge.
+*/
+func (conf *LiveIndexWriterConfigImpl) SetMergePolicy(mergePolicy MergePolicy) *LiveIndexWriterConfigImpl {
+	assert2(mergePolicy != nil, "mergePolicy must not be nil")
+	conf.mergePolicy = mergePolicy
+	return conf
+}
+
 func (conf *LiveIndexWriterConfigImpl) RAMBufferSizeMB() float64 {
 	return conf.ramBufferSizeMB
 }
@@ -235,6 +248,12 @@ func (conf *LiveIndexWriterConfigImpl) Similarity() Similarity {
 /* Returns the current Codec. */
 func (conf *LiveIndexWriterConfigImpl) Codec() Codec {
 	return conf.codec
+}
+
+// L477
+/* Returns the current MergePolicy in use by this writer. */
+func (conf *LiveIndexWriterConfigImpl) MergePolicy() MergePolicy {
+	return conf.mergePolicy
 }
 
 /* Returns the configured DocumentsWriterPerThreadPool instance. */

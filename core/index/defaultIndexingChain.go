@@ -524,9 +524,6 @@ func (f *PerField) invert(field IndexableField, first bool) error {
 		// TODO: after we fix analyzers, also check if termVectorOffsets will be indexed.
 		checkOffsets := fieldType.IndexOptions() == INDEX_OPT_DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS
 
-		lastStartOffset := 0
-		lastPosition := 0
-
 		// To assist people in tracking down problems in analysis components,
 		// we wish to write the field name to the infostream when we fail.
 		// We expect some caller to eventually deal with the real error, so
@@ -594,7 +591,7 @@ func (f *PerField) invert(field IndexableField, first bool) error {
 			// marked as deleted, but still consume a docId
 
 			posIncr := f.invertState.posIncrAttribute.PositionIncrement()
-			if f.invertState.position += posIncr; f.invertState.position < lastPosition {
+			if f.invertState.position += posIncr; f.invertState.position < f.invertState.lastPosition {
 				assert2(posIncr != 0,
 					"first position increment must be > 0 (got 0) for field '%v'",
 					field.Name)
@@ -602,7 +599,7 @@ func (f *PerField) invert(field IndexableField, first bool) error {
 					"position increments (and gaps) must be >= 0 (got %v) for field '%v'",
 					posIncr, field.Name))
 			}
-			lastPosition = f.invertState.position
+			f.invertState.lastPosition = f.invertState.position
 			if posIncr == 0 {
 				f.invertState.numOverlap++
 			}
@@ -610,12 +607,13 @@ func (f *PerField) invert(field IndexableField, first bool) error {
 			if checkOffsets {
 				startOffset := f.invertState.offset + f.invertState.offsetAttribute.StartOffset()
 				endOffset := f.invertState.offset + f.invertState.offsetAttribute.EndOffset()
-				assert2(startOffset >= lastStartOffset && startOffset <= endOffset,
+				assert2(startOffset >= f.invertState.lastStartOffset && startOffset <= endOffset,
 					"startOffset must be non-negative, "+
 						"and endOffset must be >= startOffset, "+
 						"and offsets must not go backwards "+
 						"startOffset=%v,endOffset=%v,lastStartOffset=%v for field '%v'",
-					startOffset, endOffset, lastStartOffset, field.Name)
+					startOffset, endOffset, f.invertState.lastStartOffset, field.Name)
+				f.invertState.lastStartOffset = startOffset
 			}
 
 			// fmt.Printf("  term=%v\n", f.invertState.termAttribute)

@@ -21,6 +21,8 @@ type FieldInvertState struct {
 	maxTermFrequency int
 	uniqueTermCount  int
 	boost            float32
+	lastStartOffset  int
+	lastPosition     int
 	attributeSource  *util.AttributeSource
 
 	offsetAttribute  OffsetAttribute
@@ -43,6 +45,8 @@ func (st *FieldInvertState) reset() {
 	st.maxTermFrequency = 0
 	st.uniqueTermCount = 0
 	st.boost = 1.0
+	st.lastStartOffset = 0
+	st.lastPosition = 0
 }
 
 /* Sets attributeSource to a new instance. */

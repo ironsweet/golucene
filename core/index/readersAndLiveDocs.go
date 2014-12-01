@@ -162,7 +162,7 @@ func (rld *ReadersAndUpdates) writeLiveDocs(dir store.Directory) (bool, error) {
 				// write will write to a new file
 				rld.info.AdvanceNextWriteDelGen()
 
-				// Dleete any prtially created files(s):
+				// Delete any partially created files(s):
 				trackingDir.EachCreatedFiles(func(filename string) {
 					dir.DeleteFile(filename) // ignore error
 				})

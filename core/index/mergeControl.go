@@ -36,7 +36,12 @@ func newMergeControl(infoStream util.InfoStream, readerPool *ReaderPool) *MergeC
 	}
 }
 
-// L2183
+// L2272
+/*
+Aborts runing merges. Be careful when using this method: when you
+abort a long-running merge, you lose a lot of work that must later be
+redone.
+*/
 func (mc *MergeControl) abortAllMerges() {
 	mc.Lock() // synchronized
 	defer mc.Unlock()
@@ -82,61 +87,6 @@ func (mc *MergeControl) abortAllMerges() {
 
 	if mc.infoStream.IsEnabled("IW") {
 		mc.infoStream.Message("IW", "all running merges have aborted")
-	}
-}
-
-// L2183
-
-func (mc *MergeControl) finishMerges(waitForMerges bool) {
-	mc.Lock()
-	defer mc.Unlock()
-
-	if !waitForMerges {
-		mc.stopMerges = true
-
-		// Abort all pending & running merges:
-		for e := mc.pendingMerges.Front(); e != nil; e = e.Next() {
-			merge := e.Value.(*OneMerge)
-			if mc.infoStream.IsEnabled("IW") {
-				mc.infoStream.Message("IW", "now abort pending merge %v", mc.readerPool.segmentsToString(merge.segments))
-			}
-			merge.abort()
-			mc.mergeFinish(merge)
-		}
-		mc.pendingMerges.Init()
-
-		for merge, _ := range mc.runningMerges {
-			if mc.infoStream.IsEnabled("IW") {
-				mc.infoStream.Message("IW", "now abort running merge %v", mc.readerPool.segmentsToString(merge.segments))
-			}
-			merge.abort()
-		}
-
-		// These merges periodically check whether they have been aborted,
-		// and stop if so. We wait here to make sure they all stop. It
-		// should not take very long because the merge threads
-		// periodically check if they are aborted.
-		for len(mc.runningMerges) > 0 {
-			if mc.infoStream.IsEnabled("IW") {
-				mc.infoStream.Message("IW", "now wait for %v running merge/s to abort", len(mc.runningMerges))
-			}
-			mc.mergeSignal.Wait()
-		}
-
-		mc.stopMerges = false
-		mc.mergeSignal.Signal()
-
-		assert(len(mc.runningMerges) == 0)
-
-		if mc.infoStream.IsEnabled("IW") {
-			mc.infoStream.Message("IW", "all running merges have aborted")
-		}
-	} else {
-		// waitForMerges() will ensure any running addIndexes finishes.
-		// It's fine if a new one attempts to start because from our
-		// caller above the call will see that we are in the process of
-		// closing, and will throw an AlreadyClosedError.
-		mc.waitForMerges()
 	}
 }
 

@@ -171,16 +171,9 @@ func (conf *IndexWriterConfig) SetMergeScheduler(mergeScheduler MergeScheduler) 
 	return conf
 }
 
-/*
-Expert: MergePolicy is invoked whenver there are changes to the
-segments in the index. Its role is to select which merges to do, if
-any, and return a MergeSpecification describing the merges. It also
-selects merges to do for forceMerge.
-*/
-func (conf *IndexWriterConfig) SetMergePolicy(mergePolicy MergePolicy) *IndexWriterConfig {
-	assert2(mergePolicy != nil, "mergePolicy must not be nil")
-	conf.mergePolicy = mergePolicy
-	return conf
+// L310
+func (conf *IndexWriterConfig) MergePolicy() MergePolicy {
+	return conf.mergePolicy
 }
 
 // L406

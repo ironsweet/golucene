@@ -636,7 +636,7 @@ func (sis *SegmentInfos) write(directory store.Directory) (err error) {
 
 		// If this segment is pre-4.x, perform a one-time "upgrade" to
 		// write the .si file for it:
-		if version := si.Version(); version == "" || versionLess(version, "4.0") {
+		if version := si.Version(); len(version) == 0 || !version.OnOrAfter(util.VERSION_4_0) {
 			panic("not implemented yet")
 		}
 	}
@@ -648,32 +648,32 @@ func (sis *SegmentInfos) write(directory store.Directory) (err error) {
 	return nil
 }
 
-func versionLess(a, b string) bool {
-	parts1 := strings.Split(a, ".")
-	parts2 := strings.Split(b, ".")
-	for i, v := range parts1 {
-		n1, _ := strconv.Atoi(v)
-		if i < len(parts2) {
-			if n2, _ := strconv.Atoi(parts2[i]); n1 != n2 {
-				return n1 < n2
-			}
-		} else if n1 != 0 {
-			// a has some extra trailing tokens.
-			// if these are all zeroes, that's ok.
-			return false
-		}
-	}
+// func versionLess(a, b string) bool {
+// 	parts1 := strings.Split(a, ".")
+// 	parts2 := strings.Split(b, ".")
+// 	for i, v := range parts1 {
+// 		n1, _ := strconv.Atoi(v)
+// 		if i < len(parts2) {
+// 			if n2, _ := strconv.Atoi(parts2[i]); n1 != n2 {
+// 				return n1 < n2
+// 			}
+// 		} else if n1 != 0 {
+// 			// a has some extra trailing tokens.
+// 			// if these are all zeroes, that's ok.
+// 			return false
+// 		}
+// 	}
 
-	// b has some extra trailing tokens.
-	// if these are all zeroes, that's ok.
-	for i := len(parts1); i < len(parts2); i++ {
-		if n, _ := strconv.Atoi(parts2[i]); n != 0 {
-			return true
-		}
-	}
+// 	// b has some extra trailing tokens.
+// 	// if these are all zeroes, that's ok.
+// 	for i := len(parts1); i < len(parts2); i++ {
+// 		if n, _ := strconv.Atoi(parts2[i]); n != 0 {
+// 			return true
+// 		}
+// 	}
 
-	return false
-}
+// 	return false
+// }
 
 /*
 Returns a copy of this instance, also copying each SegmentInfo.
@@ -775,10 +775,10 @@ func (sis *SegmentInfos) files(dir store.Directory, includeSegmentsFile bool) []
 	return res
 }
 
-func (sis *SegmentInfos) finishCommit(dir store.Directory) error {
+func (sis *SegmentInfos) finishCommit(dir store.Directory) (fileName string, err error) {
 	assert(dir != nil)
 	assert2(sis.pendingSegnOutput != nil, "prepareCommit was not called")
-	if err := func() error {
+	if err = func() error {
 		var success = false
 		defer func() {
 			if !success {
@@ -810,7 +810,7 @@ func (sis *SegmentInfos) finishCommit(dir store.Directory) error {
 		success = true
 		return nil
 	}(); err != nil {
-		return err
+		return
 	}
 
 	// NOTE: if we crash here, we have left a segments_N file in the
@@ -821,8 +821,8 @@ func (sis *SegmentInfos) finishCommit(dir store.Directory) error {
 	// error, which should cause the retry logic in SegmentInfos to
 	// kick in and load the last good (previous) segments_N-1 file.
 
-	fileName := util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", sis.generation)
-	if err := func() error {
+	fileName = util.FileNameFromGeneration(INDEX_FILENAME_SEGMENTS, "", sis.generation)
+	if err = func() error {
 		var success = false
 		defer func() {
 			if !success {
@@ -835,12 +835,12 @@ func (sis *SegmentInfos) finishCommit(dir store.Directory) error {
 		success = err == nil
 		return err
 	}(); err != nil {
-		return err
+		return
 	}
 
 	sis.lastGeneration = sis.generation
 	writeSegmentsGen(dir, sis.generation)
-	return nil
+	return
 }
 
 // L1041

@@ -304,6 +304,10 @@ func (dw *DocumentsWriter) updateDocument(doc []model.IndexableField,
 
 		err := func() error {
 			defer func() {
+				// We don't know whether the document actually counted as
+				// being indexed, so we must subtract here to accumulate our
+				// separate counter:
+				atomic.AddInt32(&dw.numDocsInRAM, int32(dwpt.numDocsInRAM-dwptNuMDocs))
 				if dwpt.checkAndResetHasAborted() {
 					if len(dwpt.filesToDelete) > 0 {
 						dw.putEvent(newDeleteNewFilesEvent(dwpt.filesToDelete))
@@ -317,7 +321,6 @@ func (dw *DocumentsWriter) updateDocument(doc []model.IndexableField,
 			if err != nil {
 				return err
 			}
-			atomic.AddInt32(&dw.numDocsInRAM, 1)
 			return nil
 		}()
 		if err != nil {
@@ -470,6 +473,7 @@ func (dw *DocumentsWriter) subtractFlushedNumDocs(numFlushed int) {
 	for !atomic.CompareAndSwapInt32(&dw.numDocsInRAM, oldValue, oldValue-int32(numFlushed)) {
 		oldValue = atomic.LoadInt32(&dw.numDocsInRAM)
 	}
+	assert(atomic.LoadInt32(&dw.numDocsInRAM) >= 0)
 }
 
 /*

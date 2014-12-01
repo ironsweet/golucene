@@ -65,13 +65,11 @@ func (ms *SerialMergeScheduler) Merge(writer *IndexWriter,
 	return
 }
 
-func (ms *SerialMergeScheduler) Clone() MergeScheduler {
-	return NewSerialMergeScheduler()
-}
+// func (ms *SerialMergeScheduler) Clone() MergeScheduler {
+// 	return NewSerialMergeScheduler()
+// }
 
-func (ms *SerialMergeScheduler) Close() error {
-	return nil
-}
+func (ms *SerialMergeScheduler) Close() error { return nil }
 
 // index/MergePolicy.java
 
@@ -140,7 +138,6 @@ type MergeSpecifier interface {
 	// Determine what set of merge operations is necessary in order to
 	// expunge all deletes from the index.
 	// FindForcedDeletesMerges(segmentinfos *SegmentInfos) (spec MergeSpecification, err error)
-	io.Closer
 }
 
 /*
@@ -649,8 +646,6 @@ func (tmp *TieredMergePolicy) FindForcedMerges(infos *SegmentInfos,
 	panic("not implemented yet")
 }
 
-func (tmp *TieredMergePolicy) Close() error { return nil }
-
 func (tmp *TieredMergePolicy) floorSize(bytes int64) int64 {
 	if bytes > tmp.floorSegmentBytes {
 		return bytes
@@ -763,10 +758,6 @@ func (mp *LogMergePolicy) SetMergeFactor(mergeFactor int) {
 // of delets when choosing segments to merge
 func (mp *LogMergePolicy) SetCalbrateSizeByDeletes(calibrateSizeByDeletes bool) {
 	mp.calibrateSizeByDeletes = calibrateSizeByDeletes
-}
-
-func (mp *LogMergePolicy) Close() error {
-	return nil
 }
 
 /*

@@ -115,12 +115,12 @@ func newDocumentsWriterPerThread(segmentName string,
 		intBlockAllocator:  newIntBlockAllocator(counter),
 		deleteQueue:        deleteQueue,
 		deleteSlice:        deleteQueue.newSlice(),
-		segmentInfo:        NewSegmentInfo(directory, util.LUCENE_MAIN_VERSION, segmentName, -1, false, indexWriterConfig.Codec(), nil),
+		segmentInfo:        NewSegmentInfo(directory, util.VERSION_LATEST, segmentName, -1, false, indexWriterConfig.Codec(), nil),
 		filesToDelete:      make(map[string]bool),
 	}
 	ans.docState = newDocState(ans, infoStream)
 	ans.docState.similarity = indexWriterConfig.Similarity()
-	assertn(ans.numDocsInRAM == 0, "num docs ", ans.numDocsInRAM)
+	assert2(ans.numDocsInRAM == 0, "num docs %v", ans.numDocsInRAM)
 	if DWPT_VERBOSE && infoStream.IsEnabled("DWPT") {
 		infoStream.Message("DWPT", "init seg=%v delQueue=%v", segmentName, deleteQueue)
 	}

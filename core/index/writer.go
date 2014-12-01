@@ -183,7 +183,9 @@ type IndexWriter struct {
 	*ClosingControl
 	*MergeControl
 
-	hitOOM bool // volatile
+	// when unrecoverable disaster strikes, we populate this with the
+	// reason that we had to close IndexWriter
+	tragedy error // volatile
 
 	directory store.Directory   // where this index resides
 	analyzer  analysis.Analyzer // how to analyze text
@@ -210,7 +212,6 @@ type IndexWriter struct {
 
 	writeLock store.Lock
 
-	mergePolicy     MergePolicy
 	mergeScheduler  MergeScheduler
 	mergeExceptions []*OneMerge
 	didMessageState bool
@@ -305,7 +306,6 @@ func NewIndexWriter(d store.Directory, conf *IndexWriterConfig) (w *IndexWriter,
 		directory:      d,
 		analyzer:       conf.analyzer,
 		infoStream:     conf.infoStream,
-		mergePolicy:    conf.mergePolicy,
 		mergeScheduler: conf.mergeScheduler,
 		codec:          conf.codec,
 
@@ -478,7 +478,7 @@ func (w *IndexWriter) messageState() {
 	if w.infoStream.IsEnabled("IW") && !w.didMessageState {
 		w.didMessageState = true
 		w.infoStream.Message("IW", "\ndir=%v\nindex=%v\nversion=%v\n%v",
-			w.directory, w.segString(), util.LUCENE_VERSION, w.config)
+			w.directory, w.segString(), util.VERSION_LATEST, w.config)
 	}
 }
 
@@ -486,40 +486,18 @@ func (w *IndexWriter) messageState() {
 Commits all changes to an index, wait for pending merges to complete,
 and closes all associate files.
 
-This is a "slow graceful shutdown" which may take a long time
-especially if a big merge is pending. If you only want to close
-resources, use rollback(). If you only want to commit pending changes
-and close resources, see closeAndWait().
+Note that:
+	1. If you called prepare Commit but failed to call commit, this
+	method will panic and the IndexWriter will not be closed.
+	2. If this method throws any other exception, the IndexWriter will
+	be closed, but changes may have been lost.
 
 Note that this may be a costly operation, so, try to re-use a single
 writer instead of closing and opening a new one. See commit() for
 caveats about write caching done by some IO devices.
 
-If an error is hit during close, e.g., due to disk full or some other
-reason, then both the on-disk index and the internal state of the
-IndexWriter instance will be consistent. However, the close will not
-be complete even though part of it (flushing buffered documents) may
-have succeeded, so the write lock will still be held.
-
-If you can correct the underlying cause (e.g., free up some disk
-space) then you can call close() again. Failing that, if you want to
-force the write lock to be released (dangerous, because ou may then
-lose buffered docs in the IndexWriter instance) then you can do
-something like this:
-
-	defer func() {
-		if IsDirectoryLocked(directory) {
-			UnlockDIrectory(directory)
-		}
-	}
-	err = writer.Close()
-
-after which, you must be certain not ot use the writer instance
-anymore.
-
-NOTE: if this method hits a memory issue, you should immediately
-close the writer, again. See above for details. But it's probably
-impossible for GoLucene.
+NOTE: You must ensure no other threads are still making changes at
+the same time that this method is invoked.
 */
 func (w *IndexWriter) Close() error {
 	return w.CloseAndWait(true)
@@ -528,33 +506,33 @@ func (w *IndexWriter) Close() error {
 /*
 Closes the index with or without waiting for currently running merges
 to finish. This is only meaningful when using a MergeScheduler that
-runs  merges in background threads.
-
-NOTE: if this method hits a memory issue, you should immediately
-close the writer, again. See above for details. But it's probably
-impossible for GoLucene.
+runs  merges in background threads. See Close() for details on
+behavior when errors are hit.
 
 NOTE: it is dangerous to always call closeAndWait(false), especially
 when IndexWriter is not open for very long, because this can result
 in "merge starvation" whereby long merges will never have a chance to
-finish. This will cause too many segments in your index over time.
+finish. This will cause too many segments in your index over time,
+which leads to all sorts of problems like slow searches, too much RAM
+and too many file descriptors used by readers, etc.
 */
 func (w *IndexWriter) CloseAndWait(waitForMerge bool) error {
-	// Ensure that only one goroutine actaully gets to do the closing,
-	// and make sure no commit is also in progress:
-	w.commitLock.Lock()
-	defer w.commitLock.Unlock()
-	return w.close(func() (ok bool, err error) {
-		// If any methods have hit memory issue, then abort on
-		// close, in case the internal state of IndexWriter or
-		// DocumentsWriter is corrupt
-		if w.hitOOM {
-			return w.rollbackInternal()
-		}
-		ok, err = w.closeInternal(waitForMerge, true)
-		w.docWriter.assertEventQueueAfterClose()
-		return
-	})
+	panic("niy")
+	// // Ensure that only one goroutine actaully gets to do the closing,
+	// // and make sure no commit is also in progress:
+	// w.commitLock.Lock()
+	// defer w.commitLock.Unlock()
+	// return w.close(func() (ok bool, err error) {
+	// 	// If any methods have hit memory issue, then abort on
+	// 	// close, in case the internal state of IndexWriter or
+	// 	// DocumentsWriter is corrupt
+	// 	if w.hitOOM {
+	// 		return w.rollbackInternal()
+	// 	}
+	// 	ok, err = w.closeInternal(waitForMerge, true)
+	// 	w.docWriter.assertEventQueueAfterClose()
+	// 	return
+	// })
 }
 
 /*
@@ -590,7 +568,7 @@ func (w *IndexWriter) closeInternal(waitForMerges bool, doFlush bool) (ok bool, 
 	}
 
 	if doFlush {
-		if err = w.commitInternal(); err != nil {
+		if err = w.commitInternal(w.config.MergePolicy()); err != nil {
 			return false, err
 		}
 	}
@@ -649,7 +627,7 @@ func (w *IndexWriter) closeInternalCleanup(waitForMerges bool) error {
 	defer func() {
 		// shutdown policy, scheduler and all threads (this call is not
 		// interruptible):
-		util.CloseWhileSuppressingError(w.mergePolicy, w.mergeScheduler)
+		util.CloseWhileSuppressingError(w.mergeScheduler)
 	}()
 
 	// clean up merge scheduler in all cases, although flushing may have failed:
@@ -701,9 +679,6 @@ Note that it's possible to creat an invalid Unicode string in Java if
 a UTF16 surrogate pair is malformed. In this case, the invalid
 characters are silently replaced with the Unicode replacement
 character U+FFFD.
-
-NOTE: if this method hits a memory issue, you should immediately
-close the writer. See above for details.
 */
 func (w *IndexWriter) AddDocument(doc []IndexableField) error {
 	return w.AddDocumentWithAnalyzer(doc, w.analyzer)
@@ -729,9 +704,6 @@ Updates a document by first deleting the document(s) containing term
 and then adding the new document. The delete and then add are atomic
 as seen by a reader on the same index (flush may happen only after
 the add).
-
-NOTE: if this method hits a memory issue, you should immediately
-close he write. See above for details.
 */
 func (w *IndexWriter) UpdateDocument(term *Term, doc []IndexableField, analyzer analysis.Analyzer) error {
 	w.ensureOpen()
@@ -814,9 +786,6 @@ started. If other routines are still adding documents and flushing
 segments, those newly created segments will not be merged unless you
 call forceMerge again.
 
-NOTE: if this method hits a memory issue, you should immediately
-close the writer.
-
 NOTE: if you call CloseAndWait() with false, which aborts all running
 merges, then any routine still running this method might hit a
 MergeAbortedError.
@@ -830,9 +799,6 @@ Just like forceMerge(), except you can specify whether the call
 should block until all merging completes. This is only meaningful
 with  a Mergecheduler that is able to run merges in background
 routines.
-
-NOTE: if this method hits a memory issue, you should immediately
-close the writer.
 */
 func (w *IndexWriter) forceMergeAndWait(maxNumSegments int, doWait bool) error {
 	panic("not implemented yet")
@@ -847,16 +813,20 @@ func (w *IndexWriter) maxNumSegmentsMergePending() bool {
 	panic("not implemented yet")
 }
 
-func (w *IndexWriter) maybeMerge(trigger MergeTrigger, maxNumSegments int) error {
+func (w *IndexWriter) maybeMerge(mergePolicy MergePolicy,
+	trigger MergeTrigger, maxNumSegments int) error {
+
 	w.ClosingControl.ensureOpen(false)
-	newMergesFound, err := w.updatePendingMerges(trigger, maxNumSegments)
+	newMergesFound, err := w.updatePendingMerges(mergePolicy, trigger, maxNumSegments)
 	if err == nil {
 		err = w.mergeScheduler.Merge(w, trigger, newMergesFound)
 	}
 	return err
 }
 
-func (w *IndexWriter) updatePendingMerges(trigger MergeTrigger, maxNumSegments int) (found bool, err error) {
+func (w *IndexWriter) updatePendingMerges(mergePolicy MergePolicy,
+	trigger MergeTrigger, maxNumSegments int) (found bool, err error) {
+
 	w.Lock() // synchronized
 	defer w.Unlock()
 
@@ -869,12 +839,17 @@ func (w *IndexWriter) updatePendingMerges(trigger MergeTrigger, maxNumSegments i
 		return false, nil
 	}
 
+	// Do not start new merges if disaster struck
+	if w.tragedy != nil {
+		return false, nil
+	}
+
 	var spec MergeSpecification
 	if maxNumSegments != UNBOUNDED_MAX_MERGE_SEGMENTS {
 		assertn(trigger == MERGE_TRIGGER_EXPLICIT || trigger == MERGE_FINISHED,
 			"Expected EXPLIT or MEGE_FINISHED as trigger even with maxNumSegments set but was: %v",
 			MergeTriggerName(trigger))
-		if spec, err = w.mergePolicy.FindForcedMerges(
+		if spec, err = mergePolicy.FindForcedMerges(
 			w.segmentInfos,
 			maxNumSegments,
 			w.segmentsToMerge, w); err != nil {
@@ -886,7 +861,7 @@ func (w *IndexWriter) updatePendingMerges(trigger MergeTrigger, maxNumSegments i
 			}
 		}
 	} else {
-		if spec, err = w.mergePolicy.FindMerges(trigger, w.segmentInfos, w); err != nil {
+		if spec, err = mergePolicy.FindMerges(trigger, w.segmentInfos, w); err != nil {
 			return false, err
 		}
 	}
@@ -967,7 +942,7 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 			w.Lock()
 			defer w.Unlock()
 
-			w.finishMerges(false)
+			w.abortAllMerges()
 			w.stopMerges = true
 		}()
 
@@ -975,9 +950,8 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 			w.infoStream.Message("IW", "rollback: done finish merges")
 		}
 
-		// Must pre-close these two, in case they increment changeCount
-		// so that we can then set it to false before calling closeInternal
-		w.mergePolicy.Close()
+		// Must pre-close in case it increments changeCount so that we
+		// then set it to false before calling closeInternal
 		err = w.mergeScheduler.Close()
 		if err != nil {
 			return err
@@ -1022,6 +996,13 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 
 					if err = w.deleter.refreshList(); err == nil {
 						if err = w.deleter.Close(); err == nil {
+
+							// Must set closed while inside sam esync block where
+							// we call deleter.refresh, else concurrent routines
+							// may try to sneak a flush in, after we leave this
+							// sync block and before we enter the sync block in the
+							// finally clause below that sets closed:
+							w._closed = true
 
 							if err = util.Close(w.writeLock); err == nil { // release write lock
 								w.writeLock = nil
@@ -1109,6 +1090,7 @@ func (w *IndexWriter) publishFlushedSegment(newSegment *SegmentCommitInfo,
 	// Lock order IW -> BDS
 	w.Lock()
 	defer w.Unlock()
+	w.ClosingControl.ensureOpen(false)
 	w.bufferedUpdatesStreamLock.Lock()
 	defer w.bufferedUpdatesStreamLock.Unlock()
 
@@ -1146,7 +1128,7 @@ func (w *IndexWriter) resetMergeExceptions() {
 /*
 Requires commitLock
 */
-func (w *IndexWriter) prepareCommitInternal() error {
+func (w *IndexWriter) prepareCommitInternal(mergePolicy MergePolicy) error {
 	w.startCommitTime = time.Now()
 	w.ClosingControl.ensureOpen(false)
 	if w.infoStream.IsEnabled("IW") {
@@ -1154,7 +1136,7 @@ func (w *IndexWriter) prepareCommitInternal() error {
 		w.infoStream.Message("IW", "  index before flush %v", w.segString())
 	}
 
-	assert2(!w.hitOOM, "this writer hit an OOM; cannot commit")
+	assert2(w.tragedy == nil, "this writer hit an unrecoverable error; cannot commit\n%v", w.tragedy)
 	assert2(w.pendingCommit == nil, "prepareCommit was already called with no corresponding call to commit")
 
 	err := w.doBeforeFlush()
@@ -1251,7 +1233,7 @@ func (w *IndexWriter) prepareCommitInternal() error {
 		}
 	}()
 	if anySegmentsFlushed {
-		err := w.maybeMerge(MERGE_TRIGGER_FULL_FLUSH, UNBOUNDED_MAX_MERGE_SEGMENTS)
+		err := w.maybeMerge(mergePolicy, MERGE_TRIGGER_FULL_FLUSH, UNBOUNDED_MAX_MERGE_SEGMENTS)
 		if err != nil {
 			return err
 		}
@@ -1281,21 +1263,18 @@ give the appearance of faster performance. If you have such a device,
 and it does not hav a battery backup (for example) then on power loss
 it may still lose data. Lucene cannot guarantee consistency on such
 devices.
-
-NOTE: if this method hits a memory issue, you should immediately
-close the writer.
 */
 func (w *IndexWriter) Commit() error {
 	w.ensureOpen()
 	w.commitLock.Lock()
 	defer w.commitLock.Unlock()
-	return w.commitInternal()
+	return w.commitInternal(w.config.MergePolicy())
 }
 
 /*
 Assume commitLock is locked.
 */
-func (w *IndexWriter) commitInternal() error {
+func (w *IndexWriter) commitInternal(mergePolicy MergePolicy) error {
 	if w.infoStream.IsEnabled("IW") {
 		w.infoStream.Message("IW", "commit: start")
 	}
@@ -1310,7 +1289,7 @@ func (w *IndexWriter) commitInternal() error {
 		if w.infoStream.IsEnabled("IW") {
 			w.infoStream.Message("IW", "commit: now prepare")
 		}
-		err := w.prepareCommitInternal()
+		err := w.prepareCommitInternal(mergePolicy)
 		if err != nil {
 			return err
 		}
@@ -1322,48 +1301,73 @@ func (w *IndexWriter) commitInternal() error {
 	return w.finishCommit()
 }
 
-func (w *IndexWriter) finishCommit() error {
+func (w *IndexWriter) finishCommit() (err error) {
+	var commitCompleted bool
+	var finished bool
+	var committedSegmentsFileName string
+
+	defer func() {
+		if err != nil {
+			if w.infoStream.IsEnabled("IW") {
+				w.infoStream.Message("IW", "hit error during finishCommit: %v", err)
+			}
+			if commitCompleted {
+				w.tragicEvent(err, "finishComit")
+				err = nil
+			}
+		}
+	}()
+
 	w.Lock() // synchronized
 	defer w.Unlock()
 
 	if w.pendingCommit == nil {
+		assert(w.filesToCommit == nil)
 		if w.infoStream.IsEnabled("IW") {
 			w.infoStream.Message("IW", "commit: pendingCommit == nil; skip")
-			w.infoStream.Message("IW", "commit: done")
 		}
 		return nil
 	}
 
 	defer func() {
-		// Matches the incRef done in prepareCommit:
-		w.deleter.decRefFiles(w.filesToCommit)
-		w.filesToCommit = nil
-		w.pendingCommit = nil
+		defer func() {
+			w.filesToCommit = nil
+			w.pendingCommit = nil
+		}()
+
+		if finished { // all is good
+			w.deleter.decRefFiles(w.filesToCommit)
+		} else if !commitCompleted { // error happened in finishCommit: not a tragedy
+			w.deleter.decRefFilesWhileSuppressingError(w.filesToCommit)
+		}
 		// TODO check if any wait()
 	}()
 
 	if w.infoStream.IsEnabled("IW") {
 		w.infoStream.Message("IW", "commit: pendingCommit != nil")
 	}
-	err := w.pendingCommit.finishCommit(w.directory)
-	if err != nil {
-		return err
-	}
-	if w.infoStream.IsEnabled("IW") {
-		w.infoStream.Message("IW", "commit: wrote segments file '%v'", w.pendingCommit.SegmentsFileName())
-	}
-	w.segmentInfos.updateGeneration(w.pendingCommit)
-	w.lastCommitChangeCount = w.pendingCommitChangeCount
-	w.rollbackSegments = w.pendingCommit.createBackupSegmentInfos()
-	// NOTE: don't use this.checkpoint() here, because
-	// we do not want to increment changeCount:
-	err = w.deleter.checkpoint(w.pendingCommit, true)
-	if err != nil {
-		return err
+	if committedSegmentsFileName, err = w.pendingCommit.finishCommit(w.directory); err != nil {
+		return
 	}
 
+	// we committed, if anything goes wrong after this, we are screwed and it's a tragedy
+	commitCompleted = true
+
+	// NOTE: don't use this.checkpoint() here, because
+	// we do not want to increment changeCount:
+	if err = w.deleter.checkpoint(w.pendingCommit, true); err != nil {
+		return
+	}
+
+	w.lastCommitChangeCount = w.pendingCommitChangeCount
+	w.rollbackSegments = w.pendingCommit.createBackupSegmentInfos()
+
+	finished = true
+
 	if w.infoStream.IsEnabled("IW") {
+		w.infoStream.Message("IW", "commit: wrote segments file '%v'", committedSegmentsFileName)
 		w.infoStream.Message("IW", fmt.Sprintf("commit: took %v", time.Now().Sub(w.startCommitTime)))
+		w.infoStream.Message("IW", "commit: done")
 	}
 	return nil
 }
@@ -1387,13 +1391,13 @@ func (w *IndexWriter) flush(triggerMerge bool, applyAllDeletes bool) error {
 		return err
 	}
 	if ok && triggerMerge {
-		return w.maybeMerge(MERGE_TRIGGER_FULL_FLUSH, UNBOUNDED_MAX_MERGE_SEGMENTS)
+		return w.maybeMerge(w.config.MergePolicy(), MERGE_TRIGGER_FULL_FLUSH, UNBOUNDED_MAX_MERGE_SEGMENTS)
 	}
 	return nil
 }
 
 func (w *IndexWriter) doFlush(applyAllDeletes bool) (bool, error) {
-	assert2(!w.hitOOM, "this writer hit an OutOfMemoryError; cannot flush")
+	assert2(w.tragedy == nil, "this writer hit an unrecoverable error; cannot flush\n%v", w.tragedy)
 
 	err := w.doBeforeFlush()
 	if err != nil {
@@ -1544,7 +1548,7 @@ func setDiagnostics(info *SegmentInfo, source string) {
 func setDiagnosticsAndDetails(info *SegmentInfo, source string, details map[string]string) {
 	ans := map[string]string{
 		"source":         source,
-		"lucene.version": util.LUCENE_VERSION,
+		"lucene.version": util.VERSION_LATEST.String(),
 		"os":             runtime.GOOS,
 		"os.arch":        runtime.GOARCH,
 		"go.version":     runtime.Version(),
@@ -1616,7 +1620,7 @@ commit it.
 func (w *IndexWriter) startCommit(toSync *SegmentInfos) error {
 	w.testPoint("startStartCommit")
 	assert(w.pendingCommit == nil)
-	assert2(!w.hitOOM, "this writer hit an OutOfMemoryError; cannot commit")
+	assert2(w.tragedy == nil, "this writer hit an unrecoverable error; cannot commit\n%v", w.tragedy)
 
 	if w.infoStream.IsEnabled("IW") {
 		w.infoStream.Message("IW", "startCommit(): start")
@@ -1720,6 +1724,10 @@ func (w *IndexWriter) startCommit(toSync *SegmentInfos) error {
 	w.testPoint("midStartCommitSuccess")
 	w.testPoint("finishStartCommit")
 	return nil
+}
+
+func (w *IndexWriter) tragicEvent(tragedy error, location string) {
+	panic("niy")
 }
 
 /*
@@ -1840,7 +1848,7 @@ func (w *IndexWriter) purge(forced bool) (n int, err error) {
 func (w *IndexWriter) doAfterSegmentFlushed(triggerMerge bool, forcePurge bool) (err error) {
 	defer func() {
 		if triggerMerge {
-			err = mergeError(err, w.maybeMerge(MERGE_TRIGGER_SEGMENT_FLUSH, UNBOUNDED_MAX_MERGE_SEGMENTS))
+			err = mergeError(err, w.maybeMerge(w.config.MergePolicy(), MERGE_TRIGGER_SEGMENT_FLUSH, UNBOUNDED_MAX_MERGE_SEGMENTS))
 		}
 	}()
 	_, err = w.purge(forcePurge)

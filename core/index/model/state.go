@@ -17,7 +17,7 @@ type SegmentWriteState struct {
 	SegUpdates        interface{} // BufferedUpdates
 	LiveDocs          util.MutableBits
 	SegmentSuffix     string
-	termIndexInternal int
+	termIndexInterval int
 	Context           store.IOContext
 }
 
@@ -37,9 +37,18 @@ func NewSegmentWriteState2(infoStream util.InfoStream,
 	SegUpdates interface{}, ctx store.IOContext,
 	segmentSuffix string) *SegmentWriteState {
 
-	return &SegmentWriteState{
-		infoStream, dir, segmentInfo, fieldInfos, 0,
-		SegUpdates, nil, segmentSuffix, termIndexInterval, ctx}
+	ans := &SegmentWriteState{
+		infoStream:        infoStream,
+		Directory:         dir,
+		SegmentInfo:       segmentInfo,
+		FieldInfos:        fieldInfos,
+		SegUpdates:        SegUpdates,
+		SegmentSuffix:     segmentSuffix,
+		termIndexInterval: termIndexInterval,
+		Context:           ctx,
+	}
+	assert(ans.assertSegmentSuffix(segmentSuffix))
+	return ans
 }
 
 /* Create a shallow copy of SegmentWriteState with a new segment suffix. */
@@ -55,9 +64,13 @@ func NewSegmentWriteStateFrom(state *SegmentWriteState,
 		state.SegUpdates,
 		nil,
 		segmentSuffix,
-		state.termIndexInternal,
+		state.termIndexInterval,
 		state.Context,
 	}
+}
+
+func (s *SegmentWriteState) assertSegmentSuffix(segmentSuffix string) bool {
+	panic("niy")
 }
 
 // index/SegmentReadState.java

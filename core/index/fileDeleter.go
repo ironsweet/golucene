@@ -50,7 +50,7 @@ type IndexFileDeleter struct {
 	// Files that we tried to delete but failed (likely because they
 	// are open and we are running on Windows), so we will retry them
 	// again later:
-	deletable []string
+	deletable map[string]bool
 	// Reference count for all files in the index.
 	// Counts how many existing commits reference a file.
 	refCounts map[string]*RefCount
@@ -87,6 +87,8 @@ commits.
 func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 	segmentInfos *SegmentInfos, infoStream util.InfoStream, writer *IndexWriter,
 	initialIndexExists bool) (*IndexFileDeleter, error) {
+
+	assert(writer != nil)
 
 	currentSegmentsFile := segmentInfos.SegmentsFileName()
 	if infoStream.IsEnabled("IFD") {
@@ -200,6 +202,13 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 	// We keep commits list in sorted order (oldest to newest):
 	util.TimSort(IndexCommits(fd.commits))
 
+	// refCounts only includes "normal" filenames (does not include segments.gen, write.lock)
+	files = nil
+	for k, _ := range fd.refCounts {
+		files = append(files, k)
+	}
+	inflateGens(segmentInfos, files, fd.infoStream)
+
 	// Now delete anyting with ref count at 0. These are presumably
 	// abandoned files e.g. due to crash of IndexWriter.
 	for filename, rc := range fd.refCounts {
@@ -232,16 +241,29 @@ func newIndexFileDeleter(directory store.Directory, policy IndexDeletionPolicy,
 	return fd, nil
 }
 
+/*
+Set all gens beyond what we currently see in the directory, to avoid
+double-write in cases where the previous IndexWriter did not
+gracefully close/rollback (e.g. os/machine crashed or lost power).
+*/
+func inflateGens(infos *SegmentInfos, files []string, infoStream util.InfoStream) {
+	panic("niy")
+}
+
 func (fd *IndexFileDeleter) ensureOpen() {
-	assert2(fd.writer != nil, "this IndexWriter is closed")
 	fd.writer.ClosingControl.ensureOpen(false)
+	// since we allow 'closing' state, we must still check this, we
+	// could be closing because we hit unexpected error
+	assert2(fd.writer.tragedy == nil,
+		"refusing to delete any files: this IndexWriter hit an unrecoverable error\n%v",
+		fd.writer.tragedy)
 }
 
 /*
 Remove the CommitPoint(s) in the commitsToDelete list by decRef'ing
 all files from each SegmentInfos.
 */
-func (fd *IndexFileDeleter) deleteCommits() error {
+func (fd *IndexFileDeleter) deleteCommits() {
 	if size := len(fd.commitsToDelete); size > 0 {
 		// First decref all files that had been referred to by the
 		// now-deleted commits:
@@ -267,7 +289,6 @@ func (fd *IndexFileDeleter) deleteCommits() error {
 		}
 		fd.commits = fd.commits[:writeTo]
 	}
-	return nil
 }
 
 /*
@@ -319,7 +340,7 @@ func (fd *IndexFileDeleter) refreshList() error {
 
 func (fd *IndexFileDeleter) Close() error {
 	// DecRef old files from the last checkpoint, if any:
-	// assert locked
+	// assert locked()
 	if len(fd.lastFiles) > 0 {
 		fd.decRefFiles(fd.lastFiles)
 		fd.lastFiles = nil
@@ -333,10 +354,15 @@ func (fd *IndexFileDeleter) deletePendingFiles() {
 	if fd.deletable != nil {
 		oldDeletable := fd.deletable
 		fd.deletable = nil
-		for _, filename := range oldDeletable {
+		for filename, _ := range oldDeletable {
 			if fd.infoStream.IsEnabled("IFD") {
 				fd.infoStream.Message("IFD", "delete pending file %v", filename)
 			}
+			rc, ok := fd.refCounts[filename]
+			assert2(!ok || rc.count <= 0,
+				// LUCENE-5904: should never happen!  This means we are about to pending-delete a referenced index file
+				"filename=%v is in pending delete list but also has refCount=%v",
+				filename, rc.count)
 			fd.deleteFile(filename)
 		}
 	}
@@ -393,10 +419,7 @@ func (fd *IndexFileDeleter) checkpoint(segmentInfos *SegmentInfos, isCommit bool
 		}
 
 		// Decref files for commits that were deleted by the policy:
-		err = fd.deleteCommits()
-		if err != nil {
-			return err
-		}
+		fd.deleteCommits()
 	} else {
 		// DecRef old files from the last checkpoint, if any:
 		fd.decRefFiles(fd.lastFiles)
@@ -441,6 +464,12 @@ func (fd *IndexFileDeleter) decRefFiles(files []string) {
 	}
 }
 
+func (fd *IndexFileDeleter) decRefFilesWhileSuppressingError(files []string) {
+	for _, file := range files {
+		fd.decRefFileWhileSuppressingError(file)
+	}
+}
+
 func (fd *IndexFileDeleter) decRefFile(filename string) {
 	//assert locked()
 	rc := fd.refCount(filename)
@@ -454,6 +483,13 @@ func (fd *IndexFileDeleter) decRefFile(filename string) {
 		fd.deleteFile(filename)
 		delete(fd.refCounts, filename)
 	}
+}
+
+func (fd *IndexFileDeleter) decRefFileWhileSuppressingError(file string) {
+	defer func() {
+		recover()
+	}()
+	fd.decRefFile(file)
 }
 
 func (del *IndexFileDeleter) decRefInfos(infos *SegmentInfos) {
@@ -473,6 +509,10 @@ func (del *IndexFileDeleter) refCount(filename string) *RefCount {
 	rc, ok := del.refCounts[filename]
 	if !ok {
 		rc = newRefCount(filename)
+		// we should never incRef a file we are already wanting to delete
+		assert2(del.deletable == nil || !del.deletable[filename],
+			"file '%v' cannot be incRef'd: it's already pending delete",
+			filename)
 		del.refCounts[filename] = rc
 	}
 	return rc
@@ -520,7 +560,10 @@ func (del *IndexFileDeleter) deleteFile(filename string) {
 					"unable to remove file '%v': %v; will re-try later.",
 					filename, err)
 			}
-			del.deletable = append(del.deletable, filename)
+			if del.deletable == nil {
+				del.deletable = make(map[string]bool)
+			}
+			del.deletable[filename] = true
 		}
 	}
 }

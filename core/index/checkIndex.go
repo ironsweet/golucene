@@ -3,11 +3,10 @@ package index
 import (
 	"errors"
 	"fmt"
-	// "github.com/balzaczyy/golucene/core/index/model"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	"github.com/balzaczyy/golucene/core/store"
+	"github.com/balzaczyy/golucene/core/util"
 	"io"
-	"math"
 	"runtime/debug"
 	"strconv"
 )
@@ -149,10 +148,15 @@ type CheckIndex struct {
 	infoStream            io.Writer
 	dir                   store.Directory
 	crossCheckTermVectors bool
+	failFast              bool
 }
 
 func NewCheckIndex(dir store.Directory, crossCheckTermVectors bool, infoStream io.Writer) *CheckIndex {
-	return &CheckIndex{infoStream, dir, crossCheckTermVectors}
+	return &CheckIndex{
+		infoStream: infoStream,
+		dir:        dir,
+		crossCheckTermVectors: crossCheckTermVectors,
+	}
 }
 
 func (ch *CheckIndex) msg(msg string, args ...interface{}) {
@@ -176,6 +180,9 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 	}
 	err := sis.ReadAll(ch.dir)
 	if err != nil {
+		if ch.failFast {
+			panic("niy")
+		}
 		fmt.Fprintln(ch.infoStream, "ERROR: could not read any segments file in directory")
 		debug.PrintStack()
 		result.MissingSegments = true
@@ -183,17 +190,15 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 	}
 
 	// find the oldest and newest segment versions
-	oldest := fmt.Sprintf("%v", math.MaxInt32)
-	newest := fmt.Sprintf("%v", math.MinInt32)
+	var oldest util.Version
+	var newest util.Version
 	var oldSegs string
-	var foundNonNilVersion = false
 	for _, si := range sis.Segments {
-		if version := si.Info.Version(); version != "" {
-			foundNonNilVersion = true
-			if versionLess(version, oldest) {
+		if version := si.Info.Version(); len(version) != 0 {
+			if len(oldest) == 0 || !version.OnOrAfter(oldest) {
 				oldest = version
 			}
-			if versionLess(newest, version) {
+			if len(newest) == 0 || version.OnOrAfter(newest) {
 				newest = version
 			}
 		} else {
@@ -207,6 +212,9 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 	// note: we only read the format byte (required preamble) here!
 	input, err := ch.dir.OpenInput(segmentsFilename, store.IO_CONTEXT_READONCE)
 	if err != nil {
+		if ch.failFast {
+			panic("niy")
+		}
 		fmt.Fprintln(ch.infoStream, "ERROR: could not open segments file in directory")
 		debug.PrintStack()
 		result.cantOpenSegments = true
@@ -216,6 +224,9 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 
 	_, err = input.ReadInt()
 	if err != nil {
+		if ch.failFast {
+			panic("niy")
+		}
 		fmt.Fprintln(ch.infoStream, "ERROR: could not read segment file version in directory")
 		debug.PrintStack()
 		result.missingSegmentVersion = true
@@ -235,15 +246,17 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 
 	var versionStr string
 	if oldSegs != "" {
-		if foundNonNilVersion {
+		if len(newest) != 0 {
 			versionStr = fmt.Sprintf("versions=[%v .. %v]", oldSegs, newest)
 		} else {
 			versionStr = fmt.Sprintf("version=%v", oldSegs)
 		}
-	} else if oldest == newest {
-		versionStr = fmt.Sprintf("version=%v", oldest)
-	} else {
-		versionStr = fmt.Sprintf("versions=[%v .. %v]", oldest, newest)
+	} else if len(newest) != 0 { // implies oldest is set
+		if newest.Equals(oldest) {
+			versionStr = fmt.Sprintf("version=%v", oldest)
+		} else {
+			versionStr = fmt.Sprintf("versions=[%v .. %v]", oldest, newest)
+		}
 	}
 
 	ch.msg("Segments file=%v numSegments=%v %v format=%v%v",
@@ -288,12 +301,14 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 		segInfoStat.docCount = infoDocCount
 
 		version := info.Info.Version()
-		if infoDocCount <= 0 && version != "" && !versionLess(version, "4.5") {
+		if infoDocCount <= 0 && version.OnOrAfter(util.VERSION_45) {
 			panic(fmt.Sprintf("illegal number of documents: maxDoc=%v", infoDocCount))
 		}
 
 		toLoseDocCount := infoDocCount
 		err = func() error {
+			assert2(len(version) != 0, "pre 4.0 is not supported yet")
+			ch.msg("    version=%v", version)
 			codec := info.Info.Codec().(Codec)
 			ch.msg("    codec = %v", codec)
 			segInfoStat.codec = codec
@@ -433,6 +448,9 @@ func (ch *CheckIndex) CheckIndex(onlySegments []string) *CheckIndexStatus {
 			return nil
 		}()
 		if err != nil {
+			if ch.failFast {
+				panic("niy")
+			}
 			ch.msg("FAILED")
 			comment := "fixIndex() would remove reference to this segment"
 			ch.msg("    WARNING: %v; full error:", comment)
