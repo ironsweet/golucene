@@ -1,43 +1,110 @@
 package packed
 
+import (
+	"github.com/balzaczyy/golucene/core/util"
+	"reflect"
+)
+
 // util/packed/PackedLongValues.java
 
-func NewDeltaPackedBuilder(acceptableOverheadRatio float32) *PackedLongValuesBuilder {
+const DEFAULT_PAGE_SIZE = 1024
+const MIN_PAGE_SIZE = 64
+const MAX_PAGE_SIZE = 1 << 20
+
+type PackedLongValues interface {
+	Size() int64
+	Iterator() func() (interface{}, bool)
+}
+
+type PackedLongValuesBuilder interface {
+	util.Accountable
+	Build() PackedLongValues
+	Size() int64
+	Add(int64) PackedLongValuesBuilder
+}
+
+func DeltaPackedBuilder(acceptableOverheadRatio float32) PackedLongValuesBuilder {
+	return NewDeltaPackedLongValuesBuilder(DEFAULT_PAGE_SIZE, acceptableOverheadRatio)
+}
+
+type PackedLongValuesImpl struct {
+}
+
+func (p *PackedLongValuesImpl) Size() int64 {
 	panic("niy")
 }
 
-type PackedLongValues struct {
-}
-
-func (p *PackedLongValues) Size() int64 {
+func (p *PackedLongValuesImpl) Iterator() func() (interface{}, bool) {
 	panic("niy")
 }
 
-func (p *PackedLongValues) Iterator() func() (interface{}, bool) {
-	panic("niy")
+const INITIAL_PAGE_COUNT = 16
+
+type PackedLongValuesBuilderImpl struct {
+	pageShift, pageMask     int
+	acceptableOverheadRatio float32
+	pending                 []int64
+	size                    int64
+
+	values       []PackedIntsReader
+	ramBytesUsed int64
+	valuesOff    int
+	pendingOff   int
 }
 
-type PackedLongValuesBuilder struct {
+func newPackedLongValuesBuilder(pageSize int,
+	acceptableOverheadRatio float32) *PackedLongValuesBuilderImpl {
+
+	ans := &PackedLongValuesBuilderImpl{
+		pageShift:               checkBlockSize(pageSize, MIN_PAGE_SIZE, MAX_PAGE_SIZE),
+		pageMask:                pageSize - 1,
+		acceptableOverheadRatio: acceptableOverheadRatio,
+		values:                  make([]PackedIntsReader, INITIAL_PAGE_COUNT),
+		pending:                 make([]int64, pageSize),
+	}
+	ans.ramBytesUsed = util.ShallowSizeOfInstance(reflect.TypeOf(&PackedLongValuesBuilderImpl{})) +
+		util.SizeOf(ans.pending) + util.ShallowSizeOf(ans.values)
+	return ans
 }
 
 /*
 Build a PackedLongValues instance that contains values that have been
 added to this builder. This operation is destructive.
 */
-func (b *PackedLongValuesBuilder) Build() *PackedLongValues {
+func (b *PackedLongValuesBuilderImpl) Build() PackedLongValues {
 	panic("niy")
 }
 
-func (b *PackedLongValuesBuilder) RamBytesUsed() int64 {
+func (b *PackedLongValuesBuilderImpl) RamBytesUsed() int64 {
 	panic("niy")
 }
 
 /* Return the number of elements that have been added to this builder */
-func (b *PackedLongValuesBuilder) Size() int64 {
+func (b *PackedLongValuesBuilderImpl) Size() int64 {
 	panic("niy")
 }
 
 /* Add a new element to this builder. */
-func (b *PackedLongValuesBuilder) Add(l int64) *PackedLongValuesBuilder {
+func (b *PackedLongValuesBuilderImpl) Add(l int64) PackedLongValuesBuilder {
 	panic("niy")
+}
+
+// util/packed/DeltaPackedLongValues.java
+
+type DeltaPackedLongValuesBuilderImpl struct {
+	*PackedLongValuesBuilderImpl
+	mins []int64
+}
+
+func NewDeltaPackedLongValuesBuilder(pageSize int,
+	acceptableOverheadRatio float32) *DeltaPackedLongValuesBuilderImpl {
+
+	super := newPackedLongValuesBuilder(pageSize, acceptableOverheadRatio)
+	ans := &DeltaPackedLongValuesBuilderImpl{
+		PackedLongValuesBuilderImpl: super,
+		mins: make([]int64, len(super.values)),
+	}
+	ans.ramBytesUsed += util.ShallowSizeOfInstance(reflect.TypeOf(&DeltaPackedLongValuesBuilderImpl{})) +
+		util.SizeOf(ans.mins)
+	return ans
 }

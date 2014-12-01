@@ -18,7 +18,7 @@ const MISSING int64 = 0
 
 /* Buffers up pending long per doc, then flushes when segment flushes. */
 type NumericDocValuesWriter struct {
-	pending       *packed.PackedLongValuesBuilder
+	pending       packed.PackedLongValuesBuilder
 	iwBytesUsed   util.Counter
 	bytesUsed     int64
 	docsWithField *util.FixedBitSet
@@ -34,7 +34,7 @@ func newNumericDocValuesWriter(fieldInfo *FieldInfo,
 	if trackDocsWithField {
 		ans.docsWithField = util.NewFixedBitSetOf(64)
 	}
-	ans.pending = packed.NewDeltaPackedBuilder(packed.PackedInts.COMPACT)
+	ans.pending = packed.DeltaPackedBuilder(packed.PackedInts.COMPACT)
 	ans.bytesUsed = ans.pending.RamBytesUsed() + ans.docsWithFieldBytesUsed()
 	ans.iwBytesUsed.AddAndGet(ans.bytesUsed)
 	return ans
@@ -90,7 +90,7 @@ func (w *NumericDocValuesWriter) flush(state *SegmentWriteState,
 type NumericIterator struct{}
 
 func newNumericIterator(maxDoc int,
-	values *packed.PackedLongValues,
+	values packed.PackedLongValues,
 	docsWithFields *util.FixedBitSet) func() (interface{}, bool) {
 
 	upto, size := 0, int(values.Size())
