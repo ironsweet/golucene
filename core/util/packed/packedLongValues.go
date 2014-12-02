@@ -124,11 +124,51 @@ func (b *PackedLongValuesBuilderImpl) Add(l int64) PackedLongValuesBuilder {
 }
 
 func (b *PackedLongValuesBuilderImpl) finish() {
-	panic("niy")
+	if b.pendingOff > 0 {
+		if len(b.values) == b.valuesOff {
+			b.grow(b.valuesOff + 1)
+		}
+		b.pack()
+	}
 }
 
 func (b *PackedLongValuesBuilderImpl) pack() {
-	panic("niy")
+	b.packFrom(b.pending[:b.pendingOff], b.valuesOff, b.acceptableOverheadRatio)
+	b.ramBytesUsed += b.values[b.valuesOff].RamBytesUsed()
+	b.valuesOff++
+	b.pendingOff = 0 // reset pending buffer
+}
+
+func (b *PackedLongValuesBuilderImpl) packFrom(values []int64,
+	block int, acceptableOverheadRatio float32) {
+
+	assert(len(values) > 0)
+
+	// compute max delta
+	minValue := values[0]
+	maxValue := values[0]
+	for _, v := range values[1:] {
+		if v < minValue {
+			minValue = v
+		} else if v > maxValue {
+			maxValue = v
+		}
+	}
+
+	// build a new packed reader
+	if minValue == 0 && maxValue == 0 {
+		b.values[block] = newNilReader(len(values))
+	} else {
+		bitsRequired := 64
+		if minValue >= 0 {
+			bitsRequired = BitsRequired(maxValue)
+		}
+		mutable := MutableFor(len(values), bitsRequired, acceptableOverheadRatio)
+		for i := 0; i < len(values); i++ {
+			i += mutable.setBulk(i, values[i:])
+		}
+		b.values[block] = mutable
+	}
 }
 
 func (b *PackedLongValuesBuilderImpl) grow(newBlockCount int) {

@@ -49,6 +49,14 @@ func SizeOf(arr interface{}) int64 {
 	case []byte:
 		return AlignObjectSize(NUM_BYTES_ARRAY_HEADER + int64(len(arr.([]byte))))
 	default:
+		if t := reflect.TypeOf(arr); t.Kind() == reflect.Slice {
+			var size int64
+			v := reflect.ValueOf(arr)
+			for i := 0; i < v.Len(); i++ {
+				size += v.Index(i).Interface().(Accountable).RamBytesUsed()
+			}
+			return size
+		}
 		fmt.Println("Unknown type:", reflect.TypeOf(arr))
 		panic("not supported yet")
 	}
