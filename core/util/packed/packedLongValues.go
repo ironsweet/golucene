@@ -28,6 +28,23 @@ func DeltaPackedBuilder(acceptableOverheadRatio float32) PackedLongValuesBuilder
 }
 
 type PackedLongValuesImpl struct {
+	values              []PackedIntsReader
+	pageShift, pageMask int
+	size                int64
+	ramBytesUsed        int64
+}
+
+func newPackedLongValues(pageShift, pageMask int,
+	values []PackedIntsReader,
+	size, ramBytesUsed int64) *PackedLongValuesImpl {
+
+	return &PackedLongValuesImpl{
+		pageShift:    pageShift,
+		pageMask:     pageMask,
+		values:       values,
+		size:         size,
+		ramBytesUsed: ramBytesUsed,
+	}
 }
 
 func (p *PackedLongValuesImpl) Size() int64 {
@@ -72,7 +89,13 @@ Build a PackedLongValues instance that contains values that have been
 added to this builder. This operation is destructive.
 */
 func (b *PackedLongValuesBuilderImpl) Build() PackedLongValues {
-	panic("niy")
+	b.finish()
+	b.pending = nil
+	values := make([]PackedIntsReader, b.valuesOff)
+	copy(values, b.values[:b.valuesOff])
+	ramBytesUsed := util.ShallowSizeOfInstance(reflect.TypeOf(&PackedLongValuesImpl{})) +
+		util.SizeOf(values)
+	return newPackedLongValues(b.pageShift, b.pageMask, values, b.size, ramBytesUsed)
 }
 
 func (b *PackedLongValuesBuilderImpl) RamBytesUsed() int64 {
