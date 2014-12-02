@@ -243,7 +243,22 @@ func newNormMap() *NormMap {
 
 /* Adds an item to the mapping. Returns true if actually added. */
 func (m *NormMap) add(l int64) bool {
-	panic("niy")
+	assert(m.size <= 256) // once we add > 256 values, we nullify the map in addNumericField and don't use this strategy
+	if l >= math.MinInt8 && l <= math.MaxInt8 {
+		index := int(l + 128)
+		if previous := m.singleByteRange[index]; previous < 0 {
+			m.singleByteRange[index] = int16(m.size)
+			m.size++
+			return true
+		}
+		return false
+	}
+	if _, ok := m.other[l]; !ok {
+		m.other[l] = int16(m.size)
+		m.size++
+		return true
+	}
+	return false
 }
 
 /* Gets the ordinal for a previously added item. */
