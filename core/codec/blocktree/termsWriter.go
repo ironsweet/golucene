@@ -901,8 +901,42 @@ func (w *TermsWriter) FinishTerm(text []byte, stats *codec.TermStats) (err error
 	return nil
 }
 
+/* Pushes the new term to the top of the stack, and writes new blocks. */
 func (w *TermsWriter) pushTerm(text []byte) error {
-	panic("niy")
+	limit := w.lastTerm.Length()
+	if len(text) < limit {
+		limit = len(text)
+	}
+
+	// Find common prefix between last term and current term:
+	pos := 0
+	for pos < limit && w.lastTerm.At(pos) == text[pos] {
+		pos++
+	}
+
+	// Close the "abandoned" suffix now:
+	for i := w.lastTerm.Length() - 1; i >= pos; i-- {
+		// How many items on top of the stack share the current suffix
+		// we are closing:
+		if prefixTopSize := len(w.pending) - w.prefixStarts[i]; prefixTopSize >= w.owner.minItemsInBlock {
+			if err := w.writeBlocks(i+1, prefixTopSize); err != nil {
+				return err
+			}
+			w.prefixStarts[i] -= prefixTopSize - 1
+		}
+	}
+
+	if len(w.prefixStarts) < len(text) {
+		w.prefixStarts = util.GrowIntSlice(w.prefixStarts, len(text))
+	}
+
+	// Init new tail:
+	for i := pos; i < len(text); i++ {
+		w.prefixStarts[i] = len(w.pending)
+	}
+
+	w.lastTerm.Copy(text)
+	return nil
 }
 
 func (w *TermsWriter) Finish(sumTotalTermFreq, sumDocFreq int64, docCount int) (err error) {
