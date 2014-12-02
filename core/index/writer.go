@@ -83,18 +83,16 @@ var DefaultSimilarity func() Similarity
 
 // Use a seprate goroutine to protect closing control
 type ClosingControl struct {
-	_closed   bool // volatile
-	_closing  bool // volatile
-	isRunning bool
-	closer    chan func() (bool, error)
-	done      chan error
+	_closed  bool // volatile
+	_closing bool // volatile
+	closer   chan func() (bool, error)
+	done     chan error
 }
 
 func newClosingControl() *ClosingControl {
 	ans := &ClosingControl{
-		isRunning: true,
-		closer:    make(chan func() (bool, error)),
-		done:      make(chan error),
+		closer: make(chan func() (bool, error)),
+		done:   make(chan error),
 	}
 	go ans.daemon()
 	return ans
@@ -102,7 +100,7 @@ func newClosingControl() *ClosingControl {
 
 func (cc *ClosingControl) daemon() {
 	var err error
-	for cc.isRunning {
+	for !cc._closed {
 		err = nil
 		select {
 		case f := <-cc.closer:
@@ -500,150 +498,32 @@ NOTE: You must ensure no other threads are still making changes at
 the same time that this method is invoked.
 */
 func (w *IndexWriter) Close() error {
-	return w.CloseAndWait(true)
-}
-
-/*
-Closes the index with or without waiting for currently running merges
-to finish. This is only meaningful when using a MergeScheduler that
-runs  merges in background threads. See Close() for details on
-behavior when errors are hit.
-
-NOTE: it is dangerous to always call closeAndWait(false), especially
-when IndexWriter is not open for very long, because this can result
-in "merge starvation" whereby long merges will never have a chance to
-finish. This will cause too many segments in your index over time,
-which leads to all sorts of problems like slow searches, too much RAM
-and too many file descriptors used by readers, etc.
-*/
-func (w *IndexWriter) CloseAndWait(waitForMerge bool) error {
-	panic("niy")
-	// // Ensure that only one goroutine actaully gets to do the closing,
-	// // and make sure no commit is also in progress:
-	// w.commitLock.Lock()
-	// defer w.commitLock.Unlock()
-	// return w.close(func() (ok bool, err error) {
-	// 	// If any methods have hit memory issue, then abort on
-	// 	// close, in case the internal state of IndexWriter or
-	// 	// DocumentsWriter is corrupt
-	// 	if w.hitOOM {
-	// 		return w.rollbackInternal()
-	// 	}
-	// 	ok, err = w.closeInternal(waitForMerge, true)
-	// 	w.docWriter.assertEventQueueAfterClose()
-	// 	return
-	// })
-}
-
-/*
-Returns true if this goroutine should attempt to close, or false if
-IndexWriter is now closed; else, waits until another thread finishes
-closing.
-*/
-func (w *IndexWriter) closeInternal(waitForMerges bool, doFlush bool) (ok bool, err error) {
-	defer func() {
-		if !ok {
-			if w.infoStream.IsEnabled("IW") {
-				w.infoStream.Message("IW", "hit error while closing")
-			}
-		}
-	}()
-
 	assert2(w.pendingCommit == nil,
 		"cannot close: prepareCommit was already called with no corresponding call to commit")
-
-	if w.infoStream.IsEnabled("IW") {
-		w.infoStream.Message("IW", "now flush at close waitForMerges=%v", waitForMerges)
-	}
-
-	w.docWriter.close()
-
-	err = w.closeInternalFlush(waitForMerges, doFlush)
-	if err != nil {
-		return false, err
-	}
-
-	if w.infoStream.IsEnabled("IW") {
-		w.infoStream.Message("IW", "now call final commit()")
-	}
-
-	if doFlush {
-		if err = w.commitInternal(w.config.MergePolicy()); err != nil {
-			return false, err
+	// Ensure that only one goroutine actaully gets to do the closing
+	w.commitLock.Lock()
+	defer w.commitLock.Unlock()
+	return w.close(func() (ok bool, err error) {
+		defer func() {
+			if !ok { // be certain to close the index on any error
+				defer func() {
+					recover() // suppress so we keep returning original error
+				}()
+				w.rollbackInternal()
+			}
+		}()
+		if w.infoStream.IsEnabled("IW") {
+			w.infoStream.Message("IW", "now flush at close")
 		}
-	}
-
-	if _, err = w.docWriter.processEvents(w, false, true); err != nil {
-		return false, err
-	}
-
-	// commitInternal calls ReaderPool.commit, which writes any pending
-	// liveDocs from ReaderPool, so it's safe to drop all readers now:
-	if err = w.readerPool.dropAll(true); err != nil {
-		return false, err
-	}
-	w.deleter.Close() // no error
-
-	if w.infoStream.IsEnabled("IW") {
-		w.infoStream.Message("IW", "at close: %v", w.segString())
-	}
-
-	if w.writeLock != nil {
-		if err = w.writeLock.Close(); err != nil {
-			return false, err
-		}
-		w.writeLock = nil
-	}
-
-	ok = true
-
-	w.docWriter.perThreadPool.foreach(func(state *ThreadState) {
-		assert(!state.isActive)
-	})
-
-	return ok, nil
-}
-
-func (w *IndexWriter) closeInternalFlush(waitForMerges, doFlush bool) (err error) {
-	defer func() {
-		err2 := w.closeInternalCleanup(waitForMerges)
-		if err != nil && err2 != nil {
-			log.Printf("Flush failed and error hidden: %v", err)
-		}
-		err = err2
-	}()
-
-	// Only allow a new merge to be triggered if we are going to wait
-	// for merges:
-	if doFlush {
-		err = w.flush(waitForMerges, true)
-	} else {
-		w.docWriter.abort(w) // already closed -- never sync on IW
-	}
-	return
-}
-
-func (w *IndexWriter) closeInternalCleanup(waitForMerges bool) error {
-	defer func() {
-		// shutdown policy, scheduler and all threads (this call is not
-		// interruptible):
-		util.CloseWhileSuppressingError(w.mergeScheduler)
-	}()
-
-	// clean up merge scheduler in all cases, although flushing may have failed:
-	if waitForMerges {
-		// give merge scheduler last chance to run, in case any pending
-		// merges are waiting:
-		err := w.mergeScheduler.Merge(w, MERGE_CLOSING, false)
-		if err != nil {
-			return err
+		if err = w.flush(true, true); err != nil {
+			return
 		}
 		w.waitForMerges()
-	} else {
-		w.abortAllMerges()
-	}
-	w.stopMerges = true
-	return nil
+		if err = w.commitInternal(w.config.MergePolicy()); err != nil {
+			return
+		}
+		return w.rollbackInternal() // ie close, since we just committed
+	})
 }
 
 // Retuns the Directory used by this index.
@@ -952,8 +832,7 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 
 		// Must pre-close in case it increments changeCount so that we
 		// then set it to false before calling closeInternal
-		err = w.mergeScheduler.Close()
-		if err != nil {
+		if err = w.mergeScheduler.Close(); err != nil {
 			return err
 		}
 
@@ -961,7 +840,7 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 		w.docWriter.close()  // mark it as closed first to prevent subsequent indexing actions/flushes
 		w.docWriter.abort(w) // don't sync on IW here
 
-		err = func() error {
+		if err = func() error {
 			w.Lock()
 			defer w.Unlock()
 
@@ -972,8 +851,7 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 			}
 
 			// Don't bother saving any changes in our segmentInfos
-			err = w.readerPool.dropAll(false)
-			if err != nil {
+			if err = w.readerPool.dropAll(false); err != nil {
 				return err
 			}
 
@@ -997,7 +875,7 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 					if err = w.deleter.refreshList(); err == nil {
 						if err = w.deleter.Close(); err == nil {
 
-							// Must set closed while inside sam esync block where
+							// Must set closed while inside same sync block where
 							// we call deleter.refresh, else concurrent routines
 							// may try to sneak a flush in, after we leave this
 							// sync block and before we enter the sync block in the
@@ -1016,8 +894,7 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 
 			success = err != nil
 			return err
-		}()
-		if err != nil {
+		}(); err != nil {
 			return err
 		}
 
@@ -1025,10 +902,7 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 		return nil
 	}()
 
-	if err == nil {
-		ok, err = w.closeInternal(false, false)
-	}
-	return
+	return err != nil, err
 }
 
 /*
