@@ -3,6 +3,8 @@ package model
 import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"strconv"
+	"strings"
 )
 
 // index/SegmentWriteState.java
@@ -70,7 +72,19 @@ func NewSegmentWriteStateFrom(state *SegmentWriteState,
 }
 
 func (s *SegmentWriteState) assertSegmentSuffix(segmentSuffix string) bool {
-	panic("niy")
+	if len(segmentSuffix) == 0 {
+		return true
+	}
+	numParts := len(strings.SplitN(segmentSuffix, "_", 3))
+	if numParts == 2 {
+		return true
+	}
+	if numParts == 1 {
+		_, err := strconv.ParseInt(segmentSuffix, 36, 64)
+		assert(err == nil)
+		return true
+	}
+	return false
 }
 
 // index/SegmentReadState.java
