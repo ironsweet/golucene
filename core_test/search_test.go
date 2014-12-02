@@ -3,7 +3,7 @@ package core_test
 import (
 	"fmt"
 	std "github.com/balzaczyy/golucene/analysis/standard"
-	_ "github.com/balzaczyy/golucene/core/codec/lucene49"
+	_ "github.com/balzaczyy/golucene/core/codec/lucene410"
 	docu "github.com/balzaczyy/golucene/core/document"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
@@ -45,8 +45,8 @@ func TestBasicIndexAndSearch(t *testing.T) {
 	fmt.Println("Directory", directory)
 	defer directory.Close()
 
-	analyzer := std.NewStandardAnalyzer(util.VERSION_49)
-	conf := index.NewIndexWriterConfig(util.VERSION_49, analyzer)
+	analyzer := std.NewStandardAnalyzer(util.VERSION_4_10)
+	conf := index.NewIndexWriterConfig(util.VERSION_4_10, analyzer)
 
 	writer, err := index.NewIndexWriter(directory, conf)
 	It(t).Should("has no error: %v", err).Assert(err == nil)

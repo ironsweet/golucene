@@ -10,8 +10,7 @@ type Lucene49NormsFormat struct {
 }
 
 func (f *Lucene49NormsFormat) NormsConsumer(state *SegmentWriteState) (w DocValuesConsumer, err error) {
-	// return newLucene49NormsConsumer(state, DATA_CODEC, DATA_EXTENSION, METADATA_CODEC, METADATA_EXTENSION)
-	panic("this codec can only be used for reading")
+	return newLucene49NormsConsumer(state, DATA_CODEC, DATA_EXTENSION, METADATA_CODEC, METADATA_EXTENSION)
 }
 
 func (f *Lucene49NormsFormat) NormsProducer(state SegmentReadState) (r DocValuesProducer, err error) {

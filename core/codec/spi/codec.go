@@ -142,7 +142,7 @@ func AvailableCodecs() []string {
 
 // Expert: returns the default codec used for newly created IndexWriterConfig(s).
 var DefaultCodec = func() Codec {
-	ans := LoadCodec("Lucene49")
+	ans := LoadCodec("Lucene410")
 	assert(ans != nil)
 	return ans
 }
