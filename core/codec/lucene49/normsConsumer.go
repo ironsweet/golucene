@@ -219,16 +219,26 @@ func (nc *NormsConsumer) Close() (err error) {
 	return nil
 }
 
-type NormMap struct {
-	size int
-}
-
 /*
 Specialized deduplication of long-ord for norms: 99.99999% of the
 time this will be a single-byte range.
 */
+type NormMap struct {
+	// we use int16: at most we will add 257 values to this map before its rejected as too big above.
+	singleByteRange []int16
+	other           map[int64]int16
+	size            int
+}
+
 func newNormMap() *NormMap {
-	panic("niy")
+	ans := &NormMap{
+		singleByteRange: make([]int16, 256),
+		other:           make(map[int64]int16),
+	}
+	for i, _ := range ans.singleByteRange {
+		ans.singleByteRange[i] = -1
+	}
+	return ans
 }
 
 /* Adds an item to the mapping. Returns true if actually added. */
