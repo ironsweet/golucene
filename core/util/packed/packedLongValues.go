@@ -48,11 +48,43 @@ func newPackedLongValues(pageShift, pageMask int,
 }
 
 func (p *PackedLongValuesImpl) Size() int64 {
-	panic("niy")
+	return p.size
+}
+
+func (p *PackedLongValuesImpl) decodeBlock(block int, dest []int64) int {
+	vals := p.values[block]
+	size := vals.Size()
+	for k := 0; k < size; {
+		k += vals.getBulk(k, dest[k:size])
+	}
+	return size
 }
 
 func (p *PackedLongValuesImpl) Iterator() func() (interface{}, bool) {
-	panic("niy")
+	currentValues := make([]int64, p.pageMask+1)
+	vOff := 0
+	pOff := 0
+	currentCount := 0
+	fillBlock := func() {
+		if vOff == len(p.values) {
+			currentCount = 0
+		} else {
+			currentCount = p.decodeBlock(vOff, currentValues)
+			assert(currentCount > 0)
+		}
+	}
+	fillBlock()
+	return func() (v interface{}, ok bool) {
+		if pOff < currentCount {
+			v = currentValues[pOff]
+			if pOff++; pOff == currentCount {
+				vOff++
+				pOff = 0
+				fillBlock()
+			}
+		}
+		return v, pOff < currentCount
+	}
 }
 
 const INITIAL_PAGE_COUNT = 16
