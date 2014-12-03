@@ -11,6 +11,7 @@ import (
 	"github.com/balzaczyy/golucene/core/util/packed"
 	"io"
 	"math"
+	"strings"
 )
 
 // codec/PostingsWriterBase.java
@@ -150,6 +151,7 @@ func NewBlockTreeTermsWriter(state *SegmentWriteState,
 		postingsWriter:  postingsWriter,
 		segment:         state.SegmentInfo.Name,
 		scratchBytes:    store.NewRAMOutputStreamBuffer(),
+		scratchIntsRef:  util.NewIntsRefBuilder(),
 		// bytesWriter:     store.NewRAMOutputStreamBuffer(),
 		// bytesWriter2:    store.NewRAMOutputStreamBuffer(),
 	}
@@ -402,6 +404,11 @@ type TermsWriter struct {
 
 	firstPendingTerm *PendingTerm
 	lastPendingTerm  *PendingTerm
+
+	suffixWriter *store.RAMOutputStream
+	statsWriter  *store.RAMOutputStream
+	metaWriter   *store.RAMOutputStream
+	bytesWriter  *store.RAMOutputStream
 }
 
 func newTermsWriter(owner *BlockTreeTermsWriter,
@@ -412,6 +419,10 @@ func newTermsWriter(owner *BlockTreeTermsWriter,
 		fieldInfo:    fieldInfo,
 		lastTerm:     util.NewBytesRefBuilder(),
 		prefixStarts: make([]int, 8),
+		suffixWriter: store.NewRAMOutputStreamBuffer(),
+		statsWriter:  store.NewRAMOutputStreamBuffer(),
+		metaWriter:   store.NewRAMOutputStreamBuffer(),
+		bytesWriter:  store.NewRAMOutputStreamBuffer(),
 	}
 	ans.longsSize = owner.postingsWriter.SetField(fieldInfo)
 	ans.longs = make([]int64, ans.longsSize)
@@ -537,246 +548,212 @@ func (w *TermsWriter) writeBlock(
 	prefixLength int,
 	isFloor bool,
 	floorLeadLabel, start, end int,
-	hasTerm, hasSubBlocks bool) (*PendingBlock, error) {
+	hasTerms, hasSubBlocks bool) (*PendingBlock, error) {
 
-	panic("niy")
+	assert(end > start)
 
-	// assert(length > 0)
+	startFP := w.owner.out.FilePointer()
 
-	// start := len(w.pending) - startBackwards
+	// hasFloorLeadLabel := isFloor && floorLeadLabel != -1
 
-	// assert2(start >= 0 && start+length <= len(w.pending),
-	// 	"len(pending)=%v startBackward=%v length=%v",
-	// 	len(w.pending), startBackwards, length)
+	prefix := make([]byte, prefixLength)
+	copy(prefix, w.lastTerm.Bytes()[:prefixLength])
 
-	// slice := w.pending[start : start+length]
+	// write block header:
+	numEntries := end - start
+	code := numEntries << 1
+	if end == len(w.pending) { // last block
+		code |= 1
+	}
+	var err error
+	if err = w.owner.out.WriteVInt(int32(code)); err != nil {
+		return nil, err
+	}
 
-	// startFP := w.owner.out.FilePointer()
+	// fmt.Printf("  writeBlock %vseg=%v len(pending)=%v prefixLength=%v "+
+	// 	"indexPrefix=%v entCount=%v startFP=%v futureTermCount=%v%v "+
+	// 	"isLastInFloor=%v\n",
+	// 	map[bool]string{true: "(floor) "}[isFloor],
+	// 	w.owner.segment,
+	// 	len(w.pending),
+	// 	prefixLength,
+	// 	prefix,
+	// 	length,
+	// 	startFP,
+	// 	futureTermCount,
+	// 	map[bool]string{true: fmt.Sprintf(" floorLeadByte=%v", strconv.FormatInt(int64(floorLeadByte&0xff), 16))}[isFloor],
+	// 	isLastInFloor,
+	// )
 
-	// prefix := make([]byte, indexPrefixLength)
-	// for m, _ := range prefix {
-	// 	prefix[m] = byte(prevTerm.At(m))
-	// }
+	// 1st pass: pack term suffix bytes into []byte blob
+	// TODO: cutover to bulk int codec... simple64?
 
-	// // write block header:
-	// err := w.owner.out.WriteVInt(int32(length<<1) | (map[bool]int32{true: 1, false: 0}[isLastInFloor]))
-	// if err != nil {
-	// 	return nil, err
-	// }
+	// We optimize the leaf block case (block has only terms), writing
+	// a more compact format in this case:
+	isLeafBlock := !hasSubBlocks
 
-	// // fmt.Printf("  writeBlock %vseg=%v len(pending)=%v prefixLength=%v "+
-	// // 	"indexPrefix=%v entCount=%v startFP=%v futureTermCount=%v%v "+
-	// // 	"isLastInFloor=%v\n",
-	// // 	map[bool]string{true: "(floor) "}[isFloor],
-	// // 	w.owner.segment,
-	// // 	len(w.pending),
-	// // 	prefixLength,
-	// // 	prefix,
-	// // 	length,
-	// // 	startFP,
-	// // 	futureTermCount,
-	// // 	map[bool]string{true: fmt.Sprintf(" floorLeadByte=%v", strconv.FormatInt(int64(floorLeadByte&0xff), 16))}[isFloor],
-	// // 	isLastInFloor,
-	// // )
+	var subIndices []*fst.FST
 
-	// // 1st pass: pack term suffix bytes into []byte blob
-	// // TODO: cutover to bulk int codec... simple64?
+	var absolute = true
 
-	// var isLeafBlock bool
-	// if w.lastBlockIndex < start {
-	// 	// this block defintely does not contain sub-blocks:
-	// 	isLeafBlock = true
-	// 	// fmt.Printf("no scan true isFloor=%v\n", isFloor)
-	// } else if !isFloor {
-	// 	// this block definitely does contain at least one sub-block:
-	// 	isLeafBlock = false
-	// 	// fmt.Printf("no scan false %v vs start=%v len=%v\n", w.lastBlockIndex, start, length)
-	// } else {
-	// 	// must scan up-front to see if there is a sub-block
-	// 	v := true
-	// 	// fmt.Printf("scan %v vs start=%v len=%v\n", w.lastBlockIndex, start, length)
-	// 	for _, ent := range slice {
-	// 		if !ent.isTerm() {
-	// 			v = false
-	// 			break
-	// 		}
-	// 	}
-	// 	isLeafBlock = v
-	// }
+	if isLeafBlock { // only terms
+		subIndices = nil
+		for i, ent := range w.pending[start:end] {
+			assert2(ent.isTerm(), "i=%v", i+start)
 
-	// var subIndices []*fst.FST
+			term := ent.(*PendingTerm)
+			assert2(strings.HasPrefix(string(term.term), string(prefix)), "term.term=%v prefix=%v", term.term, prefix)
+			state := term.state
+			suffix := len(term.term) - prefixLength
+			// for leaf block we write suffix straight
+			if err = w.suffixWriter.WriteVInt(int32(suffix)); err != nil {
+				return nil, err
+			}
+			if err = w.suffixWriter.WriteBytes(term.term[prefixLength : prefixLength+suffix]); err != nil {
+				return nil, err
+			}
+			assert(floorLeadLabel == -1 || int(term.term[prefixLength]) >= floorLeadLabel)
 
-	// var termCount int
+			// write term stats, to separate []byte blob:
+			if err = w.statsWriter.WriteVInt(int32(state.DocFreq)); err != nil {
+				return nil, err
+			}
+			if w.fieldInfo.IndexOptions() != INDEX_OPT_DOCS_ONLY {
+				assert2(state.TotalTermFreq >= int64(state.DocFreq),
+					"%v vs %v", state.TotalTermFreq, state.DocFreq)
+				if err := w.statsWriter.WriteVLong(state.TotalTermFreq - int64(state.DocFreq)); err != nil {
+					return nil, err
+				}
+			}
 
-	// assert(w.longsSize > 0)
-	// longs := make([]int64, w.longsSize)
-	// var absolute = true
+			// Write term meta data
+			if err = w.owner.postingsWriter.EncodeTerm(w.longs, w.bytesWriter, w.fieldInfo, state, absolute); err != nil {
+				return nil, err
+			}
+			for _, v := range w.longs[:w.longsSize] {
+				assert(v >= 0)
+				if err = w.metaWriter.WriteVLong(v); err != nil {
+					return nil, err
+				}
+			}
+			if err = w.bytesWriter.WriteTo(w.metaWriter); err != nil {
+				return nil, err
+			}
+			w.bytesWriter.Reset()
+			absolute = false
+		}
 
-	// if isLeafBlock {
-	// 	subIndices = nil
-	// 	for _, ent := range slice {
-	// 		assert(ent.isTerm())
-	// 		term := ent.(*PendingTerm)
-	// 		state := term.state
-	// 		suffix := len(term.term) - prefixLength
-	// 		// for leaf block we write suffix straight
-	// 		if err = w.suffixWriter.WriteVInt(int32(suffix)); err != nil {
-	// 			return nil, err
-	// 		}
-	// 		if err = w.suffixWriter.WriteBytes(term.term[prefixLength : prefixLength+suffix]); err != nil {
-	// 			return nil, err
-	// 		}
+	} else { // mixed terms and sub-blocks
+		subIndices = nil
+		for _, ent := range w.pending[start:end] {
+			if ent.isTerm() {
+				term := ent.(*PendingTerm)
+				assert2(strings.HasPrefix(string(term.term), string(prefix)), "term.term=%v prefix=%v", term.term, prefix)
+				state := term.state
+				suffix := len(term.term) - prefixLength
+				// for non-leaf block we borrow 1 bit to record
+				// if entr is term or sub-block
+				if err = w.suffixWriter.WriteVInt(int32(suffix << 1)); err != nil {
+					return nil, err
+				}
+				if err = w.suffixWriter.WriteBytes(term.term[prefixLength : prefixLength+suffix]); err != nil {
+					return nil, err
+				}
+				assert(floorLeadLabel == -1 || int(term.term[prefixLength]) >= floorLeadLabel)
 
-	// 		// write term stats, to separate []byte blob:
-	// 		if err := w.statsWriter.WriteVInt(int32(state.DocFreq)); err != nil {
-	// 			return nil, err
-	// 		}
-	// 		if w.fieldInfo.IndexOptions() != INDEX_OPT_DOCS_ONLY {
-	// 			assert2(state.TotalTermFreq >= int64(state.DocFreq),
-	// 				"%v vs %v", state.TotalTermFreq, state.DocFreq)
-	// 			if err := w.statsWriter.WriteVLong(state.TotalTermFreq - int64(state.DocFreq)); err != nil {
-	// 				return nil, err
-	// 			}
-	// 		}
+				// write term stats, to separate []byte block:
+				if err = w.statsWriter.WriteVInt(int32(state.DocFreq)); err != nil {
+					return nil, err
+				}
+				if w.fieldInfo.IndexOptions() != INDEX_OPT_DOCS_ONLY {
+					assert(state.TotalTermFreq >= int64(state.DocFreq))
+					if err = w.statsWriter.WriteVLong(state.TotalTermFreq - int64(state.DocFreq)); err != nil {
+						return nil, err
+					}
+				}
 
-	// 		// Write term meta data
-	// 		if err = w.owner.postingsWriter.EncodeTerm(longs, w.bytesWriter, w.fieldInfo, state, absolute); err != nil {
-	// 			return nil, err
-	// 		}
-	// 		for _, v := range longs {
-	// 			assert(v >= 0)
-	// 			if err = w.metaWriter.WriteVLong(v); err != nil {
-	// 				return nil, err
-	// 			}
-	// 		}
-	// 		if err = w.bytesWriter.WriteTo(w.metaWriter); err != nil {
-	// 			return nil, err
-	// 		}
-	// 		w.bytesWriter.Reset()
-	// 		absolute = false
-	// 	}
-	// 	termCount = length
+				// write term meta data
+				if err = w.owner.postingsWriter.EncodeTerm(w.longs, w.bytesWriter, w.fieldInfo, state, absolute); err != nil {
+					return nil, err
+				}
+				for _, v := range w.longs[:w.longsSize] {
+					assert(v >= 0)
+					if err = w.metaWriter.WriteVLong(v); err != nil {
+						return nil, err
+					}
+				}
+				if err = w.bytesWriter.WriteTo(w.metaWriter); err != nil {
+					return nil, err
+				}
+				w.bytesWriter.Reset()
+				absolute = false
 
-	// } else {
-	// 	subIndices = nil
-	// 	termCount = 0
-	// 	for _, ent := range slice {
-	// 		if ent.isTerm() {
-	// 			term := ent.(*PendingTerm)
-	// 			state := term.state
-	// 			suffix := len(term.term) - prefixLength
-	// 			// for non-leaf block we borrow 1 bit to record
-	// 			// if entr is term or sub-block
-	// 			if err = w.suffixWriter.WriteVInt(int32(suffix << 1)); err != nil {
-	// 				return nil, err
-	// 			}
-	// 			if err = w.suffixWriter.WriteBytes(term.term[prefixLength : prefixLength+suffix]); err != nil {
-	// 				return nil, err
-	// 			}
+			} else {
+				block := ent.(*PendingBlock)
+				assert(strings.HasPrefix(string(block.prefix), string(prefix)))
+				suffix := len(block.prefix) - prefixLength
 
-	// 			// write term stats, to separate []byte block:
-	// 			if err = w.statsWriter.WriteVInt(int32(state.DocFreq)); err != nil {
-	// 				return nil, err
-	// 			}
-	// 			if w.fieldInfo.IndexOptions() != INDEX_OPT_DOCS_ONLY {
-	// 				assert(state.TotalTermFreq >= int64(state.DocFreq))
-	// 				if err = w.statsWriter.WriteVLong(state.TotalTermFreq - int64(state.DocFreq)); err != nil {
-	// 					return nil, err
-	// 				}
-	// 			}
+				assert(suffix > 0)
 
-	// 			// write term meta data
-	// 			if err = w.owner.postingsWriter.EncodeTerm(longs, w.bytesWriter, w.fieldInfo, state, absolute); err != nil {
-	// 				return nil, err
-	// 			}
-	// 			for pos := 0; pos < w.longsSize; pos++ {
-	// 				assert(longs[pos] >= 0)
-	// 				if err = w.metaWriter.WriteVLong(longs[pos]); err != nil {
-	// 					return nil, err
-	// 				}
-	// 			}
-	// 			if err = w.bytesWriter.WriteTo(w.metaWriter); err != nil {
-	// 				return nil, err
-	// 			}
-	// 			w.bytesWriter.Reset()
-	// 			absolute = false
+				// for non-leaf block we borrow 1 bit to record if entry is
+				// term or sub-block
+				if err = w.suffixWriter.WriteVInt(int32((suffix << 1) | 1)); err != nil {
+					return nil, err
+				}
+				if err = w.suffixWriter.WriteBytes(block.prefix[prefixLength : prefixLength+suffix]); err != nil {
+					return nil, err
+				}
 
-	// 			termCount++
+				assert(floorLeadLabel == -1 || int(block.prefix[prefixLength]) >= floorLeadLabel)
 
-	// 		} else {
-	// 			block := ent.(*PendingBlock)
-	// 			suffix := len(block.prefix) - prefixLength
+				assert(block.fp < startFP)
 
-	// 			assert(suffix > 0)
+				if err = w.suffixWriter.WriteVLong(startFP - block.fp); err != nil {
+					return nil, err
+				}
+				subIndices = append(subIndices, block.index)
+			}
+		}
 
-	// 			// for non-leaf block we borrow 1 bit to record if entry is
-	// 			// term or sub-block
-	// 			if err = w.suffixWriter.WriteVInt(int32((suffix << 1) | 1)); err != nil {
-	// 				return nil, err
-	// 			}
-	// 			if err = w.suffixWriter.WriteBytes(block.prefix[prefixLength : prefixLength+suffix]); err != nil {
-	// 				return nil, err
-	// 			}
-	// 			assert(block.fp < startFP)
+		assert(len(subIndices) != 0)
+	}
 
-	// 			if err = w.suffixWriter.WriteVLong(startFP - block.fp); err != nil {
-	// 				return nil, err
-	// 			}
-	// 			subIndices = append(subIndices, block.index)
-	// 		}
-	// 	}
+	// TODO: we could block-write the term suffix pointer
+	// this would take more space but would enable binary
+	// search on lookup
 
-	// 	assert(len(subIndices) != 0)
-	// }
+	// write suffixes []byte blob to terms dict output:
+	if err = w.owner.out.WriteVInt(
+		int32(w.suffixWriter.FilePointer()<<1) |
+			(map[bool]int32{true: 1, false: 0}[isLeafBlock])); err != nil {
+		return nil, err
+	}
+	if err = w.suffixWriter.WriteTo(w.owner.out); err != nil {
+		return nil, err
+	}
+	w.suffixWriter.Reset()
 
-	// // TODO: we could block-write the term suffix pointer
-	// // this would take more space but would enable binary
-	// // search on lookup
+	// write term stats []byte blob
+	if err = w.owner.out.WriteVInt(int32(w.statsWriter.FilePointer())); err != nil {
+		return nil, err
+	}
+	if err = w.statsWriter.WriteTo(w.owner.out); err != nil {
+		return nil, err
+	}
+	w.statsWriter.Reset()
 
-	// // write suffixes []byte blob to terms dict output:
-	// if err = w.owner.out.WriteVInt(
-	// 	int32(w.suffixWriter.FilePointer()<<1) |
-	// 		(map[bool]int32{true: 1, false: 0}[isLeafBlock])); err == nil {
-	// 	if err = w.suffixWriter.WriteTo(w.owner.out); err == nil {
-	// 		w.suffixWriter.Reset()
-	// 	}
-	// }
-	// if err != nil {
-	// 	return nil, err
-	// }
+	// Write term meta data []byte blob
+	if err = w.owner.out.WriteVInt(int32(w.metaWriter.FilePointer())); err != nil {
+		return nil, err
+	}
+	if err = w.metaWriter.WriteTo(w.owner.out); err != nil {
+		return nil, err
+	}
+	w.metaWriter.Reset()
 
-	// // write term stats []byte blob
-	// if err = w.owner.out.WriteVInt(int32(w.statsWriter.FilePointer())); err == nil {
-	// 	if err = w.statsWriter.WriteTo(w.owner.out); err == nil {
-	// 		w.statsWriter.Reset()
-	// 	}
-	// }
-	// if err != nil {
-	// 	return nil, err
-	// }
+	prefix = append(prefix, byte(floorLeadLabel))
 
-	// // Write term meta data []byte blob
-	// if err = w.owner.out.WriteVInt(int32(w.metaWriter.FilePointer())); err == nil {
-	// 	if err = w.metaWriter.WriteTo(w.owner.out); err == nil {
-	// 		w.metaWriter.Reset()
-	// 	}
-	// }
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// // remove slice replaced by block:
-	// w.pending = append(w.pending[:start], w.pending[start+length:]...)
-
-	// if w.lastBlockIndex >= start {
-	// 	if w.lastBlockIndex < start+length {
-	// 		w.lastBlockIndex = start
-	// 	} else {
-	// 		w.lastBlockIndex -= length
-	// 	}
-	// }
-
-	// return newPendingBlock(prefix, startFP, termCount != 0, isFloor, floorLeadByte, subIndices), nil
+	return newPendingBlock(prefix, startFP, hasTerms, isFloor, floorLeadLabel, subIndices), nil
 }
 
 func (w *TermsWriter) Comparator() func(a, b []byte) bool {
