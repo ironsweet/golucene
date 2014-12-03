@@ -122,7 +122,7 @@ type BlockTreeTermsWriter struct {
 	segment string
 
 	scratchBytes   *store.RAMOutputStream
-	scratchIntsRef *util.IntsRef
+	scratchIntsRef *util.IntsRefBuilder
 }
 
 /*
@@ -420,190 +420,110 @@ func newTermsWriter(owner *BlockTreeTermsWriter,
 
 /* Writes the top count entries in pending, using prevTerm to compute the prefix. */
 func (w *TermsWriter) writeBlocks(prefixLength, count int) (err error) {
-	panic("niy")
-	// // fmt.Printf("writeBlocks count=%v\n", count)
-	// if count <= w.owner.maxItemsInBlock {
-	// 	// Easy case: not floor block. Eg, prefix is "foo", and we found
-	// 	// 30 terms/sub-blocks starting w/ that prefix, and
-	// 	// minItemsInBlock <= 30 <= maxItemsInBlock.
-	// 	var nonFloorBlock *PendingBlock
-	// 	if nonFloorBlock, err = w.writeBlock(prevTerm, prefixLength,
-	// 		prefixLength, count, count, 0, false, -1, true); err != nil {
-	// 		return
-	// 	}
-	// 	if err = nonFloorBlock.compileIndex(nil, w.owner.scratchBytes); err != nil {
-	// 		return
-	// 	}
-	// 	w.pending = append(w.pending, nonFloorBlock)
-	// 	// fmt.Println("  1 block")
+	assert(count > 0)
 
-	// } else {
-	// 	// Floor block case. E.g., prefix is "foo" but we have 100
-	// 	// terms/sub-blocks starting w/ that prefix. We segment the
-	// 	// entries into a primary block and following floor blocks using
-	// 	// the first label in the suffix to assign to floor blocks.
+	// Root block better writes all remaining pending entries:
+	assert(prefixLength > 0 || count == len(w.pending))
 
-	// 	// fmt.Printf("\nwbs count=%v\n", count)
+	lastSuffixLeadLabel := -1
 
-	// 	savLabel := prevTerm.Ints[prevTerm.Offset+prefixLength]
+	// True if we saw at least one term in this block (we record if a
+	// block only points to sub-blocks in the terms index so we can
+	// avoid seeking to it when we are looking for a term):
+	hasTerms := false
+	hasSubBlocks := false
 
-	// 	// count up how many items fall under each unique label after the prefix.
+	end := len(w.pending)
+	start := end - count
+	nextBlockStart := start
+	nextFloorLeadLabel := -1
 
-	// 	lastSuffixLeadLabel := -1
-	// 	termCount := 0
-	// 	subCount := 0
-	// 	numSubs := 0
+	for i, ent := range w.pending[start:] {
+		var suffixLeadLabel int
+		if ent.isTerm() {
+			term := ent.(*PendingTerm)
+			if len(term.term) == prefixLength {
+				// suffix is 0, ie prefix 'foo' and term is 'foo' so the
+				// term has empty string suffix in this block
+				assert(lastSuffixLeadLabel == -1)
+				suffixLeadLabel = -1
+			} else {
+				suffixLeadLabel = int(term.term[prefixLength])
+			}
+		} else {
+			block := ent.(*PendingBlock)
+			assert(len(block.prefix) > prefixLength)
+			suffixLeadLabel = int(block.prefix[prefixLength])
+		}
 
-	// 	for _, ent := range w.pending[len(w.pending)-count:] {
-	// 		// first byte in the suffix of this term
-	// 		var suffixLeadLabel int
-	// 		if ent.isTerm() {
-	// 			term := ent.(*PendingTerm)
-	// 			if len(term.term) == prefixLength {
-	// 				// suffix is 0, ie prefix 'foo' and term is 'foo' so the
-	// 				// term has empty string suffix in this block
-	// 				assert(lastSuffixLeadLabel == -1)
-	// 				assert(numSubs == 0)
-	// 				suffixLeadLabel = -1
-	// 			} else {
-	// 				suffixLeadLabel = int(term.term[prefixLength])
-	// 			}
-	// 		} else {
-	// 			block := ent.(*PendingBlock)
-	// 			assert(len(block.prefix) > prefixLength)
-	// 			suffixLeadLabel = int(block.prefix[prefixLength])
-	// 		}
+		if suffixLeadLabel != lastSuffixLeadLabel {
+			if itemsInBlock := i + count - nextBlockStart; itemsInBlock >= w.owner.minItemsInBlock &&
+				end-nextBlockStart > w.owner.maxItemsInBlock {
+				// The count is too large for one block, so we must break
+				// it into "floor" blocks, where we record the leading
+				// label of the suffix of the first term in each floor
+				// block, so at search time we can jump to the right floor
+				// block. We just use a naive greedy segmenter here: make a
+				// new floor block as soon as we have at least
+				// minItemsInBlock. This is not always best: it often
+				// produces a too-small block as the final block:
+				isFloor := itemsInBlock < count
+				var block *PendingBlock
+				if block, err = w.writeBlock(prefixLength, isFloor,
+					nextFloorLeadLabel, nextBlockStart, i+count, hasTerms,
+					hasSubBlocks); err != nil {
+					return
+				}
+				w.newBlocks = append(w.newBlocks, block)
 
-	// 		if suffixLeadLabel != lastSuffixLeadLabel && termCount+subCount != 0 {
-	// 			if len(w.subBytes) == numSubs {
-	// 				w.subBytes = append(w.subBytes, lastSuffixLeadLabel)
-	// 				w.subTermCounts = append(w.subTermCounts, termCount)
-	// 				w.subSubCounts = append(w.subSubCounts, subCount)
-	// 			} else {
-	// 				w.subBytes[numSubs] = lastSuffixLeadLabel
-	// 				w.subTermCounts[numSubs] = termCount
-	// 				w.subSubCounts[numSubs] = subCount
-	// 			}
-	// 			lastSuffixLeadLabel = suffixLeadLabel
-	// 			termCount, subCount = 0, 0
-	// 			numSubs++
-	// 		}
+				hasTerms = false
+				hasSubBlocks = false
+				nextFloorLeadLabel = suffixLeadLabel
+				nextBlockStart = i + count
+			}
 
-	// 		if ent.isTerm() {
-	// 			termCount++
-	// 		} else {
-	// 			subCount++
-	// 		}
-	// 	}
+			lastSuffixLeadLabel = suffixLeadLabel
+		}
 
-	// 	if len(w.subBytes) == numSubs {
-	// 		w.subBytes = append(w.subBytes, lastSuffixLeadLabel)
-	// 		w.subTermCounts = append(w.subTermCounts, termCount)
-	// 		w.subSubCounts = append(w.subSubCounts, subCount)
-	// 	} else {
-	// 		w.subBytes[numSubs] = lastSuffixLeadLabel
-	// 		w.subTermCounts[numSubs] = termCount
-	// 		w.subSubCounts[numSubs] = subCount
-	// 	}
-	// 	numSubs++
+		if ent.isTerm() {
+			hasTerms = true
+		} else {
+			hasSubBlocks = true
+		}
+	}
 
-	// 	for len(w.subTermCountSums) < numSubs {
-	// 		w.subTermCountSums = append(w.subTermCountSums, 0)
-	// 	}
+	// Write last block, if any:
+	if nextBlockStart < end {
+		itemsInBlock := end - nextBlockStart
+		isFloor := itemsInBlock < count
+		var block *PendingBlock
+		if block, err = w.writeBlock(prefixLength, isFloor,
+			nextFloorLeadLabel, nextBlockStart, end, hasTerms,
+			hasSubBlocks); err != nil {
+			return
+		}
+		w.newBlocks = append(w.newBlocks, block)
+	}
 
-	// 	// Roll up (backwards) the termCounts; postings impl needs this
-	// 	// to know where to pull the term slice from its pending term
-	// 	// stack:
-	// 	sum := 0
-	// 	for idx := numSubs - 1; idx >= 0; idx-- {
-	// 		sum += w.subTermCounts[idx]
-	// 		w.subTermCountSums[idx] = sum
-	// 	}
+	assert(len(w.newBlocks) > 0)
 
-	// 	// Naive greedy segmentation; this is not always best (it can
-	// 	// produce a too-small block as the last block):
-	// 	pendingCount := 0
-	// 	startLabel := w.subBytes[0]
-	// 	curStart := count
-	// 	subCount = 0
+	firstBlock := w.newBlocks[0]
 
-	// 	var floorBlocks []*PendingBlock
-	// 	var firstBlock *PendingBlock
+	assert(firstBlock.isFloor || len(w.newBlocks) == 1)
 
-	// 	for sub := 0; sub < numSubs; sub++ {
-	// 		pendingCount += w.subTermCounts[sub] + w.subSubCounts[sub]
-	// 		// fmt.Printf("  %v\n", w.subTermCounts[sub]+w.subSubCounts[sub])
-	// 		subCount++
+	if err = firstBlock.compileIndex(w.newBlocks,
+		w.owner.scratchBytes, w.owner.scratchIntsRef); err != nil {
+		return
+	}
 
-	// 		// Greedily make a floor block as soon as we've crossed the min count
-	// 		if pendingCount >= w.owner.minItemsInBlock {
-	// 			var curPrefixLength int
-	// 			if startLabel == -1 {
-	// 				curPrefixLength = prefixLength
-	// 			} else {
-	// 				curPrefixLength = prefixLength + 1
-	// 				// floor term:
-	// 				prevTerm.Ints[prevTerm.Offset+prefixLength] = startLabel
-	// 			}
-	// 			// fmt.Printf("  %v subs\n", subCount)
-	// 			var floorBlock *PendingBlock
-	// 			if floorBlock, err = w.writeBlock(prevTerm, prefixLength,
-	// 				curPrefixLength, curStart, pendingCount,
-	// 				w.subTermCountSums[sub+1], true, startLabel,
-	// 				curStart == pendingCount); err != nil {
-	// 				return err
-	// 			}
-	// 			if firstBlock == nil {
-	// 				firstBlock = floorBlock
-	// 			} else {
-	// 				floorBlocks = append(floorBlocks, floorBlock)
-	// 			}
-	// 			curStart -= pendingCount
-	// 			// fmt.Printf("  floor=%v\n", pendingCount)
-	// 			pendingCount = 0
+	// Remove slice from the top of the pending stack, that we just wrote:
+	w.pending = w.pending[:start]
 
-	// 			assert2(w.owner.minItemsInBlock == 1 || subCount > 1,
-	// 				"minItemsInBlock=%v subCount=%v sub=%v of %v subTermCount=%v subSubCount=%v depth=%v",
-	// 				w.owner.minItemsInBlock, subCount, sub, numSubs,
-	// 				w.subTermCountSums[sub], w.subSubCounts[sub], prefixLength)
-	// 			subCount = 0
-	// 			startLabel = w.subBytes[sub+1]
+	// Append new block
+	w.pending = append(w.pending, firstBlock)
 
-	// 			if curStart == 0 {
-	// 				break
-	// 			}
-
-	// 			if curStart <= w.owner.maxItemsInBlock {
-	// 				// remainder is small enough to fit into a block. NOTE that
-	// 				// this may be too small (< minItemsInBlock); need a true
-	// 				// segmenter here
-	// 				assert(startLabel != -1)
-	// 				assert(firstBlock != nil)
-	// 				prevTerm.Ints[prevTerm.Offset+prefixLength] = startLabel
-	// 				// fmt.Printf("  final %v subs\n", numSubs-sub-1)
-	// 				var b *PendingBlock
-	// 				if b, err = w.writeBlock(prevTerm, prefixLength, prefixLength+1,
-	// 					curStart, curStart, 0, true, startLabel, true); err != nil {
-	// 					return err
-	// 				}
-	// 				floorBlocks = append(floorBlocks, b)
-	// 				break
-	// 			}
-	// 		}
-	// 	}
-
-	// 	prevTerm.Ints[prevTerm.Offset+prefixLength] = savLabel
-
-	// 	assert(firstBlock != nil)
-	// 	if err = firstBlock.compileIndex(floorBlocks, w.owner.scratchBytes); err != nil {
-	// 		return err
-	// 	}
-
-	// 	w.pending = append(w.pending, firstBlock)
-	// 	// fmt.Printf("  done len(pending)=%v\n", len(w.pending))
-	// }
-	// w.lastBlockIndex = len(w.pending) - 1
-	// return nil
+	w.newBlocks = nil
+	return nil
 }
 
 /*
