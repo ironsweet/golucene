@@ -122,8 +122,10 @@ func (a *IntsRefBuilder) Grow(newLength int) {
 	a.ref.Ints = GrowIntSlice(a.ref.Ints, newLength)
 }
 
-func (a *IntsRefBuilder) CopyIntSlice([]int) {
-	panic("niy")
+func (a *IntsRefBuilder) CopyIntSlice(other []int) {
+	a.Grow(len(other))
+	copy(a.ref.Ints, other)
+	a.ref.Length = len(other)
 }
 
 func (a *IntsRefBuilder) CopyInts(ints *IntsRef) {
