@@ -138,10 +138,6 @@ func (a *AnalyzerImpl) SetVersion(v util.Version) {
 	a.version.Set(v)
 }
 
-func (a *AnalyzerImpl) Version() util.Version {
-	return a.version.Get().(util.Version)
-}
-
 type myTokenizer interface {
 	SetReader(io.RuneReader) error
 }
