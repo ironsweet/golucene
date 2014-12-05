@@ -22,6 +22,6 @@ func NewStopwordAnalyzerBaseWithStopWords(version util.Version, stopwords map[st
 			ans.stopwords[k] = v
 		}
 	}
-	ans.SetVersion(version)
+	ans.setVersion(version)
 	return ans
 }
