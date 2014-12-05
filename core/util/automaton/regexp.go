@@ -40,8 +40,6 @@ const (
 	INTERVAL     = 0x0020 // <n-m>
 	ALL          = 0xffff // enables all optional regexp syntax.
 	NONE         = 0x0000 // enables no optional regexp syntax.
-
-	allow_mutation = false
 )
 
 /*
@@ -142,7 +140,20 @@ func NewRegExpWithFlag(s string, flags int) *RegExp {
 // Constructs new Automaton from this RegExp. Same as
 // ToAutomaton(nil) (empty automaton map).
 func (re *RegExp) ToAutomaton() *Automaton {
-	return re.toAutomaton(nil, nil)
+	return re.toAutomatonAllowMutate(nil, nil)
+}
+
+func (re *RegExp) toAutomatonAllowMutate(automata map[string]*Automaton,
+	provider AutomatonProvider) *Automaton {
+	// b := false
+	if ALLOW_MUTATION {
+		panic("not implemented yet")
+	}
+	a := re.toAutomaton(automata, provider)
+	if ALLOW_MUTATION {
+		panic("not implemented yet")
+	}
+	return a
 }
 
 func (re *RegExp) toAutomaton(automata map[string]*Automaton,
@@ -155,31 +166,31 @@ func (re *RegExp) toAutomaton(automata map[string]*Automaton,
 		list = re.findLeaves(re.exp1, REGEXP_UNION, list, automata, provider)
 		list = re.findLeaves(re.exp2, REGEXP_UNION, list, automata, provider)
 		a = unionN(list)
-		a = minimize(a)
+		minimize(a)
 	case REGEXP_CONCATENATION:
 		list = make([]*Automaton, 0)
 		list = re.findLeaves(re.exp1, REGEXP_CONCATENATION, list, automata, provider)
 		list = re.findLeaves(re.exp2, REGEXP_CONCATENATION, list, automata, provider)
 		a = concatenateN(list)
-		a = minimize(a)
+		minimize(a)
 	case REGEXP_INTERSECTION:
-		a = intersection(re.exp1.toAutomaton(automata, provider),
+		a = re.exp1.toAutomaton(automata, provider).intersection(
 			re.exp2.toAutomaton(automata, provider))
-		a = minimize(a)
+		minimize(a)
 	case REGEXP_OPTIONAL:
-		a = optional(re.exp1.toAutomaton(automata, provider))
-		a = minimize(a)
+		a = re.exp1.toAutomaton(automata, provider).optional()
+		minimize(a)
 	case REGEXP_REPEAT:
-		a = repeat(re.exp1.toAutomaton(automata, provider))
-		a = minimize(a)
+		a = re.exp1.toAutomaton(automata, provider).repeat()
+		minimize(a)
 	case REGEXP_REPEAT_MIN:
-		a = repeatMin(re.exp1.toAutomaton(automata, provider), re.min)
-		a = minimize(a)
+		a = re.exp1.toAutomaton(automata, provider).repeatMin(re.min)
+		minimize(a)
 	case REGEXP_REPEAT_MINMAX:
 		panic("not implemented yet")
 	case REGEXP_COMPLEMENT:
-		a = complement(re.exp1.toAutomaton(automata, provider))
-		a = minimize(a)
+		a = re.exp1.toAutomaton(automata, provider).complement()
+		minimize(a)
 	case REGEXP_CHAR:
 		a = makeChar(re.c)
 	case REGEXP_CHAR_RANGE:
@@ -388,15 +399,9 @@ func makeCharRangeRE(from, to int) *RegExp {
 	}
 }
 
-func assert(ok bool) {
+func assert2(ok bool, msg string) {
 	if !ok {
-		panic("assert fail")
-	}
-}
-
-func assert2(ok bool, msg string, args ...interface{}) {
-	if !ok {
-		panic(fmt.Sprintf(msg, args...))
+		panic(msg)
 	}
 }
 
