@@ -10,11 +10,7 @@ const (
 	// Match settings and bugs in Lucene's 4.9 release.
 	// Use this to get the latest and greatest settings, bug fixes, etc,
 	// for Lucnee.
-	VERSION_49     = Version(49)
-	VERSION_4_10   = Version(410)
-	VERSION_4_10_1 = Version(4101)
-
-	VERSION_LATEST = VERSION_4_10_1
+	VERSION_49 = Version(49)
 )
 
 func (v Version) OnOrAfter(other Version) bool {
