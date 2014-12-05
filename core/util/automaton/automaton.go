@@ -669,6 +669,78 @@ var compareByMinMaxThenDest = func(t1, t2 *Transition) bool {
 	return t1.to != t2.to && t1.to.number < t2.to.number
 }
 
+// util/automaton/BasicAutomata.java
+
+// Returns a new (deterministic) automaton with the empty language.
+func MakeEmpty() *Automaton {
+	a := newEmptyAutomaton()
+	a.initial = newState()
+	a.deterministic = true
+	return a
+}
+
+// Returns a new (deterministic) automaton that accepts only the empty string.
+func makeEmptyString() *Automaton {
+	panic("not implemented yet")
+}
+
+// Returns a new (deterministic) automaton that accepts any single codepoint.
+func makeAnyChar() *Automaton {
+	return makeCharRange(MIN_CODE_POINT, unicode.MaxRune)
+}
+
+// Returns a new (deterministic) automaton that accepts a single codepoint of the given value.
+func makeChar(c int) *Automaton {
+	var b bytes.Buffer
+	b.WriteRune(rune(c))
+	a := newEmptyAutomaton()
+	a.singleton = b.String()
+	a.deterministic = true
+	return a
+}
+
+/*
+Returns a new (deterministic) automaton that accepts a single
+codepoint whose value is in the given interval (including both end
+points)
+*/
+func makeCharRange(min, max int) *Automaton {
+	if min == max {
+		return makeChar(min)
+	}
+	a := newEmptyAutomaton()
+	a.initial = newState()
+	a.deterministic = true
+	s := newState()
+	s.accept = true
+	if min <= max {
+		a.initial.addTransition(newTransitionRange(min, max, s))
+	}
+	return a
+}
+
+// L237
+// Returns a new (deterministic) automaton that accepts the single given string
+func makeString(s string) *Automaton {
+	a := newEmptyAutomaton()
+	a.singleton = s
+	a.deterministic = true
+	return a
+}
+
+// L271
+/*
+Returns a new (deterministic and minimal) automaton that accepts the
+union of the given collection of []byte representing UTF-8 encoded
+strings.
+*/
+func makeStringUnion(utf8Strings [][]byte) *Automaton {
+	if len(utf8Strings) == 0 {
+		return MakeEmpty()
+	}
+	return buildDaciukMihovAutomaton(utf8Strings)
+}
+
 // util/automaton/BasicOperation.java
 // Basic automata operations.
 

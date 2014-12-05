@@ -7,13 +7,13 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 )
 
-// core/LowerCaseFilter.java
-
 /*
 Normalizes token text to lower case.
 
-You may specify the Version
-compatibility when creating LowerCaseFilter:
+Version
+
+You mus tspecify the required Version compatibility when creating
+LowerCaseFilter:
 
 	- As of 3.1, supplementary characters are properly lowercased.
 */

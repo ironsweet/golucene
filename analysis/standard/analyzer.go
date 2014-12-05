@@ -20,26 +20,26 @@ var STOP_WORDS_SET = ENGLISH_STOP_WORDS_SET
 Filters StandardTokenizer with StandardFilter, LowerCaseFilter and
 StopFilter, using a list of English stop words.
 
-You may specify the Version
-compatibility when creating StandardAnalyzer:
-
+# Version
+You must specify the required Version compatibility when creating
+StandardAnalyzer:
 	- GoLucene supports 4.5+ only.
 */
 type StandardAnalyzer struct {
 	*StopwordAnalyzerBase
+	matchVersion   util.Version
 	stopWordSet    map[string]bool
 	maxTokenLength int
 }
 
 /* Builds an analyzer with the given stop words. */
-func NewStandardAnalyzerWithStopWords(matchVersion util.Version,
-	stopWords map[string]bool) *StandardAnalyzer {
-
+func NewStandardAnalyzerWithStopWords(matchVersion util.Version, stopWords map[string]bool) *StandardAnalyzer {
 	ans := &StandardAnalyzer{
-		stopWordSet:    stopWords,
-		maxTokenLength: DEFAULT_MAX_TOKEN_LENGTH,
+		NewStopwordAnalyzerBaseWithStopWords(matchVersion, stopWords),
+		matchVersion,
+		stopWords,
+		DEFAULT_MAX_TOKEN_LENGTH,
 	}
-	ans.StopwordAnalyzerBase = NewStopwordAnalyzerBaseWithStopWords(matchVersion, stopWords)
 	ans.Spi = ans
 	return ans
 }
@@ -50,12 +50,11 @@ func NewStandardAnalyzer(matchVersion util.Version) *StandardAnalyzer {
 }
 
 func (a *StandardAnalyzer) CreateComponents(fieldName string, reader io.RuneReader) *TokenStreamComponents {
-	version := a.Version()
-	src := newStandardTokenizer(version, reader)
+	src := newStandardTokenizer(a.matchVersion, reader)
 	src.maxTokenLength = a.maxTokenLength
-	var tok TokenStream = newStandardFilter(version, src)
-	tok = NewLowerCaseFilter(version, tok)
-	tok = NewStopFilter(version, tok, a.stopWordSet)
+	var tok TokenStream = newStandardFilter(a.matchVersion, src)
+	tok = NewLowerCaseFilter(a.matchVersion, tok)
+	tok = NewStopFilter(a.matchVersion, tok, a.stopWordSet)
 	ans := NewTokenStreamComponents(src, tok)
 	super := ans.SetReader
 	ans.SetReader = func(reader io.RuneReader) error {

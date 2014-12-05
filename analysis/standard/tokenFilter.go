@@ -5,8 +5,6 @@ import (
 	"github.com/balzaczyy/golucene/core/util"
 )
 
-// standard/StandardFilter.java
-
 /* Normalizes tokens extracted with StandardTokenizer */
 type StandardFilter struct {
 	*TokenFilter
