@@ -532,14 +532,14 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 		// interacting with the TermsConsumer, only calling out to us
 		// (passing us the DocConsumer) to handle delivery of docs/positions
 
-		postingsConsumer, err := termsConsumer.StartTerm(text.Value)
+		postingsConsumer, err := termsConsumer.StartTerm(text.ToBytes())
 		if err != nil {
 			return err
 		}
 
 		delDocLimit := 0
 		if segUpdates != nil {
-			protoTerm.Bytes = text.Value
+			protoTerm.Bytes = text.ToBytes()
 			if docIDUpto, ok := segUpdates[protoTerm]; ok {
 				delDocLimit = docIDUpto
 			}
@@ -654,7 +654,7 @@ func (w *FreqProxTermsWriterPerField) flush(fieldName string,
 				return err
 			}
 		}
-		err = termsConsumer.FinishTerm(text.Value, codec.NewTermStats(docFreq,
+		err = termsConsumer.FinishTerm(text.ToBytes(), codec.NewTermStats(docFreq,
 			map[bool]int64{true: totalTermFreq, false: -1}[writeTermFreq]))
 		if err != nil {
 			return err

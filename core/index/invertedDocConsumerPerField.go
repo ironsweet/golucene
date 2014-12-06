@@ -194,7 +194,7 @@ func (h *TermsHashPerFieldImpl) add() (err error) {
 	// We are first in the chain so we must "intern" the term text into
 	// textStart address. Get the text & hash of this term.
 	var termId int
-	if termId, err = h.bytesHash.Add(h.termBytesRef.Value); err != nil {
+	if termId, err = h.bytesHash.Add(h.termBytesRef.ToBytes()); err != nil {
 		return
 	}
 

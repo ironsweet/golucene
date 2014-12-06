@@ -537,7 +537,7 @@ func (f *PerField) invert(field IndexableField, first bool) error {
 					aborting = false
 					prefix := make([]byte, 30)
 					bigTerm := f.invertState.termAttribute.BytesRef()
-					copy(prefix, bigTerm.Value)
+					copy(prefix, bigTerm.ToBytes()[:30]) // keep at most 30 characters
 					if f.docState.infoStream.IsEnabled("IW") {
 						f.docState.infoStream.Message("IW",
 							"ERROR: Document contains at least one immense term in field='%v' "+
