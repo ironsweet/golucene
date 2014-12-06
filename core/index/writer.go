@@ -902,8 +902,6 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 
 							if err = util.Close(w.writeLock); err == nil { // release write lock
 								w.writeLock = nil
-
-								panic("not implemented yet")
 							}
 						}
 					}
