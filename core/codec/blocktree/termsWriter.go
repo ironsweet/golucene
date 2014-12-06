@@ -554,7 +554,7 @@ func (w *TermsWriter) writeBlock(
 
 	startFP := w.owner.out.FilePointer()
 
-	// hasFloorLeadLabel := isFloor && floorLeadLabel != -1
+	hasFloorLeadLabel := isFloor && floorLeadLabel != -1
 
 	prefix := make([]byte, prefixLength)
 	copy(prefix, w.lastTerm.Bytes()[:prefixLength])
@@ -751,7 +751,9 @@ func (w *TermsWriter) writeBlock(
 	}
 	w.metaWriter.Reset()
 
-	prefix = append(prefix, byte(floorLeadLabel))
+	if hasFloorLeadLabel {
+		prefix = append(prefix, byte(floorLeadLabel))
+	}
 
 	return newPendingBlock(prefix, startFP, hasTerms, isFloor, floorLeadLabel, subIndices), nil
 }
