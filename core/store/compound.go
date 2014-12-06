@@ -71,7 +71,18 @@ func NewCompoundFileDirectory(directory Directory, fileName string, context IOCo
 			return nil, err
 		}
 		if self.version >= CFD_VERSION_CHECKSUM {
-			panic("niy")
+			if _, err = codec.CheckHeader(self.handle, CFD_DATA_CODEC,
+				int32(self.version), int32(self.version)); err != nil {
+				return nil, err
+			}
+			// NOTE: data file is too costly to verify checksum against all the
+			// bytes on open, but for now we at least verify proper structure
+			// of the checksum footer: which looks for FOOTER_MAGIC +
+			// algorithmID. This is cheap and can detect some forms of
+			// corruption such as file trucation.
+			if _, err = codec.RetrieveChecksum(self.handle); err != nil {
+				return nil, err
+			}
 		}
 		success = true
 		self.BaseDirectory.IsOpen = true
