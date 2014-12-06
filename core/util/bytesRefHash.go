@@ -117,7 +117,7 @@ func (a *bytesRefIntroSorter) Less(i, j int) bool {
 	assert(len(a.owner.bytesStart) > id1 && len(a.owner.bytesStart) > id2)
 	a.owner.pool.SetBytesRef(a.scratch1, a.owner.bytesStart[id1])
 	a.owner.pool.SetBytesRef(a.scratch2, a.owner.bytesStart[id2])
-	return a.comp(a.scratch1.Value, a.scratch2.Value)
+	return a.comp(a.scratch1.ToBytes(), a.scratch2.ToBytes())
 }
 
 func (a *bytesRefIntroSorter) SetPivot(i int) {
@@ -130,7 +130,7 @@ func (a *bytesRefIntroSorter) PivotLess(j int) bool {
 	id := a.compact[j]
 	assert(len(a.owner.bytesStart) > id)
 	a.owner.pool.SetBytesRef(a.scratch2, a.owner.bytesStart[id])
-	return a.comp(a.pivot.Value, a.scratch2.Value)
+	return a.comp(a.pivot.ToBytes(), a.scratch2.ToBytes())
 }
 
 /*

@@ -16,36 +16,25 @@ allowing underlying []byte to change.
 */
 type BytesRef struct {
 	// The contents of the BytesRef.
-	Value []byte
+	Bytes  []byte
+	Offset int
+	Length int
 }
 
 func NewEmptyBytesRef() *BytesRef {
-	return NewBytesRef(EMPTY_BYTES)
+	return NewBytesRefFrom(EMPTY_BYTES)
 }
 
-func NewBytesRef(bytes []byte) *BytesRef {
-	return &BytesRef{bytes}
-}
-
-/*
-Expert: compares the byte against another BytesRef, returning true if
-the bytes are equal.
-*/
-func (br *BytesRef) bytesEquals(other []byte) bool {
-	assert(other != nil)
-	if len(br.Value) == len(other) {
-		for i, v := range br.Value {
-			if v != other[i] {
-				return false
-			}
-		}
-		return true
+func NewBytesRef(bytes []byte, offset, length int) *BytesRef {
+	return &BytesRef{
+		Bytes:  bytes,
+		Offset: offset,
+		Length: length,
 	}
-	return false
 }
 
-func (br *BytesRef) String() string {
-	panic("not implemented yet")
+func NewBytesRefFrom(bytes []byte) *BytesRef {
+	return NewBytesRef(bytes, 0, len(bytes))
 }
 
 /*
@@ -62,16 +51,42 @@ func DeepCopyOf(other *BytesRef) *BytesRef {
 }
 
 /*
+Expert: compares the byte against another BytesRef, returning true if
+the bytes are equal.
+*/
+func (br *BytesRef) bytesEquals(other []byte) bool {
+	if br.Length != len(other) {
+		return false
+	}
+	for i, v := range br.ToBytes() {
+		if v != other[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (br *BytesRef) String() string {
+	panic("not implemented yet")
+}
+
+func (br *BytesRef) ToBytes() []byte {
+	return br.Bytes[br.Offset : br.Offset+br.Length]
+}
+
+/*
 Copies the bytes from the given BytesRef
 
 NOTE: if this would exceed the slice size, this method creates a new
 reference array.
 */
 func (a *BytesRef) copyBytes(other *BytesRef) {
-	if len(a.Value) < len(other.Value) {
-		a.Value = make([]byte, len(other.Value))
+	if len(a.Bytes)-a.Offset < other.Length {
+		a.Bytes = make([]byte, other.Length)
+		a.Offset = 0
 	}
-	copy(a.Value, other.Value)
+	copy(a.Bytes, other.Bytes[other.Offset:other.Offset+other.Length])
+	a.Length = other.Length
 }
 
 func UTF8SortedAsUnicodeLess(aBytes, bBytes []byte) bool {
@@ -110,49 +125,61 @@ func (br BytesRefs) Swap(i, j int) {
 // util/BytesRefBuilder.java
 
 type BytesRefBuilder struct {
-	ref []byte
+	ref *BytesRef
 }
 
 func NewBytesRefBuilder() *BytesRefBuilder {
-	return new(BytesRefBuilder)
+	return &BytesRefBuilder{
+		ref: NewEmptyBytesRef(),
+	}
 }
 
 /* Return a reference to the bytes of this build. */
 func (b *BytesRefBuilder) Bytes() []byte {
-	return b.ref
+	return b.ref.Bytes
 }
 
 /* Return the number of bytes in this buffer. */
 func (b *BytesRefBuilder) Length() int {
-	return len(b.ref)
+	return b.ref.Length
 }
 
 /* Set the length. */
 func (b *BytesRefBuilder) SetLength(length int) {
-	assert(length <= len(b.ref))
-	b.ref = b.ref[:length]
+	b.ref.Length = length
 }
 
 /* Return the byte at the given offset. */
 func (b *BytesRefBuilder) At(offset int) byte {
-	return b.ref[offset]
+	return b.ref.Bytes[offset]
 }
 
 /* Set a byte. */
 func (b *BytesRefBuilder) Set(offset int, v byte) {
-	b.ref[offset] = v
+	b.ref.Bytes[offset] = v
 }
 
 /* Ensure that this builder can hold at least capacity bytes without resizing. */
 func (b *BytesRefBuilder) Grow(capacity int) {
-	b.ref = GrowByteSlice(b.ref, capacity)
+	b.ref.Bytes = GrowByteSlice(b.ref.Bytes, capacity)
+}
+
+func (b *BytesRefBuilder) append(bytes []byte) {
+	b.Grow(b.ref.Length + len(bytes))
+	copy(b.ref.Bytes[b.ref.Length:], bytes)
+	b.ref.Length += len(bytes)
+}
+
+func (b *BytesRefBuilder) clear() {
+	b.SetLength(0)
+}
+
+func (b *BytesRefBuilder) CopyFromBytes(ref []byte) {
+	b.clear()
+	b.append(ref)
 }
 
 func (b *BytesRefBuilder) Get() *BytesRef {
-	return NewBytesRef(b.ref)
-}
-
-func (b *BytesRefBuilder) Copy(ref []byte) {
-	b.ref = GrowByteSlice(b.ref, len(ref))
-	copy(b.ref, ref)
+	assert2(b.ref.Offset == 0, "Modifying the offset of the returned ref is illegal")
+	return b.ref
 }

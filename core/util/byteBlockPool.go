@@ -150,21 +150,19 @@ func (p *ByteBlockPool) AllocSlice(slice []byte, upto int) int {
 
 /* Fill in a BytesRef from term's length & bytes encoded in byte block */
 func (p *ByteBlockPool) SetBytesRef(term *BytesRef, textStart int) {
-	assert(term != nil)
 	bytes := p.Buffers[textStart>>BYTE_BLOCK_SHIFT]
+	term.Bytes = bytes
 	pos := textStart & BYTE_BLOCK_MASK
 	if (bytes[pos] & 0x80) == 0 {
 		// length is 1 byte
-		length := int(bytes[pos])
-		assert(length >= 0)
-		term.Value = bytes[pos+1 : pos+1+length]
+		term.Length = int(bytes[pos])
+		term.Offset = pos + 1
 	} else {
 		// length is 2 bytes
-		length := (int(bytes[pos]) & 0x7f) + ((int(bytes[pos+1]) & 0xff) << 7)
-		assert(length >= 0)
-		term.Value = bytes[pos+2 : pos+2+length]
+		term.Length = (int(bytes[pos]) & 0x7f) + ((int(bytes[pos+1]) & 0xff) << 7)
+		term.Offset = pos + 2
 	}
-	assert(len(term.Value) >= 0)
+	assert(term.Length >= 0)
 }
 
 /* Abstract class for allocating and freeing byte blocks. */
