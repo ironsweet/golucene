@@ -100,7 +100,9 @@ func newLucene49NormsProducer(state SegmentReadState,
 	// of the checksum footer: which looks for FOOTER_MATIC +
 	// algorithmID. This is cheap and can detect some forms of
 	// corruption such as file trucation.
-	panic("niy")
+	if _, err = codec.RetrieveChecksum(np.data); err != nil {
+		return nil, err
+	}
 
 	success = true
 
