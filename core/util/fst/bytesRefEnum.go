@@ -13,16 +13,18 @@ type BytesRefFSTEnum struct {
 
 /* Holds a single input ([]byte) + output pair. */
 type BytesRefFSTEnumIO struct {
-	Input  []byte
+	Input  *util.BytesRef
 	Output interface{}
 }
 
 func NewBytesRefFSTEnum(fst *FST) *BytesRefFSTEnum {
 	ans := &BytesRefFSTEnum{
-		current: util.NewBytesRef(make([]byte, 10)),
+		current: util.NewBytesRefFrom(make([]byte, 10)),
 		result:  new(BytesRefFSTEnumIO),
 	}
 	ans.FSTEnum = newFSTEnum(ans, fst)
+	ans.result.Input = ans.current
+	ans.current.Offset = 1
 	return ans
 }
 
@@ -34,18 +36,18 @@ func (e *BytesRefFSTEnum) Next() (*BytesRefFSTEnumIO, error) {
 }
 
 func (e *BytesRefFSTEnum) setCurrentLabel(label int) {
-	e.current.Value[e.upto] = byte(label)
+	e.current.Bytes[e.upto] = byte(label)
 }
 
 func (e *BytesRefFSTEnum) grow() {
-	e.current.Value = util.GrowByteSlice(e.current.Value, e.upto+1)
+	e.current.Bytes = util.GrowByteSlice(e.current.Bytes, e.upto+1)
 }
 
 func (e *BytesRefFSTEnum) setResult() *BytesRefFSTEnumIO {
 	if e.upto == 0 {
 		return nil
 	}
-	e.result.Input = e.current.Value[1:e.upto]
+	e.current.Length = e.upto - 1
 	e.result.Output = e.output[e.upto]
 	return e.result
 }
