@@ -34,6 +34,10 @@ func (pool *ReaderPool) release(rld *ReadersAndUpdates) error {
 	panic("not implemented yet")
 }
 
+func (pool *ReaderPool) Close() error {
+	return pool.dropAll(false)
+}
+
 // Remove all our references to readers, and commits any pending changes.
 func (pool *ReaderPool) dropAll(doSave bool) error {
 	pool.Lock() // synchronized

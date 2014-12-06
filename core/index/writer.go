@@ -506,9 +506,7 @@ func (w *IndexWriter) Close() error {
 	return w.close(func() (ok bool, err error) {
 		defer func() {
 			if !ok { // be certain to close the index on any error
-				defer func() {
-					recover() // suppress so we keep returning original error
-				}()
+				defer recover() // suppress so we keep returning original error
 				w.rollbackInternal()
 			}
 		}()
@@ -812,9 +810,28 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 	err = func() error {
 		var success = false
 		defer func() {
-			panic("not implemented yet")
-			if w.infoStream.IsEnabled("IW") {
-				w.infoStream.Message("IW", "hit error during rollback")
+			if !success {
+				// Must not hold IW's lock while closing mergeScheduler: this could lead to deadlock
+				util.CloseWhileSuppressingError(w.mergeScheduler)
+			}
+			w.Lock()
+			defer w.Unlock()
+
+			if !success {
+				func() {
+					defer recover() // ignore any error
+					// we tried to be nice about it: do the minimum
+					// don't leak a segments_N file if there is a pending commit
+					if w.pendingCommit != nil {
+						w.pendingCommit.rollbackCommit(w.directory)
+						w.deleter.decRefInfos(w.pendingCommit)
+					}
+					w.pendingCommit = nil
+				}()
+
+				// close all the closeables we can (but important is readerPool and writeLock to prevent leaks)
+				util.CloseWhileSuppressingError(w.readerPool, w.deleter, w.writeLock)
+				w.writeLock = nil
 			}
 		}()
 
@@ -880,7 +897,8 @@ func (w *IndexWriter) rollbackInternal() (ok bool, err error) {
 							// may try to sneak a flush in, after we leave this
 							// sync block and before we enter the sync block in the
 							// finally clause below that sets closed:
-							w._closed = true
+							// w._closed = true
+							// For GoLucene, it may not be necessary.
 
 							if err = util.Close(w.writeLock); err == nil { // release write lock
 								w.writeLock = nil
