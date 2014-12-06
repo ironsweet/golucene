@@ -363,7 +363,7 @@ func (b *PendingBlock) append(
 	indexEnt, err := subIndexEnum.Next()
 	for err == nil && indexEnt != nil {
 		// fmt.Printf("      add sub=%v output=%v\n", indexEnt.Input, indexEnt.Output)
-		err = builder.Add(fst.ToIntsRef(indexEnt.Input, scratchIntsRef), indexEnt.Output)
+		err = builder.Add(fst.ToIntsRef(indexEnt.Input.ToBytes(), scratchIntsRef), indexEnt.Output)
 		if err == nil {
 			indexEnt, err = subIndexEnum.Next()
 		}

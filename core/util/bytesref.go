@@ -174,7 +174,7 @@ func (b *BytesRefBuilder) clear() {
 	b.SetLength(0)
 }
 
-func (b *BytesRefBuilder) CopyFromBytes(ref []byte) {
+func (b *BytesRefBuilder) Copy(ref []byte) {
 	b.clear()
 	b.append(ref)
 }

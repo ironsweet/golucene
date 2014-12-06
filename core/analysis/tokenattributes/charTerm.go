@@ -65,7 +65,7 @@ func (a *CharTermAttributeImpl) growTermBuffer(newSize int) {
 
 func (a *CharTermAttributeImpl) FillBytesRef() {
 	s := string(a.termBuffer[:a.termLength])
-	a.bytes.CopyFromBytes([]byte(s))
+	a.bytes.Copy([]byte(s))
 }
 
 func (a *CharTermAttributeImpl) BytesRef() *util.BytesRef {
