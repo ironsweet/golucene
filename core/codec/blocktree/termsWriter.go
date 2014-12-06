@@ -554,7 +554,7 @@ func (w *TermsWriter) writeBlock(
 
 	startFP := w.owner.out.FilePointer()
 
-	// hasFloorLeadLabel := isFloor && floorLeadLabel != -1
+	hasFloorLeadLabel := isFloor && floorLeadLabel != -1
 
 	prefix := make([]byte, prefixLength)
 	copy(prefix, w.lastTerm.Bytes()[:prefixLength])
@@ -751,7 +751,9 @@ func (w *TermsWriter) writeBlock(
 	}
 	w.metaWriter.Reset()
 
-	prefix = append(prefix, byte(floorLeadLabel))
+	if hasFloorLeadLabel {
+		prefix = append(prefix, byte(floorLeadLabel))
+	}
 
 	return newPendingBlock(prefix, startFP, hasTerms, isFloor, floorLeadLabel, subIndices), nil
 }
@@ -852,7 +854,7 @@ func (w *TermsWriter) Finish(sumTotalTermFreq, sumDocFreq int64, docCount int) (
 		assert2(len(w.pending) == 1 && !w.pending[0].isTerm(),
 			"len(pending) = %v pending=%v", len(w.pending), w.pending)
 		root := w.pending[0].(*PendingBlock)
-		assert(len(root.prefix) == 0)
+		assert2(len(root.prefix) == 0, "%v", root.prefix)
 		assert(root.index.EmptyOutput() != nil)
 
 		w.sumTotalTermFreq = sumTotalTermFreq
