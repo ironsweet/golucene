@@ -87,7 +87,7 @@ func (qp *QueryBuilder) createFieldQuery(analyzer analysis.Analyzer,
 			assert(hasNext)
 			termAtt.FillBytesRef()
 		} // safe to ignore error, because we know the number of tokens
-		return qp.newTermQuery(index.NewTermFromBytes(field, util.DeepCopyOf(bytes).Value))
+		return qp.newTermQuery(index.NewTermFromBytes(field, util.DeepCopyOf(bytes).ToBytes()))
 	} else {
 		if severalTokensAtSamePosition || !quoted {
 			if positionCount == 1 || !quoted {
@@ -113,7 +113,7 @@ func (qp *QueryBuilder) createFieldQuery(analyzer analysis.Analyzer,
 							if currentQuery != nil {
 								q.Add(currentQuery, operator)
 							}
-							currentQuery = qp.newTermQuery(index.NewTermFromBytes(field, util.DeepCopyOf(bytes).Value))
+							currentQuery = qp.newTermQuery(index.NewTermFromBytes(field, util.DeepCopyOf(bytes).ToBytes()))
 						}
 					}
 					q.Add(currentQuery, operator)
