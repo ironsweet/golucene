@@ -4,7 +4,6 @@ import (
 	. "github.com/balzaczyy/golucene/analysis/core"
 	. "github.com/balzaczyy/golucene/analysis/util"
 	. "github.com/balzaczyy/golucene/core/analysis"
-	"github.com/balzaczyy/golucene/core/util"
 	"io"
 )
 
@@ -32,21 +31,19 @@ type StandardAnalyzer struct {
 }
 
 /* Builds an analyzer with the given stop words. */
-func NewStandardAnalyzerWithStopWords(matchVersion util.Version,
-	stopWords map[string]bool) *StandardAnalyzer {
-
+func NewStandardAnalyzerWithStopWords(stopWords map[string]bool) *StandardAnalyzer {
 	ans := &StandardAnalyzer{
 		stopWordSet:    stopWords,
 		maxTokenLength: DEFAULT_MAX_TOKEN_LENGTH,
 	}
-	ans.StopwordAnalyzerBase = NewStopwordAnalyzerBaseWithStopWords(matchVersion, stopWords)
+	ans.StopwordAnalyzerBase = NewStopwordAnalyzerBaseWithStopWords(stopWords)
 	ans.Spi = ans
 	return ans
 }
 
 /* Buils an analyzer with the default stop words (STOP_WORDS_SET). */
-func NewStandardAnalyzer(matchVersion util.Version) *StandardAnalyzer {
-	return NewStandardAnalyzerWithStopWords(matchVersion, STOP_WORDS_SET)
+func NewStandardAnalyzer() *StandardAnalyzer {
+	return NewStandardAnalyzerWithStopWords(STOP_WORDS_SET)
 }
 
 func (a *StandardAnalyzer) CreateComponents(fieldName string, reader io.RuneReader) *TokenStreamComponents {

@@ -125,13 +125,15 @@ func NewBlockTreeTermsReader(dir store.Directory,
 	// Have PostingsReader init itself
 	postingsReader.Init(fp.in)
 
-	// NOTE: data file is too costly to verify checksum against all the
-	// bytes on open, but for now we at least verify proper structure
-	// of the checksum footer: which looks for FOOTER_MAGIC +
-	// algorithmID. This is cheap and can detect some forms of
-	// corruption such as file trucation.
 	if fp.version >= TERMS_VERSION_CHECKSUM {
-		panic("niy")
+		// NOTE: data file is too costly to verify checksum against all the
+		// bytes on open, but for now we at least verify proper structure
+		// of the checksum footer: which looks for FOOTER_MAGIC +
+		// algorithmID. This is cheap and can detect some forms of
+		// corruption such as file trucation.
+		if _, err = codec.RetrieveChecksum(fp.in); err != nil {
+			return nil, err
+		}
 	}
 
 	// Read per-field details

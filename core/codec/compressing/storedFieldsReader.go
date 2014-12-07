@@ -146,7 +146,14 @@ func newCompressingStoredFieldsReader(d store.Directory,
 	r.bytes = make([]byte, 0)
 
 	if r.version >= VERSION_CHECKSUM {
-		panic("niy")
+		// NOTE: data file is too costly to verify checksum against all the
+		// bytes on open, but fo rnow we at least verify proper structure
+		// of the checksum footer: which looks for FOOTER_MATIC +
+		// algorithmID. This is cheap and can detect some forms of
+		// corruption such as file trucation.
+		if _, err = codec.RetrieveChecksum(r.fieldsStream); err != nil {
+			return nil, err
+		}
 	}
 
 	success = true

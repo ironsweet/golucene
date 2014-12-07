@@ -174,6 +174,18 @@ func CheckFooter(in ChecksumIndexInput) (cs int64, err error) {
 	return
 }
 
+/* Returns (but does not validate) the checksum previously written by CheckFooter. */
+func RetrieveChecksum(in IndexInput) (int64, error) {
+	var err error
+	if err = in.Seek(in.Length() - FOOTER_LENGTH); err != nil {
+		return 0, err
+	}
+	if err = validateFooter(in); err != nil {
+		return 0, err
+	}
+	return in.ReadLong()
+}
+
 func validateFooter(in IndexInput) error {
 	magic, err := in.ReadInt()
 	if err != nil {
@@ -199,6 +211,7 @@ func validateFooter(in IndexInput) error {
 
 type IndexInput interface {
 	FilePointer() int64
+	Seek(int64) error
 	Length() int64
 	ReadInt() (int32, error)
 	ReadLong() (int64, error)

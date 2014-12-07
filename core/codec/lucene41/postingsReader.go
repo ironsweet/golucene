@@ -53,7 +53,14 @@ func NewLucene41PostingsReader(dir store.Directory,
 	}
 
 	if version >= LUCENE41_VERSION_CHECKSUM {
-		panic("niy")
+		// NOTE: data file is too costly to verify checksum against all the
+		// bytes on open, but for now we at least verify proper structure
+		// of the checksum footer: which looks for FOOTER_MAGIC +
+		// algorithmID. This is cheap and can detect some forms of
+		// corruption such as file trucation.
+		if _, err = codec.RetrieveChecksum(docIn); err != nil {
+			return nil, err
+		}
 	}
 
 	if fis.HasProx {
@@ -67,7 +74,14 @@ func NewLucene41PostingsReader(dir store.Directory,
 		}
 
 		if version >= LUCENE41_VERSION_CHECKSUM {
-			panic("niy")
+			// NOTE: data file is too costly to verify checksum against all the
+			// bytes on open, but for now we at least verify proper structure
+			// of the checksum footer: which looks for FOOTER_MAGIC +
+			// algorithmID. This is cheap and can detect some forms of
+			// corruption such as file trucation.
+			if _, err = codec.RetrieveChecksum(posIn); err != nil {
+				return nil, err
+			}
 		}
 
 		if fis.HasPayloads || fis.HasOffsets {
@@ -81,7 +95,15 @@ func NewLucene41PostingsReader(dir store.Directory,
 			}
 
 			if version >= LUCENE41_VERSION_CHECKSUM {
-				panic("niy")
+				// NOTE: data file is too costly to verify checksum against all the
+				// bytes on open, but for now we at least verify proper structure
+				// of the checksum footer: which looks for FOOTER_MAGIC +
+				// algorithmID. This is cheap and can detect some forms of
+				// corruption such as file trucation.
+				if _, err = codec.RetrieveChecksum(payIn); err != nil {
+					return nil, err
+				}
+
 			}
 		}
 	}

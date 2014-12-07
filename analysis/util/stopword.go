@@ -2,7 +2,6 @@ package util
 
 import (
 	. "github.com/balzaczyy/golucene/core/analysis"
-	"github.com/balzaczyy/golucene/core/util"
 )
 
 // util/StopwordAnalyzerBase.java
@@ -13,7 +12,7 @@ type StopwordAnalyzerBase struct {
 	stopwords map[string]bool
 }
 
-func NewStopwordAnalyzerBaseWithStopWords(version util.Version, stopwords map[string]bool) *StopwordAnalyzerBase {
+func NewStopwordAnalyzerBaseWithStopWords(stopwords map[string]bool) *StopwordAnalyzerBase {
 	ans := new(StopwordAnalyzerBase)
 	ans.AnalyzerImpl = NewAnalyzer()
 	ans.stopwords = make(map[string]bool)
@@ -22,6 +21,5 @@ func NewStopwordAnalyzerBaseWithStopWords(version util.Version, stopwords map[st
 			ans.stopwords[k] = v
 		}
 	}
-	ans.SetVersion(version)
 	return ans
 }

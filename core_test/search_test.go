@@ -45,8 +45,8 @@ func TestBasicIndexAndSearch(t *testing.T) {
 	fmt.Println("Directory", directory)
 	defer directory.Close()
 
-	analyzer := std.NewStandardAnalyzer(util.VERSION_4_10)
-	conf := index.NewIndexWriterConfig(util.VERSION_4_10, analyzer)
+	analyzer := std.NewStandardAnalyzer()
+	conf := index.NewIndexWriterConfig(util.VERSION_LATEST, analyzer)
 
 	writer, err := index.NewIndexWriter(directory, conf)
 	It(t).Should("has no error: %v", err).Assert(err == nil)
