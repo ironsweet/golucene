@@ -109,8 +109,8 @@ func (a *CharTermAttributeImpl) Clone() util.AttributeImpl {
 	clone.termBuffer = make([]rune, a.termLength)
 	copy(clone.termBuffer, a.termBuffer[:a.termLength])
 	clone.termLength = a.termLength
-	panic("niy")
-	// clone.bytes = util.DeepCopyOf(a.bytes)
+	clone.bytes = util.NewBytesRefBuilder()
+	clone.bytes.Copy(a.bytes.Bytes())
 	return clone
 }
 
