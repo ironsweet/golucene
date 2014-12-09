@@ -37,7 +37,7 @@ Usage
 	import (
 	  "fmt"
 		std "github.com/balzaczyy/golucene/analysis/standard"
-		_ "github.com/balzaczyy/golucene/core/codec/lucene49"
+		_ "github.com/balzaczyy/golucene/core/codec/lucene410"
 		docu "github.com/balzaczyy/golucene/core/document"
 		"github.com/balzaczyy/golucene/core/index"
 		"github.com/balzaczyy/golucene/core/search"
@@ -53,8 +53,8 @@ Usage
 	...
 
 	directory, _ := store.OpenFSDirectory("app/index")
-	analyzer := std.NewStandardAnalyzer(util.VERSION_49)
-	conf := index.NewIndexWriterConfig(util.VERSION_49, analyzer)
+	analyzer := std.NewStandardAnalyzer()
+	conf := index.NewIndexWriterConfig(util.VERSION_LATEST, analyzer)
 	writer, _ := index.NewIndexWriter(directory, conf)
 
 	d := docu.NewDocument()
