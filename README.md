@@ -1,4 +1,6 @@
 [![Build Status](https://travis-ci.org/balzaczyy/golucene.svg?branch=master)](https://travis-ci.org/balzaczyy/golucene)
+[![Coverage Status](https://coveralls.io/repos/balzaczyy/golucene/badge.png?branch=lucene410)](https://coveralls.io/r/balzaczyy/golucene?branch=lucene410)
+[![GoDoc](https://godoc.org/github.com/balzaczyy/golucene?status.svg)](https://godoc.org/github.com/balzaczyy/golucene)
 
 golucene
 ========
