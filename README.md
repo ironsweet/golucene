@@ -7,6 +7,8 @@ golucene
 
 A [Go](http://golang.org) port of [Apache Lucene](http://lucene.apache.org). Check out the online demo [here](http://hamlet.mybluemix.net/)!
 
+Sync to Lucene Java 4.10 2014/10/22
+
 Why do we need yet another port of Lucene?
 ------------------------------------------
 
