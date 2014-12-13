@@ -51,14 +51,14 @@ type Lucene42DocValuesProducer struct {
 func newLucene42DocValuesProducer(state SegmentReadState,
 	dataCodec, dataExtension, metaCodec, metaExtension string) (dvp *Lucene42DocValuesProducer, err error) {
 
-	fmt.Println("Initializing Lucene42DocValuesProducer...")
+	log.Debug("Initializing Lucene42DocValuesProducer...")
 	dvp = &Lucene42DocValuesProducer{
 		numericInstances: make(map[int]NumericDocValues),
 	}
 	dvp.maxDoc = state.SegmentInfo.DocCount()
 
 	metaName := util.SegmentFileName(state.SegmentInfo.Name, state.SegmentSuffix, metaExtension)
-	fmt.Println("Reading", metaName)
+	log.Info("Reading %v", metaName)
 	// read in the entries from the metadata file.
 	var in store.ChecksumIndexInput
 	if in, err = state.Dir.OpenChecksumInput(metaName, state.Context); err != nil {
@@ -178,7 +178,7 @@ func (dvp *Lucene42DocValuesProducer) readFields(meta store.IndexInput,
 					return
 				}
 			}
-			fmt.Printf("Found entry [offset=%v, format=%v, packedIntsVersion=%v\n",
+			log.Info("Found entry [offset=%v, format=%v, packedIntsVersion=%v",
 				entry.offset, entry.format, entry.packedIntsVersion)
 			dvp.numerics[fieldNumber] = entry
 		case LUCENE42_DV_BYTES:

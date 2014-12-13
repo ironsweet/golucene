@@ -54,7 +54,7 @@ var allPostingsFormats = map[string]PostingsFormat{}
 // workaround Lucene Java's SPI mechanism
 func RegisterPostingsFormat(formats ...PostingsFormat) {
 	for _, format := range formats {
-		fmt.Printf("Found postings format: %v\n", format.Name())
+		log.Info("Found postings format: %v", format.Name())
 		allPostingsFormats[format.Name()] = format
 	}
 }

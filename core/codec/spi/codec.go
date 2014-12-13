@@ -5,7 +5,10 @@ import (
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
+	"github.com/op/go-logging"
 )
+
+var log = logging.MustGetLogger("codec")
 
 // codecs/Codec.java
 
@@ -115,7 +118,7 @@ var allCodecs = make(map[string]Codec)
 // workaround Lucene Java's SPI mechanism
 func RegisterCodec(codecs ...Codec) {
 	for _, codec := range codecs {
-		fmt.Printf("Found codec: %v\n", codec.Name())
+		log.Info("Found codec: %v", codec.Name())
 		allCodecs[codec.Name()] = codec
 	}
 }

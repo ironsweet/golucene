@@ -80,7 +80,7 @@ func ShallowSizeOf(obj interface{}) int64 {
 
 func ShallowSizeOfInstance(clazz reflect.Type) int64 {
 	// TODO later
-	fmt.Printf("[TODO] ShallowSizeOfInstance(%v)\n", clazz)
+	log.Notice("[TODO] ShallowSizeOfInstance(%v)", clazz)
 	return 0
 }
 

@@ -15,7 +15,7 @@ import (
 
 /* Prints the given message to the infoStream. */
 func message(format string, args ...interface{}) {
-	fmt.Printf("SIS: %v\n", fmt.Sprintf(format, args...))
+	log.Debug("SIS: %v", fmt.Sprintf(format, args...))
 }
 
 type FindSegmentsFile struct {
