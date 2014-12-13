@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	_ "github.com/balzaczyy/golucene/core/codec/lucene42"
+	_ "github.com/balzaczyy/golucene/core/codec/lucene410"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
