@@ -1,17 +1,24 @@
 package main
 
 import (
-	"fmt"
 	_ "github.com/balzaczyy/golucene/core/codec/lucene42"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/op/go-logging"
+	"os"
 )
 
 var log = logging.MustGetLogger("test")
 
 func main() {
+	logging.SetBackend(logging.NewBackendFormatter(
+		logging.NewLogBackend(os.Stdout, "", 0),
+		logging.MustStringFormatter(
+			"%{color}%{time:15:04:05.000000} %{shortfunc:16.16s} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}",
+		),
+	))
+
 	log.Info("Oepening FSDirectory...")
 	path := "core/search/testdata/win8/belfrysample"
 	d, err := store.OpenFSDirectory(path)
@@ -31,7 +38,6 @@ func main() {
 	}
 	for _, ctx := range r.Leaves() {
 		if ctx.Parent() != r.Context() {
-			fmt.Println("DEBUG", ctx.Parent(), r.Context())
 			panic("leaves not point to parent!")
 		}
 	}
