@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"GoSublime": {
+			"env": {
+				"GOPATH": "~/mygo"
+			}
+		},
+		"go_project": true,
+		"name": "golucene"
+	}
+}
