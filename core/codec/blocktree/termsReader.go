@@ -68,7 +68,7 @@ func NewBlockTreeTermsReader(dir store.Directory,
 	postingsReader PostingsReaderBase, ctx store.IOContext,
 	segmentSuffix string, indexDivisor int) (p FieldsProducer, err error) {
 
-	// log.Print("Initializing BlockTreeTermsReader...")
+	log.Debug("Initializing BlockTreeTermsReader...")
 	fp := &BlockTreeTermsReader{
 		postingsReader: postingsReader,
 		fields:         make(map[string]FieldReader),
@@ -96,7 +96,7 @@ func NewBlockTreeTermsReader(dir store.Directory,
 	if err != nil {
 		return nil, err
 	}
-	// log.Printf("Version: %v", fp.version)
+	log.Debug("Version: %v", fp.version)
 
 	if indexDivisor != -1 {
 		filename := util.SegmentFileName(info.Name, segmentSuffix, TERMS_INDEX_EXTENSION)
@@ -109,7 +109,7 @@ func NewBlockTreeTermsReader(dir store.Directory,
 		if err != nil {
 			return nil, err
 		}
-		// log.Printf("Index version: %v", indexVersion)
+		log.Debug("Index version: %v", indexVersion)
 		if int(indexVersion) != fp.version {
 			return nil, errors.New(fmt.Sprintf("mixmatched version files: %v=%v,%v=%v", fp.in, fp.version, indexIn, indexVersion))
 		}
@@ -146,18 +146,18 @@ func NewBlockTreeTermsReader(dir store.Directory,
 	if err != nil {
 		return nil, err
 	}
-	// log.Printf("Fields number: %v", numFields)
+	log.Debug("Fields number: %v", numFields)
 	if numFields < 0 {
 		return nil, errors.New(fmt.Sprintf("invalid numFields: %v (resource=%v)", numFields, fp.in))
 	}
 
 	for i := int32(0); i < numFields; i++ {
-		// log.Printf("Next field...")
+		log.Debug("Next field...")
 		field, err := fp.in.ReadVInt()
 		if err != nil {
 			return nil, err
 		}
-		// log.Printf("Field: %v", field)
+		log.Debug("Field: %v", field)
 
 		numTerms, err := fp.in.ReadVLong()
 		if err != nil {
@@ -165,7 +165,7 @@ func NewBlockTreeTermsReader(dir store.Directory,
 		}
 		assert2(numTerms > 0,
 			"Illegal numTerms for field number: %v (resource=%v)", field, fp.in)
-		// log.Printf("Terms number: %v", numTerms)
+		log.Debug("Terms number: %v", numTerms)
 
 		numBytes, err := fp.in.ReadVInt()
 		if err != nil {
@@ -174,7 +174,7 @@ func NewBlockTreeTermsReader(dir store.Directory,
 		assert2(numBytes >= 0,
 			"invalid rootCode for field number: %v, numBytes=%v (resource=%v)",
 			field, numBytes, fp.in)
-		// log.Printf("Bytes number: %v", numBytes)
+		log.Debug("Bytes number: %v", numBytes)
 
 		rootCode := make([]byte, numBytes)
 		err = fp.in.ReadBytes(rootCode)
@@ -200,7 +200,7 @@ func NewBlockTreeTermsReader(dir store.Directory,
 		if docCount, err = asInt(fp.in.ReadVInt()); err != nil {
 			return nil, err
 		}
-		// fmt.Printf("DocCount: %v\n", docCount)
+		log.Debug("DocCount: %v", docCount)
 		var longsSize int
 		if fp.version >= TERMS_VERSION_META_ARRAY {
 			if longsSize, err = asInt(fp.in.ReadVInt()); err != nil {
@@ -241,7 +241,7 @@ func NewBlockTreeTermsReader(dir store.Directory,
 				return nil, err
 			}
 		}
-		// log.Printf("indexStartFP: %v", indexStartFP)
+		log.Debug("indexStartFP: %v", indexStartFP)
 		if _, ok := fp.fields[fieldInfo.Name]; ok {
 			return nil, errors.New(fmt.Sprintf(
 				"duplicate field: %v (resource=%v)", fieldInfo.Name, fp.in))

@@ -496,7 +496,7 @@ func (e *SegmentTermsEnum) printSeekState() {
 				// }
 				// output := ret.([]byte)
 				// if output == nil {
-				// 	// log.Println("      broken seek state: prefix is not final in index")
+				// 	log.Debug("      broken seek state: prefix is not final in index")
 				// 	panic("seek state is broken")
 				// } else if isSeekFrame && !f.isFloor {
 				// 	reader := store.NewByteArrayDataInput(output)
@@ -509,7 +509,7 @@ func (e *SegmentTermsEnum) printSeekState() {
 				// 		code += BTT_OUTPUT_FLAG_IS_FLOOR
 				// 	}
 				// 	if codeOrig != code {
-				// 		// log.Printf("      broken seek state: output code=%v doesn't match frame code=%v", codeOrig, code)
+				// 		log.Debug("      broken seek state: output code=%v doesn't match frame code=%v", codeOrig, code)
 				// 		panic("seek state is broken")
 				// 	}
 				// }

@@ -29,7 +29,7 @@ func newFieldReader(parent *BlockTreeTermsReader,
 	indexStartFP int64, longsSize int, indexIn store.IndexInput,
 	minTerm, maxTerm []byte) (r FieldReader, err error) {
 
-	// log.Print("Initializing FieldReader...")
+	log.Debug("Initializing FieldReader...")
 	assert(numTerms > 0)
 	r = FieldReader{
 		parent:           parent,
@@ -44,8 +44,8 @@ func newFieldReader(parent *BlockTreeTermsReader,
 		minTerm:          minTerm,
 		maxTerm:          maxTerm,
 	}
-	// log.Printf("BTTR: seg=%v field=%v rootBlockCode=%v divisor=",
-	// 	parent.segment, fieldInfo.Name, rootCode)
+	log.Debug("BTTR: seg=%v field=%v rootBlockCode=%v",
+		parent.segment, fieldInfo.Name, rootCode)
 
 	in := store.NewByteArrayDataInput(rootCode)
 	n, err := in.ReadVLong()
@@ -56,7 +56,7 @@ func newFieldReader(parent *BlockTreeTermsReader,
 
 	if indexIn != nil {
 		clone := indexIn.Clone()
-		// log.Printf("start=%v field=%v", indexStartFP, fieldInfo.Name)
+		log.Debug("start=%v field=%v", indexStartFP, fieldInfo.Name)
 		clone.Seek(indexStartFP)
 		r.index, err = fst.LoadFST(clone, fst.ByteSequenceOutputsSingleton())
 	}
