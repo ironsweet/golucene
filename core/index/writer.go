@@ -9,7 +9,6 @@ import (
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
 	"math"
 	"os"
 	"runtime"
@@ -104,7 +103,7 @@ func (cc *ClosingControl) daemon() {
 		err = nil
 		select {
 		case f := <-cc.closer:
-			log.Println("...closing...")
+			log.Debug("...closing...")
 			if !cc._closed {
 				cc._closing = true
 				cc._closed, err = f()
@@ -113,7 +112,7 @@ func (cc *ClosingControl) daemon() {
 			cc.done <- err
 		}
 	}
-	log.Println("IW CC daemon is stopped.")
+	log.Info("IW CC daemon is stopped.")
 }
 
 // Used internally to throw an AlreadyClosedError if this IndexWriter
@@ -127,7 +126,7 @@ func (cc *ClosingControl) close(f func() (ok bool, err error)) error {
 		return nil // already closed
 	}
 	cc.closer <- f
-	log.Println("Closing IW...")
+	log.Info("Closing IW...")
 	return <-cc.done
 }
 
@@ -1054,7 +1053,7 @@ func (w *IndexWriter) prepareCommitInternal(mergePolicy MergePolicy) error {
 			w.docWriter.finishFullFlush(flushSuccess)
 			err2 := w.doAfterFlush()
 			if err2 != nil {
-				log.Printf("Error in doAfterFlush: %v", err2)
+				log.Error("Error in doAfterFlush: %v", err2)
 			}
 		}()
 

@@ -4,7 +4,6 @@ import (
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
 	"sync"
 	"sync/atomic"
 )
@@ -102,19 +101,19 @@ func (rld *ReadersAndUpdates) dropReaders() error {
 	err := func() (err error) {
 		defer func() {
 			if rld.mergeReader != nil {
-				log.Printf("  pool.drop info=%v merge rc=%v", rld.info, rld.mergeReader.refCount)
+				log.Debug("  pool.drop info=%v merge rc=%v", rld.info, rld.mergeReader.refCount)
 				defer func() { rld.mergeReader = nil }()
 				err2 := rld.mergeReader.decRef()
 				if err == nil {
 					err = err2
 				} else {
-					log.Printf("Escaped error: %v", err2)
+					log.Debug("Escaped error: %v", err2)
 				}
 			}
 		}()
 
 		if rld._reader != nil {
-			log.Printf("  pool.drop info=%v merge rc=%v", rld.info, rld._reader.refCount)
+			log.Debug("  pool.drop info=%v merge rc=%v", rld.info, rld._reader.refCount)
 			defer func() { rld._reader = nil }()
 			return rld._reader.decRef()
 		}
@@ -143,7 +142,7 @@ func (rld *ReadersAndUpdates) writeLiveDocs(dir store.Directory) (bool, error) {
 	rld.Lock()
 	defer rld.Unlock()
 
-	log.Printf("rld.writeLiveDocs seg=%v pendingDelCount=%v", rld.info, rld._pendingDeleteCount)
+	log.Debug("rld.writeLiveDocs seg=%v pendingDelCount=%v", rld.info, rld._pendingDeleteCount)
 	if rld._pendingDeleteCount != 0 {
 		// We have new deletes
 		assert(rld._liveDocs.Length() == rld.info.Info.DocCount())

@@ -7,8 +7,10 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/test_framework/util"
-	"log"
+	"github.com/op/go-logging"
 )
+
+var log = logging.MustGetLogger("test")
 
 // util/_TestUtil.java
 
@@ -22,7 +24,7 @@ func CheckIndex(dir store.Directory, crossCheckTermVectors bool) *index.CheckInd
 		panic("CheckIndex failed")
 	}
 	if INFOSTREAM {
-		log.Println(buf.String())
+		log.Debug(buf.String())
 	}
 	return indexStatus
 }

@@ -6,7 +6,6 @@ import (
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
 	"math"
 	"sort"
 	"sync"
@@ -173,7 +172,7 @@ func (ds *BufferedUpdatesStream) applyDeletesAndUpdates(readerPool *ReaderPool, 
 	var allDeleted []*SegmentCommitInfo
 
 	for infosIDX >= 0 {
-		log.Printf("BD: cycle delIDX=%v infoIDX=%v", delIDX, infosIDX)
+		log.Debug("BD: cycle delIDX=%v infoIDX=%v", delIDX, infosIDX)
 
 		var packet *FrozenBufferedUpdates
 		if delIDX >= 0 {
@@ -183,7 +182,7 @@ func (ds *BufferedUpdatesStream) applyDeletesAndUpdates(readerPool *ReaderPool, 
 		segGen := info.BufferedUpdatesGen
 
 		if packet != nil && segGen < packet.gen {
-			log.Println("  coalesce")
+			log.Debug("  coalesce")
 			if coalescedUpdates == nil {
 				coalescedUpdates = newCoalescedUpdates()
 			}
@@ -203,7 +202,7 @@ func (ds *BufferedUpdatesStream) applyDeletesAndUpdates(readerPool *ReaderPool, 
 			assertn(packet.isSegmentPrivate,
 				"Packet and Segments deletegen can only match on a segment private del packet gen=%v",
 				segGen)
-			log.Println("  eq")
+			log.Debug("  eq")
 
 			// Lockorder: IW -> BD -> RP
 			assert(readerPool.infoIsLive(info))
@@ -289,7 +288,7 @@ func (ds *BufferedUpdatesStream) applyDeletesAndUpdates(readerPool *ReaderPool, 
 			info.SetBufferedUpdatesGen(gen)
 
 		} else {
-			log.Println("  gt")
+			log.Debug("  gt")
 
 			if coalescedUpdates != nil {
 				// Lock order: IW -> BD -> RP

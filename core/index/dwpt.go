@@ -7,7 +7,6 @@ import (
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
 	"sync/atomic"
 )
 
@@ -137,7 +136,7 @@ state, discarding any docs added since last flush.
 */
 func (dwpt *DocumentsWriterPerThread) abort(createdFiles map[string]bool) {
 	assert(createdFiles != nil)
-	log.Printf("now abort seg=%v", dwpt.segmentInfo.Name)
+	log.Info("now abort seg=%v", dwpt.segmentInfo.Name)
 	dwpt.hasAborted, dwpt.aborting = true, true
 	defer func() {
 		dwpt.aborting = false

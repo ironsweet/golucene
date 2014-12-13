@@ -2,11 +2,13 @@ package index
 
 import (
 	"fmt"
-	"log"
+	"github.com/op/go-logging"
 	"sync"
 	"sync/atomic"
 	"time"
 )
+
+var log = logging.MustGetLogger("index")
 
 // index/ConcurrentMergeScheduler.java
 
@@ -248,7 +250,7 @@ func (cms *ConcurrentMergeScheduler) handleMergeError(err error) {
 	time.Sleep(250 * time.Millisecond)
 	// Lucene Java throw Unchecked exception in a separate thread.
 	// GoLucene just dump the error in console.
-	log.Printf("Merge error: %v", err)
+	log.Error("Merge error: %v", err)
 }
 
 func (cms *ConcurrentMergeScheduler) String() string {

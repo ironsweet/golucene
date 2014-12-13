@@ -2,13 +2,15 @@ package util
 
 import (
 	"fmt"
+	"github.com/op/go-logging"
 	"io"
-	"log"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 )
+
+var log = logging.MustGetLogger("store")
 
 // util/InfoStream.java
 
@@ -57,7 +59,7 @@ Sets the default InfoStream used by a newly instantiated classes. It
 cannot be nil, to disable logging use NO_OUTPUT.
 */
 func SetDefaultInfoStream(infoStream InfoStream) {
-	log.Print("Setting default infoStream...")
+	log.Info("Setting default infoStream...")
 	defaultInfoStreamLock.Lock() // synchronized
 	defer defaultInfoStreamLock.Unlock()
 	assert2(infoStream != nil, `Cannot set InfoStream default implementation to nil.

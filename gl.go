@@ -6,17 +6,19 @@ import (
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
-	"log"
+	"github.com/op/go-logging"
 )
 
+var log = logging.MustGetLogger("test")
+
 func main() {
-	log.Print("Oepning FSDirectory...")
+	log.Info("Oepening FSDirectory...")
 	path := "core/search/testdata/win8/belfrysample"
 	d, err := store.OpenFSDirectory(path)
 	if err != nil {
 		panic(err)
 	}
-	log.Print("Opening DirectoryReader...")
+	log.Info("Opening DirectoryReader...")
 	r, err := index.OpenDirectoryReader(d)
 	if err != nil {
 		panic(err)
@@ -33,17 +35,17 @@ func main() {
 			panic("leaves not point to parent!")
 		}
 	}
-	log.Print("Initializing IndexSearcher...")
+	log.Info("Initializing IndexSearcher...")
 	ss := search.NewIndexSearcher(r)
-	log.Print("Searching...")
+	log.Info("Searching...")
 	docs, err := ss.SearchTop(search.NewTermQuery(index.NewTerm("content", "bat")), 10)
 	if err != nil {
 		panic(err)
 	}
-	log.Println("Hits:", docs.TotalHits)
+	log.Info("Hits: %v", docs.TotalHits)
 	doc, err := r.Document(docs.ScoreDocs[0].Doc)
 	if err != nil {
 		panic(err)
 	}
-	log.Println("Hit 1's title: ", doc.Get("title"))
+	log.Info("Hit 1's title: %v", doc.Get("title"))
 }

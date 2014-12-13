@@ -13,13 +13,15 @@ import (
 	ts "github.com/balzaczyy/golucene/test_framework/search"
 	. "github.com/balzaczyy/golucene/test_framework/util"
 	. "github.com/balzaczyy/gounit"
+	"github.com/op/go-logging"
 	"io"
-	"log"
 	"math"
 	"math/rand"
 	"os"
 	"reflect"
 )
+
+var log = logging.MustGetLogger("test")
 
 // --------------------------------------------------------------------
 // Test groups, system properties and other annotations modifying tests
@@ -78,7 +80,7 @@ func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer
 	if r.Intn(2) == 0 {
 		c.SetMergeScheduler(index.NewSerialMergeScheduler())
 	} else if Rarely(r) {
-		log.Println("Use ConcurrentMergeScheduler")
+		log.Info("Use ConcurrentMergeScheduler")
 		maxRoutineCount := NextInt(Random(), 1, 4)
 		maxMergeCount := NextInt(Random(), maxRoutineCount, maxRoutineCount+4)
 		cms := index.NewConcurrentMergeScheduler()
@@ -87,7 +89,7 @@ func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer
 	}
 	if r.Intn(2) == 0 {
 		if Rarely(r) {
-			log.Println("Use crazy value for buffered docs")
+			log.Info("Use crazy value for buffered docs")
 			// crazy value
 			c.SetMaxBufferedDocs(NextInt(r, 2, 15))
 		} else {
@@ -113,7 +115,7 @@ func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer
 	c.SetMergePolicy(newMergePolicy(r))
 
 	if Rarely(r) {
-		log.Println("Use SimpleMergedSegmentWarmer")
+		log.Info("Use SimpleMergedSegmentWarmer")
 		c.SetMergedSegmentWarmer(index.NewSimpleMergedSegmentWarmer(c.InfoStream()))
 	}
 	c.SetUseCompoundFile(r.Intn(2) == 0)
@@ -125,7 +127,7 @@ func newRandomIndexWriteConfig(r *rand.Rand, v util.Version, a analysis.Analyzer
 
 func newMergePolicy(r *rand.Rand) index.MergePolicy {
 	if Rarely(r) {
-		log.Println("Use MockRandomMergePolicy")
+		log.Info("Use MockRandomMergePolicy")
 		return ti.NewMockRandomMergePolicy(r)
 	} else if r.Intn(2) == 0 {
 		return newTieredMergePolicy(r)
@@ -140,7 +142,7 @@ func newMergePolicy(r *rand.Rand) index.MergePolicy {
 func newTieredMergePolicy(r *rand.Rand) *index.TieredMergePolicy {
 	tmp := index.NewTieredMergePolicy()
 	if Rarely(r) {
-		log.Println("Use crazy value for max merge at once")
+		log.Info("Use crazy value for max merge at once")
 		tmp.SetMaxMergeAtOnce(NextInt(r, 2, 9))
 		tmp.SetMaxMergeAtOnceExplicit(NextInt(r, 2, 9))
 	} else {
@@ -148,7 +150,7 @@ func newTieredMergePolicy(r *rand.Rand) *index.TieredMergePolicy {
 		tmp.SetMaxMergeAtOnceExplicit(NextInt(r, 10, 50))
 	}
 	if Rarely(r) {
-		log.Println("Use crazy value for max merge segment MB")
+		log.Info("Use crazy value for max merge segment MB")
 		tmp.SetMaxMergedSegmentMB(0.2 + r.Float64()*100)
 	} else {
 		tmp.SetMaxMergedSegmentMB(r.Float64() * 100)
@@ -156,7 +158,7 @@ func newTieredMergePolicy(r *rand.Rand) *index.TieredMergePolicy {
 	tmp.SetFloorSegmentMB(0.2 + r.Float64()*2)
 	tmp.SetForceMergeDeletesPctAllowed(0 + r.Float64()*30)
 	if Rarely(r) {
-		log.Println("Use crazy value for max merge per tire")
+		log.Info("Use crazy value for max merge per tire")
 		tmp.SetSegmentsPerTier(float64(NextInt(r, 2, 20)))
 	} else {
 		tmp.SetSegmentsPerTier(float64(NextInt(r, 10, 50)))
@@ -178,7 +180,7 @@ func newLogMergePolicy(r *rand.Rand) *index.LogMergePolicy {
 		logmp = index.NewLogByteSizeMergePolicy()
 	}
 	if Rarely(r) {
-		log.Println("Use crazy value for merge factor")
+		log.Info("Use crazy value for merge factor")
 		logmp.SetMergeFactor(NextInt(r, 2, 9))
 	} else {
 		logmp.SetMergeFactor(NextInt(r, 10, 50))
@@ -197,7 +199,7 @@ func configureRandom(r *rand.Rand, mergePolicy index.MergePolicy) {
 	}
 
 	if Rarely(r) {
-		log.Println("Use crazy value for max CFS segment size MB")
+		log.Info("Use crazy value for max CFS segment size MB")
 		mergePolicy.SetMaxCFSSegmentSizeMB(0.2 + r.Float64()*2)
 	} else {
 		mergePolicy.SetMaxCFSSegmentSizeMB(math.Inf(1))
@@ -225,14 +227,14 @@ func newDirectoryWithSeed(r *rand.Rand) BaseDirectoryWrapper {
 
 func wrapDirectory(random *rand.Rand, directory store.Directory, bare bool) BaseDirectoryWrapper {
 	if Rarely(random) {
-		log.Println("Use NRTCachingDirectory")
+		log.Info("Use NRTCachingDirectory")
 		directory = store.NewNRTCachingDirectory(directory, random.Float64(), random.Float64())
 	}
 
 	if Rarely(random) {
 		maxMBPerSec := 10 + 5*(random.Float64()-0.5)
 		if VERBOSE {
-			log.Printf("LuceneTestCase: will rate limit output IndexOutput to %v MB/sec", maxMBPerSec)
+			log.Info("LuceneTestCase: will rate limit output IndexOutput to %v MB/sec", maxMBPerSec)
 		}
 		rateLimitedDirectoryWrapper := store.NewRateLimitedDirectoryWrapper(directory)
 		switch random.Intn(10) {
@@ -456,12 +458,12 @@ func (rule *TestRuleSetupAndRestoreClassEnv) Before() error {
 	// if verbose: print some debugging stuff about which codecs are loaded.
 	if VERBOSE {
 		for _, codec := range AvailableCodecs() {
-			log.Printf("Loaded codec: '%v': %v", codec,
+			log.Info("Loaded codec: '%v': %v", codec,
 				reflect.TypeOf(LoadCodec(codec)))
 		}
 
 		for _, postingFormat := range AvailablePostingsFormats() {
-			log.Printf("Loaded postingsFormat: '%v': %v", postingFormat,
+			log.Info("Loaded postingsFormat: '%v': %v", postingFormat,
 				reflect.TypeOf(LoadPostingsFormat(postingFormat)))
 		}
 	}
@@ -572,7 +574,7 @@ func (rule *TestRuleSetupAndRestoreClassEnv) Before() error {
 	} else {
 		panic("should not be here")
 	}
-	log.Printf("Use codec: %v", rule.codec)
+	log.Info("Use codec: %v", rule.codec)
 	DefaultCodec = func() Codec { return rule.codec }
 
 	// Initialize locale/ timezone
@@ -611,7 +613,7 @@ func (rule *TestRuleSetupAndRestoreClassEnv) Before() error {
 	// Check codec restrictions once at class level.
 	err := rule.checkCodecRestrictions(rule.codec)
 	if err != nil {
-		log.Printf("NOTE: %v Suppressed codecs: %v", err, rule.avoidCodecs)
+		log.Error("NOTE: %v Suppressed codecs: %v", err, rule.avoidCodecs)
 		return err
 	}
 

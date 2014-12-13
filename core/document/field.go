@@ -6,10 +6,12 @@ import (
 	"github.com/balzaczyy/golucene/core/analysis"
 	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/index/model"
+	"github.com/op/go-logging"
 	"io"
-	"log"
 	"strconv"
 )
+
+var log = logging.MustGetLogger("document")
 
 // document/Field.java
 
@@ -54,7 +56,7 @@ func (f *Field) StringValue() string {
 	case int:
 		return strconv.Itoa(f._data.(int))
 	default:
-		log.Println("Unknown type", f._data)
+		log.Notice("Unknown type: %v", f._data)
 		panic("not implemented yet")
 	}
 }

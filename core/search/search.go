@@ -5,9 +5,11 @@ import (
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
+	"github.com/op/go-logging"
 	"math"
 )
+
+var log = logging.MustGetLogger("search")
 
 /* Define service that can be overrided */
 type IndexSearcherSPI interface {
@@ -27,7 +29,7 @@ type IndexSearcher struct {
 }
 
 func NewIndexSearcher(r index.IndexReader) *IndexSearcher {
-	// log.Print("Initializing IndexSearcher from IndexReader: ", r)
+	log.Debug("Initializing IndexSearcher from IndexReader: ", r)
 	return NewIndexSearcherFromContext(r.Context())
 }
 
@@ -156,7 +158,7 @@ func (ss *IndexSearcher) CreateNormalizedWeight(q Query) (w Weight, err error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("After rewrite: %v", q)
+	log.Debug("After rewrite: %v", q)
 	w, err = q.CreateWeight(ss)
 	if err != nil {
 		return nil, err
@@ -171,7 +173,7 @@ func (ss *IndexSearcher) CreateNormalizedWeight(q Query) (w Weight, err error) {
 }
 
 func (ss *IndexSearcher) Rewrite(q Query) (Query, error) {
-	log.Printf("Rewriting '%v'...", q)
+	log.Debug("Rewriting '%v'...", q)
 	after := q.Rewrite(ss.reader)
 	for after != q {
 		q = after

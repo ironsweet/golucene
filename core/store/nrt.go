@@ -2,9 +2,11 @@ package store
 
 import (
 	"fmt"
-	"log"
+	"github.com/op/go-logging"
 	"sync"
 )
+
+var log = logging.MustGetLogger("store")
 
 const NRT_VERBOSE = false
 
@@ -73,7 +75,7 @@ func NewNRTCachingDirectory(delegate Directory, maxMergeSizeMB, maxCachedMB floa
 			bytes = context.FlushInfo.EstimatedSegmentSize
 		}
 		if NRT_VERBOSE {
-			log.Printf("CACHE check merge=%v flush=%v size=%v",
+			log.Debug("CACHE check merge=%v flush=%v size=%v",
 				context.MergeInfo, context.FlushInfo, bytes)
 		}
 		return name != "segments.gen" &&
@@ -150,7 +152,7 @@ func (nrt *NRTCachingDirectory) DeleteFile(name string) error {
 	defer nrt.Unlock()
 
 	if NRT_VERBOSE {
-		log.Printf("nrtdir.deleteFile name=%v", name)
+		log.Debug("nrtdir.deleteFile name=%v", name)
 	}
 	if nrt.cache.FileExists(name) {
 		return nrt.cache.DeleteFile(name)
@@ -177,11 +179,11 @@ func (nrt *NRTCachingDirectory) FileLength(name string) (length int64, err error
 
 func (nrt *NRTCachingDirectory) CreateOutput(name string, context IOContext) (out IndexOutput, err error) {
 	if NRT_VERBOSE {
-		log.Printf("nrtdir.createOutput name=%v", name)
+		log.Debug("nrtdir.createOutput name=%v", name)
 	}
 	if nrt.doCacheWrite(name, context) {
 		if NRT_VERBOSE {
-			log.Println("  to cache")
+			log.Debug("  to cache")
 		}
 		nrt.Directory.DeleteFile(name) // ignore IO error
 		return nrt.cache.CreateOutput(name, context)
@@ -192,7 +194,7 @@ func (nrt *NRTCachingDirectory) CreateOutput(name string, context IOContext) (ou
 
 func (nrt *NRTCachingDirectory) Sync(fileNames []string) (err error) {
 	if NRT_VERBOSE {
-		log.Printf("nrtdir.sync files=%v", fileNames)
+		log.Debug("nrtdir.sync files=%v", fileNames)
 	}
 	for _, fileName := range fileNames {
 		err = nrt.unCache(fileName)
@@ -207,11 +209,11 @@ func (nrt *NRTCachingDirectory) OpenInput(name string, context IOContext) (in In
 	nrt.Lock() // synchronized
 	defer nrt.Unlock()
 	if NRT_VERBOSE {
-		log.Printf("nrtdir.openInput name=%v", name)
+		log.Debug("nrtdir.openInput name=%v", name)
 	}
 	if nrt.cache.FileExists(name) {
 		if NRT_VERBOSE {
-			log.Println("  from cache")
+			log.Debug("  from cache")
 		}
 		return nrt.cache.OpenInput(name, context)
 	}
@@ -221,11 +223,11 @@ func (nrt *NRTCachingDirectory) OpenInput(name string, context IOContext) (in In
 // func (nrt *NRTCachingDirectory) CreateSlicer(name string, context IOContext) (slicer IndexInputSlicer, err error) {
 // 	nrt.EnsureOpen()
 // 	if NRT_VERBOSE {
-// 		log.Println("nrtdir.openInput name=%v", name)
+// 		log.Debug("nrtdir.openInput name=%v", name)
 // 	}
 // 	if nrt.cache.FileExists(name) {
 // 		if NRT_VERBOSE {
-// 			log.Println("  from cache")
+// 			log.Debug("  from cache")
 // 		}
 // 		return nrt.cache.CreateSlicer(name, context)
 // 	}
@@ -260,7 +262,7 @@ func (nrt *NRTCachingDirectory) unCache(fileName string) (err error) {
 	nrt.uncacheLock.Lock()
 	defer nrt.uncacheLock.Unlock()
 
-	log.Printf("nrtdir.unCache name=%v", fileName)
+	log.Debug("nrtdir.unCache name=%v", fileName)
 	if !nrt.cache.FileExists(fileName) {
 		// Another goroutine beat us...
 		return

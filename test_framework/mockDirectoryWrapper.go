@@ -7,17 +7,18 @@ import (
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/test_framework/util"
+	"github.com/op/go-logging"
 	"io"
-	"log"
 	"math/rand"
 	"os"
 	"reflect"
 	"runtime"
 	"runtime/debug"
 	"sort"
-	// "strings"
 	"sync"
 )
+
+var log = logging.MustGetLogger("test")
 
 // store/MockDirectoryWrapper.java
 
@@ -336,7 +337,7 @@ func (w *MockDirectoryWrapper) _crash() error {
 	// 		return err
 	// 	}
 	// 	if VERBOSE {
-	// 		log.Printf("MockDirectoryWrapper: %v unsynced file: %v", action, name)
+	// 		log.Debug("MockDirectoryWrapper: %v unsynced file: %v", action, name)
 	// 	}
 	// }
 	// return nil
@@ -348,7 +349,7 @@ func (w *MockDirectoryWrapper) maybeThrowIOException(message string) error {
 			message = fmt.Sprintf(" (%v)", message)
 		}
 		if VERBOSE {
-			log.Printf("MockDirectoryWrapper: now return random error%v", message)
+			log.Info("MockDirectoryWrapper: now return random error %v", message)
 			debug.PrintStack()
 		}
 		return errors.New(fmt.Sprintf("a random IO error%v", message))
@@ -359,7 +360,7 @@ func (w *MockDirectoryWrapper) maybeThrowIOException(message string) error {
 func (w *MockDirectoryWrapper) maybeThrowIOExceptionOnOpen(name string) error {
 	if w.randomState.Float64() < w.randomErrorRateOnOpen {
 		if VERBOSE {
-			log.Printf("MockDirectoryWrapper: now return random error during open file=%v", name)
+			log.Info("MockDirectoryWrapper: now return random error during open file=%v", name)
 			debug.PrintStack()
 		}
 		if w.randomState.Intn(2) == 0 {
@@ -501,7 +502,7 @@ func (w *MockDirectoryWrapper) CreateOutput(name string, context store.IOContext
 	// 		ramdir.PutRAMFile(name, file)
 	// 	}
 	// }
-	// log.Printf("MDW: create %v", name)
+	// log.Debug("MDW: create %v", name)
 	// delegateOutput, err := w.Directory.CreateOutput(name, NewIOContext(w.randomState, context))
 	// if err != nil {
 	// 	return nil, err
@@ -521,7 +522,7 @@ func (w *MockDirectoryWrapper) CreateOutput(name string, context store.IOContext
 	// if _, ok := w.Directory.(*store.RateLimitedDirectoryWrapper); w.throttling == THROTTLING_ALWAYS ||
 	// 	(w.throttling == THROTTLING_SOMETIMES && w.randomState.Intn(50) == 0) && !ok {
 	// 	if VERBOSE {
-	// 		log.Println(fmt.Sprintf("MockDirectoryWrapper: throttling indexOutpu (%v)", name))
+	// 		log.Info("MockDirectoryWrapper: throttling indexOutput (%v)", name)
 	// 	}
 	// 	return w.throttledOutput.NewFromDelegate(io), nil
 	// }
@@ -605,12 +606,12 @@ func (w *MockDirectoryWrapper) OpenInput(name string, context store.IOContext) (
 	// randomInt := w.randomState.Intn(500)
 	// if randomInt == 0 {
 	// 	if VERBOSE {
-	// 		log.Printf("MockDirectoryWrapper: using SlowClosingMockIndexInputWrapper for file %v", name)
+	// 		log.Info("MockDirectoryWrapper: using SlowClosingMockIndexInputWrapper for file %v", name)
 	// 	}
 	// 	panic("not implemented yet")
 	// } else if randomInt == 1 {
 	// 	if VERBOSE {
-	// 		log.Printf("MockDirectoryWrapper: using SlowOpeningMockIndexInputWrapper for file %v", name)
+	// 		log.Info("MockDirectoryWrapper: using SlowOpeningMockIndexInputWrapper for file %v", name)
 	// 	}
 	// 	panic("not implemented yet")
 	// } else {
@@ -740,7 +741,7 @@ func (w *MockDirectoryWrapper) Close() error {
 				// maybe other files too, depending on timing. normally someone on windows wouldnt have
 				// an issue (IFD would nuke this stuff eventually), but we pass NoDeletionPolicy...
 				for _, file := range pendingDeletions {
-					log.Println(file)
+					log.Debug(file)
 					panic("not implemented yet")
 				}
 
@@ -1369,7 +1370,7 @@ func (w *MockIndexOutputWrapper) checkDiskFull(buf []byte, in util.DataInput) (e
 	// 	}
 	// 	message += ")"
 	// 	if VERBOSE {
-	// 		log.Println("MDW: now throw fake disk full")
+	// 		log.Info("MDW: now throw fake disk full")
 	// 		debug.PrintStack()
 	// 	}
 	// 	return errors.New(message)

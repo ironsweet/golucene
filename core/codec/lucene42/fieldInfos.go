@@ -8,8 +8,10 @@ import (
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"log"
+	"github.com/op/go-logging"
 )
+
+var log = logging.MustGetLogger("lucene42")
 
 // lucene42/Lucene42FieldInfosFormat.java
 
@@ -104,15 +106,15 @@ const (
 var Lucene42FieldInfosReader = func(dir store.Directory,
 	segment, suffix string, context store.IOContext) (fi FieldInfos, err error) {
 
-	log.Printf("Reading FieldInfos from %v...", dir)
+	log.Info("Reading FieldInfos from %v...", dir)
 	fi = FieldInfos{}
 	fileName := util.SegmentFileName(segment, "", LUCENE42_FI_EXTENSION)
-	log.Printf("Segment: %v", fileName)
+	log.Debug("Segment: %v", fileName)
 	input, err := dir.OpenInput(fileName, context)
 	if err != nil {
 		return fi, err
 	}
-	log.Printf("Reading %v", input)
+	log.Info("Reading %v", input)
 
 	success := false
 	defer func() {
@@ -135,7 +137,7 @@ var Lucene42FieldInfosReader = func(dir store.Directory,
 	if err != nil {
 		return fi, err
 	}
-	log.Printf("Found %v FieldInfos.", size)
+	log.Info("Found %v FieldInfos.", size)
 
 	infos := make([]*FieldInfo, size)
 	for i, _ := range infos {
