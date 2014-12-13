@@ -1,4 +1,4 @@
-export tests_codec=Lucene49
+export tests_codec=Lucene410
 
 go test github.com/balzaczyy/golucene/core/util
 go test github.com/balzaczyy/golucene/core/util/automaton
