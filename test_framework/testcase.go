@@ -2,6 +2,7 @@ package test_framework
 
 import (
 	"fmt"
+	"github.com/balzaczyy/go-logging"
 	"github.com/balzaczyy/golucene/core/analysis"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	docu "github.com/balzaczyy/golucene/core/document"
@@ -13,7 +14,6 @@ import (
 	ts "github.com/balzaczyy/golucene/test_framework/search"
 	. "github.com/balzaczyy/golucene/test_framework/util"
 	. "github.com/balzaczyy/gounit"
-	"github.com/op/go-logging"
 	"io"
 	"math"
 	"math/rand"

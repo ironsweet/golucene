@@ -2,7 +2,7 @@ package index
 
 import (
 	"fmt"
-	"github.com/op/go-logging"
+	"github.com/balzaczyy/go-logging"
 	"sync"
 	"sync/atomic"
 	"time"

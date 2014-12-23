@@ -2,7 +2,7 @@ package util
 
 import (
 	"fmt"
-	"github.com/op/go-logging"
+	"github.com/balzaczyy/go-logging"
 	"io"
 	"os"
 	"sync"

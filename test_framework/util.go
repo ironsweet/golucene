@@ -3,11 +3,11 @@ package test_framework
 import (
 	"bytes"
 	"fmt"
+	"github.com/balzaczyy/go-logging"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
 	. "github.com/balzaczyy/golucene/test_framework/util"
-	"github.com/op/go-logging"
 )
 
 var log = logging.MustGetLogger("test")

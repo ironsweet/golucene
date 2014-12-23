@@ -2,10 +2,10 @@ package search
 
 import (
 	"fmt"
+	"github.com/balzaczyy/go-logging"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/util"
-	"github.com/op/go-logging"
 	"math"
 )
 

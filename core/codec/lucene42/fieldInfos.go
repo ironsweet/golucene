@@ -3,12 +3,12 @@ package lucene42
 import (
 	"errors"
 	"fmt"
+	"github.com/balzaczyy/go-logging"
 	"github.com/balzaczyy/golucene/core/codec"
 	. "github.com/balzaczyy/golucene/core/codec/spi"
 	. "github.com/balzaczyy/golucene/core/index/model"
 	"github.com/balzaczyy/golucene/core/store"
 	"github.com/balzaczyy/golucene/core/util"
-	"github.com/op/go-logging"
 )
 
 var log = logging.MustGetLogger("lucene42")

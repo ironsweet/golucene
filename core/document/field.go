@@ -3,10 +3,10 @@ package document
 import (
 	"bytes"
 	"fmt"
+	"github.com/balzaczyy/go-logging"
 	"github.com/balzaczyy/golucene/core/analysis"
 	. "github.com/balzaczyy/golucene/core/analysis/tokenattributes"
 	"github.com/balzaczyy/golucene/core/index/model"
-	"github.com/op/go-logging"
 	"io"
 	"strconv"
 )

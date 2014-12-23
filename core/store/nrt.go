@@ -2,7 +2,7 @@ package store
 
 import (
 	"fmt"
-	"github.com/op/go-logging"
+	"github.com/balzaczyy/go-logging"
 	"sync"
 )
 

@@ -1,11 +1,11 @@
 package main
 
 import (
+	"github.com/balzaczyy/go-logging"
 	_ "github.com/balzaczyy/golucene/core/codec/lucene42"
 	"github.com/balzaczyy/golucene/core/index"
 	"github.com/balzaczyy/golucene/core/search"
 	"github.com/balzaczyy/golucene/core/store"
-	"github.com/op/go-logging"
 	"os"
 )
 
