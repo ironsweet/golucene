@@ -38,43 +38,16 @@ Installation
 Usage
 -----
 
-	import (
-	  "fmt"
-		std "github.com/balzaczyy/golucene/analysis/standard"
-		_ "github.com/balzaczyy/golucene/core/codec/lucene410"
-		"github.com/balzaczyy/golucene/core/document"
-		"github.com/balzaczyy/golucene/core/index"
-		"github.com/balzaczyy/golucene/core/search"
-		"github.com/balzaczyy/golucene/core/store"
-		"github.com/balzaczyy/golucene/core/util"
-	)
+Using GoLucene is similar to using Lucene Java. Firstly, index need
+to be built first. Then, create an query and do the search against
+the index.
 
-	util.SetDefaultInfoStream(util.NewPrintStreamInfoStream(os.Stdout))
-	index.DefaultSimilarity = func() index.Similarity {
-		return search.NewDefaultSimilarity()
-	}
-	
-	...
+Note that the current GoLucene is rather basic and limited in feature.
+Only default functions are supported, like term frequency based
+weight calculation, filesystem directory, boolean query, etc. For
+further features, please raise requests.
 
-	directory, _ := store.OpenFSDirectory("app/index")
-	analyzer := std.NewStandardAnalyzer()
-	conf := index.NewIndexWriterConfig(util.VERSION_LATEST, analyzer)
-	writer, _ := index.NewIndexWriter(directory, conf)
-
-	d := document.NewDocument()
-	d.Add(document.NewTextFieldFromString("foo", "bar", document.STORE_YES))
-	writer.AddDocument(d.Fields())
-	writer.Close() // ensure index is written
-
-	reader, _ := index.OpenDirectoryReader(directory)
-	searcher := search.NewIndexSearcher(reader)
-	
-	q := search.NewTermQuery(index.NewTerm("foo", "bar"))
-	res, _ := searcher.Search(q, nil, 1000)
-	fmt.Printf("Found %v hits.\n", res.TotalHits)
-	for _, hit := range res.ScoreDocs {
-	  fmt.Printf("Doc %v score: %v\n", hit.Doc, hit.Score)
-	}
+A detailed example can be found [here](gl.go).
 
 License
 -------
