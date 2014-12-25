@@ -42,7 +42,7 @@ Usage
 	  "fmt"
 		std "github.com/balzaczyy/golucene/analysis/standard"
 		_ "github.com/balzaczyy/golucene/core/codec/lucene410"
-		docu "github.com/balzaczyy/golucene/core/document"
+		"github.com/balzaczyy/golucene/core/document"
 		"github.com/balzaczyy/golucene/core/index"
 		"github.com/balzaczyy/golucene/core/search"
 		"github.com/balzaczyy/golucene/core/store"
@@ -61,8 +61,8 @@ Usage
 	conf := index.NewIndexWriterConfig(util.VERSION_LATEST, analyzer)
 	writer, _ := index.NewIndexWriter(directory, conf)
 
-	d := docu.NewDocument()
-	d.Add(docu.NewTextFieldFromString("foo", "bar", docu.STORE_YES))
+	d := document.NewDocument()
+	d.Add(document.NewTextFieldFromString("foo", "bar", document.STORE_YES))
 	writer.AddDocument(d.Fields())
 	writer.Close() // ensure index is written
 
