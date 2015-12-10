@@ -5,7 +5,7 @@
 golucene
 ========
 
-A [Go](http://golang.org) port of [Apache Lucene](http://lucene.apache.org). Check out the online demo [here](http://hamlet.mybluemix.net/)!
+A [Go](http://golang.org) port of [Apache Lucene](http://lucene.apache.org). Check out the online demo [here](http://hamlet.zhouyiyan.cn/)!
 
 Sync to Lucene Java 4.10 2014/10/22
 
